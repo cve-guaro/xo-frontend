@@ -39,7 +39,9 @@ export default function AdminUsers() {
   const [confirmUserAction, setConfirmUserAction] = useState<'ban' | 'unban' | 'delete' | null>(null);
   
   const [editModalVisible, setEditModalVisible] = useState(false);
-   const [editData, setEditData] = useState({ username: '', number: '', role: 'user', available_balance: '0', bonus_balance: '0', admin_edit_balance: '0' });
+  const [editData, setEditData] = useState({ username: '', number: '', role: 'user', available_balance: '0', bonus_balance: '0', admin_edit_balance: '0' });
+  const [balanceEdit, setBalanceEdit] = useState({ available_balance: '0', withdrawable_balance: '0' });
+  const [balanceSaving, setBalanceSaving] = useState(false);
   
   const [createModalVisible, setCreateModalVisible] = useState(false);
   const [createData, setCreateData] = useState({ username: '', number: '', role: 'user', balance: '0' });
@@ -230,17 +232,62 @@ export default function AdminUsers() {
       bonus_balance: selected.bonus_balance ? String(selected.bonus_balance) : '0',
       admin_edit_balance: (selected as any).admin_edit_balance ? String((selected as any).admin_edit_balance) : '0',
     });
+    setBalanceEdit({
+      available_balance: selected.available_balance ? String(selected.available_balance) : '0',
+      withdrawable_balance: (selected as any).withdrawable_balance ? String((selected as any).withdrawable_balance) : '0',
+    });
     setEditModalVisible(true);
+  };
+
+  const handleBalanceSave = async () => {
+    if (!selected || !isSuperAdmin) return;
+    const availAmt = Number(balanceEdit.available_balance);
+    const withAmt = Number(balanceEdit.withdrawable_balance);
+    if (!Number.isFinite(availAmt) || availAmt < 0 || !Number.isFinite(withAmt) || withAmt < 0) {
+      showAlert('Error', 'Invalid balance amount');
+      return;
+    }
+    setBalanceSaving(true);
+    try {
+      const [r1, r2] = await Promise.all([
+        fetch(`${API_URL}/admin/users/${selected.id}/balance`, {
+          method: 'PATCH',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'x-platform': 'web' },
+          body: JSON.stringify({ field: 'available_balance', amount: availAmt }),
+        }),
+        fetch(`${API_URL}/admin/users/${selected.id}/balance`, {
+          method: 'PATCH',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'x-platform': 'web' },
+          body: JSON.stringify({ field: 'withdrawable_balance', amount: withAmt }),
+        }),
+      ]);
+      if (r1.ok && r2.ok) {
+        await fetchUsers();
+        setSelected(prev => prev ? { ...prev, available_balance: availAmt, withdrawable_balance: withAmt } as any : prev);
+        showAlert('Success', `Balances updated for ${selected.username}`);
+      } else {
+        const err = await r1.json().catch(() => ({}));
+        showAlert('Error', err.error || 'Failed to update balance');
+      }
+    } catch { showAlert('Error', 'Network error'); }
+    setBalanceSaving(false);
   };
 
   const handleEditSave = async () => {
     if (!selected) return;
     setActionLoad(true);
     try {
+      // ⚠️ Only send profile fields — NEVER wallet balance fields here.
+      // Balance changes must use the dedicated SAVE BALANCES button → PATCH /users/:id/balance
+      const profilePayload = {
+        username: editData.username,
+        number: editData.number,
+        role: editData.role,
+      };
       const res = await fetch(`${API_URL}/admin/users/${selected.id}`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'x-platform': 'web' },
-        body: JSON.stringify(editData),
+        body: JSON.stringify(profilePayload),
       });
       if (res.ok) {
         await fetchUsers();
@@ -803,15 +850,51 @@ export default function AdminUsers() {
                 <TextInput style={styles.inputField} value={editData.number} onChangeText={t => setEditData({...editData, number: t})} placeholder="Number" />
               </View>
               
-               <View style={{ opacity: isSuperAdmin ? 1 : 0.5 }}>
-                 <Text style={styles.formLabel}>Admin Edit Balance {!isSuperAdmin && `(${t('Super Admin Only')})`}</Text>
-                 <TextInput
-                   style={styles.inputField}
-                   editable={false} // Read-only, calculated from transactions
-                   value={editData.admin_edit_balance}
-                   placeholder="Calculated from admin transactions"
-                 />
-               </View>
+              {/* ─── Balance Editor (SuperAdmin + Maintenance Admin) ─── */}
+              {isSuperAdmin && (
+                <View style={{ backgroundColor: 'rgba(0,218,243,0.05)', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: 'rgba(0,218,243,0.15)', gap: 12 }}>
+                  <Text style={[styles.formLabel, { color: '#00daf3' }]}>⚡ Edit Balances (Direct Override)</Text>
+                  <View>
+                    <Text style={styles.formLabel}>Available Balance (ETB)</Text>
+                    <TextInput
+                      style={styles.inputField}
+                      value={balanceEdit.available_balance}
+                      onChangeText={v => setBalanceEdit(p => ({ ...p, available_balance: v }))}
+                      keyboardType="numeric"
+                      placeholder="0"
+                    />
+                  </View>
+                  <View>
+                    <Text style={styles.formLabel}>Withdrawable Balance (ETB)</Text>
+                    <TextInput
+                      style={styles.inputField}
+                      value={balanceEdit.withdrawable_balance}
+                      onChangeText={v => setBalanceEdit(p => ({ ...p, withdrawable_balance: v }))}
+                      keyboardType="numeric"
+                      placeholder="0"
+                    />
+                  </View>
+                  <TouchableOpacity
+                    style={{ backgroundColor: '#00daf3', padding: 12, borderRadius: 10, alignItems: 'center' }}
+                    onPress={handleBalanceSave}
+                    disabled={balanceSaving}
+                  >
+                    {balanceSaving
+                      ? <ActivityIndicator color="#004d57" />
+                      : <Text style={{ color: '#004d57', fontWeight: '900', fontSize: 12 }}>SAVE BALANCES</Text>
+                    }
+                  </TouchableOpacity>
+                </View>
+              )}
+              <View style={{ opacity: 0.5 }}>
+                <Text style={styles.formLabel}>Admin Edit History Balance</Text>
+                <TextInput
+                  style={styles.inputField}
+                  editable={false}
+                  value={editData.admin_edit_balance}
+                  placeholder="Calculated from admin transactions"
+                />
+              </View>
 
               
               
