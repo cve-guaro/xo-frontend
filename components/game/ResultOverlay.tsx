@@ -25,6 +25,7 @@ interface ResultOverlayProps {
   onHome: () => void;
   onPlayAgain?: () => void;
   onSendEmoji?: (emoji: string) => void;
+  floatingEmoji?: string | null;
   insufficientBalance?: boolean;
 }
 
@@ -65,7 +66,7 @@ const UI_LOSE = (amount: number): UiMeta => ({
   primaryText: "Leave Arena",
 });
 
-function ResultOverlay({ visible, outcome, amount, onHome, onPlayAgain, onSendEmoji, insufficientBalance }: ResultOverlayProps) {
+function ResultOverlay({ visible, outcome, amount, onHome, onPlayAgain, onSendEmoji, floatingEmoji, insufficientBalance = false }: ResultOverlayProps) {
   const isWin = outcome === "win";
   const appear = useRef(new Animated.Value(0)).current;
   const [canContinue, setCanContinue] = useState(false);
@@ -118,6 +119,21 @@ function ResultOverlay({ visible, outcome, amount, onHome, onPlayAgain, onSendEm
   return (
     <Modal visible transparent animationType="none" statusBarTranslucent>
       <View style={styles.container}>
+        {floatingEmoji && (
+          <View style={{
+            position: 'absolute',
+            top: '20%',
+            left: 0,
+            right: 0,
+            zIndex: 99999,
+            alignItems: 'center',
+            pointerEvents: 'none',
+          }}>
+            <Text style={{ fontSize: 80, textShadowColor: 'rgba(0,0,0,0.5)', textShadowOffset: { width: 0, height: 4 }, textShadowRadius: 10 }}>
+              {floatingEmoji}
+            </Text>
+          </View>
+        )}
         <Animated.View style={[styles.card, cardAnimStyle]}>
           <LinearGradient
             colors={ui.border}
@@ -162,17 +178,6 @@ function ResultOverlay({ visible, outcome, amount, onHome, onPlayAgain, onSendEm
 
                 <Text style={styles.title}>{ui.title}</Text>
                 <Text style={styles.message}>{ui.message}</Text>
-
-                {!!amount && (
-                  <View style={[styles.amountPill, isWin ? styles.amountPillWin : styles.amountPillLose]}>
-                    <Ionicons name={isWin ? "cash-outline" : "alert-circle-outline"} size={14} color="#fff" />
-                    <Text style={styles.amountText}>
-                      {isWin
-                        ? `Prize: ETB ${Number(amount || 0).toLocaleString()}`
-                        : `Stake: ETB ${Number(amount || 0).toLocaleString()}`}
-                    </Text>
-                  </View>
-                )}
 
                 <View style={{ width: "100%", flexDirection: "column", gap: 10 }}>
                   <TouchableOpacity onPress={onHome} disabled={!canContinue} activeOpacity={0.92} style={[styles.btnWrap, !canContinue && { opacity: 0.5 }]}>
