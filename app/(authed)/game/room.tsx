@@ -983,14 +983,6 @@ export default function GameRoom() {
   }, [rematchOffer, token, send]);
 
   // ---------- Render ----------
-  const getReactionText = (name: string, emoji: string, lang: string) => {
-    const n = name || "Opponent";
-    if (emoji === '😡') return lang === 'en' ? `${n} is furious!` : `${n} ተቆጥቷል!`;
-    if (emoji === '🤣' || emoji === '😂') return lang === 'en' ? `${n} is laughing!` : `${n} እየሳቀ ነው!`;
-    if (emoji === '🤝') return lang === 'en' ? `${n} says good game!` : `${n} ጥሩ ጨዋታ አለ!`;
-    return lang === 'en' ? `${n} reacted!` : `${n} ስሜት ገልጿል!`;
-  };
-
   const MainWrapper = Platform.OS === 'web' ? View : SafeAreaView;
 
   // Guard: If we don't have a valid matchId yet, show a loader.
@@ -1162,39 +1154,20 @@ export default function GameRoom() {
             </View>
           </View>
 
-          {/* Floating Emoji (received from opponent) - Top notification bar */}
+          {/* Floating Emoji - Top notification */}
           {floatingEmoji && (
             <View style={{
               position: 'absolute',
-              top: 60,
-              left: 16,
-              right: 16,
+              top: 80,
+              left: 0,
+              right: 0,
               zIndex: 99999,
               alignItems: 'center',
+              pointerEvents: 'none',
             }}>
-              <View style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 12,
-                width: '100%',
-                maxWidth: 360,
-                backgroundColor: 'rgba(15, 17, 30, 0.95)',
-                paddingHorizontal: 24,
-                paddingVertical: 14,
-                borderRadius: 16,
-                borderWidth: 1,
-                borderColor: 'rgba(0, 229, 255, 0.3)',
-                shadowColor: '#00e5ff',
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.3,
-                shadowRadius: 12,
-              }}>
-                <Text style={{ fontSize: 36 }}>{floatingEmoji}</Text>
-                <Text style={{ color: '#e2e8f0', fontSize: 14, fontWeight: '800' }}>
-                  {getReactionText(oppName, floatingEmoji, language)}
-                </Text>
-              </View>
+              <Text style={{ fontSize: 80, textShadowColor: 'rgba(0,0,0,0.5)', textShadowOffset: { width: 0, height: 4 }, textShadowRadius: 10 }}>
+                {floatingEmoji}
+              </Text>
             </View>
           )}
 
@@ -1268,7 +1241,11 @@ export default function GameRoom() {
             amount={result.amount}
             onHome={goHome}
             onPlayAgain={result.outcome === 'lose' ? handlePlayAgain : undefined}
-            onSendEmoji={(emoji) => send("send_emoji", { matchId, emoji })}
+            onSendEmoji={(emoji) => {
+              send("send_emoji", { matchId, emoji });
+              setFloatingEmoji(emoji);
+              setTimeout(() => setFloatingEmoji(null), 3000);
+            }}
             insufficientBalance={result.outcome === 'lose' && (Number(user?.available_balance ?? 0) + Number(user?.bonus_balance ?? 0)) < Number(params?.amount ?? 0)}
           />
 

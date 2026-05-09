@@ -102,58 +102,8 @@ export const WebDepositModal = ({ visible, onClose, user, token, onSuccess, lang
       
       if (checkoutUrl && typeof window !== 'undefined') {
         const bounceUrl = `${API_URL}/payments/chapa-bounce?url=${encodeURIComponent(checkoutUrl)}`;
-        // Open Chapa in a popup window so user stays on the app
-        // When they close the popup or payment completes, they're back on the app
-        const popupWidth = 420;
-        const popupHeight = 700;
-        const left = (window.screen.width - popupWidth) / 2;
-        const top = (window.screen.height - popupHeight) / 2;
-        const popup = window.open(
-          bounceUrl,
-          'chapa_payment',
-          `width=${popupWidth},height=${popupHeight},left=${left},top=${top},scrollbars=yes,resizable=yes`
-        );
-        // If popup was blocked (e.g. by browser), fall back to same-tab navigation
-        if (!popup || popup.closed) {
-          window.open(bounceUrl, '_blank');
-        } else {
-          // Monitor the popup. If it closes before the main page is reloaded (which happens on success),
-          // it means the user manually cancelled or closed the checkout.
-          const txId = data.txId || data.data?.txId || data.id;
-          let isSuccess = false;
-
-          const messageHandler = (event: MessageEvent) => {
-            if (event.data === 'deposit_success') {
-              isSuccess = true;
-              window.removeEventListener('message', messageHandler);
-              // Call user profile refresh or similar if available, or just show toast
-              toast.success(isEN ? 'Deposit Successful' : 'በትክክል ገብቷል', isEN ? 'Your balance has been updated.' : 'ሂሳብዎ ታድሷል።');
-            }
-          };
-          window.addEventListener('message', messageHandler);
-
-          const pollTimer = setInterval(async () => {
-            if (popup.closed) {
-              clearInterval(pollTimer);
-              window.removeEventListener('message', messageHandler);
-              // Send cancel request only if not successful
-              if (!isSuccess) {
-                try {
-                  if (txId && token) {
-                    await fetch(`${API_URL}/payments/cancel-deposit`, {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                      },
-                      body: JSON.stringify({ txId })
-                    });
-                  }
-                } catch (e) {}
-              }
-            }
-          }, 1000);
-        }
+        window.location.href = bounceUrl;
+        return;
       } else {
         toast.info(isEN ? 'Deposit Initiated' : 'ተጀምሯል', isEN ? 'Deposit request sent. Follow your provider instructions.' : 'የማስገባት ጥያቄ ተልኳል። መመሪያውን ይከተሉ።');
       }
