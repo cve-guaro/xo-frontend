@@ -119,21 +119,6 @@ function ResultOverlay({ visible, outcome, amount, onHome, onPlayAgain, onSendEm
   return (
     <Modal visible transparent animationType="none" statusBarTranslucent>
       <View style={styles.container}>
-        {floatingEmoji && (
-          <View style={{
-            position: 'absolute',
-            top: '20%',
-            left: 0,
-            right: 0,
-            zIndex: 99999,
-            alignItems: 'center',
-            pointerEvents: 'none',
-          }}>
-            <Text style={{ fontSize: 80, textShadowColor: 'rgba(0,0,0,0.5)', textShadowOffset: { width: 0, height: 4 }, textShadowRadius: 10 }}>
-              {floatingEmoji}
-            </Text>
-          </View>
-        )}
         <Animated.View style={[styles.card, cardAnimStyle]}>
           <LinearGradient
             colors={ui.border}
@@ -221,6 +206,24 @@ function ResultOverlay({ visible, outcome, amount, onHome, onPlayAgain, onSendEm
             </View>
           </LinearGradient>
         </Animated.View>
+
+        {/* Emoji rendered AFTER the card to guarantee it sits on top in the view hierarchy */}
+        {floatingEmoji && (
+          <View style={{
+            position: 'absolute',
+            top: 10,
+            left: 0,
+            right: 0,
+            zIndex: 999999,
+            elevation: 100,
+            alignItems: 'center',
+            pointerEvents: 'none',
+          }}>
+            <Text style={{ fontSize: 80, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 4 }, textShadowRadius: 12 }}>
+              {floatingEmoji}
+            </Text>
+          </View>
+        )}
       </View>
     </Modal>
   );

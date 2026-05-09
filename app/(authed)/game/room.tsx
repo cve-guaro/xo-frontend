@@ -1158,14 +1158,15 @@ export default function GameRoom() {
           {floatingEmoji && (
             <View style={{
               position: 'absolute',
-              top: 140, // Shifted down to fit perfectly between top nav and modal
+              top: 10,
               left: 0,
               right: 0,
               zIndex: 99999,
+              elevation: 100,
               alignItems: 'center',
               pointerEvents: 'none',
             }}>
-              <Text style={{ fontSize: 80, textShadowColor: 'rgba(0,0,0,0.5)', textShadowOffset: { width: 0, height: 4 }, textShadowRadius: 10 }}>
+              <Text style={{ fontSize: 80, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 4 }, textShadowRadius: 12 }}>
                 {floatingEmoji}
               </Text>
             </View>
