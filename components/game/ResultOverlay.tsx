@@ -239,6 +239,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
+    paddingTop: 100, // Shifted down to not block emoji reaction toast
   },
 
   card: { width: CARD_W, borderRadius: 26, overflow: "visible" },

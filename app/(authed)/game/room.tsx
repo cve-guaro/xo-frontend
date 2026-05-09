@@ -983,6 +983,14 @@ export default function GameRoom() {
   }, [rematchOffer, token, send]);
 
   // ---------- Render ----------
+  const getReactionText = (name: string, emoji: string, lang: string) => {
+    const n = name || "Opponent";
+    if (emoji === '😡') return lang === 'en' ? `${n} is furious!` : `${n} ተቆጥቷል!`;
+    if (emoji === '🤣' || emoji === '😂') return lang === 'en' ? `${n} is laughing!` : `${n} እየሳቀ ነው!`;
+    if (emoji === '🤝') return lang === 'en' ? `${n} says good game!` : `${n} ጥሩ ጨዋታ አለ!`;
+    return lang === 'en' ? `${n} reacted!` : `${n} ስሜት ገልጿል!`;
+  };
+
   const MainWrapper = Platform.OS === 'web' ? View : SafeAreaView;
 
   // Guard: If we don't have a valid matchId yet, show a loader.
@@ -1183,7 +1191,9 @@ export default function GameRoom() {
                 shadowRadius: 12,
               }}>
                 <Text style={{ fontSize: 36 }}>{floatingEmoji}</Text>
-                <Text style={{ color: '#e2e8f0', fontSize: 14, fontWeight: '800' }}>Opponent reacted!</Text>
+                <Text style={{ color: '#e2e8f0', fontSize: 14, fontWeight: '800' }}>
+                  {getReactionText(oppName, floatingEmoji, language)}
+                </Text>
               </View>
             </View>
           )}
