@@ -56,7 +56,6 @@ export default function WaitingScreen() {
   const [isMatched, setIsMatched] = useState(false);
   const [queued, setQueued] = useState(false);
   const [timeoutModal, setTimeoutModal] = useState(false);
-  const [onlineCount, setOnlineCount] = useState(0);
   const navigatedRef = useRef(false);
   const issuedFindRef = useRef(false);
   const unsubRef = useRef<null | (() => void)>(null);
@@ -75,26 +74,6 @@ export default function WaitingScreen() {
       setTimeoutModal(true);
     }
   }, [elapsed, isMatched, timeoutModal]);
-
-  // Fetch real online player count from backend
-  useEffect(() => {
-    const fetchCount = async () => {
-      try {
-        const res = await fetch(`${API_URL}/players/online`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {}
-        });
-        if (res.ok) {
-          const d = await res.json();
-          setOnlineCount(Number(d.count || 0));
-        }
-      } catch (err) {
-        console.warn("[WAITING] Failed to fetch online count:", err);
-      }
-    };
-    fetchCount();
-    const interval = setInterval(fetchCount, 60000); // refresh every 60s
-    return () => clearInterval(interval);
-  }, []);
 
   useEffect(() => {
     const anim = Animated.loop(Animated.sequence([
@@ -328,18 +307,6 @@ export default function WaitingScreen() {
         </View>
 
         <View style={st.mFooter}>
-           {/* Online Info */}
-           <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 20, marginBottom: 30 }}>
-              <View style={{ alignItems: 'center' }}>
-                 <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 9, fontWeight: '800', letterSpacing: 1 }}>PLAYERS ONLINE</Text>
-                 <Text style={{ color: '#fff', fontSize: 13, fontWeight: '900' }}>{onlineCount > 0 ? onlineCount.toLocaleString() : '—'}</Text>
-              </View>
-              <View style={{ width: 1, backgroundColor: 'rgba(255,255,255,0.1)' }} />
-              <View style={{ alignItems: 'center' }}>
-                 <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 9, fontWeight: '800', letterSpacing: 1 }}>REGION</Text>
-                 <Text style={{ color: '#00daf3', fontSize: 13, fontWeight: '900' }}>ET-EAST</Text>
-              </View>
-           </View>
 
           <TouchableOpacity onPress={() => router.replace('/home/gameplay' as any)} disabled={isMatched} style={st.mCancel}>
             <LinearGradient colors={["rgba(239,68,68,0.2)", "rgba(239,68,68,0.1)"]} style={[st.mCancelInner, { borderWidth: 1, borderColor: 'rgba(239,68,68,0.3)' }]}>
