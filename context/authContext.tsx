@@ -216,6 +216,13 @@ const translations: Translations = {
     x_won: "X WON",
     o_won: "O WON",
     draw_label: "DRAW",
+    room1_tracker: "Room 1 Win Tracker",
+    room1_tracker_sub: "25 wins cap per bet tier",
+    wants_rematch: "wants a rematch!",
+    waiting_response: "Waiting for response...",
+    declined_invite: "doesn't want to play right now!",
+    nah_skip: "Nah, skip",
+    lets_go: "Let's Go!",
   },
   am: {
     welcome: "እንኳን ደህና መጡ",
@@ -371,6 +378,13 @@ const translations: Translations = {
     x_won: "X አሸነፈ",
     o_won: "O አሸነፈ",
     draw_label: "እኩል",
+    room1_tracker: "የክፍል 1 አሸናፊዎች መከታተያ",
+    room1_tracker_sub: "በእያንዳንዱ የውርርድ ደረጃ 25 የድል ጣሪያ",
+    wants_rematch: "እንደገና መጫወት ይፈልጋል!",
+    waiting_response: "ምላሽ በመጠባበቅ ላይ...",
+    declined_invite: "አሁን መጫወት አይፈልግም!",
+    nah_skip: "አይ፣ ይለፍ",
+    lets_go: "እንሂድ!",
   },
 };
 

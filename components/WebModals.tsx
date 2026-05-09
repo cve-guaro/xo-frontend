@@ -47,6 +47,8 @@ export const WebDepositModal = ({ visible, onClose, user, token, onSuccess, lang
   const isEN = language === 'en';
   const [amount, setAmount]   = useState('');
   const [amtError, setAmtError] = useState('');
+  const [showWarning, setShowWarning] = useState(false);
+  const [dontShowAgain, setDontShowAgain] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const { opacity, scale }    = useModalAnim(visible);
@@ -100,7 +102,58 @@ export const WebDepositModal = ({ visible, onClose, user, token, onSuccess, lang
       
       if (checkoutUrl && typeof window !== 'undefined') {
         const bounceUrl = `${API_URL}/payments/chapa-bounce?url=${encodeURIComponent(checkoutUrl)}`;
-        window.location.href = bounceUrl;
+        // Open Chapa in a popup window so user stays on the app
+        // When they close the popup or payment completes, they're back on the app
+        const popupWidth = 420;
+        const popupHeight = 700;
+        const left = (window.screen.width - popupWidth) / 2;
+        const top = (window.screen.height - popupHeight) / 2;
+        const popup = window.open(
+          bounceUrl,
+          'chapa_payment',
+          `width=${popupWidth},height=${popupHeight},left=${left},top=${top},scrollbars=yes,resizable=yes`
+        );
+        // If popup was blocked (e.g. by browser), fall back to same-tab navigation
+        if (!popup || popup.closed) {
+          window.open(bounceUrl, '_blank');
+        } else {
+          // Monitor the popup. If it closes before the main page is reloaded (which happens on success),
+          // it means the user manually cancelled or closed the checkout.
+          const txId = data.txId || data.data?.txId || data.id;
+          let isSuccess = false;
+
+          const messageHandler = (event: MessageEvent) => {
+            if (event.data === 'deposit_success') {
+              isSuccess = true;
+              window.removeEventListener('message', messageHandler);
+              // Call user profile refresh or similar if available, or just show toast
+              toast.success(isEN ? 'Deposit Successful' : 'በትክክል ገብቷል', isEN ? 'Your balance has been updated.' : 'ሂሳብዎ ታድሷል።');
+            }
+          };
+          window.addEventListener('message', messageHandler);
+
+          const pollTimer = setInterval(async () => {
+            if (popup.closed) {
+              clearInterval(pollTimer);
+              window.removeEventListener('message', messageHandler);
+              // Send cancel request only if not successful
+              if (!isSuccess) {
+                try {
+                  if (txId && token) {
+                    await fetch(`${API_URL}/payments/cancel-deposit`, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                      },
+                      body: JSON.stringify({ txId })
+                    });
+                  }
+                } catch (e) {}
+              }
+            }
+          }, 1000);
+        }
       } else {
         toast.info(isEN ? 'Deposit Initiated' : 'ተጀምሯል', isEN ? 'Deposit request sent. Follow your provider instructions.' : 'የማስገባት ጥያቄ ተልኳል። መመሪያውን ይከተሉ።');
       }
@@ -192,7 +245,19 @@ export const WebDepositModal = ({ visible, onClose, user, token, onSuccess, lang
           <TouchableOpacity
             style={[styles.ctaBtn, loading && { opacity: 0.6 }]}
             activeOpacity={0.85}
-            onPress={handleDeposit}
+            onPress={() => {
+              const amt = Number(amount);
+              if (!amt || amt < 10 || amt > 100000) {
+                toast.warning(isEN ? 'Invalid Amount' : 'የተሳሳተ መጠን', isEN ? 'Valid range is ETB 10 - 100,000' : 'በ 10 እና 100,000 መሃል ያስገቡ።');
+                return;
+              }
+              // Check if user opted to skip the warning
+              if (typeof window !== 'undefined' && window.localStorage?.getItem('xoet_skip_deposit_warning') === '1') {
+                handleDeposit();
+              } else {
+                setShowWarning(true);
+              }
+            }}
             disabled={loading}
           >
             <LinearGradient
@@ -212,6 +277,93 @@ export const WebDepositModal = ({ visible, onClose, user, token, onSuccess, lang
           </TouchableOpacity>
         </Animated.View>
       </View>
+
+      {/* ─── BEFORE YOU PAY WARNING ─── */}
+      {showWarning && (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center', zIndex: 99999 }}>
+          <View style={{ backgroundColor: '#0c1020', borderRadius: 24, padding: 24, width: '90%', maxWidth: 400, borderWidth: 1, borderColor: 'rgba(255,215,0,0.15)' }}>
+            {/* Warning Icon */}
+            <View style={{ alignItems: 'center', marginBottom: 16 }}>
+              <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(255,215,0,0.12)', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'rgba(255,215,0,0.25)' }}>
+                <Ionicons name="alert" size={28} color="#ffd700" />
+              </View>
+            </View>
+            
+            {/* Close */}
+            <TouchableOpacity onPress={() => setShowWarning(false)} style={{ position: 'absolute', top: 16, right: 16 }}>
+              <Ionicons name="close" size={20} color="rgba(255,255,255,0.4)" />
+            </TouchableOpacity>
+
+            <Text style={{ color: '#fff', fontSize: 20, fontWeight: '900', textAlign: 'center', marginBottom: 4 }}>
+              {isEN ? 'Before You Pay' : 'ከመክፈልዎ በፊት'}
+            </Text>
+            <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, textAlign: 'center', marginBottom: 20 }}>
+              {isEN ? 'Please read carefully to avoid payment issues' : 'የክፍያ ችግሮችን ለማስወገድ በጥንቃቄ ያንብቡ'}
+            </Text>
+
+            {/* Rules */}
+            {[
+              { icon: 'key', color: '#ff6b6b', title: isEN ? 'One Chance for PIN' : 'የ PIN አንድ ዕድል', desc: isEN ? 'You get ONE attempt to enter your Telebirr/CBE PIN correctly. If you enter the wrong PIN, the payment will fail instantly.' : 'የ Telebirr/CBE PIN ን በትክክል ለማስገባት አንድ ዕድል ብቻ ይኖርዎታል።' },
+              { icon: 'card', color: '#ffa726', title: isEN ? 'Check Your Account' : 'መለያዎን ያረጋግጡ', desc: isEN ? 'Make sure your Telebirr or CBE account is active and has enough balance before continuing.' : 'Telebirr ወይም CBE መለያዎ ንቁ መሆኑን እና በቂ ሂሳብ እንዳለው ያረጋግጡ።' },
+              { icon: 'refresh-circle', color: '#4dd0e1', title: isEN ? 'Failed? Start Fresh' : 'ካልተሳካ? እንደገና ይጀምሩ', desc: isEN ? 'If payment fails, do not retry on the same page. Come back here and start a new deposit.' : 'ክፍያ ካልተሳካ በዚያው ገጽ ላይ እንደገና አይሞክሩ። ይመለሱና አዲስ ያስገቡ።' },
+              { icon: 'time', color: '#ab47bc', title: isEN ? "Don't Close the Browser" : 'ድረ-ገጹን አይዝጉ', desc: isEN ? 'Stay on the page while payment is processing. Closing the browser may cause the payment to hang.' : 'ክፍያ በሚሰራበት ጊዜ በገጹ ላይ ይቆዩ።' },
+            ].map((rule, i) => (
+              <View key={i} style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)' }}>
+                <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: `${rule.color}15`, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                  <Ionicons name={rule.icon as any} size={18} color={rule.color} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800', marginBottom: 2 }}>{rule.title}</Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, lineHeight: 16 }}>{rule.desc}</Text>
+                </View>
+              </View>
+            ))}
+
+            {/* Amount Display */}
+            <View style={{ backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 12, padding: 12, marginTop: 8, marginBottom: 16, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
+              <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9, fontWeight: '800', letterSpacing: 2 }}>
+                {isEN ? 'YOU ARE DEPOSITING' : 'የሚያስገቡት'}
+              </Text>
+              <Text style={{ color: '#fff', fontSize: 22, fontWeight: '900', marginTop: 4 }}>
+                ETB {Number(amount).toLocaleString()}
+              </Text>
+            </View>
+
+            {/* Don't show again checkbox */}
+            <TouchableOpacity 
+              onPress={() => setDontShowAgain(!dontShowAgain)}
+              style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 10 }}
+            >
+              <View style={{ width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: dontShowAgain ? '#a78bfa' : 'rgba(255,255,255,0.2)', backgroundColor: dontShowAgain ? 'rgba(167,139,250,0.2)' : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+                {dontShowAgain && <Ionicons name="checkmark" size={14} color="#a78bfa" />}
+              </View>
+              <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: '600' }}>
+                {isEN ? "Don't show this again" : 'ይህን እንደገና አታሳየኝ'}
+              </Text>
+            </TouchableOpacity>
+
+            {/* Continue Button */}
+            <TouchableOpacity 
+              onPress={() => {
+                if (dontShowAgain && typeof window !== 'undefined') {
+                  window.localStorage?.setItem('xoet_skip_deposit_warning', '1');
+                }
+                setShowWarning(false);
+                handleDeposit();
+              }}
+              activeOpacity={0.85}
+              style={{ borderRadius: 14, overflow: 'hidden' }}
+            >
+              <LinearGradient colors={['#7c4dff', '#a78bfa']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ paddingVertical: 16, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                <Ionicons name="shield-checkmark" size={18} color="#fff" />
+                <Text style={{ color: '#fff', fontSize: 15, fontWeight: '900' }}>
+                  {isEN ? 'I Understand, Continue' : 'ተረድቻለሁ፣ ቀጥል'}
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </View>
   );
 };

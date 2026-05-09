@@ -16,6 +16,8 @@ import WelcomeBonusModal from "../../components/WelcomeBonusModal";
 import BonusLogsModal from "../../components/BonusLogsModal";
 import { API_URL } from "../../config";
 import { useToast } from "../../context/ToastContext";
+import RematchTopPopup from "../../components/game/RematchPopup";
+import IncomingInviteModal from "../../components/game/IncomingInviteModal";
 
 
 const SidebarItem = ({ icon, label, isActive, onPress, badge, collapsed }: { icon: any; label: string; isActive: boolean; onPress: () => void; badge?: string; collapsed?: boolean }) => {
@@ -96,6 +98,7 @@ function MatchmakingGate() {
               id: String(matchId),
               symbol: symbol || youAre || "X",
               vs: opponentUsername || "Opponent",
+              oppId: msg.payload?.opponentId || "",
               opponentAvatar: opponentAvatar || "",
               amount: String(betAmount || 50),
               time: String(timerDuration || 30)
@@ -111,9 +114,13 @@ function MatchmakingGate() {
 }
 
 function GlobalNotiGate() {
-  const { onMessage } = useSocket();
+  const { onMessage, ensureConnected } = useSocket();
   const { success, info, warning, error: toastError } = useToast();
-  const { refreshProfile } = useAuth();
+  const { refreshProfile, token } = useAuth();
+
+  useEffect(() => {
+    if (token) ensureConnected(token).catch(() => {});
+  }, [token, ensureConnected]);
 
   useEffect(() => {
     if (!onMessage) return;
@@ -140,6 +147,90 @@ function GlobalNotiGate() {
   }, [onMessage, success, info, refreshProfile]);
 
   return null;
+}
+
+function GlobalInvitesGate() {
+  const { onMessage, send, isGameActive } = useSocket();
+  const { token } = useAuth();
+  const pathname = usePathname();
+  const [rematchOffer, setRematchOffer] = useState<{ visible: boolean; fromName?: string; amount?: number; fromUserId?: string } | null>(null);
+  const [incomingInvite, setIncomingInvite] = useState<any>(null);
+
+  useEffect(() => {
+    if (!onMessage) return;
+    const unsub = onMessage((msg) => {
+      // Ignore invites if the user is actually inside the game room (room.tsx handles it)
+      if (pathname.includes('/game/room')) return;
+
+      
+      if (msg.type === 'rematch_offer') {
+        setRematchOffer({
+          visible: true,
+          fromName: msg.payload?.fromUsername || 'Opponent',
+          amount: msg.payload?.amount,
+          fromUserId: msg.payload?.fromUserId,
+        });
+      } else if (msg.type === 'rematch_cancelled' || msg.type === 'match_started') {
+        setRematchOffer(null);
+      } else if (msg.type === 'friend_invite_received') {
+        setIncomingInvite({
+          id: msg.payload?.fromUserId,
+          username: msg.payload?.fromUsername,
+          amount: msg.payload?.betAmount,
+        });
+      } else if (msg.type === 'friend_invite_declined') {
+        setIncomingInvite(null);
+      }
+    });
+    return unsub;
+  }, [onMessage, isGameActive, pathname]);
+
+  const handleRematchAccept = useCallback(() => {
+    if (!rematchOffer?.fromUserId || !token) return;
+    send('rematch_response', { token, opponentId: rematchOffer.fromUserId, amount: rematchOffer.amount, accept: true });
+    setRematchOffer(null);
+  }, [rematchOffer, token, send]);
+
+  const handleRematchDecline = useCallback(() => {
+    if (!rematchOffer?.fromUserId || !token) return;
+    send('rematch_response', { token, opponentId: rematchOffer.fromUserId, amount: rematchOffer.amount, accept: false });
+    setRematchOffer(null);
+  }, [rematchOffer, token, send]);
+
+  const handleFriendAccept = useCallback(() => {
+    if (!incomingInvite?.id || !token) return;
+    send('friend_invite_response', { token, senderId: incomingInvite.id, accept: true, betAmount: incomingInvite.amount });
+    setIncomingInvite(null);
+  }, [incomingInvite, token, send]);
+
+  const handleFriendDecline = useCallback(() => {
+    if (!incomingInvite?.id || !token) return;
+    send('friend_invite_response', { token, senderId: incomingInvite.id, accept: false, betAmount: incomingInvite.amount });
+    setIncomingInvite(null);
+  }, [incomingInvite, token, send]);
+
+  // Auto-expire incoming friend invite after 45 seconds
+  useEffect(() => {
+    if (!incomingInvite) return;
+    const timer = setTimeout(() => {
+      // Auto-decline so the sender gets notified
+      if (incomingInvite?.id && token) {
+        send('friend_invite_response', { token, senderId: incomingInvite.id, accept: false, betAmount: incomingInvite.amount });
+      }
+      setIncomingInvite(null);
+    }, 45000);
+    return () => clearTimeout(timer);
+  }, [incomingInvite, token, send]);
+
+  // If they are in the game room, let room.tsx handle the popups.
+  if (pathname.includes('/game/room')) return null;
+
+  return (
+    <>
+      <RematchTopPopup visible={!!rematchOffer?.visible} fromName={rematchOffer?.fromName} amount={rematchOffer?.amount} onAccept={handleRematchAccept} onDecline={handleRematchDecline} />
+      <IncomingInviteModal invite={incomingInvite} onAccept={handleFriendAccept} onDecline={handleFriendDecline} />
+    </>
+  );
 }
 
 export default function AuthedLayout() {
@@ -386,11 +477,13 @@ export default function AuthedLayout() {
             </View>
           )}
 
-          {/* Main Slot Area */}
           <View style={{ flex: 1, backgroundColor: '#0c0c1f', overflow: 'hidden' }}>
             <Slot />
           </View>
         </View>
+        
+        {/* Render gates after main views so zIndex works correctly on Web */}
+        <GlobalInvitesGate />
         {/* Global Modals for Web — rendered for ALL web screen sizes to prevent route crash on mobile-width web */}
         {Platform.OS === 'web' && (
           <>

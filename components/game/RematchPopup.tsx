@@ -3,6 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useRef } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View, Platform } from "react-native";
+import { useAuth } from "../../context/authContext";
 
 type Props = {
   visible: boolean;
@@ -19,6 +20,7 @@ export default function RematchTopPopup({
   onAccept,
   onDecline,
 }: Props) {
+  const { t } = useAuth();
   const y = useRef(new Animated.Value(-80)).current;
   const op = useRef(new Animated.Value(0)).current;
 
@@ -36,6 +38,16 @@ export default function RematchTopPopup({
     }
   }, [visible, y, op]);
 
+  // Auto-decline after 60 seconds
+  useEffect(() => {
+    if (visible) {
+      const timer = setTimeout(() => {
+        onDecline();
+      }, 60000);
+      return () => clearTimeout(timer);
+    }
+  }, [visible, onDecline]);
+
   return (
     <Animated.View
       pointerEvents={visible ? "auto" : "none"}
@@ -43,55 +55,59 @@ export default function RematchTopPopup({
     >
       {/* Ultra transparent container */}
       {Platform.OS === 'web' ? (
-        <View style={[styles.card, { backgroundColor: "rgb(12, 16, 28)" }]}>
+        <View style={[styles.card, { backgroundColor: "rgba(16, 24, 40, 0.95)" }]}>
           <View style={styles.row}>
-            <Ionicons name="repeat" size={16} color="#00E5FF" />
-            <Text style={styles.title} numberOfLines={1}>
-              {fromName} invites a rematch
-            </Text>
+            <View style={styles.iconWrap}>
+              <Ionicons name="flame" size={16} color="#fbbf24" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.title} numberOfLines={1}>
+                {fromName} {t("wants_rematch")}
+              </Text>
+              <Text style={styles.sub} numberOfLines={1}>
+                {t("stake_label")}: <Text style={{ color: '#00daf3', fontWeight: '800' }}>ETB {amount}</Text>
+              </Text>
+            </View>
           </View>
-
-          <Text style={styles.sub} numberOfLines={1}>
-            Wager • ETB {amount}
-          </Text>
 
           <View style={styles.actions}>
             <Pressable onPress={onDecline} style={[styles.btn, styles.decline]}>
-              <Ionicons name="close" size={14} color="#fff" />
-              <Text style={styles.btnText}>Decline</Text>
+              <Text style={[styles.btnText, { color: "rgba(255,255,255,0.7)" }]}>{t("nah_skip")}</Text>
             </Pressable>
 
             <Pressable onPress={onAccept} style={[styles.btn, styles.accept]}>
-              <Ionicons name="checkmark" size={14} color="#000" />
-              <Text style={[styles.btnText, { color: "#000" }]}>Accept</Text>
+              <Ionicons name="flash" size={14} color="#000" />
+              <Text style={[styles.btnText, { color: "#000" }]}>{t("lets_go")}</Text>
             </Pressable>
           </View>
         </View>
       ) : (
         <LinearGradient
-          colors={["rgb(12, 16, 28)", "rgba(12, 16, 28, 0.68)"]}
+          colors={["rgba(20, 24, 40, 0.98)", "rgba(12, 16, 28, 0.95)"]}
           style={styles.card}
         >
           <View style={styles.row}>
-            <Ionicons name="repeat" size={16} color="#00E5FF" />
-            <Text style={styles.title} numberOfLines={1}>
-              {fromName} invites a rematch
-            </Text>
+            <View style={styles.iconWrap}>
+              <Ionicons name="flame" size={16} color="#fbbf24" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.title} numberOfLines={1}>
+                {fromName} {t("wants_rematch")}
+              </Text>
+              <Text style={styles.sub} numberOfLines={1}>
+                {t("stake_label")}: <Text style={{ color: '#00daf3', fontWeight: '800' }}>ETB {amount}</Text>
+              </Text>
+            </View>
           </View>
-
-          <Text style={styles.sub} numberOfLines={1}>
-            Wager • ETB {amount}
-          </Text>
 
           <View style={styles.actions}>
             <Pressable onPress={onDecline} style={[styles.btn, styles.decline]}>
-              <Ionicons name="close" size={14} color="#fff" />
-              <Text style={styles.btnText}>Decline</Text>
+              <Text style={[styles.btnText, { color: "rgba(255,255,255,0.7)" }]}>{t("nah_skip")}</Text>
             </Pressable>
 
             <Pressable onPress={onAccept} style={[styles.btn, styles.accept]}>
-              <Ionicons name="checkmark" size={14} color="#000" />
-              <Text style={[styles.btnText, { color: "#000" }]}>Accept</Text>
+              <Ionicons name="flash" size={14} color="#000" />
+              <Text style={[styles.btnText, { color: "#000" }]}>{t("lets_go")}</Text>
             </Pressable>
           </View>
         </LinearGradient>
@@ -109,50 +125,64 @@ const styles = StyleSheet.create({
     zIndex: 999,
   },
   card: {
-    borderRadius: 14,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    overflow: 'hidden', // needed for gradient
+    borderColor: "rgba(255,255,255,0.1)",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    overflow: 'hidden', 
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+  },
+  iconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: 'rgba(251,191,36,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
   },
   row: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    marginBottom: 4,
+    marginBottom: 12,
   },
   title: {
     color: "#E5E7EB",
-    fontWeight: "800",
-    fontSize: 13,
-    flex: 1,
+    fontWeight: "900",
+    fontSize: 15,
   },
   sub: {
-    color: "rgba(255,255,255,0.8)",
+    color: "rgba(255,255,255,0.5)",
     fontSize: 12,
-    marginBottom: 8,
+    marginTop: 2,
+    fontWeight: '600'
   },
   actions: {
     flexDirection: "row",
     gap: 8,
-    justifyContent: "flex-end",
   },
   btn: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    flex: 1,
   },
   decline: {
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
+    backgroundColor: "rgba(255,255,255,0.05)",
   },
   accept: {
     backgroundColor: "#00E5FF",
+    shadowColor: "#00E5FF",
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
-  btnText: { color: "#fff", fontWeight: "900", fontSize: 12 },
+  btnText: { color: "#fff", fontWeight: "900", fontSize: 13 },
 });

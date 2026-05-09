@@ -149,6 +149,7 @@ export default function WaitingScreen() {
                 id: safeMatchId, 
                 symbol: String(symbol || youAre || "X"), 
                 vs: opponentUsername || "Opponent", 
+                oppId: msg.payload?.opponentId || "",
                 opponentAvatar: opponentAvatar || "", 
                 amount: String(bkAmount || betAmount), 
                 time: String(timerDuration || time || 30) 

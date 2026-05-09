@@ -1,7 +1,8 @@
 // components/game/ResultOverlay.tsx
+import EmojiBar from "./EmojiBar";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { memo, useEffect, useMemo, useRef } from "react";
+import React, { memo, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
@@ -23,6 +24,8 @@ interface ResultOverlayProps {
   amount: number;
   onHome: () => void;
   onPlayAgain?: () => void;
+  onSendEmoji?: (emoji: string) => void;
+  insufficientBalance?: boolean;
 }
 
 const CARD_MAX_W = 340;
@@ -48,7 +51,7 @@ const UI_WIN = (amount: number): UiMeta => ({
   border: ["rgba(255,215,0,0.95)", "rgba(124,58,237,0.95)", "rgba(79,70,229,0.90)"],
   glow: "rgba(255,215,0,0.38)",
   primaryGrad: ["#00E5FF", "#3B82F6"],
-  primaryText: "Continue",
+  primaryText: "Back to Arena",
 });
 
 const UI_LOSE = (amount: number): UiMeta => ({
@@ -59,12 +62,13 @@ const UI_LOSE = (amount: number): UiMeta => ({
   border: ["rgba(255,107,107,0.95)", "rgba(124,58,237,0.92)", "rgba(10,12,28,0.92)"],
   glow: "rgba(255,107,107,0.32)",
   primaryGrad: ["#7C3AED", "#4F46E5"],
-  primaryText: "Go Home",
+  primaryText: "Leave Arena",
 });
 
-function ResultOverlay({ visible, outcome, amount, onHome, onPlayAgain }: ResultOverlayProps) {
+function ResultOverlay({ visible, outcome, amount, onHome, onPlayAgain, onSendEmoji, insufficientBalance }: ResultOverlayProps) {
   const isWin = outcome === "win";
   const appear = useRef(new Animated.Value(0)).current;
+  const [canContinue, setCanContinue] = useState(false);
 
   const ui = useMemo<UiMeta>(() => (isWin ? UI_WIN(amount) : UI_LOSE(amount)), [isWin, amount]);
 
@@ -81,6 +85,7 @@ function ResultOverlay({ visible, outcome, amount, onHome, onPlayAgain }: Result
 
     appear.stopAnimation();
     appear.setValue(0);
+    setCanContinue(false);
 
     Animated.timing(appear, {
       toValue: 1,
@@ -88,6 +93,13 @@ function ResultOverlay({ visible, outcome, amount, onHome, onPlayAgain }: Result
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
+
+    // Enable buttons after 2.5 seconds
+    const timer = setTimeout(() => {
+      setCanContinue(true);
+    }, 2500);
+
+    return () => clearTimeout(timer);
   }, [visible, appear]);
 
   const cardAnimStyle = useMemo(
@@ -162,13 +174,40 @@ function ResultOverlay({ visible, outcome, amount, onHome, onPlayAgain }: Result
                   </View>
                 )}
 
-                <TouchableOpacity onPress={onHome} activeOpacity={0.92} style={styles.btnWrap}>
-                  <LinearGradient colors={ui.primaryGrad} style={styles.btn}>
-                    <Ionicons name="home-outline" size={18} color="#fff" />
-                    <Text style={styles.btnText}>{ui.primaryText}</Text>
-                    <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.92)" />
-                  </LinearGradient>
-                </TouchableOpacity>
+                <View style={{ width: "100%", flexDirection: "column", gap: 10 }}>
+                  <TouchableOpacity onPress={onHome} disabled={!canContinue} activeOpacity={0.92} style={[styles.btnWrap, !canContinue && { opacity: 0.5 }]}>
+                    <LinearGradient colors={ui.primaryGrad} style={styles.btn}>
+                      <Ionicons name="home-outline" size={18} color="#fff" />
+                      <Text style={styles.btnText}>{ui.primaryText}</Text>
+                      {!canContinue && <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, marginLeft: 'auto' }}>(2.5s)</Text>}
+                      {canContinue && <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.92)" style={{ marginLeft: 'auto' }} />}
+                    </LinearGradient>
+                  </TouchableOpacity>
+
+                  {/* Play Again / Rematch Button (for both winner and loser if provided) */}
+                  {onPlayAgain && (
+                    <View>
+                      <TouchableOpacity onPress={insufficientBalance ? undefined : onPlayAgain} disabled={!canContinue || insufficientBalance} activeOpacity={0.92} style={[styles.btnWrap, (!canContinue || insufficientBalance) && { opacity: 0.45 }]}>
+                        <LinearGradient colors={["rgba(255,255,255,0.1)", "rgba(255,255,255,0.05)"]} style={[styles.btn, { borderWidth: 1, borderColor: insufficientBalance ? "rgba(255,75,75,0.3)" : "rgba(255,255,255,0.15)" }]}>
+                          <Ionicons name="refresh-outline" size={18} color="#fff" />
+                          <Text style={styles.btnText}>Run It Back! 🔥</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                      {insufficientBalance && (
+                        <Text style={{ color: '#ff6b6b', fontSize: 11, fontWeight: '700', textAlign: 'center', marginTop: 6 }}>
+                          ⚠️ Insufficient balance for this rematch
+                        </Text>
+                      )}
+                    </View>
+                  )}
+                </View>
+
+                {/* Emojis at the bottom of the popup */}
+                {onSendEmoji && (
+                  <View style={{ marginTop: 24, padding: 10, borderRadius: 24, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", backgroundColor: "rgba(0,0,0,0.3)" }}>
+                    <EmojiBar onSend={onSendEmoji} />
+                  </View>
+                )}
 
 
                 <View style={styles.decorTop} />

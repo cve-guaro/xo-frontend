@@ -35,21 +35,21 @@ type ParamPayload = {
 };
 
 const THEME = {
-  bgSurface: '#0c0c1f',
-  onSurface: '#e5e3ff',
-  surfaceContainerLow: '#111128',
-  surfaceContainer: '#171732',
-  surfaceVariant: '#222246',
-  surfaceBright: '#272751',
-  primary: '#a68cff',
-  primaryDim: '#7e51ff',
-  primaryContainer: '#7c4dff',
+  bgSurface: '#13132B',
+  onSurface: '#ffffff',
+  surfaceContainerLow: '#1B1B3A',
+  surfaceContainer: '#24244A',
+  surfaceVariant: '#323261',
+  surfaceBright: '#40407A',
+  primary: '#B69AFF',
+  primaryDim: '#966DFF',
+  primaryContainer: '#8752FF',
   onPrimaryContainer: '#ffffff',
-  secondary: '#00daf3',
-  onSurfaceVariant: '#a8a7d4',
-  outlineVariant: '#44446b',
-  error: '#fd6f85',
-  errorDim: '#c8475d'
+  secondary: '#25E5FA',
+  onSurfaceVariant: '#CDCCF3',
+  outlineVariant: '#56568A',
+  error: '#FF7D92',
+  errorDim: '#D94963'
 };
 
 const LINES: number[][] = [
@@ -399,12 +399,12 @@ const styles = StyleSheet.create({
   // Blobs
   bgBlobPrimary: {
      position: 'absolute',
-     top: '10%',
-     left: -100,
-     width: 400,
-     height: 400,
+     top: '5%',
+     left: -50,
+     width: 300,
+     height: 300,
      backgroundColor: THEME.primary,
-     opacity: 0.08,
+     opacity: 0.15,
      borderRadius: 999,
      transform: [{ scale: 1.5 }],
      ...Platform.select({ web: { filter: 'blur(100px)' } as any })
@@ -429,12 +429,12 @@ const styles = StyleSheet.create({
   },
   bgBlobSecondary: {
      position: 'absolute',
-     bottom: '10%',
-     right: -100,
-     width: 400,
-     height: 400,
+     bottom: '5%',
+     right: -50,
+     width: 300,
+     height: 300,
      backgroundColor: THEME.secondary,
-     opacity: 0.05,
+     opacity: 0.1,
      borderRadius: 999,
      transform: [{ scale: 1.5 }],
      ...Platform.select({ web: { filter: 'blur(120px)' } as any })
@@ -473,7 +473,7 @@ const styles = StyleSheet.create({
      alignItems: 'center',
      backgroundColor: THEME.surfaceContainerLow,
      borderWidth: 1,
-     borderColor: 'rgba(68, 68, 107, 0.2)',
+     borderColor: 'rgba(255, 255, 255, 0.08)',
      paddingHorizontal: 14,
      paddingVertical: 8,
      borderRadius: 12,
@@ -505,7 +505,7 @@ const styles = StyleSheet.create({
      paddingVertical: 10,
      borderRadius: 999,
      borderWidth: 1,
-     borderColor: 'rgba(68, 68, 107, 0.2)',
+     borderColor: 'rgba(255, 255, 255, 0.1)',
      backgroundColor: THEME.surfaceContainerLow
   },
   tabActive: {
@@ -529,17 +529,17 @@ const styles = StyleSheet.create({
      borderRadius: 48,
      overflow: 'hidden',
      borderWidth: 1,
-     borderColor: 'rgba(68, 68, 107, 0.15)',
+     borderColor: 'rgba(255, 255, 255, 0.08)',
      shadowColor: '#000',
-     shadowOpacity: 0.5,
-     shadowRadius: 40,
-     shadowOffset: { width: 0, height: 32 },
+     shadowOpacity: 0.3,
+     shadowRadius: 30,
+     shadowOffset: { width: 0, height: 20 },
      elevation: 20,
      marginBottom: 32
   },
   glassBackground: {
      ...StyleSheet.absoluteFillObject,
-     backgroundColor: 'rgba(17, 17, 40, 0.6)',
+     backgroundColor: 'rgba(24, 24, 48, 0.7)',
   },
   glassGradientTop: {
      position: 'absolute',
@@ -547,7 +547,7 @@ const styles = StyleSheet.create({
      left: 0,
      right: 0,
      height: '50%',
-     backgroundColor: 'rgba(166, 140, 255, 0.03)'
+     backgroundColor: 'rgba(182, 154, 255, 0.05)'
   },
   gridContainer: {
      gap: 16,
@@ -557,6 +557,8 @@ const styles = StyleSheet.create({
   cell: {
      backgroundColor: THEME.surfaceContainer,
      borderRadius: 20,
+     borderWidth: 1,
+     borderColor: 'rgba(255, 255, 255, 0.05)',
      alignItems: 'center',
      justifyContent: 'center',
      shadowColor: '#000',
@@ -568,7 +570,10 @@ const styles = StyleSheet.create({
      backgroundColor: THEME.surfaceBright,
      transform: [{ scale: 1.05 }],
      borderWidth: 2,
-     borderColor: 'rgba(166, 140, 255, 0.2)',
+     borderColor: THEME.primary,
+     shadowColor: THEME.primary,
+     shadowOpacity: 0.3,
+     shadowRadius: 15,
      zIndex: 10
   },
   iconContainer: {
@@ -623,7 +628,7 @@ const styles = StyleSheet.create({
      backgroundColor: THEME.surfaceContainer,
      borderRadius: 32,
      borderWidth: 1,
-     borderColor: 'rgba(68, 68, 107, 0.15)',
+     borderColor: 'rgba(255, 255, 255, 0.05)',
      paddingHorizontal: 32,
      paddingVertical: 24,
      gap: 24
@@ -639,7 +644,7 @@ const styles = StyleSheet.create({
      borderRadius: 24,
      backgroundColor: THEME.surfaceContainerLow,
      borderWidth: 1,
-     borderColor: 'rgba(68, 68, 107, 0.2)',
+     borderColor: 'rgba(255, 255, 255, 0.1)',
      alignItems: 'center',
      justifyContent: 'center'
   },
@@ -679,10 +684,10 @@ const styles = StyleSheet.create({
      alignItems: 'center',
      justifyContent: 'center',
      shadowColor: THEME.primary,
-     shadowOpacity: 0.4,
-     shadowRadius: 15,
-     shadowOffset: { width: 0, height: 5 },
-     elevation: 10
+     shadowOpacity: 0.6,
+     shadowRadius: 20,
+     shadowOffset: { width: 0, height: 8 },
+     elevation: 15
   },
   controlSectionRight: {
      flexDirection: 'row',
@@ -695,7 +700,7 @@ const styles = StyleSheet.create({
      backgroundColor: THEME.surfaceBright,
      borderRadius: 14,
      borderWidth: 1,
-     borderColor: 'rgba(68, 68, 107, 0.2)'
+     borderColor: 'rgba(255, 255, 255, 0.1)'
   },
   analyzeText: {
      color: THEME.onSurface,

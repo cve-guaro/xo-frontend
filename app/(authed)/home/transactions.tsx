@@ -6,10 +6,13 @@ import React, { useCallback, useMemo, useState, memo } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 import {
   ActivityIndicator,
+  Modal,
   Platform,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   useWindowDimensions,
   View,
@@ -357,7 +360,6 @@ export default function TransactionsScreen() {
          visible={bonusModalVisible} 
          onClose={() => {
            setBonusModalVisible(false);
-           setCode(""); // Clear input when closing modal
          }}
          bonusLogs={bonusLogs}
          token={token}

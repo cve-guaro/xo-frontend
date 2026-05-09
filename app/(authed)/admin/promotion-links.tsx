@@ -140,8 +140,388 @@ export default function PromotionLinks() {
     return new Date(iso).toLocaleDateString() + ' ' + new Date(iso).toLocaleTimeString();
   };
 
+  // Promotion Popup Tab State
+  const [activeTab, setActiveTab] = useState<'links' | 'popup' | 'sms'>('links');
+  const [popupConfig, setPopupConfig] = useState({ image_url: '', display_duration: '5', expires_at: '', is_active: false });
+  const [popupLoading, setPopupLoading] = useState(false);
+  const [popupSaving, setPopupSaving] = useState(false);
+
+  const fetchPopupConfig = useCallback(async () => {
+    try {
+      setPopupLoading(true);
+      const res = await fetch(`${API_URL}/admin/promo-popup`, { headers: { Authorization: `Bearer ${token}`, 'x-platform': 'web' } });
+      if (res.ok) { const d = await res.json(); if (d.config) setPopupConfig({ image_url: d.config.image_url || '', display_duration: String(d.config.display_duration || 5), expires_at: d.config.expires_at ? new Date(d.config.expires_at).toISOString().slice(0, 10) : '', is_active: d.config.is_active || false }); }
+    } catch (e) { console.error('[promo-popup] fetch error', e); }
+    finally { setPopupLoading(false); }
+  }, [token]);
+
+  useEffect(() => { if (activeTab === 'popup') fetchPopupConfig(); }, [activeTab]);
+
+  const savePopupConfig = async () => {
+    try {
+      setPopupSaving(true);
+      const res = await fetch(`${API_URL}/admin/promo-popup`, {
+        method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'x-platform': 'web' },
+        body: JSON.stringify({ image_url: popupConfig.image_url, display_duration: Number(popupConfig.display_duration), expires_at: popupConfig.expires_at || null, is_active: popupConfig.is_active })
+      });
+      if (res.ok) alert('Popup configuration saved!');
+      else { const d = await res.json(); alert('Save failed: ' + (d.error || 'Unknown error')); }
+    } catch (e) { console.error('[promo-popup] save error', e); }
+    finally { setPopupSaving(false); }
+  };
+
+  const handleImageUpload = async (e: any) => {
+    const file = e.target?.files?.[0];
+    if (!file) return;
+    try {
+      setPopupSaving(true);
+      const formData = new FormData();
+      formData.append('image', file);
+      const res = await fetch(`${API_URL}/admin/upload-promo`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'x-platform': 'web' },
+        body: formData,
+      });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        setPopupConfig({ ...popupConfig, image_url: data.url });
+      } else {
+        alert('Upload failed: ' + (data.error || 'Unknown error'));
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Upload failed');
+    } finally {
+      setPopupSaving(false);
+    }
+  };
+
+  // Bulk SMS State
+  const [smsForm, setSmsForm] = useState({
+    message: '',
+    targetMode: 'all', // 'all' or 'specific'
+    role: 'all', // 'all', 'user', 'admin', 'maintenance_admin', 'superadmin'
+    balanceRange: 'all', // 'all', '0-100', '100-1000', '1000-10000', '10000-100000'
+    specificPhone: ''
+  });
+  const [smsSending, setSmsSending] = useState(false);
+  const [smsHistory, setSmsHistory] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [confirmSms, setConfirmSms] = useState(false);
+
+  const fetchSmsHistory = useCallback(async () => {
+    try {
+      setHistoryLoading(true);
+      const res = await fetch(`${API_URL}/admin/bulk-sms/history`, {
+        headers: { Authorization: `Bearer ${token}`, 'x-platform': 'web' }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSmsHistory(data.history || []);
+      }
+    } catch (e) {
+      console.error('[admin/sms-history]', e);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (activeTab === 'sms') fetchSmsHistory();
+  }, [activeTab, fetchSmsHistory]);
+
+  const sendBulkSms = async () => {
+    if (!smsForm.message.trim()) {
+      alert('Message cannot be empty');
+      setConfirmSms(false);
+      return;
+    }
+    
+    try {
+      setSmsSending(true);
+      const payload: any = { message: smsForm.message };
+      
+      if (smsForm.targetMode === 'specific') {
+        if (smsForm.specificPhone) {
+          payload.specific_phone = smsForm.specificPhone;
+        } else {
+          if (smsForm.role !== 'all') payload.role = smsForm.role;
+          if (smsForm.balanceRange !== 'all') {
+            const [min, max] = smsForm.balanceRange.split('-');
+            if (min) payload.min_balance = Number(min);
+            if (max) payload.max_balance = Number(max);
+          }
+        }
+      }
+
+      const res = await fetch(`${API_URL}/admin/bulk-sms`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'x-platform': 'web' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(`Successfully queued ${data.queuedCount || 0} messages.`);
+        setSmsForm({ ...smsForm, message: '', specificPhone: '' });
+        setConfirmSms(false);
+        fetchSmsHistory();
+      } else {
+        alert('Failed: ' + (data.error || 'Unknown error'));
+        setConfirmSms(false);
+      }
+    } catch (e) {
+      alert('Network error');
+      setConfirmSms(false);
+    } finally {
+      setSmsSending(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
+      {/* Tab Switcher */}
+      <View style={{ flexDirection: 'row', marginBottom: 20, gap: 8 }}>
+        <TouchableOpacity style={[styles.tabBtn, activeTab === 'links' && styles.tabBtnActive]} onPress={() => setActiveTab('links')}>
+          <Ionicons name="link" size={16} color={activeTab === 'links' ? '#0c0c1f' : '#a78bfa'} />
+          <Text style={[styles.tabBtnText, activeTab === 'links' && styles.tabBtnTextActive]}>Referral Links</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.tabBtn, activeTab === 'popup' && styles.tabBtnActive]} onPress={() => setActiveTab('popup')}>
+          <Ionicons name="image" size={16} color={activeTab === 'popup' ? '#0c0c1f' : '#a78bfa'} />
+          <Text style={[styles.tabBtnText, activeTab === 'popup' && styles.tabBtnTextActive]}>Promotion Popup</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.tabBtn, activeTab === 'sms' && styles.tabBtnActive]} onPress={() => setActiveTab('sms')}>
+          <Ionicons name="chatbubbles" size={16} color={activeTab === 'sms' ? '#0c0c1f' : '#a78bfa'} />
+          <Text style={[styles.tabBtnText, activeTab === 'sms' && styles.tabBtnTextActive]}>Bulk SMS</Text>
+        </TouchableOpacity>
+      </View>
+
+      {activeTab === 'popup' ? (
+        /* ═══ Promotion Popup Config ═══ */
+        <ScrollView style={{ flex: 1 }}>
+          <View style={styles.popupCard}>
+            <Text style={{ color: '#e5e3ff', fontSize: 20, fontWeight: '800', marginBottom: 4 }}>Game Entry Popup Settings</Text>
+            <Text style={{ color: 'rgba(168,167,212,0.5)', fontSize: 12, marginBottom: 24 }}>Configure the graphic shown to all users when they first enter the game.</Text>
+
+            {popupLoading ? <ActivityIndicator color={C.primary} style={{ padding: 40 }} /> : (
+              <View style={{ gap: 20 }}>
+                {/* Image Preview / Upload */}
+                <View>
+                  <Text style={styles.formLabel}>Promotion Image</Text>
+                  {popupConfig.image_url ? (
+                    <View style={styles.imagePreview}>
+                      {Platform.OS === 'web' && <img src={popupConfig.image_url} style={{ width: '100%', height: 200, objectFit: 'contain', borderRadius: 12 } as any} />}
+                      <TouchableOpacity style={styles.replaceBtn} onPress={() => setPopupConfig({ ...popupConfig, image_url: '' })}>
+                        <Ionicons name="swap-horizontal" size={14} color="#fff" /><Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>Replace Image</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <TouchableOpacity style={styles.dropZone} onPress={() => Platform.OS === 'web' && document.getElementById('promo-image-upload')?.click()}>
+                      <Ionicons name="cloud-upload-outline" size={40} color="rgba(167,139,250,0.3)" />
+                      <Text style={{ color: '#a78bfa', fontSize: 12, marginTop: 8 }}>Click to upload image (Web only)</Text>
+                      <Text style={{ color: 'rgba(168,167,212,0.4)', fontSize: 10, marginTop: 4 }}>or enter URL below</Text>
+                    </TouchableOpacity>
+                  )}
+                  {Platform.OS === 'web' && (
+                    <input 
+                      type="file" 
+                      id="promo-image-upload" 
+                      style={{ display: 'none' }} 
+                      accept="image/*" 
+                      onChange={handleImageUpload} 
+                    />
+                  )}
+                  <TextInput style={[styles.input, { marginTop: 10 }]} placeholder="https://your-supabase-url.com/storage/promo.png" placeholderTextColor="rgba(168,167,212,0.3)" value={popupConfig.image_url} onChangeText={t => setPopupConfig({ ...popupConfig, image_url: t })} />
+                </View>
+
+                {/* Config Grid */}
+                <View style={{ flexDirection: 'row', gap: 16 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.formLabel}>Display Duration (seconds)</Text>
+                    <TextInput style={styles.input} keyboardType="numeric" value={popupConfig.display_duration} onChangeText={t => setPopupConfig({ ...popupConfig, display_duration: t })} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.formLabel}>Expiration Date</Text>
+                    <TextInput style={styles.input} placeholder="YYYY-MM-DD" placeholderTextColor="rgba(168,167,212,0.3)" value={popupConfig.expires_at} onChangeText={t => setPopupConfig({ ...popupConfig, expires_at: t })} />
+                  </View>
+                </View>
+
+                {/* Active Toggle */}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(167,139,250,0.06)', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: 'rgba(167,139,250,0.15)' }}>
+                  <View>
+                    <Text style={{ color: '#e5e3ff', fontSize: 14, fontWeight: '700' }}>Popup Status</Text>
+                    <Text style={{ color: 'rgba(168,167,212,0.5)', fontSize: 11 }}>{popupConfig.is_active ? 'Active — users will see popup' : 'Inactive — popup hidden'}</Text>
+                  </View>
+                  <Switch value={popupConfig.is_active} onValueChange={v => setPopupConfig({ ...popupConfig, is_active: v })} trackColor={{ false: '#333', true: 'rgba(0,227,253,0.3)' }} thumbColor={popupConfig.is_active ? '#00e3fd' : '#666'} />
+                </View>
+
+                {/* Save Button */}
+                <TouchableOpacity style={[styles.saveBtn, popupSaving && { opacity: 0.5 }]} onPress={savePopupConfig} disabled={popupSaving}>
+                  {popupSaving ? <ActivityIndicator color="#004d57" /> : <Text style={styles.saveBtnText}>Save Configuration</Text>}
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </ScrollView>
+      ) : activeTab === 'sms' ? (
+        /* ═══ Bulk SMS Tab ═══ */
+        <ScrollView style={{ flex: 1 }}>
+          <View style={styles.popupCard}>
+            <Text style={{ color: '#e5e3ff', fontSize: 20, fontWeight: '800', marginBottom: 4 }}>Targeted Bulk SMS</Text>
+            <Text style={{ color: 'rgba(168,167,212,0.5)', fontSize: 12, marginBottom: 24 }}>Send promotional messages directly to user phones using detailed filters.</Text>
+
+            <View style={{ gap: 20 }}>
+              <View>
+                <Text style={styles.formLabel}>Message Body</Text>
+                <TextInput 
+                  style={[styles.input, { height: 100, textAlignVertical: 'top', paddingTop: 16 }]} 
+                  multiline 
+                  placeholder="Enter SMS message here..." 
+                  placeholderTextColor="rgba(168,167,212,0.3)" 
+                  value={smsForm.message} 
+                  onChangeText={t => setSmsForm({ ...smsForm, message: t })} 
+                />
+              </View>
+
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(167,139,250,0.06)', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: 'rgba(167,139,250,0.15)' }}>
+                <View>
+                  <Text style={{ color: '#e5e3ff', fontSize: 14, fontWeight: '700' }}>Target Audience</Text>
+                  <Text style={{ color: 'rgba(168,167,212,0.5)', fontSize: 11 }}>{smsForm.targetMode === 'all' ? 'Sending to ALL users' : 'Using specific filters'}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', backgroundColor: '#0c0c1f', borderRadius: 8, padding: 4 }}>
+                  <TouchableOpacity 
+                    style={[styles.modeBtn, smsForm.targetMode === 'all' && styles.modeBtnActive]} 
+                    onPress={() => setSmsForm({ ...smsForm, targetMode: 'all' })}
+                  >
+                    <Text style={[styles.modeBtnText, smsForm.targetMode === 'all' && styles.modeBtnTextActive]}>All Users</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.modeBtn, smsForm.targetMode === 'specific' && styles.modeBtnActive]} 
+                    onPress={() => setSmsForm({ ...smsForm, targetMode: 'specific' })}
+                  >
+                    <Text style={[styles.modeBtnText, smsForm.targetMode === 'specific' && styles.modeBtnTextActive]}>Specific</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {smsForm.targetMode === 'specific' && (
+                <View style={{ gap: 16, padding: 16, backgroundColor: 'rgba(23,23,50,0.4)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(68,68,107,0.2)' }}>
+                  <Text style={[styles.formLabel, { color: C.secondary }]}>Targeting Filters</Text>
+                  
+                  <View style={{ flexDirection: 'row', gap: 16, zIndex: 10 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.formLabel}>User Role</Text>
+                      {Platform.OS === 'web' ? (
+                        <select 
+                          style={styles.webSelect} 
+                          value={smsForm.role} 
+                          onChange={(e) => setSmsForm({ ...smsForm, role: e.target.value })}
+                          disabled={!!smsForm.specificPhone}
+                        >
+                          <option value="all" style={{ backgroundColor: '#0c0c1f', color: '#e5e3ff' }}>Any Role</option>
+                          <option value="user" style={{ backgroundColor: '#0c0c1f', color: '#e5e3ff' }}>User</option>
+                          <option value="admin" style={{ backgroundColor: '#0c0c1f', color: '#e5e3ff' }}>Admin</option>
+                          <option value="maintenance" style={{ backgroundColor: '#0c0c1f', color: '#e5e3ff' }}>Maintenance Admin</option>
+                          <option value="superadmin" style={{ backgroundColor: '#0c0c1f', color: '#e5e3ff' }}>Superadmin</option>
+                        </select>
+                      ) : (
+                        <TextInput style={[styles.input, !!smsForm.specificPhone && { opacity: 0.5 }]} placeholder="Role..." value={smsForm.role} editable={!smsForm.specificPhone} />
+                      )}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.formLabel}>Balance Range</Text>
+                      {Platform.OS === 'web' ? (
+                        <select 
+                          style={styles.webSelect} 
+                          value={smsForm.balanceRange} 
+                          onChange={(e) => setSmsForm({ ...smsForm, balanceRange: e.target.value })}
+                          disabled={!!smsForm.specificPhone}
+                        >
+                          <option value="all" style={{ backgroundColor: '#0c0c1f', color: '#e5e3ff' }}>Any Balance</option>
+                          <option value="0-100" style={{ backgroundColor: '#0c0c1f', color: '#e5e3ff' }}>0 - 100 ETB</option>
+                          <option value="100-1000" style={{ backgroundColor: '#0c0c1f', color: '#e5e3ff' }}>100 - 1,000 ETB</option>
+                          <option value="1000-10000" style={{ backgroundColor: '#0c0c1f', color: '#e5e3ff' }}>1,000 - 10,000 ETB</option>
+                          <option value="10000-100000" style={{ backgroundColor: '#0c0c1f', color: '#e5e3ff' }}>10,000 - 100,000 ETB</option>
+                        </select>
+                      ) : (
+                        <TextInput style={[styles.input, !!smsForm.specificPhone && { opacity: 0.5 }]} placeholder="Range..." value={smsForm.balanceRange} editable={!smsForm.specificPhone} />
+                      )}
+                    </View>
+                  </View>
+
+                  <View style={{ marginTop: 8 }}>
+                    <Text style={styles.formLabel}>Specific Phone Number (Overrides other filters)</Text>
+                    <TextInput 
+                      style={[styles.input, { height: 80, textAlignVertical: 'top' }]} 
+                      placeholder="+251..., 09..." 
+                      placeholderTextColor="rgba(168,167,212,0.3)" 
+                      value={smsForm.specificPhone} 
+                      onChangeText={t => setSmsForm({ ...smsForm, specificPhone: t })} 
+                      multiline={true}
+                      numberOfLines={3}
+                    />
+                    {!!smsForm.specificPhone && (
+                      <Text style={{ color: '#00e3fd', fontSize: 11, marginTop: 4 }}>Note: Role and Balance filters are ignored when a specific phone is provided.</Text>
+                    )}
+                  </View>
+                </View>
+              )}
+              <TouchableOpacity style={[styles.saveBtn, !smsForm.message.trim() && { opacity: 0.5 }]} onPress={() => setConfirmSms(true)} disabled={!smsForm.message.trim() || smsSending}>
+                {smsSending ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Queue Bulk SMS</Text>}
+              </TouchableOpacity>
+              
+              <ActionConfirmModal
+                visible={confirmSms}
+                title="Confirm Bulk SMS"
+                message={`You are about to queue this SMS to ${smsForm.targetMode === 'all' ? 'ALL USERS' : (smsForm.specificPhone ? `user ${smsForm.specificPhone}` : 'users matching the selected filters')}.\n\nThis action cannot be undone and will incur SMS costs.`}
+                confirmText="Yes, Send Now"
+                confirmColor="red"
+                iconName="warning-outline"
+                onCancel={() => setConfirmSms(false)}
+                onConfirm={sendBulkSms}
+              />
+            </View>
+          </View>
+          
+          {/* SMS History Section */}
+          <View style={[styles.popupCard, { marginTop: 20 }]}>
+             <Text style={{ color: '#e5e3ff', fontSize: 16, fontWeight: '800', marginBottom: 16 }}>Campaign History</Text>
+             {historyLoading ? (
+               <ActivityIndicator color={C.primary} style={{ padding: 20 }} />
+             ) : smsHistory.length === 0 ? (
+               <Text style={{ color: 'rgba(168,167,212,0.5)', fontSize: 12, fontStyle: 'italic' }}>No SMS campaigns sent yet.</Text>
+             ) : (
+               <View style={{ gap: 12 }}>
+                 {smsHistory.map((item, idx) => {
+                    const filters = typeof item.filters === 'string' ? JSON.parse(item.filters) : (item.filters || {});
+                    let targetDesc = "All Users";
+                    if (filters.specific_phone) targetDesc = `Phone: ${filters.specific_phone}`;
+                    else if (filters.role || filters.min_balance) targetDesc = `Role: ${filters.role || 'Any'}, Balance: ${filters.min_balance || 0}-${filters.max_balance || '∞'}`;
+                    
+                    return (
+                     <View key={item.id || idx} style={{ padding: 12, backgroundColor: 'rgba(23,23,50,0.4)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(68,68,107,0.1)' }}>
+                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                         <Text style={{ color: '#e5e3ff', fontWeight: '700', fontSize: 13 }} numberOfLines={1}>{item.message}</Text>
+                       </View>
+                       <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                         <View>
+                           <Text style={{ color: 'rgba(168,167,212,0.6)', fontSize: 10 }}>Target: {targetDesc}</Text>
+                           <Text style={{ color: 'rgba(168,167,212,0.6)', fontSize: 10 }}>Sent by: {item.admin_name || 'Admin'} • {formatDate(item.created_at)}</Text>
+                         </View>
+                         <View style={{ alignItems: 'flex-end' }}>
+                           <Text style={{ color: '#34d399', fontSize: 11, fontWeight: '700' }}>{item.success_count} / {item.target_count}</Text>
+                           <Text style={{ color: 'rgba(168,167,212,0.5)', fontSize: 9 }}>Delivered</Text>
+                         </View>
+                       </View>
+                     </View>
+                    );
+                 })}
+               </View>
+             )}
+          </View>
+        </ScrollView>
+      ) : (
+      /* ═══ Referral Links Tab (existing) ═══ */
+      <View style={{ flex: 1 }}>
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
           <Text style={styles.title}>Promotion Links</Text>
@@ -152,7 +532,6 @@ export default function PromotionLinks() {
           <Text style={styles.createBtnText}>New Link</Text>
         </TouchableOpacity>
       </View>
-
       {/* Stats Summary */}
       <View style={styles.statsRow}>
         <View style={styles.statCard}>
@@ -362,6 +741,8 @@ export default function PromotionLinks() {
           setConfirmAction(null);
         }}
       />
+      </View>
+      )}
     </View>
   );
 }
@@ -414,6 +795,41 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: 'rgba(68,68,107,0.1)',
+  },
+  popupCard: {
+    backgroundColor: 'rgba(23,23,50,0.4)',
+    borderRadius: 24,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(68,68,107,0.1)',
+  },
+  modeBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  modeBtnActive: {
+    backgroundColor: '#34d399',
+  },
+  modeBtnText: {
+    color: 'rgba(168,167,212,0.6)',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  modeBtnTextActive: {
+    color: '#004d57',
+  },
+  webSelect: {
+    height: 52,
+    backgroundColor: 'rgba(167,139,250,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(167,139,250,0.3)',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    color: '#e5e3ff',
+    fontSize: 14,
+    fontWeight: '700',
+    outline: 'none',
   },
   statLabel: {
     color: 'rgba(168,167,212,0.6)',
@@ -606,5 +1022,64 @@ const styles = StyleSheet.create({
     color: 'rgba(168,167,212,0.4)',
     fontSize: 11,
     fontWeight: '600',
+  },
+  // Tab styles
+  tabBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: 'rgba(167,139,250,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(167,139,250,0.15)',
+  },
+  tabBtnActive: {
+    backgroundColor: '#00e3fd',
+    borderColor: '#00e3fd',
+  },
+  tabBtnText: {
+    color: '#a78bfa',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  tabBtnTextActive: {
+    color: '#0c0c1f',
+  },
+  // Popup config styles
+  popupCard: {
+    backgroundColor: 'rgba(23,23,50,0.4)',
+    borderRadius: 24,
+    padding: 28,
+    borderWidth: 1,
+    borderColor: 'rgba(68,68,107,0.1)',
+  },
+  imagePreview: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    marginBottom: 8,
+  },
+  replaceBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 10,
+    position: 'absolute',
+    bottom: 12,
+    right: 12,
+  },
+  dropZone: {
+    borderWidth: 2,
+    borderColor: 'rgba(167,139,250,0.2)',
+    borderStyle: 'dashed',
+    borderRadius: 16,
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

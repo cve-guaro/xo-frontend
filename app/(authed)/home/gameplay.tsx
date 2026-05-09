@@ -6,6 +6,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { WebDepositModal, WebWithdrawModal } from "../../../components/WebModals";
 import BonusLogsModal from "../../../components/BonusLogsModal";
 import ReferralModal from "../../../components/ReferralModal";
+import FriendMatchModal from "../../../components/game/FriendMatchModal";
+import IncomingInviteModal from "../../../components/game/IncomingInviteModal";
+import RematchTopPopup from "../../../components/game/RematchPopup";
+import RulesModal from "../../../components/RulesModal";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useAudioPlayer } from "expo-audio";
@@ -310,7 +314,7 @@ const SearchingView = memo(function SearchingView({ onCancel, isMatched }: { onC
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <View style={{ width: 220, height: 220, alignItems: 'center', justifyContent: 'center' }}>
-        {/* Single simple pulse for visual feedback without being heavy */}
+        {/* Single simple pulse for visual Commissiondback without being heavy */}
         <Animated.View style={{
           position: 'absolute',
           width: 200, height: 200, borderRadius: 100,
@@ -424,7 +428,7 @@ const RoomSheet = memo(function RoomSheet({
               </TouchableOpacity>
               <View style={{ flex: 1, marginLeft: 12 }}>
                 <Text style={styles.sheetTitle}>{isEN ? `${selectedRoom.titleEn} amount` : `${selectedRoom.titleAm} መጠን`}</Text>
-                <Text style={styles.sheetSubTitle}>Fee {selectedRoom.cut}% • {selectedRoom.time}s</Text>
+                <Text style={styles.sheetSubTitle}>Commission {selectedRoom.cut}% • {selectedRoom.time}s</Text>
               </View>
               <TouchableOpacity onPress={onClose} style={styles.sheetCloseBtn}>
                 <Ionicons name="close" size={20} color="rgba(255,255,255,0.7)" />
@@ -460,7 +464,7 @@ const RoomSheet = memo(function RoomSheet({
                       <View style={{ flex: 1 }}>
                         <Text style={styles.roomName}>{isEN ? room.titleEn : room.titleAm} {r1Locked && "(MAXED)"}</Text>
                         <Text style={styles.roomDetail}>
-                          {isEN ? `ETB ${room.rangeLabel} • ${room.cut}% fee • ${room.time}s` : `ETB ${room.rangeLabel} • ${room.cut}% ክፍያ • ${room.time} ሰ`}
+                          {isEN ? `ETB ${room.rangeLabel} • ${room.cut}% Commission • ${room.time}s` : `ETB ${room.rangeLabel} • ${room.cut}% ክፍያ • ${room.time} ሰ`}
                         </Text>
                       </View>
                       <View style={styles.roomAction}>
@@ -526,7 +530,7 @@ const RoomSheet = memo(function RoomSheet({
                             ETB {opt.amount.toLocaleString()}
                           </Text>
                           <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12, fontWeight: '700', marginTop: 2 }}>
-                            Fee {selectedRoom.cut}% • {selectedRoom.time}s
+                            Commission {selectedRoom.cut}% • {selectedRoom.time}s
                             {capReached ? ' • LOCKED' : ''}
                           </Text>
                         </View>
@@ -584,7 +588,7 @@ export default function Landing() {
   const isDesktop = Platform.OS === "web" && width >= 768;
   const isTablet = Platform.OS === "web" && width >= 768 && width < 1024;
   const isLargeScreen = isDesktop || isTablet;
-  const { ensureConnected, findMatch, cancelFind, isSearching, onMessage } = useSocket();
+  const { ensureConnected, findMatch, cancelFind, isSearching, onMessage, send } = useSocket();
   const { user, token, booting, refreshProfile, language, switchLanguage, t, showAlert } = useAuth();
   const { isPlaying: bgMusicPlaying, toggleMusic } = useBackgroundMusic();
   const isEN = language === "en";
@@ -596,7 +600,88 @@ export default function Landing() {
   const [referralUrl, setReferralUrl] = useState('');
   const [referralStats, setReferralStats] = useState({ totalReferred: 0, totalBonusEarned: 0 });
   const [showReferralModal, setShowReferralModal] = useState(false);
+  const [friendModalVisible, setFriendModalVisible] = useState(false);
+  const [inviteResult, setInviteResult] = useState<any>(null);
+  const [rulesVisible, setRulesVisible] = useState(false);
   const toast = useToast();
+  const [incomingInvite, setIncomingInvite] = useState<any>(null);
+
+  // Global rematch state — shows popup even when on home page
+  const [globalRematchOffer, setGlobalRematchOffer] = useState<{ visible: boolean; fromName?: string; amount?: number; fromUserId?: string } | null>(null);
+
+  // Friend Match — send invite via socket
+  const handleSendInvite = useCallback(async (username: string, betAmount: number) => {
+    if (!token) return;
+    await ensureConnected(token);
+    send('friend_invite', { token, targetUsername: username, betAmount });
+  }, [token, send, ensureConnected]);
+
+  // Listen for friend invite results and incoming invites
+  useEffect(() => {
+    const off = onMessage((msg: any) => {
+      if (msg.type === 'friend_invite_result') {
+        setInviteResult(msg.payload);
+      } else if (msg.type === 'friend_invite_declined') {
+        const declinedBy = msg.payload?.byUsername || 'Your friend';
+        toast.show(`${declinedBy} declined your challenge!`, 'info');
+        // Update inviteResult so FriendMatchModal shows the decline clearly
+        setInviteResult((prev: any) => ({ ...prev, declined: true, declinedByUsername: declinedBy }));
+      }
+    });
+    return () => { try { off(); } catch {} };
+  }, [onMessage, toast]);
+
+  const handleInviteResponse = useCallback((accept: boolean) => {
+    if (!incomingInvite || !token) return;
+    send('friend_invite_response', {
+      token,
+      senderId: incomingInvite.fromUserId,
+      accept,
+      betAmount: incomingInvite.betAmount
+    });
+    setIncomingInvite(null);
+  }, [incomingInvite, token, send]);
+
+  // Auto-expire incoming friend invite popup after 45 seconds
+  useEffect(() => {
+    if (!incomingInvite) return;
+    const timer = setTimeout(() => {
+      // Auto-decline so sender gets notified
+      if (incomingInvite?.fromUserId && token) {
+        send('friend_invite_response', {
+          token,
+          senderId: incomingInvite.fromUserId,
+          accept: false,
+          betAmount: incomingInvite.betAmount
+        });
+      }
+      setIncomingInvite(null);
+    }, 45000);
+    return () => clearTimeout(timer);
+  }, [incomingInvite, token, send]);
+
+  // Global rematch accept/decline (for when user is on home page)
+  const handleGlobalRematchAccept = useCallback(() => {
+    if (!globalRematchOffer?.fromUserId || !token) return;
+    send('rematch_response', {
+      token,
+      opponentId: globalRematchOffer.fromUserId,
+      amount: globalRematchOffer.amount,
+      accept: true,
+    });
+    setGlobalRematchOffer(null);
+  }, [globalRematchOffer, token, send]);
+
+  const handleGlobalRematchDecline = useCallback(() => {
+    if (!globalRematchOffer?.fromUserId || !token) return;
+    send('rematch_response', {
+      token,
+      opponentId: globalRematchOffer.fromUserId,
+      amount: globalRematchOffer.amount,
+      accept: false,
+    });
+    setGlobalRematchOffer(null);
+  }, [globalRematchOffer, token, send]);
 
   const [appConfig, setAppConfig] = useState<{ referral_enabled?: boolean }>({ referral_enabled: false });
   useEffect(() => {
@@ -609,6 +694,13 @@ export default function Landing() {
   }, [token]);
 
   const params = useLocalSearchParams();
+
+  // Auto-connect socket on load so user appears "Online" to others
+  useEffect(() => {
+    if (token) {
+      ensureConnected(token).catch(() => {});
+    }
+  }, [token, ensureConnected]);
 
   // Auto-open share modal from deep links
   useEffect(() => {
@@ -676,8 +768,9 @@ export default function Landing() {
               id: String(matchId),
               symbol: String(symbol || youAre || "X"),
               vs: String(opponentUsername || "Opponent"),
+              oppId: msg.payload?.opponentId || "",
               opponentAvatar: opponentAvatar || "",
-              amount: String(bkAmount || 10),
+              amount: String(bkAmount || 50),
               time: String(timerDuration || 30),
               _k: String(Date.now()),
             },
@@ -1037,6 +1130,20 @@ export default function Landing() {
                     </LinearGradient>
                   </TouchableOpacity>
 
+                  {/* Friend Match Button Desktop */}
+                  <TouchableOpacity
+                    onPress={() => setFriendModalVisible(true)}
+                    style={[styles.playNowBtn, { marginTop: 10, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }]}
+                    activeOpacity={0.85}
+                  >
+                    <View style={styles.playNowInner}>
+                      <Ionicons name="people-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
+                      <Text style={[styles.playNowText, { color: '#fff' }]}>
+                        {isEN ? 'PLAY WITH FRIEND' : 'ከጓደኛ ጋር ይጫወቱ'}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+
                   {isBanned && (
                     <Text style={{ color: 'rgba(253,111,133,0.6)', fontSize: 11, textAlign: 'center', marginTop: 8, fontWeight: '700', letterSpacing: 0.5 }}>
                       {isEN ? 'Your account is suspended · Contact support' : 'መለያዎ ታግዷል · ድጋፍን ያነጋግሩ'}
@@ -1226,7 +1333,7 @@ export default function Landing() {
           visible={withdrawVisible}
           onClose={() => setWithdrawVisible(false)}
           user={user}
-          token={token || ""}
+          token={token || ""} 
           onSuccess={refreshProfile}
           language={language}
         />
@@ -1237,6 +1344,14 @@ export default function Landing() {
           initialDisplayName={(user as any)?.display_name}
           initialAvatar={(user as any)?.avatar}
           onSaved={refreshProfile}
+        />
+
+        {/* Friend Match Modals — must be in desktop layout too */}
+        <FriendMatchModal
+          visible={friendModalVisible}
+          onClose={() => { setFriendModalVisible(false); setInviteResult(null); }}
+          onSendInvite={handleSendInvite}
+          inviteResult={inviteResult}
         />
       </View>
 
@@ -1275,7 +1390,7 @@ export default function Landing() {
               </View>
               <View style={styles.headerBtns}>
                 <HeaderPill onPress={handleLanguageToggle} icon="language-outline" text={language === "en" ? "አማ" : "EN"} gradient={["rgba(124,58,237,0.95)", "rgba(79,70,229,0.85)"]} />
-                <HeaderPill onPress={handleToggleSound} icon={bgMusicPlaying ? "volume-high-outline" : "volume-mute-outline"} gradient={bgMusicPlaying ? ["rgba(16,185,129,0.95)", "rgba(5,150,105,0.85)"] : ["rgba(148,163,184,0.28)", "rgba(148,163,184,0.14)"]} />
+                <HeaderPill onPress={handleToggleSound} icon={bgMusicPlaying ? "volume-high-outline" : "volume-mute-outline"} gradient={bgMusicPlaying ? ["rgba(10,185,129,0.95)", "rgba(5,150,105,0.85)"] : ["rgba(148,163,184,0.28)", "rgba(148,163,184,0.14)"]} />
                 <HeaderPill onPress={() => goReplace("/(authed)/home/account")} icon="person-outline" gradient={["rgba(59,130,246,0.95)", "rgba(29,78,216,0.85)"]} />
               </View>
             </View>
@@ -1360,6 +1475,21 @@ export default function Landing() {
                 {!isBanned && <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.9)" />}
               </LinearGradient>
             </TouchableOpacity>
+
+            {/* Friend Match Button Mobile */}
+            <TouchableOpacity
+              onPress={() => setFriendModalVisible(true)}
+              activeOpacity={0.9}
+              style={[styles.playBtn, { marginTop: 10, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }]}
+            >
+              <View style={styles.playInner}>
+                <Ionicons name="people-outline" size={20} color="#fff" />
+                <Text style={styles.playText}>
+                  {isEN ? 'PLAY WITH FRIEND' : 'ከጓደኛ ጋር ይጫወቱ'}
+                </Text>
+              </View>
+            </TouchableOpacity>
+
             {isBanned && (
               <Text style={{ color: 'rgba(253,111,133,0.6)', fontSize: 11, textAlign: 'center', marginTop: 6, fontWeight: '700', letterSpacing: 0.5 }}>
                 {isEN ? 'Your account is suspended · Contact support' : 'መለያዎ ታግዷል · ድጋፍን ያነጋግሩ'}
@@ -1369,12 +1499,16 @@ export default function Landing() {
               <InfoPill icon="shield-checkmark-outline" text={isEN ? "Anti-cheat" : "ፀረ-ማታለል አለ"} />
               <InfoPill icon="timer-outline" text={isEN ? "Fast rounds" : "ፈጣን ዙር"} />
               <InfoPill icon="cash-outline" text={isEN ? "Instant pay" : "ፈጣን ክፍያ"} />
+              <TouchableOpacity onPress={() => setRulesVisible(true)}>
+                <InfoPill icon="book-outline" text={isEN ? "Rules" : "ህጎች"} />
+              </TouchableOpacity>
             </View>
           </View>
           <View style={{ height: 40 }} />
         </ScrollView>
         {!!user?.username && <WelcomeTermsPopup visible={termsVisible} onAgree={handleAgreeTerms} language={language} />}
         <BonusLogsModal visible={bonusModalVisible} onClose={() => setBonusModalVisible(false)} language={language} />
+        <RulesModal visible={rulesVisible} onClose={() => setRulesVisible(false)} language={language} />
 
         {Platform.OS === 'web' && (
           <>
@@ -1384,6 +1518,26 @@ export default function Landing() {
         )}
       </SafeAreaView>
       {exitModalVisible && <ExitModal language={language} onCancel={cancelExit} onConfirm={confirmExit} />}
+
+      <FriendMatchModal
+        visible={friendModalVisible}
+        onClose={() => { setFriendModalVisible(false); setInviteResult(null); }}
+        onSendInvite={handleSendInvite}
+        inviteResult={inviteResult}
+      />
+      <IncomingInviteModal
+        invite={incomingInvite}
+        onAccept={() => handleInviteResponse(true)}
+        onDecline={() => handleInviteResponse(false)}
+      />
+      {/* Global Rematch Popup — shows even when winner left game room */}
+      <RematchTopPopup
+        visible={!!globalRematchOffer?.visible}
+        fromName={globalRematchOffer?.fromName}
+        amount={globalRematchOffer?.amount}
+        onAccept={handleGlobalRematchAccept}
+        onDecline={handleGlobalRematchDecline}
+      />
 
       {roomSheetVisible && (
         <RoomSheet
@@ -2393,7 +2547,7 @@ refreshText: { color: "rgba(255,255,255,0.92)", fontWeight: "900", fontSize: 12 
     fontSize: 18,
     letterSpacing: 0.5,
   },
-  amountFee: { 
+  amountCommission: { 
     color: "rgba(255,255,255,0.3)", 
     fontWeight: "800", 
     fontSize: 10,

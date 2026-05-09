@@ -22,6 +22,8 @@ type SocketApi = {
   findMatch: (betAmount: number) => Promise<{ ok: boolean; data?: any; error?: string }>;
   cancelFind: () => Promise<{ ok: boolean }>;
   isSearching: boolean;
+  isGameActive: boolean;
+  setIsGameActive: (active: boolean) => void;
   lastError: string | null;
 };
 
@@ -50,6 +52,14 @@ const SERVER_EVENTS = [
   "error",
   "info",
   "rematch_offer",
+  "rematch_waiting",
+  "rematch_result",
+  "rematch_cancelled",
+  "emoji_received",
+  "emoji_cooldown",
+  "friend_invite_received",
+  "friend_invite_result",
+  "friend_invite_declined",
 ] as const;
 
 type ServerEvent = (typeof SERVER_EVENTS)[number];
@@ -73,6 +83,7 @@ export function SocketProvider({
   const forwardRef = useRef<Record<string, (payload: any) => void>>({});
 
   const [isSearching, setIsSearching] = useState(false);
+  const [isGameActive, setIsGameActive] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
 
   const tokenRef = useRef<string | undefined>(token);
@@ -99,7 +110,7 @@ export function SocketProvider({
     s = io(URL, {
       autoConnect: false,
       transports: ["websocket", "polling"], // Force both for stability across Railway proxies
-      secure: true,
+      secure: !URL.includes('localhost'),
       // IMPORTANT: do NOT forceNew (it can churn engines on remount)
       forceNew: false,
       reconnection: true,
@@ -340,9 +351,11 @@ export function SocketProvider({
       findMatch,
       cancelFind,
       isSearching,
+      isGameActive,
+      setIsGameActive,
       lastError,
     }),
-    [ensureConnected, send, onMessage, findMatch, cancelFind, isSearching, lastError]
+    [ensureConnected, send, onMessage, findMatch, cancelFind, isSearching, isGameActive, lastError]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

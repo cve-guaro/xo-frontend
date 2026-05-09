@@ -46,6 +46,7 @@ export default function LoginScreen() {
 
   const [step, setStep] = useState<"number" | "otp">(pendingNumber ? "otp" : "number");
   const [resendTimer, setResendTimer] = useState(0);
+  const [maintenanceData, setMaintenanceData] = useState<{ error: string, message: string } | null>(null);
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
@@ -140,6 +141,13 @@ export default function LoginScreen() {
       if (err?.message === "RATE_LIMITED") {
         toast.warning(t("rate_limited_title"), t("rate_limited_message"));
       } else {
+        try {
+          const parsed = JSON.parse(err.message);
+          if (parsed.error === "System Maintenance") {
+            setMaintenanceData({ error: parsed.error, message: parsed.message });
+            return;
+          }
+        } catch (e) {}
         toast.error("OTP Failed", err?.message || "Could not send OTP.");
       }
     }
@@ -155,6 +163,13 @@ export default function LoginScreen() {
       await unlockAudio();
       await verifyOtp(fullPhone, code, ref, promo);
     } catch (err: any) {
+      try {
+        const parsed = JSON.parse(err.message);
+        if (parsed.error === "System Maintenance") {
+          setMaintenanceData({ error: parsed.error, message: parsed.message });
+          return;
+        }
+      } catch (e) {}
       toast.error("Verification Failed", err?.message || "Please try again.");
       // optional UX: clear OTP on fail
       clearOtp();
@@ -329,6 +344,75 @@ export default function LoginScreen() {
 
         </KeyboardAvoidingView>
       </SafeAreaView>
+
+      {/* Beautiful Maintenance Overlay */}
+      {maintenanceData && (
+        <View style={[StyleSheet.absoluteFill, { zIndex: 9999, elevation: 9999 }]}>
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(6, 6, 20, 0.9)' }]} />
+          {Platform.OS === 'web' && (
+            <div style={{ position: 'absolute', inset: 0, backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }} />
+          )}
+          <SafeAreaView style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+            <View style={{
+              width: '100%',
+              maxWidth: 420,
+              backgroundColor: 'rgba(23, 23, 50, 0.7)',
+              borderRadius: 32,
+              padding: 32,
+              paddingTop: 40,
+              borderWidth: 1,
+              borderColor: 'rgba(166,140,255,0.2)',
+              shadowColor: '#00daf3',
+              shadowOffset: { width: 0, height: 10 },
+              shadowOpacity: 0.2,
+              shadowRadius: 40,
+              alignItems: 'center'
+            }}>
+              {/* Illustration Replacement using Neon Icons */}
+              <View style={{
+                width: 120, height: 120, borderRadius: 60,
+                backgroundColor: 'rgba(0, 218, 243, 0.1)',
+                borderWidth: 1, borderColor: 'rgba(0, 218, 243, 0.3)',
+                justifyContent: 'center', alignItems: 'center',
+                marginBottom: 32,
+                shadowColor: '#00daf3', shadowOpacity: 0.5, shadowRadius: 20
+              }}>
+                <Ionicons name="server-outline" size={54} color="#00daf3" />
+                <View style={{ position: 'absolute', bottom: -5, right: -5, width: 44, height: 44, borderRadius: 22, backgroundColor: '#0c0c1f', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'rgba(166,140,255,0.4)' }}>
+                   <Ionicons name="construct" size={20} color="#a68cff" />
+                </View>
+              </View>
+
+              <Text style={{
+                color: '#fff', fontSize: 26, fontWeight: '900', textAlign: 'center', marginBottom: 16, letterSpacing: 0.5,
+                textShadowColor: 'rgba(0, 218, 243, 0.5)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 10
+              }}>
+                Maintenance
+              </Text>
+              
+              <Text style={{
+                color: 'rgba(229, 227, 255, 0.7)', fontSize: 15, textAlign: 'center', lineHeight: 24, marginBottom: 40, paddingHorizontal: 10
+              }}>
+                We are currently working on providing you a better service. Please check back later.
+              </Text>
+
+              <TouchableOpacity 
+                activeOpacity={0.8}
+                onPress={() => setMaintenanceData(null)}
+                style={{ width: '100%' }}
+              >
+                <LinearGradient 
+                  colors={["#00daf3", "#008eb0"]} 
+                  start={{x:0,y:0}} end={{x:1,y:0}}
+                  style={{ height: 56, borderRadius: 20, alignItems: 'center', justifyContent: 'center', shadowColor: '#00daf3', shadowOpacity: 0.4, shadowRadius: 12, elevation: 5 }}
+                >
+                  <Text style={{ color: '#0c0c1f', fontSize: 16, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1 }}>Close</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </SafeAreaView>
+        </View>
+      )}
     </View>
   );
 }

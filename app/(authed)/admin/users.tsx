@@ -6,6 +6,7 @@ import ReferralDetailsModal from '../../../components/ReferralDetailsModal';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../../context/authContext';
 import { API_URL } from '../../../config';
+import { useRouter } from 'expo-router';
 import { AdminTheme as C } from './_layout';
 import ActionConfirmModal from '../../../components/ActionConfirmModal';
 
@@ -20,6 +21,7 @@ interface User {
   room_1_wins?: Record<string, number>;
   role?: 'user' | 'admin' | 'superadmin';
   new_user?: boolean;
+  display_name?: string;
 }
 
 export default function AdminUsers() {
@@ -27,6 +29,7 @@ export default function AdminUsers() {
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
   const isDesktop = width >= 1024;
+  const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
   const [filtered, setFiltered] = useState<User[]>([]);
   const [query, setQuery] = useState('');
@@ -39,12 +42,12 @@ export default function AdminUsers() {
   const [confirmUserAction, setConfirmUserAction] = useState<'ban' | 'unban' | 'delete' | null>(null);
   
   const [editModalVisible, setEditModalVisible] = useState(false);
-  const [editData, setEditData] = useState({ username: '', number: '', role: 'user', available_balance: '0', bonus_balance: '0', admin_edit_balance: '0' });
+  const [editData, setEditData] = useState({ display_name: '', username: '', number: '', role: 'user', available_balance: '0', bonus_balance: '0', admin_edit_balance: '0' });
   const [balanceEdit, setBalanceEdit] = useState({ available_balance: '0', withdrawable_balance: '0' });
   const [balanceSaving, setBalanceSaving] = useState(false);
   
   const [createModalVisible, setCreateModalVisible] = useState(false);
-  const [createData, setCreateData] = useState({ username: '', number: '', role: 'user', balance: '0' });
+  const [createData, setCreateData] = useState({ display_name: '', username: '', number: '', role: 'user' });
   const [referralUserId, setReferralUserId] = useState<string | null>(null);
 
   const [roleFilter, setRoleFilter] = useState<'all' | 'user' | 'admin' | 'superadmin'>('all');
@@ -152,8 +155,7 @@ export default function AdminUsers() {
   };
 
   const handleSelectUser = (u: User) => {
-    setSelected(u);
-    loadUser360(u.id);
+    router.push({ pathname: '/admin/user-detail', params: { id: u.id } } as any);
   };
 
   const handleBan = async (userId: string, ban: boolean) => {
@@ -225,6 +227,7 @@ export default function AdminUsers() {
   const openEditModal = () => {
     if (!selected) return;
     setEditData({
+      display_name: selected.display_name || '',
       username: selected.username || '',
       number: selected.number || '',
       role: selected.role || 'user',
@@ -280,6 +283,7 @@ export default function AdminUsers() {
       // ⚠️ Only send profile fields — NEVER wallet balance fields here.
       // Balance changes must use the dedicated SAVE BALANCES button → PATCH /users/:id/balance
       const profilePayload = {
+        display_name: editData.display_name,
         username: editData.username,
         number: editData.number,
         role: editData.role,
@@ -293,7 +297,7 @@ export default function AdminUsers() {
         await fetchUsers();
         setSelected(prev => prev ? {
           ...prev,
-          username: editData.username, number: editData.number, role: editData.role as any,
+          display_name: editData.display_name, username: editData.username, number: editData.number, role: editData.role as any,
           available_balance: Number(editData.available_balance), bonus_balance: Number(editData.bonus_balance),
           admin_edit_balance: Number(editData.admin_edit_balance),
         } : prev);
@@ -324,7 +328,7 @@ export default function AdminUsers() {
       if (res.ok) {
         await fetchUsers();
         setCreateModalVisible(false);
-        setCreateData({ username: '', number: '', role: 'user', balance: '0' });
+        setCreateData({ display_name: '', username: '', number: '', role: 'user' });
         showAlert('Success', 'Entity manifested within the abyss.');
       } else {
         const err = await res.json().catch(() => ({}));
@@ -384,9 +388,9 @@ export default function AdminUsers() {
   return (
     <View style={styles.root}>
       <View style={[styles.tableWrap, isMobile && { minHeight: 400 }]}>
-        <View style={[styles.tableCard, glass, { borderWidth: 1, borderColor: 'rgba(68,68,107,0.1)' }]}>
+        <View style={[styles.tableCard]}>
           
-          <View style={{ zIndex: 30, backgroundColor: 'rgba(11,11,30,0.95)' }}>
+          <View style={{ zIndex: 30 }}>
             <View style={[styles.tableHeader, isMobile && { flexDirection: 'column', alignItems: 'flex-start', gap: 12, padding: 16 }]}>
               <View>
                 <Text style={[styles.tableTitle, isMobile && { fontSize: 16 }]}>Player Matrix</Text>
@@ -409,7 +413,7 @@ export default function AdminUsers() {
                     <select
                       value={roleFilter}
                       onChange={(e: any) => setRoleFilter(e.target.value)}
-                      style={{ background: 'transparent', border: 'none', color: 'rgba(229,227,255,0.8)', fontSize: 12, fontWeight: 700, outline: 'none', cursor: 'pointer' as any, paddingRight: 4 } as any}
+                      style={{ background: 'transparent', border: 'none', color: 'rgba(229,227,255,0.8)', fontSize: 12, fontWeight: 700, outlineStyle: 'none', cursor: 'pointer' as any, paddingRight: 4 } as any}
                     >
                       <option value="all" style={{ background: '#111128' }}>All Roles</option>
                       <option value="user" style={{ background: '#111128' }}>User</option>
@@ -434,7 +438,7 @@ export default function AdminUsers() {
                     <select
                       value={statusFilter}
                       onChange={(e: any) => setStatusFilter(e.target.value)}
-                      style={{ background: 'transparent', border: 'none', color: 'rgba(229,227,255,0.8)', fontSize: 12, fontWeight: 700, outline: 'none', cursor: 'pointer' as any, paddingRight: 4 } as any}
+                      style={{ background: 'transparent', border: 'none', color: 'rgba(229,227,255,0.8)', fontSize: 12, fontWeight: 700, outlineStyle: 'none', cursor: 'pointer' as any, paddingRight: 4 } as any}
                     >
                       <option value="all" style={{ background: '#111128' }}>All Status</option>
                       <option value="active" style={{ background: '#111128' }}>Active</option>
@@ -457,7 +461,7 @@ export default function AdminUsers() {
                     <select
                       value={amountRange}
                       onChange={(e: any) => setAmountRange(e.target.value)}
-                      style={{ background: 'transparent', border: 'none', color: 'rgba(229,227,255,0.8)', fontSize: 12, fontWeight: 700, outline: 'none', cursor: 'pointer' as any, paddingRight: 4 } as any}
+                      style={{ background: 'transparent', border: 'none', color: 'rgba(229,227,255,0.8)', fontSize: 12, fontWeight: 700, outlineStyle: 'none', cursor: 'pointer' as any, paddingRight: 4 } as any}
                     >
                       <option value="all" style={{ background: '#111128' }}>All Amounts</option>
                       <option value="0-100" style={{ background: '#111128' }}>0 - 100 ETB</option>
@@ -477,47 +481,82 @@ export default function AdminUsers() {
 
                 <View style={[styles.searchBox, isMobile && { width: '100%' as any }]}>
                   <Ionicons name="search" size={16} color="rgba(168,167,212,0.5)" />
-                  <TextInput style={styles.searchInput} placeholder="Search users..." placeholderTextColor="rgba(168,167,212,0.4)" value={query} onChangeText={setQuery} {...(Platform.OS === 'web' ? { outline: 'none' } as any : {})} />
+                  <TextInput style={styles.searchInput} placeholder="Search users..." placeholderTextColor="rgba(168,167,212,0.4)" value={query} onChangeText={setQuery} {...(Platform.OS === 'web' ? { outlineStyle: 'none' } as any : {})} />
                 </View>
               </View>
             </View>
 
-            <View style={[styles.thead, isMobile && { paddingHorizontal: 16 }]}>
-              <Text style={[styles.th, { flex: 0.9 }]}>Entity ID</Text>
-              <Text style={[styles.th, { flex: 2 }]}>User Identity</Text>
-              <Text style={[styles.th, { flex: 1 }]}>Balance (ETB)</Text>
-              <Text style={[styles.th, { flex: 0.9 }]}>Status</Text>
-              <Text style={[styles.th, { flex: 1 }]}>Last Active</Text>
-              <Text style={[styles.th, { flex: 0.4, textAlign: 'right' }]}>Act</Text>
-            </View>
+            {!isMobile && (
+              <View style={[styles.thead]}>
+                <Text style={[styles.th, { flex: 0.9 }]}>Entity ID</Text>
+                <Text style={[styles.th, { flex: 2 }]}>User Identity</Text>
+                <Text style={[styles.th, { flex: 1 }]}>Balance (ETB)</Text>
+                <Text style={[styles.th, { flex: 0.9 }]}>Status</Text>
+                <Text style={[styles.th, { flex: 1 }]}>Last Active</Text>
+                <Text style={[styles.th, { flex: 0.4, textAlign: 'right' }]}>Act</Text>
+              </View>
+            )}
           </View>
 
           <AnimatedList
             items={loading ? [] : filtered}
             renderItem={(u: User, i: number, isSelected: boolean) => (
-              <View style={[styles.row, { borderBottomWidth: 0, marginBottom: 0 }, isSelected && styles.rowSelected]}>
-                <Text style={styles.tdId}>#{u.id.slice(0,8).toUpperCase()}</Text>
-                <View style={styles.tdUser}>
-                  <View style={[styles.avatar, { backgroundColor: u.banned ? 'rgba(138,22,50,0.2)' : 'rgba(34,34,70,0.8)', borderColor: u.banned ? 'rgba(253,111,133,0.3)' : 'rgba(166,140,255,0.3)' }]}>
-                    <Text style={[styles.avatarText, { color: u.banned ? C.error : C.primary }]}>{initials(u)}</Text>
-                  </View>
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text style={styles.tdName} numberOfLines={1}>{u.username || 'Unknown'}</Text>
-                    <Text style={styles.tdPhone} numberOfLines={1}>{u.number}</Text>
-                  </View>
-                </View>
-                <Text style={styles.tdBal} numberOfLines={1}>ETB {balanceEtb(u.available_balance)}</Text>
-                <View style={styles.tdStatus}>
-                  <Text style={[styles.statusPill, { color: u.banned ? C.error : C.secondary, backgroundColor: u.banned ? 'rgba(138,22,50,0.15)' : 'rgba(0,42,48,0.5)', borderColor: u.banned ? 'rgba(253,111,133,0.2)' : 'rgba(0,218,243,0.2)' }]}>
-                    {u.banned ? 'Suspended' : 'Active'}
-                  </Text>
-                </View>
-                <Text style={styles.tdTime} numberOfLines={1}>{u.created_at ? timeSince(u.created_at) : '—'}</Text>
-                <View style={styles.tdActions}>
-                  <View style={styles.viewBtn}>
-                    <Ionicons name="eye-outline" size={16} color={C.primary} />
-                  </View>
-                </View>
+              <View style={[styles.row, isSelected && styles.rowSelected, isMobile && { flexDirection: 'column', alignItems: 'flex-start', padding: 16, gap: 12 }]}>
+                {isMobile ? (
+                  <>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                      <View style={[styles.tdUser, { flex: undefined }]}>
+                        <View style={[styles.avatar, { backgroundColor: u.banned ? 'rgba(138,22,50,0.2)' : 'rgba(34,34,70,0.8)', borderColor: u.banned ? 'rgba(253,111,133,0.3)' : 'rgba(166,140,255,0.3)' }]}>
+                          <Text style={[styles.avatarText, { color: u.banned ? C.error : C.primary }]}>{initials(u)}</Text>
+                        </View>
+                        <View>
+                          <Text style={styles.tdName} numberOfLines={1}>{u.username || 'Unknown'}</Text>
+                          <Text style={styles.tdPhone} numberOfLines={1}>{u.number}</Text>
+                        </View>
+                      </View>
+                      <View style={[styles.tdStatus, { flex: undefined }]}>
+                        <Text style={[styles.statusPill, { color: u.banned ? C.error : C.secondary, backgroundColor: u.banned ? 'rgba(138,22,50,0.15)' : 'rgba(0,42,48,0.5)', borderColor: u.banned ? 'rgba(253,111,133,0.2)' : 'rgba(0,218,243,0.2)' }]}>
+                          {u.banned ? 'Suspended' : 'Active'}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.2)', padding: 12, borderRadius: 12 }}>
+                      <View>
+                        <Text style={{ color: 'rgba(168,167,212,0.6)', fontSize: 9, fontWeight: '800', marginBottom: 2 }}>BALANCE</Text>
+                        <Text style={styles.tdBal} numberOfLines={1}>ETB {balanceEtb(u.available_balance)}</Text>
+                      </View>
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={{ color: 'rgba(168,167,212,0.6)', fontSize: 9, fontWeight: '800', marginBottom: 2 }}>LAST ACTIVE</Text>
+                        <Text style={styles.tdTime} numberOfLines={1}>{u.created_at ? timeSince(u.created_at) : '—'}</Text>
+                      </View>
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.tdId}>#{u.id.slice(0,8).toUpperCase()}</Text>
+                    <View style={styles.tdUser}>
+                      <View style={[styles.avatar, { backgroundColor: u.banned ? 'rgba(138,22,50,0.2)' : 'rgba(34,34,70,0.8)', borderColor: u.banned ? 'rgba(253,111,133,0.3)' : 'rgba(166,140,255,0.3)' }]}>
+                        <Text style={[styles.avatarText, { color: u.banned ? C.error : C.primary }]}>{initials(u)}</Text>
+                      </View>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text style={styles.tdName} numberOfLines={1}>{u.username || 'Unknown'}</Text>
+                        <Text style={styles.tdPhone} numberOfLines={1}>{u.number}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.tdBal} numberOfLines={1}>ETB {balanceEtb(u.available_balance)}</Text>
+                    <View style={styles.tdStatus}>
+                      <Text style={[styles.statusPill, { color: u.banned ? C.error : C.secondary, backgroundColor: u.banned ? 'rgba(138,22,50,0.15)' : 'rgba(0,42,48,0.5)', borderColor: u.banned ? 'rgba(253,111,133,0.2)' : 'rgba(0,218,243,0.2)' }]}>
+                        {u.banned ? 'Suspended' : 'Active'}
+                      </Text>
+                    </View>
+                    <Text style={styles.tdTime} numberOfLines={1}>{u.created_at ? timeSince(u.created_at) : '—'}</Text>
+                    <View style={styles.tdActions}>
+                      <TouchableOpacity style={styles.viewBtn} onPress={() => setSelected(u)}>
+                        <Ionicons name="chevron-forward" size={16} color="#7c4dff" />
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                )}
               </View>
             )}
             onItemSelect={(u: User) => handleSelectUser(u)}
@@ -579,6 +618,14 @@ export default function AdminUsers() {
                        <Text style={{ fontSize: isMobile ? 10 : 12, color: '#a9abb3', textTransform: 'uppercase', letterSpacing: 2 }}>ID: #{selected?.id.slice(0, 8).toUpperCase()}</Text>
                     </View>
                  </View>
+                 {/* Full 360° View Button */}
+                 <TouchableOpacity
+                   onPress={() => { setSelected(null); router.push({ pathname: '/admin/user-detail', params: { id: selected?.id } } as any); }}
+                   style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(0,229,255,0.08)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(0,229,255,0.2)' }}
+                 >
+                   <Ionicons name="expand" size={14} color="#00e5ff" />
+                   <Text style={{ color: '#00e5ff', fontSize: 10, fontWeight: '800', letterSpacing: 0.5 }}>FULL 360° VIEW</Text>
+                 </TouchableOpacity>
 
                  {/* Right Stats Row (Total, Wins, Losses) */}
                  <View style={{ flexDirection: 'row', gap: isMobile ? 8 : 12, width: isMobile ? '100%' : 'auto', marginTop: isMobile ? 8 : 0 }}>
@@ -817,9 +864,9 @@ export default function AdminUsers() {
           <View style={[styles.modalBox, glass]}>
             <View style={styles.modalHeader}><Text style={styles.modalTitle}>New Entity</Text><TouchableOpacity onPress={() => setCreateModalVisible(false)}><Ionicons name="close" size={24} color="#fff" /></TouchableOpacity></View>
             <View style={{ gap: 16, marginBottom: 24 }}>
+              <TextInput style={styles.inputField} placeholder="Full Name (Display Name)" placeholderTextColor="#666" value={createData.display_name} onChangeText={t => setCreateData({...createData, display_name: t})} />
               <TextInput style={styles.inputField} placeholder="Username" placeholderTextColor="#666" value={createData.username} onChangeText={t => setCreateData({...createData, username: t})} />
               <TextInput style={styles.inputField} placeholder="Phone Number" placeholderTextColor="#666" value={createData.number} onChangeText={t => setCreateData({...createData, number: t})} />
-              <TextInput style={styles.inputField} placeholder="Initial Balance" placeholderTextColor="#666" value={createData.balance} onChangeText={t => setCreateData({...createData, balance: t})} keyboardType="numeric" />
               
               <View style={styles.rolePickerRow}>
                 <Text style={styles.pickerLabel}>Role:</Text>
@@ -841,6 +888,10 @@ export default function AdminUsers() {
           <View style={[styles.modalBox, glass]}>
             <View style={styles.modalHeader}><Text style={styles.modalTitle}>Edit Entity</Text><TouchableOpacity onPress={() => setEditModalVisible(false)}><Ionicons name="close" size={24} color="#fff" /></TouchableOpacity></View>
             <View style={{ gap: 16, marginBottom: 24 }}>
+              <View>
+                <Text style={styles.formLabel}>{t('Full Name')}</Text>
+                <TextInput style={styles.inputField} value={editData.display_name} onChangeText={t => setEditData({...editData, display_name: t})} placeholder="Full Name" />
+              </View>
               <View>
                 <Text style={styles.formLabel}>{t('Username')}</Text>
                 <TextInput style={styles.inputField} value={editData.username} onChangeText={t => setEditData({...editData, username: t})} placeholder="Username" />
@@ -998,24 +1049,24 @@ export default function AdminUsers() {
 const styles = StyleSheet.create({
   root: { flex: 1, gap: 16, padding: 12 },
   tableWrap: { flex: 1 },
-  tableCard: { flex: 1, backgroundColor: 'rgba(11,11,30,0.6)', borderRadius: 16, overflow: 'hidden' },
-  tableHeader: { padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(11,11,30,0.98)', borderBottomWidth: 1, borderBottomColor: 'rgba(68,68,107,0.1)' },
-  tableHeadUnder: { padding: 12, backgroundColor: 'rgba(11,11,30,0.95)', borderBottomWidth: 1, borderBottomColor: 'rgba(68,68,107,0.05)' },
-  tableTitle: { color: '#fff', fontSize: 16, fontWeight: '800' },
-  tableSub: { color: '#a8a7d4', fontSize: 11, marginTop: 2 },
-  tableActions: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  selectWrap: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#111128', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(68,68,107,0.2)' },
-  searchBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#111128', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(68,68,107,0.2)', width: 160 },
-  searchInput: { flex: 1, color: '#fff', fontSize: 12 },
-  thead: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 10, backgroundColor: 'rgba(12,12,31,0.95)' },
-  th: { color: 'rgba(168,167,212,0.7)', fontSize: 9, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase' },
-  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(68,68,107,0.05)' },
-  rowSelected: { backgroundColor: 'rgba(166,140,255,0.05)', borderLeftWidth: 3, borderLeftColor: '#7c4dff' },
-  tdId: { flex: 0.8, color: 'rgba(166,140,255,0.7)', fontSize: 10, fontFamily: 'monospace' },
-  tdUser: { flex: 1.8, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  avatar: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontSize: 10, fontWeight: '800' },
-  tdName: { color: '#e5e3ff', fontSize: 11, fontWeight: '700' },
+  tableCard: { flex: 1, backgroundColor: 'transparent' },
+  tableHeader: { padding: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(23,23,50,0.6)', borderTopLeftRadius: 20, borderTopRightRadius: 20, borderWidth: 1, borderBottomWidth: 0, borderColor: 'rgba(166,140,255,0.2)' },
+  tableHeadUnder: { padding: 16, backgroundColor: 'rgba(23,23,50,0.6)', borderBottomLeftRadius: 20, borderBottomRightRadius: 20, borderWidth: 1, borderTopWidth: 0, borderColor: 'rgba(166,140,255,0.2)', marginBottom: 16 },
+  tableTitle: { color: '#fff', fontSize: 20, fontWeight: '900', letterSpacing: 0.5 },
+  tableSub: { color: C.onSurfaceVariant, fontSize: 12, marginTop: 4, fontWeight: '500' },
+  tableActions: { flexDirection: 'row', gap: 10, alignItems: 'center' },
+  selectWrap: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(0,0,0,0.3)', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(166,140,255,0.3)' },
+  searchBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(0,0,0,0.3)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(0,218,243,0.3)', width: 180 },
+  searchInput: { flex: 1, color: '#fff', fontSize: 13, fontWeight: '600' },
+  thead: { flexDirection: 'row', paddingHorizontal: 20, paddingVertical: 12, backgroundColor: 'transparent' },
+  th: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase' },
+  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: 'rgba(23,23,50,0.5)', borderRadius: 16, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(166,140,255,0.1)' },
+  rowSelected: { backgroundColor: 'rgba(166,140,255,0.1)', borderColor: 'rgba(166,140,255,0.4)' },
+  tdId: { flex: 0.8, color: 'rgba(166,140,255,0.8)', fontSize: 11, fontFamily: 'monospace', fontWeight: '700' },
+  tdUser: { flex: 1.8, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  avatar: { width: 34, height: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  avatarText: { fontSize: 12, fontWeight: '900' },
+  tdName: { color: '#fff', fontSize: 13, fontWeight: '800', letterSpacing: 0.5 },
   tdPhone: { color: '#a8a7d4', fontSize: 9 },
   tdBal: { flex: 0.9, color: '#00daf3', fontSize: 11, fontWeight: '800' },
   tdStatus: { flex: 0.8 },
@@ -1095,12 +1146,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row', 
     justifyContent: 'space-between', 
     alignItems: 'center', 
-    padding: 16, 
-    borderTopWidth: 1, 
-    borderTopColor: 'rgba(68,68,107,0.1)',
-    backgroundColor: 'rgba(11,11,30,0.5)'
+    padding: 20, 
+    marginTop: 8,
+    borderRadius: 20,
+    borderWidth: 1, 
+    borderColor: 'rgba(166,140,255,0.2)',
+    backgroundColor: 'rgba(23,23,50,0.6)'
   },
-  paginationInfo: { color: 'rgba(168,167,212,0.6)', fontSize: 12, fontWeight: '600' },
+  paginationInfo: { color: C.onSurfaceVariant, fontSize: 12, fontWeight: '700' },
   pageBtn: { 
     flexDirection: 'row', 
     alignItems: 'center', 

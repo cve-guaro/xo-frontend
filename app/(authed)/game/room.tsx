@@ -30,8 +30,35 @@ import { useAuth } from "../../../context/authContext";
 import { useSocket } from "../../../context/socketContext";
 import FlashToast, { MatchFoundToastHandle } from "../../../components/game/FlashToast";
 import RematchTopPopup from "../../../components/game/RematchPopup";
+import EmojiBar from "../../../components/game/EmojiBar";
+import EmojiFloat from "../../../components/game/EmojiFloat";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useBackgroundMusic } from "../../../context/BackgroundMusicProvider";
+
+// Subcomponent for Animated Symbol
+const CellSymbol = ({ symbol, size, isDesktop }: { symbol: string, size: number, isDesktop: boolean }) => {
+  const scale = React.useRef(new Animated.Value(0)).current;
+  
+  React.useEffect(() => {
+    Animated.spring(scale, {
+      toValue: 1,
+      tension: 180,
+      friction: 12,
+      useNativeDriver: Platform.OS !== 'web'
+    }).start();
+  }, [symbol]);
+
+  return (
+    <Animated.View style={{ transform: [{ scale }] }}>
+      <Ionicons 
+        name={symbol === "X" ? "close" : "radio-button-off"} 
+        size={isDesktop ? size * 0.8 : size * 0.85} 
+        color={symbol === "X" ? "#fd6f85" : "#00daf3"} 
+        style={isDesktop ? (symbol === "X" ? styles.neonXShadow : styles.neonOShadow) : {}}
+      />
+    </Animated.View>
+  );
+};
 
 const { width } = Dimensions.get("window");
 const BOARD_SIZE = 3;
@@ -65,13 +92,14 @@ export default function GameRoom() {
     id?: string;
     symbol?: "X" | "O" | string;
     vs?: string;
+    oppId?: string;
     amount?: string;
     _k?: string;
     time?: string;
   }>();
 
   const { user, token, language, switchLanguage, t, refreshProfile, fixUrl } = useAuth();
-  const { onMessage, send } = useSocket();
+  const { onMessage, send, setIsGameActive } = useSocket();
 
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const isDesktop = windowWidth >= 768;
@@ -99,7 +127,7 @@ export default function GameRoom() {
     [params?.symbol]
   );
   const initialOpponent = useMemo(() => String(params?.vs || "Opponent"), [params?.vs]);
-  const initialOpponentId = useMemo(() => String(params?.vs ?? ""), [params?.vs]);
+  const initialOpponentId = useMemo(() => String(params?.oppId || params?.vs || ""), [params?.oppId, params?.vs]);
 
   // ---------- stable refs ----------
   const mySymbolRef = useRef<"X" | "O">("X");
@@ -152,6 +180,12 @@ export default function GameRoom() {
   const [timers, setTimers] = useState<Timers>({ ...DEFAULT_TIMERS });
   const [turn, setTurn] = useState<"X" | "O">("X");
   const [board, setBoard] = useState<BoardCell[]>(() => [...EMPTY_BOARD]);
+  const boardRef = useRef<BoardCell[]>(board);
+  useEffect(() => {
+    boardRef.current = board;
+  }, [board]);
+
+  const currentRoundRef = useRef<number>(1);
 
   const [locked, setLocked] = useState(false);
   const [rematchOffer, setRematchOffer] = useState<{ visible: boolean; fromName?: string; amount?: number; fromUserId?: string } | null>(null);
@@ -195,6 +229,14 @@ export default function GameRoom() {
   // Leave game confirmation
   const [leaveConfirmVisible, setLeaveConfirmVisible] = useState(false);
 
+  useEffect(() => {
+    setIsGameActive(true);
+    return () => {
+      setIsGameActive(false);
+      if (token) send("leave_room", { token });
+    };
+  }, [setIsGameActive, token, send]);
+
   // Draw flash
   const [drawFlash, setDrawFlash] = useState(false);
   const drawOpacity = useRef(new Animated.Value(0)).current;
@@ -206,6 +248,13 @@ export default function GameRoom() {
 
   // Vibration guard
   const vibrationRef = useRef(false);
+
+  // Emoji state
+  const [floatingEmoji, setFloatingEmoji] = useState<string | null>(null);
+
+  // Win line state
+  const [winLine, setWinLine] = useState<number[] | null>(null);
+  const winLineAnim = useRef(new Animated.Value(0)).current;
 
   // Navigation guard
   const handledNavigateRef = useRef(false);
@@ -247,6 +296,7 @@ export default function GameRoom() {
       gameStartOpacity.setValue(0);
 
       setResult({ visible: false, outcome: "win", amount: 0 });
+      setWinLine(null);
 
       handledNavigateRef.current = false;
 
@@ -410,11 +460,18 @@ export default function GameRoom() {
 
         switch (type) {
           case "move_made": {
+            // Ignore moves from a previous round (prevents stale board overwrite after draw)
+            const moveRound = typeof p.round === "number" ? p.round : 1;
+            if (moveRound < currentRoundRef.current) break;
+
             const nextBoard = Array.isArray(p.board) ? p.board : null;
             const nextTurn = isXO(p.turn) ? p.turn : null;
             const tmr = p?.timers;
 
-            if (nextBoard && nextBoard.length === 9) setBoard(nextBoard as BoardCell[]);
+            if (nextBoard && nextBoard.length === 9) {
+              setBoard(nextBoard as BoardCell[]);
+              boardRef.current = nextBoard as BoardCell[];
+            }
             if (nextTurn) setTurn(nextTurn);
             if (tmr && typeof tmr.X === "number" && typeof tmr.O === "number") setTimers({ X: tmr.X, O: tmr.O });
 
@@ -471,8 +528,13 @@ export default function GameRoom() {
           case "new_round": {
             resetForNewGame({ keepIdentity: true });
 
+            // Track current round so stale move_made events are ignored
+            const newRound = typeof p.roundNumber === "number" ? p.roundNumber : (currentRoundRef.current + 1);
+            currentRoundRef.current = newRound;
+
             // Ensure the board is always empty for a new round
             const b = ([...EMPTY_BOARD] as BoardCell[]);
+            boardRef.current = b;
             const tr = isXO(p.turn) ? p.turn : "X";
             const tmr = p?.timers;
 
@@ -512,6 +574,7 @@ export default function GameRoom() {
             setTurn(tr);
             if (tmr && typeof tmr.X === "number" && typeof tmr.O === "number") setTimers({ X: tmr.X, O: tmr.O });
 
+            setIsGameActive(true);
             setLocked(false);
             unlockIfState();
             break;
@@ -536,7 +599,8 @@ export default function GameRoom() {
               params: {
                 id: String(newMatchId),
                 symbol: String(symbol || ""),
-                vs: String(opponentUsername || oppId || ""),
+                vs: String(opponentUsername || ""),
+                oppId: String(oppId || ""),
                 amount: String(betAmount ?? params?.amount ?? ""),
                 _k: String(Date.now()),
               },
@@ -560,8 +624,28 @@ export default function GameRoom() {
             if (meWon) playWin();
             else playLose();
 
+            // Detect winning line from board
+            const WIN_COMBOS = [
+              [0,1,2],[3,4,5],[6,7,8], // rows
+              [0,3,6],[1,4,7],[2,5,8], // cols
+              [0,4,8],[2,4,6]          // diags
+            ];
+            const currentBoard = boardRef.current;
+            const wl = WIN_COMBOS.find(combo => {
+              const [a,b,c] = combo;
+              return currentBoard[a] !== '_' && currentBoard[a] === currentBoard[b] && currentBoard[b] === currentBoard[c];
+            });
+            if (wl) {
+              setWinLine(wl);
+              winLineAnim.setValue(0);
+              Animated.timing(winLineAnim, { toValue: 1, duration: 600, useNativeDriver: false }).start();
+            }
+
             const amt = Number(params?.amount ?? 0) || 0;
-            setResult({ visible: true, outcome: meWon ? "win" : "lose", amount: meWon ? (p?.prizeAmount || amt) : amt });
+            // Delay result overlay to show win line first
+            setTimeout(() => {
+              setResult({ visible: true, outcome: meWon ? "win" : "lose", amount: meWon ? (p?.prizeAmount || amt) : amt });
+            }, wl ? 1500 : 0);
 
             setToast({
               msg: meWon ? tRef.current("victory") : tRef.current("defeat"),
@@ -570,6 +654,7 @@ export default function GameRoom() {
             });
 
             refreshProfile?.();
+            setIsGameActive(false);
             setLocked(true);
             unlockIfState();
             break;
@@ -579,6 +664,7 @@ export default function GameRoom() {
             triggerDrawFlash();
             setToast({ msg: tRef.current("draw"), color: "#ffd700", icon: "shuffle" });
             refreshProfile?.();
+            setIsGameActive(false);
             setLocked(true);
             unlockIfState();
             break;
@@ -598,6 +684,7 @@ export default function GameRoom() {
             });
 
             refreshProfile?.();
+            setIsGameActive(false);
             setLocked(true);
             unlockIfState();
             break;
@@ -624,6 +711,9 @@ export default function GameRoom() {
               fromUserId: p.fromUserId,
               amount: p.amount,
             });
+            // Close the Game Over / Victory screen so they can see the board and the rematch popup!
+            setResult(r => ({ ...r, visible: false }));
+            setToast({ msg: `${p.fromUsername || "Opponent"} wants a rematch!`, color: "#00E5FF", icon: "refresh" });
             break;
           }
 
@@ -636,7 +726,16 @@ export default function GameRoom() {
           case "rematch_result": {
             if (!p.accepted) {
               setWaitingForRematch(false);
-              setToast({ msg: "Opponent declined rematch.", color: "#FF4B4B", icon: "close-circle" });
+              const declinedMsg = languageRef.current === 'am' 
+                ? `${opponentRef.current || 'Opponent'} ሸሽቷል! 🏃‍♂️💨` 
+                : `${opponentRef.current || 'Opponent'} ran away scared! 🏃‍♂️💨`;
+              setToast({ msg: declinedMsg, color: "#FF4B4B", icon: "walk" });
+              
+              // Auto-close game since opponent ran away
+              setTimeout(() => {
+                setResult((r) => ({ ...r, visible: false }));
+                safeReplace("/home/gameplay");
+              }, 2000);
             }
             break;
           }
@@ -658,6 +757,12 @@ export default function GameRoom() {
               color: "#ff6b6b",
               icon: "alert-circle",
             });
+            break;
+          }
+
+          case "emoji_received": {
+            setFloatingEmoji(p.emoji);
+            setTimeout(() => setFloatingEmoji(null), 7000);
             break;
           }
 
@@ -710,8 +815,19 @@ export default function GameRoom() {
 
   const leaveMatch = useCallback(async () => {
     playClick();
+    // If the game is already over (result shown / board locked after win/lose/draw),
+    // skip the forfeit warning and go home directly
+    if (result.visible || locked) {
+      try {
+        if (opponentId) send("cancel_rematch", { token, opponentId });
+      } catch {}
+      setFloatingEmoji(null);
+      setResult((r) => ({ ...r, visible: false }));
+      safeReplace("/home/gameplay");
+      return;
+    }
     setLeaveConfirmVisible(true);
-  }, [playClick]);
+  }, [playClick, result.visible, locked, opponentId, send, token, safeReplace]);
 
   const confirmLeaveMatch = useCallback(async () => {
     try {
@@ -720,6 +836,7 @@ export default function GameRoom() {
     try {
       send("leave_match", { token, matchId });
     } catch {}
+    setFloatingEmoji(null);
     safeReplace("/home/gameplay");
   }, [matchId, safeReplace, send, token, opponentId]);
 
@@ -749,6 +866,7 @@ export default function GameRoom() {
     try {
       if (opponentId) send("cancel_rematch", { token, opponentId });
     } catch {}
+    setFloatingEmoji(null);
     setResult((r) => ({ ...r, visible: false }));
     safeReplace("/home/gameplay");
   }, [playClick, safeReplace, send, token, opponentId]);
@@ -756,6 +874,14 @@ export default function GameRoom() {
   const handlePlayAgain = useCallback(async () => {
     await playClick();
     const amt = Number(params?.amount ?? 0);
+
+    // Check balance before allowing rematch
+    const userBalance = Number(user?.available_balance ?? 0) + Number(user?.bonus_balance ?? 0);
+    if (userBalance < amt) {
+      setToast({ msg: `Insufficient balance (ETB ${userBalance.toLocaleString()}) for this rematch`, color: "#FF4B4B", icon: "alert-circle" });
+      return;
+    }
+
     setResult((r) => ({ ...r, visible: false }));
 
     try {
@@ -777,7 +903,7 @@ export default function GameRoom() {
     } catch (e) {
       console.log("Play again error:", e);
     }
-  }, [params?.amount, playClick, router, send, token, opponentId]);
+  }, [params?.amount, playClick, router, send, token, opponentId, user?.available_balance, user?.bonus_balance]);
 
   const handleAcceptRematch = useCallback(async () => {
     await playClick();
@@ -840,7 +966,7 @@ export default function GameRoom() {
       token,
       opponentId: rematchOffer.fromUserId,
       amount: rematchOffer.amount,
-      accepted: true,
+      accept: true,
     });
     setRematchOffer(null);
   }, [rematchOffer, token, send]);
@@ -851,7 +977,7 @@ export default function GameRoom() {
       token,
       opponentId: rematchOffer.fromUserId,
       amount: rematchOffer.amount,
-      accepted: false,
+      accept: false,
     });
     setRematchOffer(null);
   }, [rematchOffer, token, send]);
@@ -883,15 +1009,14 @@ export default function GameRoom() {
       )}
 
       <MainWrapper style={styles.safe}>
+        <RematchTopPopup
+          visible={!!rematchOffer?.visible}
+          fromName={rematchOffer?.fromName}
+          amount={rematchOffer?.amount}
+          onAccept={onAcceptRematch}
+          onDecline={onDeclineRematch}
+        />
         <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
-          
-          <RematchTopPopup
-            visible={!!rematchOffer?.visible}
-            fromName={rematchOffer?.fromName}
-            amount={rematchOffer?.amount}
-            onAccept={onAcceptRematch}
-            onDecline={onDeclineRematch}
-          />
 
           <FlashToast amount={parseInt(amountParam)} ref={toastRef} message="Match Found! 🎉" />
 
@@ -968,12 +1093,7 @@ export default function GameRoom() {
                           ]}
                         >
                           {board[idx] !== "_" ? (
-                            <Ionicons 
-                              name={board[idx] === "X" ? "close" : "radio-button-off"} 
-                              size={isDesktop ? dynamicCellSize * 0.8 : dynamicCellSize * 0.85} 
-                              color={board[idx] === "X" ? "#fd6f85" : "#00daf3"} 
-                              style={isDesktop ? (board[idx] === "X" ? styles.neonXShadow : styles.neonOShadow) : {}}
-                            />
+                            <CellSymbol symbol={board[idx]} size={dynamicCellSize} isDesktop={isDesktop} />
                           ) : (
                             isMyTurn && (
                               <View style={[styles.turnCellDot, { backgroundColor: '#fff', opacity: 0.8 }]} />
@@ -984,9 +1104,111 @@ export default function GameRoom() {
                     })}
                   </View>
                 ))}
+
+                {/* Win Line Overlay */}
+                {winLine && (() => {
+                  const cellSize = (boardInnerSize - 24) / 3;
+                  const getCenter = (idx: number) => {
+                    const col = idx % 3;
+                    const row = Math.floor(idx / 3);
+                    return {
+                      x: col * (cellSize + 12) + cellSize / 2,
+                      y: row * (cellSize + 12) + cellSize / 2
+                    };
+                  };
+                  const p1 = getCenter(winLine[0]);
+                  const p2 = getCenter(winLine[2]);
+                  const dx = p2.x - p1.x;
+                  const dy = p2.y - p1.y;
+                  const length = Math.sqrt(dx * dx + dy * dy);
+                  const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+                  const winSymbol = board[winLine[0]];
+                  const lineColor = winSymbol === 'X' ? '#fd6f85' : '#00daf3';
+                  return (
+                    <Animated.View
+                      pointerEvents="none"
+                      style={{
+                        position: 'absolute',
+                        left: p1.x,
+                        top: p1.y - 3,
+                        width: winLineAnim.interpolate({ inputRange: [0, 1], outputRange: [0, length] }),
+                        height: 6,
+                        backgroundColor: lineColor,
+                        borderRadius: 3,
+                        transform: [
+                          { translateX: 0 },
+                          { translateY: 0 },
+                          { rotate: `${angle}deg` }
+                        ],
+                        transformOrigin: 'left center',
+                        shadowColor: lineColor,
+                        shadowOffset: { width: 0, height: 0 },
+                        shadowOpacity: 0.8,
+                        shadowRadius: 10,
+                        zIndex: 10,
+                      }}
+                    />
+                  );
+                })()}
               </View>
             </View>
           </View>
+
+          {/* Floating Emoji (received from opponent) - Top notification bar */}
+          {floatingEmoji && (
+            <View style={{
+              position: 'absolute',
+              top: 60,
+              left: 16,
+              right: 16,
+              zIndex: 99999,
+              alignItems: 'center',
+            }}>
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 12,
+                width: '100%',
+                maxWidth: 360,
+                backgroundColor: 'rgba(15, 17, 30, 0.95)',
+                paddingHorizontal: 24,
+                paddingVertical: 14,
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: 'rgba(0, 229, 255, 0.3)',
+                shadowColor: '#00e5ff',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.3,
+                shadowRadius: 12,
+              }}>
+                <Text style={{ fontSize: 36 }}>{floatingEmoji}</Text>
+                <Text style={{ color: '#e2e8f0', fontSize: 14, fontWeight: '800' }}>Opponent reacted!</Text>
+              </View>
+            </View>
+          )}
+
+          {/* Waiting for Rematch UI */}
+          {waitingForRematch && (
+            <View style={{
+              alignSelf: 'center',
+              backgroundColor: 'rgba(124, 58, 237, 0.15)',
+              borderWidth: 1,
+              borderColor: 'rgba(124, 58, 237, 0.4)',
+              borderRadius: 16,
+              paddingVertical: 12,
+              paddingHorizontal: 20,
+              marginTop: 20,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 12
+            }}>
+              <ActivityIndicator color="#00daf3" />
+              <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>
+                Waiting for {opponent} to accept...
+              </Text>
+            </View>
+          )}
 
           {/* BOTTOM UI */}
           <View style={[styles.bottomBar, isDesktop && { width: 520, alignSelf: 'center', borderTopWidth: 0, paddingTop: 40, paddingBottom: 40 }]}>
@@ -1035,7 +1257,9 @@ export default function GameRoom() {
             outcome={result.outcome}
             amount={result.amount}
             onHome={goHome}
-            onPlayAgain={handlePlayAgain}
+            onPlayAgain={result.outcome === 'lose' ? handlePlayAgain : undefined}
+            onSendEmoji={(emoji) => send("send_emoji", { matchId, emoji })}
+            insufficientBalance={result.outcome === 'lose' && (Number(user?.available_balance ?? 0) + Number(user?.bonus_balance ?? 0)) < Number(params?.amount ?? 0)}
           />
 
           <RematchOfferModal
@@ -1121,43 +1345,102 @@ function RematchOfferModal({
   onAccept: () => void;
   onDecline: () => void;
 }) {
+  const [countdown, setCountdown] = React.useState(10);
+  const slideAnim = React.useRef(new Animated.Value(-120)).current;
+  const opacityAnim = React.useRef(new Animated.Value(0)).current;
+
+  React.useEffect(() => {
+    if (!visible) {
+      slideAnim.setValue(-120);
+      opacityAnim.setValue(0);
+      setCountdown(10);
+      return;
+    }
+    // Slide in from top
+    Animated.parallel([
+      Animated.spring(slideAnim, { toValue: 0, speed: 14, bounciness: 8, useNativeDriver: true }),
+      Animated.timing(opacityAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
+    ]).start();
+
+    // 10s countdown
+    setCountdown(10);
+    const timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          onDecline();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [visible]);
+
   if (!visible) return null;
 
   return (
-    <Modal visible={visible} transparent animationType="fade">
-      <View style={styles.gameStartOverlay}>
-        <View style={styles.gameStartAlert}>
-          <View style={[styles.gameStartGradient, { backgroundColor: '#202236' }]}>
-            <Ionicons name="game-controller" size={48} color="#00e5ff" style={{ marginBottom: 16 }} />
-            <Text style={[styles.gameStartTitle, { fontSize: 20 }]}>Rematch Challenge!</Text>
-            <Text style={styles.gameStartSubtitle}>
-              {fromName} wants to play again.
+    <View style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 9999, alignItems: 'center', paddingTop: 60 }}>
+      <Animated.View style={{
+        transform: [{ translateY: slideAnim }],
+        opacity: opacityAnim,
+        width: '90%',
+        maxWidth: 360,
+        backgroundColor: 'rgba(15, 17, 30, 0.95)',
+        borderRadius: 20,
+        padding: 18,
+        borderWidth: 1,
+        borderColor: 'rgba(0, 229, 255, 0.3)',
+        shadowColor: '#00e5ff',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 16,
+        elevation: 20,
+      }}>
+        {/* Header */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 10 }}>
+          <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0, 229, 255, 0.15)', alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="game-controller" size={18} color="#00e5ff" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: '#fff', fontSize: 15, fontWeight: '900' }}>
+              {fromName || 'Opponent'} wants a rematch!
             </Text>
-            {amount ? (
-              <View style={[styles.betAmountContainer, { marginBottom: 20 }]}>
-                <Ionicons name="trophy" size={14} color="#ffd700" />
-                <Text style={styles.betAmountText}>Stake: ETB {amount.toFixed(2)}</Text>
-              </View>
-            ) : null}
-
-            <View style={{ flexDirection: "row", gap: 12, marginTop: 10 }}>
-              <TouchableOpacity
-                onPress={onDecline}
-                style={{ flex: 1, padding: 12, borderRadius: 12, backgroundColor: "rgba(255, 107, 107, 0.2)", alignItems: "center" }}
-              >
-                <Text style={{ color: "#ff6b6b", fontWeight: "900" }}>Decline</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={onAccept}
-                style={{ flex: 1, padding: 12, borderRadius: 12, backgroundColor: "rgba(0, 229, 255, 0.2)", alignItems: "center" }}
-              >
-                <Text style={{ color: "#00e5ff", fontWeight: "900" }}>Accept</Text>
-              </TouchableOpacity>
-            </View>
+            <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '700' }}>
+              Same stake: ETB {Number(amount || 0).toLocaleString()}
+            </Text>
+          </View>
+          {/* Timer */}
+          <View style={{
+            width: 40, height: 40, borderRadius: 20,
+            backgroundColor: countdown <= 3 ? 'rgba(255,107,107,0.2)' : 'rgba(0,229,255,0.1)',
+            borderWidth: 2,
+            borderColor: countdown <= 3 ? '#ff6b6b' : '#00e5ff',
+            alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Text style={{ color: countdown <= 3 ? '#ff6b6b' : '#00e5ff', fontSize: 16, fontWeight: '900' }}>
+              {countdown}
+            </Text>
           </View>
         </View>
-      </View>
-    </Modal>
+
+        {/* Action buttons */}
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <TouchableOpacity
+            onPress={onDecline}
+            style={{ flex: 1, padding: 12, borderRadius: 14, backgroundColor: 'rgba(255,107,107,0.12)', borderWidth: 1, borderColor: 'rgba(255,107,107,0.25)', alignItems: 'center' }}
+          >
+            <Text style={{ color: '#ff6b6b', fontWeight: '900', fontSize: 13 }}>❌ Nah</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={onAccept}
+            style={{ flex: 1, padding: 12, borderRadius: 14, backgroundColor: 'rgba(0,229,255,0.15)', borderWidth: 1, borderColor: 'rgba(0,229,255,0.3)', alignItems: 'center' }}
+          >
+            <Text style={{ color: '#00e5ff', fontWeight: '900', fontSize: 13 }}>✅ Let's Go!</Text>
+          </TouchableOpacity>
+        </View>
+      </Animated.View>
+    </View>
   );
 }
 
@@ -1511,15 +1794,16 @@ const styles = StyleSheet.create({
   boardContainer: {
     padding: 24,
     borderRadius: 40,
-    backgroundColor: 'rgba(17,17,40,0.4)',
+    backgroundColor: 'rgba(23, 23, 50, 0.4)', // Glassmorphism backdrop
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    borderColor: 'rgba(166, 140, 255, 0.1)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 20 },
     shadowOpacity: 0.5,
     shadowRadius: 30,
     position: 'relative',
     overflow: 'hidden',
+    ...(Platform.OS === 'web' ? { backdropFilter: 'blur(10px)' } as any : {})
   },
 
   boardGlowLayer: {
@@ -1544,16 +1828,18 @@ const styles = StyleSheet.create({
     flex: 1,
     aspectRatio: 1,
     borderRadius: 20,
-    backgroundColor: 'rgba(28,28,60,0.6)',
+    backgroundColor: 'rgba(11, 11, 30, 0.6)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    borderColor: 'rgba(255, 255, 255, 0.03)',
     alignItems: 'center',
     justifyContent: 'center',
+    ...(Platform.OS === 'web' ? { transition: 'transform 0.1s ease, background-color 0.2s ease' } as any : {})
   },
 
   cellEmptyActive: {
-    borderColor: 'rgba(166,139,255,0.3)',
-    backgroundColor: 'rgba(166,139,255,0.05)',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    ...(Platform.OS === 'web' ? { cursor: 'pointer' } as any : {})
   },
 
   cellText: {

@@ -1,4 +1,11 @@
 // app/_layout.tsx
+import * as Sentry from "@sentry/react";
+
+Sentry.init({
+  dsn: "https://0542c52f966517870c71abc882d89ca6@o4511351046733824.ingest.us.sentry.io/4511351146872832",
+  tracesSampleRate: 0.1,
+});
+
 import { Redirect, Slot, useRootNavigationState, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { PropsWithChildren, memo, useEffect, useMemo, useRef } from "react";
@@ -21,6 +28,8 @@ import { BackgroundMusicProvider, useBackgroundMusic } from "../context/Backgrou
 import { Ionicons } from "@expo/vector-icons";
 import { ToastProvider } from "../context/ToastContext";
 import GlobalToastContainer from "../components/GlobalToast";
+import { FeatureProvider } from "../context/FeatureContext";
+import { FeatureGate } from "../components/FeatureGate";
 
 // ✅ Suppress known-safe React Native Web deprecation warnings in browser console.
 // LogBox only filters the in-app overlay; patching console.warn/error is needed for DevTools.
@@ -34,6 +43,7 @@ if (Platform.OS === 'web' && typeof console !== 'undefined') {
     'Invalid style property of "outline"',
     'style.resizeMode is deprecated',
     'pointerEvents is deprecated',
+    'Unexpected text node',
   ];
   const isSuppressed = (msg: string) => SUPPRESSED.some(s => String(msg).includes(s));
   console.warn = (...args: any[]) => { if (!isSuppressed(args[0])) _warn(...args); };
@@ -72,7 +82,7 @@ function AuthGate({ children }: PropsWithChildren) {
 
   return <>{children}</>;
 }
-export default function RootLayout() {
+function RootLayout() {
   if (Platform.OS === 'web' && typeof document !== 'undefined') {
     const styleId = 'global-input-outline-fix';
     if (!document.getElementById(styleId)) {
@@ -109,21 +119,27 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
-      <BackgroundMusicProvider>
-        <ToastProvider>
-          <SafeAreaProvider style={{ flex: 1, ...(Platform.OS === 'web' ? { height: '100vh', width: '100vw' } : {}) } as any}>
-            <StatusBar style="light" />
-            <AuthGate>
-              <Slot />
-              <GlobalUIComponents />
-              <GlobalToastContainer />
-            </AuthGate>
-          </SafeAreaProvider>
-        </ToastProvider>
-      </BackgroundMusicProvider>
+      <FeatureProvider>
+        <BackgroundMusicProvider>
+          <ToastProvider>
+            <SafeAreaProvider style={{ flex: 1, ...(Platform.OS === 'web' ? { height: '100vh', width: '100vw' } : {}) } as any}>
+              <StatusBar style="light" />
+              <AuthGate>
+                <FeatureGate>
+                  <Slot />
+                  <GlobalUIComponents />
+                  <GlobalToastContainer />
+                </FeatureGate>
+              </AuthGate>
+            </SafeAreaProvider>
+          </ToastProvider>
+        </BackgroundMusicProvider>
+      </FeatureProvider>
     </AuthProvider>
   );
 }
+
+export default RootLayout;
 
 /* ----------------------------- Silky Boot Splash ---------------------------- */
 

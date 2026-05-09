@@ -50,8 +50,9 @@ export default function AdminLedger() {
     } finally { setReviewLoading(false); }
   };
 
+  const [confirmAction, setConfirmAction] = useState<'approve'|'reject'|null>(null);
+
   const execTxAction = async (action: 'approve'|'reject'|'ban'|'delete', txId: string, userId: string) => {
-    if (!confirm(`Are you sure you want to ${action.toUpperCase()} this?`)) return;
     try {
       let url = ''; let method = 'PATCH';
       if (action === 'approve') url = `${API_URL}/admin/transactions/${txId}/approve`;
@@ -63,6 +64,7 @@ export default function AdminLedger() {
       if (res.ok) {
          showAlert(`Success`, `Action ${action} completed successfully.`);
          setReviewModalVisible(false);
+         setConfirmAction(null);
          fetchTxs();
       } else showAlert('Error', 'Action failed');
     } catch { showAlert('Error', 'Network error'); }
@@ -177,44 +179,44 @@ export default function AdminLedger() {
 
         {/* Stats bento — wraps into 2x2 or 1x4 based on space */}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: isMobile ? 12 : 20, marginBottom: isMobile ? 24 : 32 }}>
-          {isSuperAdmin && (
-            <View style={[styles.statCard, glass, { minWidth: isMobile ? '100%' : (isTablet ? 140 : 180), flex: 1.2, padding: isMobile ? 16 : 24, borderColor: `${C.secondary}40`, borderWidth: 1 }]}>
-               <View style={styles.statTop}>
-                 <Text style={[styles.statLabel, isMobile && { fontSize: 9, letterSpacing: 1 }]} numberOfLines={1}>WALLET NET POSITION</Text>
-                 <Ionicons name="briefcase" size={16} color={C.secondary} />
-               </View>
-               <Text style={[styles.statValue, { color: C.secondary }, isMobile && { fontSize: 20 }]}>ETB {etb(s.netPosition || s.wallet_balance || 0)}</Text>
-               <Text style={styles.statSub}>Real-time liquidity mirror</Text>
-            </View>
-          )}
-          <View style={[styles.statCard, glass, { minWidth: isMobile ? '100%' : (isTablet ? 140 : 180), flex: 1, padding: isMobile ? 16 : 24 }]}>
+          {/* Card 1: Deposits */}
+          <View style={[styles.statCard, glass, { minWidth: isMobile ? '48%' : 180, flex: 1, padding: isMobile ? 16 : 24 }]}>
             <View style={styles.statTop}>
-              <Text style={[styles.statLabel, isMobile && { fontSize: 9, letterSpacing: 1 }]} numberOfLines={1}>{t('total_volume')}</Text>
-              <Ionicons name="bar-chart" size={16} color="#7c4dff" />
+              <Text style={[styles.statLabel, isMobile && { fontSize: 9, letterSpacing: 1 }]} numberOfLines={1}>Total Deposit</Text>
+              <Ionicons name="arrow-down-circle" size={16} color={C.secondary} />
             </View>
-            <Text style={[styles.statValue, isMobile && { fontSize: 20 }]}>ETB {etb(totalVol)}</Text>
+            <Text style={[styles.statValue, { color: C.secondary }, isMobile && { fontSize: 18 }]} numberOfLines={1}>ETB {etb(s.totalDeposits || 0)}</Text>
+            <Text style={[styles.statSub, isMobile && { fontSize: 9 }]} numberOfLines={1}>Today: ETB {etb(s.volume24h || 0)}</Text>
           </View>
-          <View style={[styles.statCard, glass, { minWidth: isMobile ? '48%' : (isTablet ? 140 : 180), flex: 1, padding: isMobile ? 16 : 24 }]}>
+
+          {/* Card 2: Withdrawals */}
+          <View style={[styles.statCard, glass, { minWidth: isMobile ? '48%' : 180, flex: 1, padding: isMobile ? 16 : 24 }]}>
             <View style={styles.statTop}>
-              <Text style={[styles.statLabel, isMobile && { fontSize: 9, letterSpacing: 1 }]} numberOfLines={1}>Pending Approval</Text>
+              <Text style={[styles.statLabel, isMobile && { fontSize: 9, letterSpacing: 1 }]} numberOfLines={1}>Total Withdrawal</Text>
+              <Ionicons name="arrow-up-circle" size={16} color="#a68cff" />
+            </View>
+            <Text style={[styles.statValue, { color: '#a68cff' }, isMobile && { fontSize: 18 }]} numberOfLines={1}>ETB {etb(s.totalWithdrawals || 0)}</Text>
+            <Text style={[styles.statSub, isMobile && { fontSize: 9 }]} numberOfLines={1}>Today: —</Text>
+          </View>
+
+          {/* Card 3: Pending */}
+          <View style={[styles.statCard, glass, { minWidth: isMobile ? '48%' : 180, flex: 1, padding: isMobile ? 16 : 24 }]}>
+            <View style={styles.statTop}>
+              <Text style={[styles.statLabel, isMobile && { fontSize: 9, letterSpacing: 1 }]} numberOfLines={1}>Admin Pending</Text>
               <Ionicons name="hourglass" size={16} color="#ffabf3" />
             </View>
-            <Text style={[styles.statValue, { color: '#ff51fa' }, isMobile && { fontSize: 20 }]}>{pendingCount || s.pendingWithdrawalAmount || 0}</Text>
+            <Text style={[styles.statValue, { color: '#ff51fa' }, isMobile && { fontSize: 18 }]} numberOfLines={1}>{pendingCount}</Text>
+            <Text style={[styles.statSub, isMobile && { fontSize: 9 }]} numberOfLines={1}>Total Pending: {s.pendingWithdrawalAmount || 0}</Text>
           </View>
-          <View style={[styles.statCard, glass, { minWidth: isMobile ? '48%' : (isTablet ? 140 : 180), flex: 1, padding: isMobile ? 16 : 24 }]}>
+
+          {/* Card 4: Failed */}
+          <View style={[styles.statCard, glass, { minWidth: isMobile ? '48%' : 180, flex: 1, padding: isMobile ? 16 : 24 }]}>
             <View style={styles.statTop}>
-              <Text style={[styles.statLabel, isMobile && { fontSize: 9, letterSpacing: 1 }]} numberOfLines={1}>Top Method</Text>
-              <Ionicons name="wallet" size={16} color={C.primary} />
+              <Text style={[styles.statLabel, isMobile && { fontSize: 9, letterSpacing: 1 }]} numberOfLines={1}>Failed Withdrawal</Text>
+              <Ionicons name="warning" size={16} color={C.error} />
             </View>
-            <Text style={[styles.statValue, isMobile && { fontSize: 20 }]} numberOfLines={1}>Chapa</Text>
-            <Text style={[styles.statSub, isMobile && { fontSize: 8 }]} numberOfLines={2}>PRIMARY GW</Text>
-          </View>
-          <View style={[styles.statCard, glass, { minWidth: isMobile ? '100%' : (isTablet ? 140 : 180), flex: 1, padding: isMobile ? 16 : 24 }]}>
-            <View style={styles.statTop}>
-              <Text style={[styles.statLabel, isMobile && { fontSize: 9, letterSpacing: 1 }]} numberOfLines={1}>Success Rate</Text>
-              <Ionicons name="checkmark-circle" size={16} color={C.secondary} />
-            </View>
-            <Text style={[styles.statValue, { color: C.secondary }, isMobile && { fontSize: 20 }]}>{sRate.toFixed(1)}%</Text>
+            <Text style={[styles.statValue, { color: C.error }, isMobile && { fontSize: 18 }]} numberOfLines={1}>{s.failedWithdrawals || 0}</Text>
+            <Text style={[styles.statSub, isMobile && { fontSize: 9 }]} numberOfLines={1}>Failed Deposit: 0</Text>
           </View>
         </View>
 
@@ -251,7 +253,7 @@ export default function AdminLedger() {
                     <select
                       value={amountRange}
                       onChange={(e: any) => setAmountRange(e.target.value as any)}
-                      style={{ background: 'transparent', border: 'none', color: 'rgba(229,227,255,0.8)', fontSize: 12, fontWeight: 700, outline: 'none', cursor: 'pointer' as any, flex: 1 } as any}
+                      style={{ background: 'transparent', border: 'none', color: 'rgba(229,227,255,0.8)', fontSize: 12, fontWeight: 700, outlineStyle: 'none', cursor: 'pointer' as any, flex: 1 } as any}
                     >
                       <option value="all" style={{ background: '#111128' }}>All Ranges</option>
                       <option value="0-100" style={{ background: '#111128' }}>0-100 ETB</option>
@@ -405,7 +407,7 @@ export default function AdminLedger() {
       {reviewModalVisible && (
         <Modal transparent animationType="fade" visible={reviewModalVisible}>
           <View style={styles.modalOverlay}>
-            <Pressable style={StyleSheet.absoluteFill} onPress={() => setReviewModalVisible(false)} />
+            <Pressable style={StyleSheet.absoluteFill} onPress={() => { setReviewModalVisible(false); setConfirmAction(null); }} />
             <View style={[styles.receiptModal, { maxWidth: 500 }]}>
               <View style={styles.receiptHeader}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -414,7 +416,7 @@ export default function AdminLedger() {
                   </View>
                   <Text style={styles.receiptTitle}>Manual Review</Text>
                 </View>
-                <TouchableOpacity onPress={() => setReviewModalVisible(false)}>
+                <TouchableOpacity onPress={() => { setReviewModalVisible(false); setConfirmAction(null); }}>
                   <Ionicons name="close" size={24} color="rgba(255,255,255,0.5)" />
                 </TouchableOpacity>
               </View>
@@ -478,14 +480,73 @@ export default function AdminLedger() {
                   <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '800', textTransform: 'uppercase', marginBottom: 16 }}>Execution Commands</Text>
                   
                   {reviewData.transaction.status?.toUpperCase() === 'PENDING' || reviewData.transaction.status?.toUpperCase() === 'PENDING_MANUAL' ? (
-                    <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
-                      <TouchableOpacity onPress={() => execTxAction('approve', reviewData.transaction.id, reviewData.user.id)} style={{ flex: 1, backgroundColor: 'rgba(52,211,153,0.1)', paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: '#34d399', alignItems: 'center' }}>
-                        <Text style={{ color: '#34d399', fontSize: 13, fontWeight: '900' }}>Approve Payout</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity onPress={() => execTxAction('reject', reviewData.transaction.id, reviewData.user.id)} style={{ flex: 1, backgroundColor: 'rgba(251,191,36,0.1)', paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: '#fbbf24', alignItems: 'center' }}>
-                        <Text style={{ color: '#fbbf24', fontSize: 13, fontWeight: '900' }}>Reject & Refund</Text>
-                      </TouchableOpacity>
-                    </View>
+                    <>
+                      {/* Step 1: Show action buttons */}
+                      {!confirmAction && (
+                        <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
+                          <TouchableOpacity onPress={() => setConfirmAction('approve')} style={{ flex: 1, backgroundColor: 'rgba(52,211,153,0.1)', paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: '#34d399', alignItems: 'center' }}>
+                            <Text style={{ color: '#34d399', fontSize: 13, fontWeight: '900' }}>Approve Payout</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity onPress={() => setConfirmAction('reject')} style={{ flex: 1, backgroundColor: 'rgba(251,191,36,0.1)', paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: '#fbbf24', alignItems: 'center' }}>
+                            <Text style={{ color: '#fbbf24', fontSize: 13, fontWeight: '900' }}>Reject & Refund</Text>
+                          </TouchableOpacity>
+                        </View>
+                      )}
+
+                      {/* Step 2: APPROVE confirmation */}
+                      {confirmAction === 'approve' && (
+                        <View style={{ backgroundColor: 'rgba(52,211,153,0.06)', borderRadius: 16, padding: 20, borderWidth: 1, borderColor: 'rgba(52,211,153,0.2)', marginBottom: 12 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                            <Ionicons name="warning" size={20} color="#fbbf24" />
+                            <Text style={{ color: '#fbbf24', fontSize: 14, fontWeight: '900' }}>IMPORTANT: This does NOT send money automatically.</Text>
+                          </View>
+                          <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, lineHeight: 18, marginBottom: 12 }}>
+                            Clicking "Confirm" will mark this withdrawal as COMPLETED in the system. The user will see "Success" on their screen.
+                          </Text>
+                          <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800', marginBottom: 8 }}>You MUST manually transfer the money FIRST:</Text>
+                          <View style={{ backgroundColor: 'rgba(0,0,0,0.3)', padding: 12, borderRadius: 10, marginBottom: 12, gap: 4 }}>
+                            <Text style={{ color: '#34d399', fontSize: 14, fontWeight: '800' }}>Amount: ETB {etb(reviewData.transaction.amount)}</Text>
+                            <Text style={{ color: '#fff', fontSize: 13 }}>Phone: {reviewData.user.number || 'N/A'}</Text>
+                            <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>Method: {reviewData.transaction.provider || 'Chapa'}</Text>
+                          </View>
+                          <Text style={{ color: 'rgba(253,111,133,0.8)', fontSize: 11, marginBottom: 16 }}>
+                            ⚠️ Only click "Confirm" AFTER you have already sent the money from your banking app.
+                          </Text>
+                          <View style={{ flexDirection: 'row', gap: 12 }}>
+                            <TouchableOpacity onPress={() => execTxAction('approve', reviewData.transaction.id, reviewData.user.id)} style={{ flex: 1, backgroundColor: '#34d399', paddingVertical: 14, borderRadius: 12, alignItems: 'center' }}>
+                              <Text style={{ color: '#000', fontSize: 13, fontWeight: '900' }}>✅ I Already Sent The Money</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={() => setConfirmAction(null)} style={{ flex: 0.5, backgroundColor: 'rgba(255,255,255,0.05)', paddingVertical: 14, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+                              <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: '800' }}>Cancel</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      )}
+
+                      {/* Step 2: REJECT confirmation */}
+                      {confirmAction === 'reject' && (
+                        <View style={{ backgroundColor: 'rgba(253,111,133,0.06)', borderRadius: 16, padding: 20, borderWidth: 1, borderColor: 'rgba(253,111,133,0.2)', marginBottom: 12 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                            <Ionicons name="return-down-back" size={20} color="#fbbf24" />
+                            <Text style={{ color: '#fbbf24', fontSize: 14, fontWeight: '900' }}>Reject & Refund User</Text>
+                          </View>
+                          <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, lineHeight: 18, marginBottom: 12 }}>
+                            This will mark the withdrawal as REJECTED and automatically refund <Text style={{ color: '#34d399', fontWeight: '900' }}>ETB {etb(reviewData.transaction.amount)}</Text> back to the user's wallet.
+                          </Text>
+                          <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, marginBottom: 16 }}>
+                            The user will see their balance restored. No money needs to be sent manually.
+                          </Text>
+                          <View style={{ flexDirection: 'row', gap: 12 }}>
+                            <TouchableOpacity onPress={() => execTxAction('reject', reviewData.transaction.id, reviewData.user.id)} style={{ flex: 1, backgroundColor: C.error, paddingVertical: 14, borderRadius: 12, alignItems: 'center' }}>
+                              <Text style={{ color: '#fff', fontSize: 13, fontWeight: '900' }}>🔴 Reject & Refund User</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={() => setConfirmAction(null)} style={{ flex: 0.5, backgroundColor: 'rgba(255,255,255,0.05)', paddingVertical: 14, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+                              <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: '800' }}>Cancel</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      )}
+                    </>
                   ) : null}
 
                   <View style={{ flexDirection: 'row', gap: 12 }}>
@@ -529,37 +590,37 @@ const styles = StyleSheet.create({
   statUnit: { color: 'rgba(168,167,212,0.5)', fontSize: 13, fontWeight: '600' },
   statSub: { color: 'rgba(168,167,212,0.5)', fontSize: 10, marginTop: 4, letterSpacing: 1 },
 
-  tableCard: { flex: 1, marginBottom: 0 },
+  tableCard: { flex: 1, marginBottom: 0, backgroundColor: 'transparent' },
   tableHead: { 
-    paddingHorizontal: 32, paddingVertical: 24, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#0c0c1f',
+    paddingHorizontal: 24, paddingVertical: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(23,23,50,0.6)', borderTopLeftRadius: 20, borderTopRightRadius: 20, borderWidth: 1, borderBottomWidth: 0, borderColor: 'rgba(166,140,255,0.2)'
   },
-  tableTitle: { color: '#e5e3ff', fontSize: 20, fontWeight: '800' },
-  searchBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#111128', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(68,68,107,0.2)', width: 220 },
-  searchInput: { flex: 1, color: '#e5e3ff', fontSize: 13, height: 20 },
-  filterChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: 'rgba(166,140,255,0.1)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(166,140,255,0.3)' },
+  tableTitle: { color: '#fff', fontSize: 20, fontWeight: '900', letterSpacing: 0.5 },
+  searchBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(0,0,0,0.3)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(166,140,255,0.3)', width: 220, shadowColor: C.primary, shadowOpacity: 0.2, shadowRadius: 10 },
+  searchInput: { flex: 1, color: '#fff', fontSize: 13, height: 20 },
+  filterChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 16, backgroundColor: 'rgba(166,140,255,0.1)', borderRadius: 20, borderWidth: 1, borderColor: 'rgba(166,140,255,0.3)' },
   filterChipText: { color: C.primary, fontSize: 13, fontWeight: '800' },
   colRow: { 
     flexDirection: 'row', paddingHorizontal: 24, paddingVertical: 14, alignItems: 'center',
-    backgroundColor: '#111128', borderBottomWidth: 1, borderBottomColor: 'rgba(68,68,107,0.2)'
+    backgroundColor: 'transparent'
   },
-  colHead: { color: 'rgba(168,167,212,0.7)', fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1.5, flex: 1 },
-  txRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(68,68,107,0.05)' },
+  colHead: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1.5, flex: 1 },
+  txRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, backgroundColor: 'rgba(23,23,50,0.5)', borderRadius: 16, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(166,140,255,0.1)' },
   txUser: { flex: 2, flexDirection: 'row', alignItems: 'center', gap: 10, minWidth: 0, overflow: 'hidden' },
-  txAvatar: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  txAvatarText: { fontSize: 11, fontWeight: '800' },
-  txName: { color: '#e5e3ff', fontSize: 14, fontWeight: '700' },
-  txId: { color: 'rgba(168,167,212,0.6)', fontSize: 11 },
-  txAmount: { color: '#34d399', fontSize: 15, fontWeight: '900' },
-  methodPill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  methodText: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1 },
+  txAvatar: { width: 34, height: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center', flexShrink: 0, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  txAvatarText: { fontSize: 12, fontWeight: '900' },
+  txName: { color: '#fff', fontSize: 13, fontWeight: '800', letterSpacing: 0.5 },
+  txId: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '600' },
+  txAmount: { color: '#34d399', fontSize: 16, fontWeight: '900' },
+  methodPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  methodText: { fontSize: 10, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1 },
   txTimestamp: { flex: 1.2 },
-  txDate: { color: '#e5e3ff', fontSize: 13, fontWeight: '600' },
-  txTime: { color: 'rgba(168,167,212,0.6)', fontSize: 11, marginTop: 2 },
-  statusPending: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(251,191,36,0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(251,191,36,0.3)' },
+  txDate: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  txTime: { color: C.onSurfaceVariant, fontSize: 11, marginTop: 2, fontWeight: '600' },
+  statusPending: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(251,191,36,0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(251,191,36,0.3)', shadowColor: '#fbbf24', shadowOpacity: 0.5, shadowRadius: 10 },
   statusDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#fbbf24', flexShrink: 0 },
-  statusSuccess: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(52,211,153,0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(52,211,153,0.3)' },
-  statusFailed: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(248,113,113,0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(248,113,113,0.3)' },
-  statusText: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
+  statusSuccess: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(52,211,153,0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(52,211,153,0.3)', shadowColor: '#34d399', shadowOpacity: 0.5, shadowRadius: 10 },
+  statusFailed: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(248,113,113,0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(248,113,113,0.3)', shadowColor: '#f87171', shadowOpacity: 0.5, shadowRadius: 10 },
+  statusText: { fontSize: 10, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.5 },
   txActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 6, alignItems: 'center' },
   approveBtn: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(0,218,243,0.4)' },
   approveTxt: { color: C.secondary, fontSize: 12, fontWeight: '800' },
@@ -589,15 +650,15 @@ const styles = StyleSheet.create({
   printBtnTxt: { color: '#fff', fontSize: 14, fontWeight: '800' },
   paginationRow: { 
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', 
-    padding: 24, borderTopWidth: 1, borderTopColor: 'rgba(68,68,107,0.1)',
-    backgroundColor: 'rgba(12,12,31,0.5)'
+    padding: 20, marginTop: 8, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(166,140,255,0.2)',
+    backgroundColor: 'rgba(23,23,50,0.6)'
   },
-  paginationInfo: { color: 'rgba(168,167,212,0.6)', fontSize: 13, fontWeight: '600' },
+  paginationInfo: { color: C.onSurfaceVariant, fontSize: 12, fontWeight: '700' },
   pageBtn: { 
     flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(166,140,255,0.1)', 
-    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(166,140,255,0.2)' 
+    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(166,140,255,0.3)' 
   },
-  pageBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
-  reviewBtn: { paddingHorizontal: 14, paddingVertical: 8, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 10, borderWidth: 1, borderColor: C.outlineVariant },
-  reviewBtnTxt: { color: '#e5e3ff', fontSize: 11, fontWeight: '800' },
+  pageBtnText: { color: '#fff', fontSize: 13, fontWeight: '800' },
+  reviewBtn: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: 'rgba(166,140,255,0.1)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(166,140,255,0.3)' },
+  reviewBtnTxt: { color: '#fff', fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
 });

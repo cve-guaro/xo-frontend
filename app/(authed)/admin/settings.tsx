@@ -1012,7 +1012,7 @@ const styles = StyleSheet.create({
   actionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 20 },
   inputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(17,17,40,0.9)', paddingHorizontal: 16, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(68,68,107,0.6)' },
   currencyPrefix: { color: '#a8a7d4', fontSize: 14, fontWeight: '800', marginRight: 8 },
-  inputField: { width: 90, height: 48, color: '#e5e3ff', fontSize: 20, fontWeight: '900', ...Platform.select({ web: { outline: 'none' as any } }) },
+  inputField: { width: 90, height: 48, color: '#e5e3ff', fontSize: 20, fontWeight: '900', ...Platform.select({ web: { outlineStyle: 'none' as any } }) },
 
   logContainer: { marginTop: 24, padding: 20, backgroundColor: 'rgba(0,0,30,0.4)', borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.03)' },
   logHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },

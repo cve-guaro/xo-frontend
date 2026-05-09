@@ -120,7 +120,7 @@ export default function AdminLogs() {
       }
     } catch (e) { console.log('[admin/logs]', e); }
     finally { setLoading(false); }
-  }, [token]);
+  }, [token, currentPage, amountRange]);
 
   useEffect(() => { fetchLogs(); }, [fetchLogs, currentPage, amountRange]);
 
@@ -199,7 +199,19 @@ export default function AdminLogs() {
               <Ionicons name="filter" size={18} color={resultFilter !== 'All' ? '#fff' : C.secondary} />
               <Text style={[styles.filterTxt, resultFilter !== 'All' && { color: '#fff' }]}>{t('filter')}: {t(resultFilter as any)}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.exportBtn}>
+            <TouchableOpacity style={styles.exportBtn} onPress={() => {
+              if (Platform.OS !== 'web' || !paginatedLogs.length) return;
+              const header = 'Match ID,Player X,Player O,Stake (ETB),Result,Date\n';
+              const rows = paginatedLogs.map((g: GameLog) => {
+                const winner = !g.winner_id ? 'Draw' : g.winner_id === g.player_x_id ? 'X Won' : 'O Won';
+                return `${g.id},${g.player_x_name},${g.player_o_name},${etb(g.bet_amount)},${winner},${g.created_at || ''}`;
+              }).join('\n');
+              const blob = new Blob([header + rows], { type: 'text/csv' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url; a.download = `xoet_game_logs_${new Date().toISOString().slice(0,10)}.csv`;
+              a.click(); URL.revokeObjectURL(url);
+            }}>
               <Ionicons name="download-outline" size={18} color="#fff" />
               <Text style={styles.exportTxt}>{t('export_csv')}</Text>
             </TouchableOpacity>
@@ -210,7 +222,7 @@ export default function AdminLogs() {
                   <select
                     value={amountRange}
                     onChange={(e: any) => setAmountRange(e.target.value as any)}
-                    style={{ background: 'transparent', border: 'none', color: 'rgba(229,227,255,0.8)', fontSize: 12, fontWeight: 700, outline: 'none', cursor: 'pointer' as any, flex: 1 } as any}
+                    style={{ background: 'transparent', border: 'none', color: 'rgba(229,227,255,0.8)', fontSize: 12, fontWeight: 700, outlineStyle: 'none', cursor: 'pointer' as any, flex: 1 } as any}
                   >
                     <option value="all" style={{ background: '#111128' }}>All Stakes</option>
                     <option value="0-100" style={{ background: '#111128' }}>0-100 ETB</option>
@@ -421,35 +433,35 @@ const styles = StyleSheet.create({
   statVal: { color: '#e5e3ff', fontSize: 24, fontWeight: '900', marginTop: 12 },
   statSub: { color: 'rgba(0,218,243,0.5)', fontSize: 10, marginTop: 4 },
   healthDot: { width: 10, height: 10, borderRadius: 5 },
-  tableWrap: { flex: 1, marginHorizontal: 24 },
+  tableWrap: { flex: 1, marginHorizontal: 24, backgroundColor: 'transparent' },
   tableTopBar: { 
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 24, backgroundColor: '#0c0c1f',
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 24, backgroundColor: 'rgba(23,23,50,0.6)', borderTopLeftRadius: 20, borderTopRightRadius: 20, borderWidth: 1, borderBottomWidth: 0, borderColor: 'rgba(166,140,255,0.2)'
   },
-  tableTitle: { color: '#e5e3ff', fontSize: 18, fontWeight: '800' },
+  tableTitle: { color: '#fff', fontSize: 20, fontWeight: '900', letterSpacing: 0.5 },
   liveIndicator: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.secondary },
-  liveTxt: { color: 'rgba(168,167,212,0.5)', fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1 },
-  searchBox: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#111128', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(68,68,107,0.2)', width: 260 },
-  searchInput: { flex: 1, color: '#fff', fontSize: 13 },
+  liveTxt: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1 },
+  searchBox: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: 'rgba(0,0,0,0.3)', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(166,140,255,0.3)', width: 260, shadowColor: C.primary, shadowOpacity: 0.2, shadowRadius: 10 },
+  searchInput: { flex: 1, color: '#fff', fontSize: 13, fontWeight: '600' },
   colRow: { 
     flexDirection: 'row', paddingHorizontal: 24, paddingVertical: 14, alignItems: 'center',
-    backgroundColor: '#111128', borderBottomWidth: 1, borderBottomColor: 'rgba(68,68,107,0.2)'
+    backgroundColor: 'transparent'
   },
-  colHead: { color: 'rgba(168,167,212,0.6)', fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1.5 },
-  tableRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 20, borderBottomWidth: 1, borderBottomColor: 'rgba(68,68,107,0.08)' },
-  matchId: { color: C.primary, fontSize: 11, fontWeight: '600' },
-  playerName: { color: '#e5e3ff', fontSize: 12, fontWeight: '600' },
+  colHead: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1.5 },
+  tableRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, backgroundColor: 'rgba(23,23,50,0.5)', borderRadius: 16, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(166,140,255,0.1)' },
+  matchId: { color: C.primary, fontSize: 11, fontWeight: '700' },
+  playerName: { color: '#fff', fontSize: 13, fontWeight: '800', letterSpacing: 0.5 },
   avatarStack: { flexDirection: 'row' },
-  stackAvatar: { width: 28, height: 28, borderRadius: 14, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
-  stackAvatarTxt: { fontSize: 9, fontWeight: '800' },
-  stakeVal: { color: '#00daf3', fontSize: 13, fontWeight: '800' },
-  resultPill: { fontSize: 10, fontWeight: '800', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1, textAlign: 'center' },
-  timeAgo: { color: '#a8a7d4', fontSize: 11 },
-  viewBtn: { padding: 6 },
+  stackAvatar: { width: 34, height: 34, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  stackAvatarTxt: { fontSize: 12, fontWeight: '900' },
+  stakeVal: { color: '#00daf3', fontSize: 15, fontWeight: '900' },
+  resultPill: { fontSize: 10, fontWeight: '900', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 1 },
+  timeAgo: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  viewBtn: { padding: 8, backgroundColor: 'rgba(166,140,255,0.1)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(166,140,255,0.3)' },
   emptyText: { color: '#a8a7d4', textAlign: 'center', marginVertical: 40, fontSize: 14 },
-  pagination: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 24, backgroundColor: 'rgba(17,17,40,0.3)' },
-  paginationText: { color: 'rgba(168,167,212,0.6)', fontSize: 12 },
+  pagination: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, marginTop: 8, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(166,140,255,0.2)', backgroundColor: 'rgba(23,23,50,0.6)' },
+  paginationText: { color: C.onSurfaceVariant, fontSize: 12, fontWeight: '700' },
   pageNav: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  pageNavBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#1c1c3c', alignItems: 'center', justifyContent: 'center' },
+  pageNavBtn: { width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(166,140,255,0.1)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(166,140,255,0.3)' },
   pageIndicatorText: { color: '#fff', fontSize: 13, fontWeight: '800' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(12,12,31,0.9)', alignItems: 'center', justifyContent: 'center', padding: 16 },
   modalBox: { width: '100%', maxWidth: 600, height: 600, borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },

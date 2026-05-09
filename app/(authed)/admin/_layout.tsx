@@ -140,6 +140,12 @@ export default function AdminLayout() {
 
   const [stats, setStats] = useState<any>(null);
 
+  const isMaintenanceAdmin = user?.role === 'superadmin' || user?.role === 'maintenance' || user?.role === 'maintenance_admin';
+  const dynamicNavItems = [...NAV_ITEMS];
+  if (isMaintenanceAdmin) {
+    dynamicNavItems.splice(6, 0, { icon: 'construct', label: 'Maintenance', path: '/admin/maintenance' });
+  }
+
   // ─── 2FA STATE ────────────────────────────────────────────────
   const [adminUnlocked, setAdminUnlocked] = useState(() => {
     if (Platform.OS === 'web') {
@@ -207,8 +213,8 @@ export default function AdminLayout() {
     if (token) fetchStats();
   }, [token, pathname]);
 
-  const primaryNav = NAV_ITEMS.slice(0, 4);   // Overview, Users, Ledger, Logs
-  const secondaryNav = NAV_ITEMS.slice(4); // Audit, Settings, Home
+  const primaryNav = dynamicNavItems.slice(0, 4);   // Overview, Users, Ledger, Logs
+  const secondaryNav = dynamicNavItems.slice(4); // Promos, Audit, Settings, [Maintenance], Home
 
   // ─── ADMIN 2FA GATE ───────────────────────────────────────────
   if (!adminUnlocked) {
@@ -364,8 +370,9 @@ export default function AdminLayout() {
   return (
     <View style={s.root}>
       <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-        <View style={[s.glow, { top: -100, left: -100, backgroundColor: 'rgba(124,77,255,0.06)' }]} />
-        <View style={[s.glow, { bottom: -150, right: -100, backgroundColor: 'rgba(0,218,243,0.05)' }]} />
+        <View style={[s.glow, { top: -200, left: -150, backgroundColor: 'rgba(124,77,255,0.12)' }]} />
+        <View style={[s.glow, { bottom: -100, right: -100, backgroundColor: 'rgba(0,218,243,0.08)' }]} />
+        <View style={[s.glow, { top: '30%', right: -200, backgroundColor: 'rgba(253,111,133,0.05)' }]} />
       </View>
 
       <View style={[s.sidebar, { width: sidebarW }]}>
@@ -388,7 +395,7 @@ export default function AdminLayout() {
         )}
 
         <View style={s.navList}>
-          {NAV_ITEMS.map(item => (
+          {dynamicNavItems.map(item => (
             <SideNavItem key={item.path} {...item} currentPath={pathname || ''} collapsed={collapsed} />
           ))}
         </View>
@@ -509,15 +516,15 @@ const s = StyleSheet.create({
   logoImg: { width: 28, height: 28, borderRadius: 8, borderWidth: 1, borderColor: C.primaryContainer, flexShrink: 0 },
   logoText: { color: C.primaryContainer, fontSize: 16, fontWeight: '900', letterSpacing: -0.5, flex: 1 },
   sidebarRole: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '500', paddingHorizontal: 20, marginTop: 2, marginBottom: 20, letterSpacing: 0.5 },
-  navList: { flex: 1, marginTop: 8 },
-  navItem: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 20, paddingVertical: 12, marginHorizontal: 12, borderRadius: 12, marginBottom: 4 },
+  navList: { flex: 1, marginTop: 12 },
+  navItem: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 20, paddingVertical: 12, marginHorizontal: 12, borderRadius: 16, marginBottom: 6 },
   navItemCollapsed: { justifyContent: 'center', paddingHorizontal: 0, marginHorizontal: 8 },
-  navItemActive: { backgroundColor: 'rgba(166,140,255,0.08)' },
-  navIconWrap: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  navIconWrapActive: { backgroundColor: C.primary },
+  navItemActive: { backgroundColor: 'rgba(166,140,255,0.12)', borderWidth: 1, borderColor: 'rgba(166,140,255,0.3)', shadowColor: C.primary, shadowOpacity: 0.3, shadowRadius: 12, elevation: 4 },
+  navIconWrap: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.03)' },
+  navIconWrapActive: { backgroundColor: C.primary, shadowColor: C.primary, shadowOpacity: 0.6, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 6 },
   navLabel: { color: C.onSurfaceVariant, fontSize: 13, fontWeight: '600', flex: 1 },
-  navLabelActive: { color: C.onSurface, fontWeight: '800' },
-  activeIndicator: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.primary },
+  navLabelActive: { color: '#fff', fontWeight: '900', letterSpacing: 0.5 },
+  activeIndicator: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.secondary, shadowColor: C.secondary, shadowOpacity: 0.8, shadowRadius: 6 },
   sidebarFooter: { paddingHorizontal: 16, paddingBottom: 24, borderTopWidth: 1, borderTopColor: 'rgba(68,68,107,0.15)', paddingTop: 20, gap: 8 },
   emergencyBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: 'rgba(253,111,133,0.05)', borderWidth: 1, borderColor: 'rgba(253,111,133,0.2)', borderRadius: 12, paddingVertical: 12, marginBottom: 4 },
   emergencyText: { color: C.error, fontSize: 11, fontWeight: '900', letterSpacing: 1 },
@@ -563,7 +570,7 @@ const s = StyleSheet.create({
   mobileTopbarTitle: { color: C.primaryContainer, fontSize: 15, fontWeight: '900', letterSpacing: -0.5 },
   userChipSmall: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(23,23,50,0.6)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20, borderWidth: 1, borderColor: C.outlineVariant },
   userChipName: { color: C.onSurface, fontSize: 11, fontWeight: '700', maxWidth: 70 },
-  bottomBar: { flexDirection: 'row', backgroundColor: 'rgba(11,11,30,0.98)', borderTopWidth: 1, borderTopColor: 'rgba(68,68,107,0.25)' },
-  bottomTabItem: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 8, gap: 3 },
-  bottomTabLabel: { color: C.onSurfaceVariant, fontSize: 9, fontWeight: '700', textAlign: 'center' },
+  bottomBar: { flexDirection: 'row', backgroundColor: 'rgba(11,11,30,0.95)', borderTopWidth: 1, borderTopColor: 'rgba(166,140,255,0.15)', shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 20, elevation: 20 },
+  bottomTabItem: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 10, gap: 4 },
+  bottomTabLabel: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '700', textAlign: 'center' },
 });
