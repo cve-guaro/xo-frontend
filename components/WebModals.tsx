@@ -281,7 +281,7 @@ export const WebDepositModal = ({ visible, onClose, user, token, onSuccess, lang
       {/* ─── BEFORE YOU PAY WARNING ─── */}
       {showWarning && (
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center', zIndex: 99999 }}>
-          <View style={{ backgroundColor: '#0c1020', borderRadius: 24, padding: 24, width: '90%', maxWidth: 400, borderWidth: 1, borderColor: 'rgba(255,215,0,0.15)' }}>
+          <View style={{ backgroundColor: '#0c1020', borderRadius: 24, padding: 20, width: '90%', maxWidth: 400, maxHeight: '90%', borderWidth: 1, borderColor: 'rgba(255,215,0,0.15)' }}>
             {/* Warning Icon */}
             <View style={{ alignItems: 'center', marginBottom: 16 }}>
               <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(255,215,0,0.12)', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'rgba(255,215,0,0.25)' }}>
@@ -297,27 +297,29 @@ export const WebDepositModal = ({ visible, onClose, user, token, onSuccess, lang
             <Text style={{ color: '#fff', fontSize: 20, fontWeight: '900', textAlign: 'center', marginBottom: 4 }}>
               {isEN ? 'Before You Pay' : 'ከመክፈልዎ በፊት'}
             </Text>
-            <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, textAlign: 'center', marginBottom: 20 }}>
+            <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, textAlign: 'center', marginBottom: 12 }}>
               {isEN ? 'Please read carefully to avoid payment issues' : 'የክፍያ ችግሮችን ለማስወገድ በጥንቃቄ ያንብቡ'}
             </Text>
 
             {/* Rules */}
-            {[
-              { icon: 'key', color: '#ff6b6b', title: isEN ? 'One Chance for PIN' : 'የ PIN አንድ ዕድል', desc: isEN ? 'You get ONE attempt to enter your Telebirr/CBE PIN correctly. If you enter the wrong PIN, the payment will fail instantly.' : 'የ Telebirr/CBE PIN ን በትክክል ለማስገባት አንድ ዕድል ብቻ ይኖርዎታል።' },
-              { icon: 'card', color: '#ffa726', title: isEN ? 'Check Your Account' : 'መለያዎን ያረጋግጡ', desc: isEN ? 'Make sure your Telebirr or CBE account is active and has enough balance before continuing.' : 'Telebirr ወይም CBE መለያዎ ንቁ መሆኑን እና በቂ ሂሳብ እንዳለው ያረጋግጡ።' },
-              { icon: 'refresh-circle', color: '#4dd0e1', title: isEN ? 'Failed? Start Fresh' : 'ካልተሳካ? እንደገና ይጀምሩ', desc: isEN ? 'If payment fails, do not retry on the same page. Come back here and start a new deposit.' : 'ክፍያ ካልተሳካ በዚያው ገጽ ላይ እንደገና አይሞክሩ። ይመለሱና አዲስ ያስገቡ።' },
-              { icon: 'time', color: '#ab47bc', title: isEN ? "Don't Close the Browser" : 'ድረ-ገጹን አይዝጉ', desc: isEN ? 'Stay on the page while payment is processing. Closing the browser may cause the payment to hang.' : 'ክፍያ በሚሰራበት ጊዜ በገጹ ላይ ይቆዩ።' },
-            ].map((rule, i) => (
-              <View key={i} style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)' }}>
-                <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: `${rule.color}15`, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                  <Ionicons name={rule.icon as any} size={18} color={rule.color} />
+            <ScrollView style={{ flexShrink: 1, marginBottom: 8 }} showsVerticalScrollIndicator={false}>
+              {[
+                { icon: 'key', color: '#ff6b6b', title: isEN ? 'One Chance for PIN' : 'የ PIN አንድ ዕድል', desc: isEN ? 'You get ONE attempt to enter your Telebirr/CBE PIN correctly. If you enter the wrong PIN, the payment will fail instantly.' : 'የ Telebirr/CBE PIN ን በትክክል ለማስገባት አንድ ዕድል ብቻ ይኖርዎታል።' },
+                { icon: 'card', color: '#ffa726', title: isEN ? 'Check Your Account' : 'መለያዎን ያረጋግጡ', desc: isEN ? 'Make sure your Telebirr or CBE account is active and has enough balance before continuing.' : 'Telebirr ወይም CBE መለያዎ ንቁ መሆኑን እና በቂ ሂሳብ እንዳለው ያረጋግጡ።' },
+                { icon: 'refresh-circle', color: '#4dd0e1', title: isEN ? 'Failed? Start Fresh' : 'ካልተሳካ? እንደገና ይጀምሩ', desc: isEN ? 'If payment fails, do not retry on the same page. Come back here and start a new deposit.' : 'ክፍያ ካልተሳካ በዚያው ገጽ ላይ እንደገና አይሞክሩ። ይመለሱና አዲስ ያስገቡ።' },
+                { icon: 'time', color: '#ab47bc', title: isEN ? "Don't Close the Browser" : 'ድረ-ገጹን አይዝጉ', desc: isEN ? 'Stay on the page while payment is processing. Closing the browser may cause the payment to hang.' : 'ክፍያ በሚሰራበት ጊዜ በገጹ ላይ ይቆዩ።' },
+              ].map((rule, i) => (
+                <View key={i} style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)' }}>
+                  <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: `${rule.color}15`, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                    <Ionicons name={rule.icon as any} size={18} color={rule.color} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800', marginBottom: 2 }}>{rule.title}</Text>
+                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, lineHeight: 16 }}>{rule.desc}</Text>
+                  </View>
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800', marginBottom: 2 }}>{rule.title}</Text>
-                  <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, lineHeight: 16 }}>{rule.desc}</Text>
-                </View>
-              </View>
-            ))}
+              ))}
+            </ScrollView>
 
             {/* Amount Display */}
             <View style={{ backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 12, padding: 12, marginTop: 8, marginBottom: 16, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
