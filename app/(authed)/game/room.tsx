@@ -1158,7 +1158,7 @@ export default function GameRoom() {
           {floatingEmoji && (
             <View style={{
               position: 'absolute',
-              top: 80,
+              top: 140, // Shifted down to fit perfectly between top nav and modal
               left: 0,
               right: 0,
               zIndex: 99999,
