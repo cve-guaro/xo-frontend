@@ -476,6 +476,7 @@ export default function PromotionLinks() {
                 confirmText="Yes, Send Now"
                 confirmColor="red"
                 iconName="warning-outline"
+                isLoading={smsSending}
                 onCancel={() => setConfirmSms(false)}
                 onConfirm={sendBulkSms}
               />

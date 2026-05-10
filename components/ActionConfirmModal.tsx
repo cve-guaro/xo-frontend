@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal, View, Text, StyleSheet, TouchableOpacity, useWindowDimensions, Platform } from 'react-native';
+import { Modal, View, Text, StyleSheet, TouchableOpacity, useWindowDimensions, Platform, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -10,6 +10,7 @@ type ActionConfirmModalProps = {
   confirmText: string;
   confirmColor?: 'red' | 'yellow' | 'blue';
   iconName: React.ComponentProps<typeof Ionicons>['name'];
+  isLoading?: boolean;
   onCancel: () => void;
   onConfirm: () => void;
 };
@@ -21,6 +22,7 @@ export default function ActionConfirmModal({
   confirmText, 
   confirmColor = 'red',
   iconName,
+  isLoading = false,
   onCancel, 
   onConfirm 
 }: ActionConfirmModalProps) {
@@ -71,13 +73,13 @@ export default function ActionConfirmModal({
 
             {/* Buttons */}
             <View style={styles.buttonRow}>
-              <TouchableOpacity onPress={onCancel} activeOpacity={0.9} style={styles.cancelBtn}>
+              <TouchableOpacity onPress={onCancel} activeOpacity={0.9} style={styles.cancelBtn} disabled={isLoading}>
                 <Text style={styles.cancelText}>Cancel</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity onPress={onConfirm} activeOpacity={0.9} style={styles.confirmBtn}>
+              <TouchableOpacity onPress={onConfirm} activeOpacity={0.9} style={[styles.confirmBtn, isLoading && { opacity: 0.5 }]} disabled={isLoading}>
                 <LinearGradient colors={theme.gradient as any} style={styles.confirmGradient}>
-                  <Text style={styles.confirmText}>{confirmText}</Text>
+                  {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.confirmText}>{confirmText}</Text>}
                 </LinearGradient>
               </TouchableOpacity>
             </View>
