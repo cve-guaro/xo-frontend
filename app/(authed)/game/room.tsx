@@ -80,9 +80,7 @@ function isXO(v: any): v is "X" | "O" {
 const EMPTY_BOARD: BoardCell[] = ["_", "_", "_", "_", "_", "_", "_", "_", "_"];
 
 function calculateWinAmount(amount: number) {
-  let cut = 0.2; // Room 1 (Starter) - 20% cut
-  if (amount >= 100 && amount < 1000) cut = 0.15; // Room 2 (Pro) - 15% cut
-  else if (amount >= 1000) cut = 0.1; // Room 3 (Legend) - 10% cut
+  const cut = 0.1; // Uniform 10% cut across all rooms
   return Math.floor(amount * 2 * (1 - cut));
 }
 
