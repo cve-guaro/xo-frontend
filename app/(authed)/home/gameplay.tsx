@@ -67,7 +67,7 @@ const ROOMS: RoomConfig[] = [
     rangeLabel: "10-99",
     titleEn: "Room 1",
     titleAm: "ክፍል 1",
-    cut: 20,
+    cut: 10,
     time: 30,
     colors: ["#10b981", "#059669"], // Vibrant Green
     amountOptions: [
@@ -82,7 +82,7 @@ const ROOMS: RoomConfig[] = [
     rangeLabel: "100-999",
     titleEn: "Room 2",
     titleAm: "ክፍል 2",
-    cut: 15,
+    cut: 10,
     time: 30,
     colors: ["#3b82f6", "#2563eb"], // Vibrant Blue
     amountOptions: [
@@ -422,7 +422,7 @@ const RoomSheet = memo(function RoomSheet({
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.sheetContent}>
           {/* Header with back button for AMOUNTS step */}
           {step === "AMOUNTS" ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, paddingHorizontal: 4 }}>
               <TouchableOpacity onPress={onBack} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' }}>
                 <Ionicons name="chevron-back" size={20} color="rgba(255,255,255,0.8)" />
               </TouchableOpacity>
@@ -451,7 +451,7 @@ const RoomSheet = memo(function RoomSheet({
             <View style={styles.roomList}>
               {ROOMS.map((room) => {
                 const isR1 = room.id === "R1";
-                const r1Locked = isR1 && ((userCaps?.r1_10||0)>=25 && (userCaps?.r1_25||0)>=25 && (userCaps?.r1_50||0)>=25 && (userCaps?.r1_99||0)>=25);
+                const r1Locked = isR1 && ((userCaps?.r1_10||0)>=20 && (userCaps?.r1_25||0)>=20 && (userCaps?.r1_50||0)>=20 && (userCaps?.r1_99||0)>=20);
                 return (
                   <TouchableOpacity 
                     key={room.id} 
@@ -489,10 +489,10 @@ const RoomSheet = memo(function RoomSheet({
                 {selectedRoom.amountOptions.map((opt) => {
                   let capReached = false;
                   if (selectedRoom.id === "R1") {
-                    if (opt.amount === 10) capReached = (userCaps?.r1_10 || 0) >= 25;
-                    if (opt.amount === 25) capReached = (userCaps?.r1_25 || 0) >= 25;
-                    if (opt.amount === 50) capReached = (userCaps?.r1_50 || 0) >= 25;
-                    if (opt.amount === 99) capReached = (userCaps?.r1_99 || 0) >= 25;
+                    if (opt.amount === 10) capReached = (userCaps?.r1_10 || 0) >= 20;
+                    if (opt.amount === 25) capReached = (userCaps?.r1_25 || 0) >= 20;
+                    if (opt.amount === 50) capReached = (userCaps?.r1_50 || 0) >= 20;
+                    if (opt.amount === 99) capReached = (userCaps?.r1_99 || 0) >= 20;
                   }
                   const disabled = (balance < opt.amount) || capReached;
                   const isSelected = localAmount === opt.amount;

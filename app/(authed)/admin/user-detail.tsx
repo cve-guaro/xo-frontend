@@ -244,7 +244,7 @@ export default function UserDetail() {
           </View>
           <View>
             <Text style={{ color: '#fff', fontSize: 14, fontWeight: '900' }}>Room 1 Win Tracker</Text>
-            <Text style={{ color: '#475569', fontSize: 10, fontWeight: '600' }}>25 wins cap per bet tier</Text>
+            <Text style={{ color: '#475569', fontSize: 10, fontWeight: '600' }}>20 wins cap per bet tier</Text>
           </View>
         </View>
         <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
@@ -254,8 +254,8 @@ export default function UserDetail() {
             { label: '50 ETB', wins: Number(targetUser.r1_50_wins || 0), color: '#a78bfa' },
             { label: '99 ETB', wins: Number(targetUser.r1_99_wins || 0), color: '#fbbf24' },
           ].map(tier => {
-            const pct = Math.min((tier.wins / 25) * 100, 100);
-            const isMaxed = tier.wins >= 25;
+            const pct = Math.min((tier.wins / 20) * 100, 100);
+            const isMaxed = tier.wins >= 20;
             return (
               <View key={tier.label} style={{ flex: 1, minWidth: isMobile ? '44%' : 120, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: isMaxed ? `${tier.color}40` : 'rgba(255,255,255,0.05)' }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
@@ -266,7 +266,7 @@ export default function UserDetail() {
                     </View>
                   )}
                 </View>
-                <Text style={{ color: '#fff', fontSize: 20, fontWeight: '900' }}>{tier.wins}<Text style={{ color: '#475569', fontSize: 13 }}>/25</Text></Text>
+                <Text style={{ color: '#fff', fontSize: 20, fontWeight: '900' }}>{tier.wins}<Text style={{ color: '#475569', fontSize: 13 }}>/20</Text></Text>
                 {/* Progress bar */}
                 <View style={{ marginTop: 8, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
                   <View style={{ height: '100%', width: `${pct}%`, backgroundColor: tier.color, borderRadius: 2 } as any} />
