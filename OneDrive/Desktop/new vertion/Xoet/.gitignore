@@ -1,0 +1,69 @@
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+*.pem
+
+# Environment — NEVER commit secrets
+.env
+.env.*
+.env.local
+.env*.local
+
+# typescript
+*.tsbuildinfo
+
+# generated native folders
+/ios
+/android
+
+# Temporary scripts and logs
+*.tmp
+*.log
+temp_*.txt
+out.txt
+dump.*
+patch_*.js
+fix_*.js
+check_*.js
+debug_*.js
+test_*.js
+sync_*.js
+migrate_*.js
+rewrite_*.js
+restore_*.js
+backfill_*.js
+balance_*.js
+universal_*.js
+verify_*.js
+scratch/
+
+# SQL dumps (keep migration_*.sql)
+dump.sql
+*.sql
+!migration_*.sql
+!schema.sql
