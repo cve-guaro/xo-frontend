@@ -82,6 +82,8 @@ function AuthGate({ children }: PropsWithChildren) {
 
   return <>{children}</>;
 }
+import { PwaInstallBanner } from "../components/PwaInstallBanner";
+
 function RootLayout() {
   if (Platform.OS === 'web' && typeof document !== 'undefined') {
     const styleId = 'global-input-outline-fix';
@@ -117,6 +119,16 @@ function RootLayout() {
     }
   }
 
+  useEffect(() => {
+    if (Platform.OS === 'web' && 'serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/service-worker.js').catch((err) => {
+          console.error('ServiceWorker registration failed: ', err);
+        });
+      });
+    }
+  }, []);
+
   return (
     <AuthProvider>
       <FeatureProvider>
@@ -129,6 +141,7 @@ function RootLayout() {
                   <Slot />
                   <GlobalUIComponents />
                   <GlobalToastContainer />
+                  {Platform.OS === 'web' && <PwaInstallBanner />}
                 </FeatureGate>
               </AuthGate>
             </SafeAreaProvider>

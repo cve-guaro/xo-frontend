@@ -488,11 +488,12 @@ const RoomSheet = memo(function RoomSheet({
               <View style={styles.amountGrid}>
                 {selectedRoom.amountOptions.map((opt) => {
                   let capReached = false;
+                  let plays = 0;
                   if (selectedRoom.id === "R1") {
-                    if (opt.amount === 10) capReached = (userCaps?.r1_10 || 0) >= 20;
-                    if (opt.amount === 25) capReached = (userCaps?.r1_25 || 0) >= 20;
-                    if (opt.amount === 50) capReached = (userCaps?.r1_50 || 0) >= 20;
-                    if (opt.amount === 99) capReached = (userCaps?.r1_99 || 0) >= 20;
+                    if (opt.amount === 10) { capReached = (userCaps?.r1_10 || 0) >= 20; plays = (userCaps?.r1_10 || 0); }
+                    if (opt.amount === 25) { capReached = (userCaps?.r1_25 || 0) >= 20; plays = (userCaps?.r1_25 || 0); }
+                    if (opt.amount === 50) { capReached = (userCaps?.r1_50 || 0) >= 20; plays = (userCaps?.r1_50 || 0); }
+                    if (opt.amount === 99) { capReached = (userCaps?.r1_99 || 0) >= 20; plays = (userCaps?.r1_99 || 0); }
                   }
                   const disabled = (balance < opt.amount) || capReached;
                   const isSelected = localAmount === opt.amount;
@@ -506,7 +507,7 @@ const RoomSheet = memo(function RoomSheet({
                       disabled={disabled}
                       onPress={() => isDesktop ? setLocalAmount(opt.amount) : onSelectAmount(selectedRoom, opt.amount)}
                       style={({ pressed }) => [
-                        { width: '48%', marginBottom: 14, borderRadius: 16, overflow: 'hidden', opacity: disabled ? 0.45 : 1 },
+                        { width: '48%', marginBottom: 16, borderRadius: 16, overflow: 'hidden', opacity: disabled ? 0.45 : 1 },
                         pressed && !disabled ? { transform: [{ scale: 0.98 }] } : null,
                         isSelected && { transform: [{ scale: 1.01 }] },
                       ]}
@@ -518,23 +519,41 @@ const RoomSheet = memo(function RoomSheet({
                           flexDirection: 'row',
                           alignItems: 'center',
                           justifyContent: 'space-between',
-                          paddingVertical: 16,
-                          paddingHorizontal: 20,
+                          paddingVertical: 18,
+                          paddingHorizontal: 16,
                           borderRadius: 16,
                           borderWidth: isSelected ? 2 : 0,
                           borderColor: isSelected ? '#fff' : 'transparent',
+                          height: '100%' // Fix gap usage by ensuring equal height
                         }}
                       >
-                        <View>
+                        <View style={{ flex: 1 }}>
                           <Text style={{ color: '#fff', fontWeight: '900', fontSize: 18, letterSpacing: 0.3 }}>
                             ETB {opt.amount.toLocaleString()}
                           </Text>
-                          <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12, fontWeight: '700', marginTop: 2 }}>
+                          <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 11, fontWeight: '700', marginTop: 4 }}>
                             Commission {selectedRoom.cut}% • {selectedRoom.time}s
                             {capReached ? ' • LOCKED' : ''}
                           </Text>
                         </View>
                         <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.9)" />
+                        
+                        {/* Tracker Pill (Top Right) */}
+                        {selectedRoom.id === "R1" && (
+                           <View style={{
+                             position: 'absolute',
+                             top: 6,
+                             right: 6,
+                             backgroundColor: 'rgba(0,0,0,0.4)',
+                             paddingHorizontal: 6,
+                             paddingVertical: 2,
+                             borderRadius: 8,
+                           }}>
+                             <Text style={{ color: capReached ? '#ef4444' : '#fff', fontSize: 10, fontWeight: 'bold' }}>
+                               {plays}/20
+                             </Text>
+                           </View>
+                        )}
                       </LinearGradient>
                     </Pressable>
                   );
