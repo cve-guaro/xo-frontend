@@ -97,14 +97,10 @@ export default function FriendMatchModal({ visible, onClose, onSendInvite, invit
   }, []);
 
   const getLockInfo = (amt: number): { locked: boolean; reason: string } => {
-    const senderCapped = isBetCapped(senderCaps, amt);
-    const targetCapped = isBetCapped(targetCaps, amt);
+    // Note: Room 1 win caps are disabled for Friend Matches per admin request.
     const senderCantAfford = senderBalance < amt;
     const targetCantAfford = targetBalance < amt;
 
-    if (senderCapped && targetCapped) return { locked: true, reason: 'Both maxed' };
-    if (senderCapped) return { locked: true, reason: 'You maxed' };
-    if (targetCapped) return { locked: true, reason: 'They maxed' };
     if (senderCantAfford) return { locked: true, reason: 'Low balance' };
     if (targetCantAfford) return { locked: true, reason: "They can't afford" };
     return { locked: false, reason: '' };
