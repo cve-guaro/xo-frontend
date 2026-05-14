@@ -35,6 +35,7 @@ export default function UserDetail() {
   const [txAmountRange, setTxAmountRange] = useState('all');
   const [gameDetailModal, setGameDetailModal] = useState<any>(null);
   const [txDetailModal, setTxDetailModal] = useState<any>(null);
+  const [boardStep, setBoardStep] = useState(0);
   const PAGE_SIZE = 20;
 
   const fetchData = useCallback(async () => {
@@ -528,41 +529,164 @@ export default function UserDetail() {
         );
       })()}
 
-      {/* Game Detail Modal */}
-      {gameDetailModal && (
+      {/* Game Detail Modal — Board Replay */}
+      {gameDetailModal && (() => {
+        const g = gameDetailModal;
+        const moves = Array.isArray(g.moves) ? g.moves : [];
+        const isAnomaly = g.status === 'completed' && !g.winner;
+        const won = g.winner === userId;
+        const duration = g.finished_at && g.created_at ? Math.round((new Date(g.finished_at).getTime() - new Date(g.created_at).getTime()) / 1000) : 0;
+
+        // Build board state at current step
+        const board: (string | null)[] = Array(9).fill(null);
+        const visibleMoves = moves.slice(0, boardStep);
+        visibleMoves.forEach((m: any, idx: number) => {
+          const cell = typeof m.cell === 'number' ? m.cell : (typeof m.index === 'number' ? m.index : idx);
+          const symbol = m.symbol || m.player || (idx % 2 === 0 ? 'X' : 'O');
+          if (cell >= 0 && cell < 9) board[cell] = symbol;
+        });
+
+        return (
         <Modal visible transparent animationType="fade">
-          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-            <View style={{ backgroundColor: '#0f1423', borderRadius: 20, padding: 24, width: '100%', maxWidth: 420, borderWidth: 1, borderColor: 'rgba(0,229,255,0.15)' }}>
-              <Text style={{ color: '#fff', fontSize: 18, fontWeight: '900', marginBottom: 16 }}>Game Detail</Text>
-              <View style={{ gap: 10 }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text style={{ color: '#64748b', fontSize: 12 }}>Game ID</Text><Text style={{ color: '#e2e8f0', fontSize: 12, fontWeight: '700' }}>{gameDetailModal.id?.slice(0, 8)}</Text></View>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text style={{ color: '#64748b', fontSize: 12 }}>Bet Amount</Text><Text style={{ color: '#e2e8f0', fontSize: 12, fontWeight: '700' }}>ETB {fmt(Number(gameDetailModal.bet_amount || 0))}</Text></View>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text style={{ color: '#64748b', fontSize: 12 }}>Player X</Text><Text style={{ color: '#00daf3', fontSize: 12, fontWeight: '700' }}>{gameDetailModal.player_x_name || gameDetailModal.player_x?.slice(0, 8)}</Text></View>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text style={{ color: '#64748b', fontSize: 12 }}>Player O</Text><Text style={{ color: '#fd6f85', fontSize: 12, fontWeight: '700' }}>{gameDetailModal.player_o_name || gameDetailModal.player_o?.slice(0, 8)}</Text></View>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text style={{ color: '#64748b', fontSize: 12 }}>Winner</Text><Text style={{ color: '#34d399', fontSize: 12, fontWeight: '700' }}>{gameDetailModal.winner === userId ? 'This User' : 'Opponent'}</Text></View>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text style={{ color: '#64748b', fontSize: 12 }}>End Reason</Text><Text style={{ color: '#fbbf24', fontSize: 12, fontWeight: '700' }}>{gameDetailModal.end_reason || (gameDetailModal.forfeit ? 'Player Forfeited' : 'Normal Gameplay')}</Text></View>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text style={{ color: '#64748b', fontSize: 12 }}>Status</Text><Text style={{ color: '#fbbf24', fontSize: 12, fontWeight: '700' }}>{gameDetailModal.status}</Text></View>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text style={{ color: '#64748b', fontSize: 12 }}>Started</Text><Text style={{ color: '#e2e8f0', fontSize: 12, fontWeight: '700' }}>{timeFmt(gameDetailModal.created_at)}</Text></View>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text style={{ color: '#64748b', fontSize: 12 }}>Finished</Text><Text style={{ color: '#e2e8f0', fontSize: 12, fontWeight: '700' }}>{timeFmt(gameDetailModal.finished_at)}</Text></View>
-                {gameDetailModal.winner !== userId && (
-                  <View style={{ marginTop: 8, backgroundColor: 'rgba(248,113,113,0.08)', padding: 10, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(248,113,113,0.2)' }}>
-                    <Text style={{ color: '#f87171', fontSize: 11, fontWeight: '800', marginBottom: 4 }}>⚠️ LOSS REASON</Text>
-                    <Text style={{ color: '#94a3b8', fontSize: 11, lineHeight: 16 }}>
-                      {gameDetailModal.end_reason === 'forfeit' || gameDetailModal.forfeit ? 'This user left the game or forfeited the match.' :
-                       gameDetailModal.end_reason === 'timeout' ? 'This user ran out of time.' :
-                       gameDetailModal.end_reason === 'disconnect' ? 'This user disconnected (internet issue).' :
-                       'Opponent outplayed this user in normal gameplay.'}
-                    </Text>
+          <ScrollView style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)' }} contentContainerStyle={{ justifyContent: 'center', alignItems: 'center', padding: 20, minHeight: '100%' }}>
+            <View style={{ backgroundColor: '#0f1423', borderRadius: 20, padding: 24, width: '100%', maxWidth: 480, borderWidth: 1, borderColor: isAnomaly ? 'rgba(248,113,113,0.3)' : 'rgba(0,229,255,0.15)' }}>
+              {/* Header */}
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <Text style={{ color: '#fff', fontSize: 18, fontWeight: '900' }}>Game Replay</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  {isAnomaly && (
+                    <View style={{ backgroundColor: 'rgba(248,113,113,0.15)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(248,113,113,0.3)' }}>
+                      <Text style={{ color: '#f87171', fontSize: 9, fontWeight: '900' }}>⚠ ANOMALY</Text>
+                    </View>
+                  )}
+                  <View style={{ backgroundColor: won ? 'rgba(52,211,153,0.15)' : isAnomaly ? 'rgba(248,113,113,0.15)' : 'rgba(248,113,113,0.15)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, borderColor: won ? 'rgba(52,211,153,0.3)' : 'rgba(248,113,113,0.3)' }}>
+                    <Text style={{ color: won ? '#34d399' : '#f87171', fontSize: 9, fontWeight: '900' }}>{isAnomaly ? 'NO WINNER' : won ? 'WON' : 'LOST'}</Text>
                   </View>
-                )}
+                </View>
               </View>
-              <TouchableOpacity onPress={() => setGameDetailModal(null)} style={{ marginTop: 20, backgroundColor: '#00e5ff', paddingVertical: 10, borderRadius: 10, alignItems: 'center' }}>
+
+              {/* Anomaly Banner */}
+              {isAnomaly && (
+                <View style={{ backgroundColor: 'rgba(248,113,113,0.08)', padding: 12, borderRadius: 10, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(248,113,113,0.2)' }}>
+                  <Text style={{ color: '#f87171', fontSize: 12, fontWeight: '900', marginBottom: 4 }}>⚠ ANOMALY: Both Players Lost</Text>
+                  <Text style={{ color: '#94a3b8', fontSize: 11, lineHeight: 16 }}>This game completed with no winner recorded. Both players were charged {fmt(Number(g.bet_amount || 0))} ETB. A refund should be issued to both players.</Text>
+                </View>
+              )}
+
+              {/* Info Grid */}
+              <View style={{ gap: 8, marginBottom: 16 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text style={{ color: '#64748b', fontSize: 11 }}>Game ID</Text><Text style={{ color: '#e2e8f0', fontSize: 11, fontWeight: '700' }}>{g.id?.slice(0, 8)}</Text></View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text style={{ color: '#64748b', fontSize: 11 }}>Bet</Text><Text style={{ color: '#e2e8f0', fontSize: 11, fontWeight: '900' }}>ETB {fmt(Number(g.bet_amount || 0))}</Text></View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text style={{ color: '#00daf3', fontSize: 11 }}>✕ {g.player_x_name || g.player_x?.slice(0, 6)}</Text><Text style={{ color: '#475569', fontSize: 10 }}>{g.player_x_number || ''}</Text></View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text style={{ color: '#fd6f85', fontSize: 11 }}>○ {g.player_o_name || g.player_o?.slice(0, 6)}</Text><Text style={{ color: '#475569', fontSize: 10 }}>{g.player_o_number || ''}</Text></View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text style={{ color: '#64748b', fontSize: 11 }}>Duration</Text><Text style={{ color: '#e2e8f0', fontSize: 11, fontWeight: '700' }}>{duration > 0 ? `${Math.floor(duration / 60)}m ${duration % 60}s` : '—'}</Text></View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text style={{ color: '#64748b', fontSize: 11 }}>Status</Text><Text style={{ color: '#fbbf24', fontSize: 11, fontWeight: '700' }}>{g.status}</Text></View>
+              </View>
+
+              {/* Board Replay */}
+              {moves.length > 0 && (
+                <View style={{ marginBottom: 14 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                    <Text style={{ color: '#475569', fontSize: 9, fontWeight: '800', letterSpacing: 1 }}>BOARD REPLAY</Text>
+                    <Text style={{ color: '#64748b', fontSize: 10, fontWeight: '700' }}>Move {boardStep}/{moves.length}</Text>
+                  </View>
+
+                  {/* 3x3 Grid */}
+                  <View style={{ alignSelf: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 12, padding: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
+                    {[0, 1, 2].map(row => (
+                      <View key={row} style={{ flexDirection: 'row' }}>
+                        {[0, 1, 2].map(col => {
+                          const idx = row * 3 + col;
+                          const sym = board[idx];
+                          const isLatest = boardStep > 0 && (() => {
+                            const lastMove = moves[boardStep - 1];
+                            const lastCell = typeof lastMove?.cell === 'number' ? lastMove.cell : (typeof lastMove?.index === 'number' ? lastMove.index : boardStep - 1);
+                            return lastCell === idx;
+                          })();
+                          return (
+                            <View key={col} style={{
+                              width: 52, height: 52, alignItems: 'center', justifyContent: 'center',
+                              borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
+                              backgroundColor: isLatest ? 'rgba(0,229,255,0.08)' : 'transparent',
+                              borderRadius: row === 0 && col === 0 ? 10 : row === 0 && col === 2 ? 10 : row === 2 && col === 0 ? 10 : row === 2 && col === 2 ? 10 : 0,
+                            }}>
+                              <Text style={{ fontSize: 24, fontWeight: '900', color: sym === 'X' ? '#00daf3' : sym === 'O' ? '#fd6f85' : 'transparent' }}>
+                                {sym || '·'}
+                              </Text>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    ))}
+                  </View>
+
+                  {/* Controls */}
+                  <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 12, marginTop: 10 }}>
+                    <TouchableOpacity onPress={() => setBoardStep(0)} style={{ padding: 6, opacity: boardStep === 0 ? 0.3 : 1 }}>
+                      <Ionicons name="play-skip-back" size={16} color="#00e5ff" />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => setBoardStep(p => Math.max(0, p - 1))} style={{ padding: 6, opacity: boardStep === 0 ? 0.3 : 1 }}>
+                      <Ionicons name="caret-back" size={20} color="#00e5ff" />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => { let step = 0; const iv = setInterval(() => { step++; setBoardStep(step); if (step >= moves.length) clearInterval(iv); }, 400); }} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0,229,255,0.15)', alignItems: 'center', justifyContent: 'center' }}>
+                      <Ionicons name="play" size={16} color="#00e5ff" />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => setBoardStep(p => Math.min(moves.length, p + 1))} style={{ padding: 6, opacity: boardStep >= moves.length ? 0.3 : 1 }}>
+                      <Ionicons name="caret-forward" size={20} color="#00e5ff" />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => setBoardStep(moves.length)} style={{ padding: 6, opacity: boardStep >= moves.length ? 0.3 : 1 }}>
+                      <Ionicons name="play-skip-forward" size={16} color="#00e5ff" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+
+              {/* Move Timeline */}
+              {moves.length > 0 && (
+                <View style={{ marginBottom: 14 }}>
+                  <Text style={{ color: '#475569', fontSize: 9, fontWeight: '800', letterSpacing: 1, marginBottom: 8 }}>MOVE TIMELINE</Text>
+                  <View style={{ maxHeight: 120 }}>
+                    <ScrollView nestedScrollEnabled style={{ maxHeight: 120 }}>
+                      {moves.map((m: any, i: number) => {
+                        const sym = m.symbol || m.player || (i % 2 === 0 ? 'X' : 'O');
+                        const cell = typeof m.cell === 'number' ? m.cell : (typeof m.index === 'number' ? m.index : i);
+                        const ts = m.ts || m.timestamp;
+                        const isActive = i < boardStep;
+                        return (
+                          <TouchableOpacity key={i} onPress={() => setBoardStep(i + 1)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4, opacity: isActive ? 1 : 0.4 }}>
+                            <Text style={{ color: '#334155', fontSize: 10, width: 20, textAlign: 'center', fontWeight: '700' }}>{i + 1}</Text>
+                            <Text style={{ color: sym === 'X' ? '#00daf3' : '#fd6f85', fontSize: 12, fontWeight: '900', width: 16 }}>{sym}</Text>
+                            <Text style={{ color: '#64748b', fontSize: 10 }}>Cell {cell}</Text>
+                            {ts && <Text style={{ color: '#334155', fontSize: 9, marginLeft: 'auto' }}>{new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</Text>}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                </View>
+              )}
+
+              {/* Loss Reason */}
+              {!isAnomaly && g.winner !== userId && (
+                <View style={{ marginTop: 4, backgroundColor: 'rgba(248,113,113,0.08)', padding: 10, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(248,113,113,0.2)' }}>
+                  <Text style={{ color: '#f87171', fontSize: 11, fontWeight: '800', marginBottom: 4 }}>⚠️ LOSS REASON</Text>
+                  <Text style={{ color: '#94a3b8', fontSize: 11, lineHeight: 16 }}>
+                    {g.end_reason === 'forfeit' || g.forfeit ? 'This user left the game or forfeited the match.' :
+                     g.end_reason === 'timeout' ? 'This user ran out of time.' :
+                     g.end_reason === 'disconnect' ? 'This user disconnected (internet issue).' :
+                     'Opponent outplayed this user in normal gameplay.'}
+                  </Text>
+                </View>
+              )}
+
+              <TouchableOpacity onPress={() => { setGameDetailModal(null); setBoardStep(0); }} style={{ marginTop: 16, backgroundColor: '#00e5ff', paddingVertical: 10, borderRadius: 10, alignItems: 'center' }}>
                 <Text style={{ color: '#0a0f1c', fontWeight: '900', fontSize: 13 }}>Close</Text>
               </TouchableOpacity>
             </View>
-          </View>
+          </ScrollView>
         </Modal>
-      )}
+        );
+      })()}
 
       {/* Edit Data Modal — Modern Glassmorphism UI */}
       {editModal && (
@@ -678,20 +802,27 @@ export default function UserDetail() {
         const typeInfo = txTypeLabel(tx.type);
         const isPending = st === 'PENDING' || st === 'PENDING_MANUAL';
         const isFailed = st === 'FAILED';
-        const reasonMap: Record<string, string> = {
-          'chapa_timeout': 'Chapa payment gateway timed out during processing.',
-          'chapa_declined': 'Chapa declined the transaction — account not found or insufficient funds.',
-          'chapa_error': 'Chapa returned an error during processing. System will auto-retry.',
-          'account_not_found': 'The destination account (CBE/M-Pesa/Telebirr) was not found.',
-          'insufficient_balance': 'User had insufficient balance at the time of withdrawal.',
-          'manual_review': 'This transaction requires manual admin review before processing.',
-          'system_error': 'An internal system error occurred. Auto-refund initiated if applicable.',
-        };
+        
+        // Try to extract exact reason from provider_payload stored locally
+        let exactReason = tx.exact_reason || null;
+        if (!exactReason && tx.provider_payload) {
+          try {
+            const meta = typeof tx.provider_payload === 'string' ? JSON.parse(tx.provider_payload) : tx.provider_payload;
+            if (meta) {
+              exactReason = meta.message || meta.error || meta.data?.message || meta.data?.error || meta.failure_reason || meta.reason || null;
+              if (!exactReason && meta.transfer_error) exactReason = meta.transfer_error;
+              if (!exactReason && meta.status_message) exactReason = meta.status_message;
+            }
+          } catch(e) {}
+        }
+        
         const reason = tx.failure_reason || tx.pending_reason || tx.reason;
-        const reasonText = reason ? (reasonMap[reason] || reason) : (
-          isPending ? 'Transaction is being processed by the payment gateway. If stuck for >24hrs, it may need manual intervention or auto-refund.' :
-          isFailed ? 'The payment provider rejected this transaction. Common causes: invalid account number, network timeout, or provider maintenance.' :
-          'Transaction completed successfully through the payment gateway.'
+        const reasonText = exactReason ? exactReason : (
+          reason ? reason : (
+            isPending ? 'Transaction is being processed by the payment gateway. If stuck for >24hrs, it may need manual intervention or auto-refund.' :
+            isFailed ? 'The payment provider rejected this transaction. No specific error was returned by Chapa.' :
+            'Transaction completed successfully through the payment gateway.'
+          )
         );
         return (
         <Modal visible transparent animationType="fade">
@@ -711,12 +842,17 @@ export default function UserDetail() {
                 {tx.provider && <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text style={{ color: '#64748b', fontSize: 12 }}>Provider</Text><Text style={{ color: '#e2e8f0', fontSize: 12, fontWeight: '700' }}>{tx.provider}</Text></View>}
                 {tx.reference && <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text style={{ color: '#64748b', fontSize: 12 }}>Reference</Text><Text style={{ color: '#e2e8f0', fontSize: 12, fontWeight: '700' }}>{tx.reference}</Text></View>}
               </View>
-              {/* Reason Box */}
+              {/* Exact Reason Box */}
               <View style={{ marginTop: 14, backgroundColor: isPending ? 'rgba(245,158,11,0.08)' : isFailed ? 'rgba(248,113,113,0.08)' : 'rgba(52,211,153,0.08)', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: isPending ? 'rgba(245,158,11,0.2)' : isFailed ? 'rgba(248,113,113,0.2)' : 'rgba(52,211,153,0.2)' }}>
                 <Text style={{ color: isPending ? '#f59e0b' : isFailed ? '#f87171' : '#34d399', fontSize: 11, fontWeight: '800', marginBottom: 4 }}>
                   {isPending ? '⏳ PENDING REASON' : isFailed ? '❌ FAILURE REASON' : '✅ COMPLETION'}
                 </Text>
-                <Text style={{ color: '#94a3b8', fontSize: 11, lineHeight: 16 }}>{reasonText}</Text>
+                <Text style={{ color: exactReason ? '#e2e8f0' : '#94a3b8', fontSize: 11, lineHeight: 16, fontWeight: exactReason ? '700' : '400' }}>{reasonText}</Text>
+                {exactReason && (
+                  <View style={{ marginTop: 6, backgroundColor: 'rgba(255,255,255,0.03)', padding: 6, borderRadius: 6 }}>
+                    <Text style={{ color: '#475569', fontSize: 9, fontWeight: '800', letterSpacing: 0.5 }}>SOURCE: CHAPA PROVIDER RESPONSE</Text>
+                  </View>
+                )}
               </View>
               {isPending && (
                 <View style={{ marginTop: 10, backgroundColor: 'rgba(0,229,255,0.06)', padding: 10, borderRadius: 8 }}>

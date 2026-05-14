@@ -42,8 +42,8 @@ const CellSymbol = ({ symbol, size, isDesktop }: { symbol: string, size: number,
   React.useEffect(() => {
     Animated.spring(scale, {
       toValue: 1,
-      tension: 180,
-      friction: 12,
+      tension: 300,
+      friction: 8,
       useNativeDriver: Platform.OS !== 'web'
     }).start();
   }, [symbol]);
@@ -636,14 +636,14 @@ export default function GameRoom() {
             if (wl) {
               setWinLine(wl);
               winLineAnim.setValue(0);
-              Animated.timing(winLineAnim, { toValue: 1, duration: 600, useNativeDriver: false }).start();
+              Animated.timing(winLineAnim, { toValue: 1, duration: 250, useNativeDriver: false }).start();
             }
 
             const amt = Number(params?.amount ?? 0) || 0;
             // Delay result overlay to show win line first
             setTimeout(() => {
               setResult({ visible: true, outcome: meWon ? "win" : "lose", amount: meWon ? (p?.prizeAmount || amt) : amt });
-            }, wl ? 1500 : 0);
+            }, wl ? 800 : 0);
 
             setToast({
               msg: meWon ? tRef.current("victory") : tRef.current("defeat"),
