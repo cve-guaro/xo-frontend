@@ -163,7 +163,7 @@ export default function AdminLayout() {
       setOtpLoading(true); setOtpError('');
       const res = await fetch(`${API_URL}/admin/auth/send-2fa`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}`, 'x-platform': 'web' }
       });
       const data = await res.json();
       if (res.ok) setOtpSent(true);
@@ -182,7 +182,8 @@ export default function AdminLayout() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
+          'x-platform': 'web'
         },
         body: JSON.stringify({ code: otpCode })
       });
