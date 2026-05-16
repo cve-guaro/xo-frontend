@@ -42,6 +42,7 @@ const TOPBAR_H = 60;
 
  const NAV_ITEMS = [
    { icon: 'grid',    label: 'Overview',        path: '/admin' },
+   { icon: 'notifications', label: 'Notifications', path: '/admin/notifications' },
    { icon: 'people',  label: 'Users',           path: '/admin/users' },
    { icon: 'cash',    label: 'Transaction',     path: '/admin/ledger' },
    { icon: 'list',    label: 'Game Logs',       path: '/admin/logs' },
@@ -87,6 +88,42 @@ function SideNavItem({
       )}
       {isActive && !collapsed && <View style={s.activeIndicator} />}
     </TouchableOpacity>
+  );
+}
+
+// ─── NavGroup for sidebar ─────────────────────────────────────
+function NavGroup({
+  title, items, currentPath, collapsed,
+}: { title: string; items: any[]; currentPath: string; collapsed: boolean }) {
+  const { t } = useAuth();
+  const isActive = items.some(item => (currentPath || '').startsWith(item.path) && item.path !== '/admin');
+  const [open, setOpen] = useState(isActive);
+
+  useEffect(() => {
+    if (isActive) setOpen(true);
+  }, [isActive]);
+
+  return (
+    <View style={{ marginBottom: 8 }}>
+      {!collapsed && (
+        <TouchableOpacity 
+          onPress={() => setOpen(!open)} 
+          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 32, paddingVertical: 10 }}
+        >
+          <Text style={{ color: isActive ? C.primary : C.onSurfaceVariant, fontSize: 11, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase' }}>
+            {t(title as any) || title}
+          </Text>
+          <Ionicons name={open ? "chevron-up" : "chevron-down"} size={14} color={isActive ? C.primary : C.onSurfaceVariant} />
+        </TouchableOpacity>
+      )}
+      {(open || collapsed) && (
+        <View style={!collapsed ? { paddingLeft: 12, borderLeftWidth: 1, borderLeftColor: 'rgba(68,68,107,0.3)', marginLeft: 30, marginTop: 4 } : {}}>
+          {items.map(item => (
+            <SideNavItem key={item.path} {...item} currentPath={currentPath} collapsed={collapsed} />
+          ))}
+        </View>
+      )}
+    </View>
   );
 }
 
@@ -395,11 +432,32 @@ export default function AdminLayout() {
           </Text>
         )}
 
-        <View style={s.navList}>
-          {dynamicNavItems.map(item => (
-            <SideNavItem key={item.path} {...item} currentPath={pathname || ''} collapsed={collapsed} />
-          ))}
-        </View>
+        <ScrollView style={s.navList} showsVerticalScrollIndicator={false}>
+          <SideNavItem icon="grid" label="Overview" path="/admin" currentPath={pathname || ''} collapsed={collapsed} />
+          <SideNavItem icon="people" label="Users" path="/admin/users" currentPath={pathname || ''} collapsed={collapsed} />
+          
+          <NavGroup 
+            title="Operations"
+            items={[
+              { icon: 'cash', label: 'Transaction', path: '/admin/ledger' },
+              { icon: 'list', label: 'Game Logs', path: '/admin/logs' },
+              { icon: 'notifications', label: 'Notifications', path: '/admin/notifications' },
+            ]}
+            currentPath={pathname || ''}
+            collapsed={collapsed}
+          />
+
+          <NavGroup 
+            title="System"
+            items={[
+              ...(isMaintenanceAdmin ? [{ icon: 'construct', label: 'Maintenance', path: '/admin/maintenance' }] : []),
+              { icon: 'shield-checkmark', label: 'Audit Logs', path: '/admin/audit' },
+              { icon: 'link', label: 'Promotions', path: '/admin/promotion-links' },
+            ]}
+            currentPath={pathname || ''}
+            collapsed={collapsed}
+          />
+        </ScrollView>
 
         <View style={[s.sidebarFooter, collapsed && { paddingHorizontal: 8, alignItems: 'center' }]}>
           <TouchableOpacity

@@ -1,8 +1,16 @@
-// components/game/EmojiBar.tsx — Quick-tap emoji bar with 2s cooldown
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Animated, Easing } from 'react-native';
+// components/game/EmojiBar.tsx — Quick-tap animated emoji bar with 2s cooldown
+import React, { useState, useRef } from 'react';
+import { View, TouchableOpacity, StyleSheet, Animated, Easing, Image } from 'react-native';
 
-const EMOJIS = ['😡', '🤣', '🤝'];
+export const EMOJI_GIFS: Record<string, string> = {
+  '🤦‍♂️': 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f926_200d_2642_fe0f/512.gif',
+  '🤝': 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f91d/512.gif',
+  '😂': 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f602/512.gif',
+  '🥱': 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f971/512.gif',
+  '🤬': 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f92c/512.gif',
+};
+
+const EMOJIS = Object.keys(EMOJI_GIFS);
 
 interface Props {
   onSend: (emoji: string) => void;
@@ -35,7 +43,11 @@ export default function EmojiBar({ onSend, disabled }: Props) {
             disabled={cooldown || disabled}
             activeOpacity={0.6}
           >
-            <Text style={styles.emoji}>{emoji}</Text>
+            <Image 
+              source={{ uri: EMOJI_GIFS[emoji] }} 
+              style={{ width: 32, height: 32 }} 
+              resizeMode="contain" 
+            />
           </TouchableOpacity>
         </Animated.View>
       ))}
@@ -51,24 +63,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    borderRadius: 20,
+    paddingHorizontal: 16,
+    backgroundColor: 'rgba(23,23,50,0.8)',
+    borderRadius: 24,
     alignSelf: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(0,229,255,0.2)',
   },
   btn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255,255,255,0.05)',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
   },
   btnDisabled: {
     opacity: 0.3,
-  },
-  emoji: {
-    fontSize: 22,
   },
   cdOverlay: {
     position: 'absolute',
@@ -79,6 +92,10 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#f59e0b',
+    backgroundColor: '#00e5ff',
+    shadowColor: '#00e5ff',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
   },
 });

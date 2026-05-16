@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Redirect, Tabs, useRouter, usePathname } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
-import { Pressable, View, Platform, useWindowDimensions, Text, Image } from "react-native";
+import { Pressable, View, Platform, useWindowDimensions, Text, Image, TouchableOpacity } from "react-native";
 import { useAuth } from "../../../context/authContext";
 import { haptics } from "../../../lib/haptcs";
 import { WebPressable } from "../../../components/WebPressable";
@@ -156,25 +156,64 @@ export default function AuthedLayout() {
         initialRouteName="gameplay"
         screenOptions={({ route }) => ({
           ...baseScreenOptions,
-          tabBarIcon: ({ focused }) => renderIcon(route.name, focused),
-          tabBarButton: (props) => (
-            <TabButton
-              {...props}
-              onPress={(e: any) => {
-                haptics.heavy()
-                props.onPress?.(e);
-              }}
-            />
-          ),
+          tabBarStyle: { display: "none" }, // completely hide default bar
         })}
       >
         <Tabs.Screen name="gameplay" options={{ title: getTabTitle("gameplay") }} />
         <Tabs.Screen name="transactions" options={{ title: getTabTitle("transactions") }} />
         <Tabs.Screen name="account" options={{ title: getTabTitle("account") }} />
       </Tabs>
+
+      {/* Global Custom Floating Bottom Nav */}
+      {!isDesktop && (
+        <View style={{
+          position: 'absolute', bottom: Platform.OS === 'ios' ? 34 : 20,
+          left: 0, right: 0, alignItems: 'center', zIndex: 9999, elevation: 9999
+        }}>
+          <View style={{
+            flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+            backgroundColor: 'rgba(30,25,45,0.85)',
+            borderRadius: 40, paddingHorizontal: 10, paddingVertical: 10,
+            width: '90%', maxWidth: 400,
+            borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)',
+          }}>
+            <TouchableOpacity onPress={() => router.push('/(authed)/home/gameplay')} style={{ paddingHorizontal: 6 }}>
+              <View style={pathname === '/home/gameplay' ? activePillStyle : inactiveIconStyle}>
+                <Ionicons name={pathname === '/home/gameplay' ? "home" : "home-outline"} size={22} color={pathname === '/home/gameplay' ? "#fff" : "#8a8a9e"} />
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/(authed)/home/transactions')} style={{ paddingHorizontal: 6 }}>
+              <View style={pathname === '/home/transactions' ? activePillStyle : inactiveIconStyle}>
+                <Ionicons name={pathname === '/home/transactions' ? "wallet" : "wallet-outline"} size={22} color={pathname === '/home/transactions' ? "#fff" : "#8a8a9e"} />
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/(authed)/home/account')} style={{ paddingHorizontal: 6 }}>
+              <View style={pathname === '/home/account' ? activePillStyle : inactiveIconStyle}>
+                <Ionicons name={pathname === '/home/account' ? "person" : "person-outline"} size={22} color={pathname === '/home/account' ? "#fff" : "#8a8a9e"} />
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/(authed)/home/notifications')} style={{ paddingHorizontal: 6 }}>
+              <View style={pathname === '/home/notifications' ? activePillStyle : inactiveIconStyle}>
+                <Ionicons name={pathname === '/home/notifications' ? "notifications" : "notifications-outline"} size={22} color={pathname === '/home/notifications' ? "#fff" : "#8a8a9e"} />
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
 
+const activePillStyle = {
+  backgroundColor: '#7c4dff', width: 56, height: 56, borderRadius: 28,
+  alignItems: 'center', justifyContent: 'center',
+  shadowColor: '#7c4dff', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 8, elevation: 6,
+} as const;
+
+const inactiveIconStyle = {
+  width: 48, height: 48, borderRadius: 24, backgroundColor: 'transparent',
+  alignItems: 'center', justifyContent: 'center',
+} as const;
+
 // export this so screens can pad properly
-export const TAB_BAR_HEIGHT = TAB_H;
+export const TAB_BAR_HEIGHT = TAB_H + 40;

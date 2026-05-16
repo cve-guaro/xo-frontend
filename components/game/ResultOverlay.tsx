@@ -1,5 +1,5 @@
 // components/game/ResultOverlay.tsx
-import EmojiBar from "./EmojiBar";
+import EmojiBar, { EMOJI_GIFS } from "./EmojiBar";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { memo, useEffect, useMemo, useRef, useState } from "react";
@@ -219,9 +219,17 @@ function ResultOverlay({ visible, outcome, amount, onHome, onPlayAgain, onSendEm
             alignItems: 'center',
             pointerEvents: 'none',
           }}>
-            <Text style={{ fontSize: 80, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 4 }, textShadowRadius: 12 }}>
-              {floatingEmoji}
-            </Text>
+            {EMOJI_GIFS[floatingEmoji] ? (
+              <Image 
+                source={{ uri: EMOJI_GIFS[floatingEmoji] }} 
+                style={{ width: 100, height: 100 }} 
+                resizeMode="contain" 
+              />
+            ) : (
+              <Text style={{ fontSize: 80, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 4 }, textShadowRadius: 12 }}>
+                {floatingEmoji}
+              </Text>
+            )}
           </View>
         )}
       </View>

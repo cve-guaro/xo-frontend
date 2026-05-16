@@ -70,7 +70,7 @@ export default function AdminUsers() {
     onConfirm: () => {},
   });
 
-  const [user360, setUser360] = useState<{ loading: boolean, txs: any[], recent_games: any[], games: { wins:number, losses:number, draws:number, total:number } }>({ loading: false, txs: [], recent_games: [], games: { wins:0, losses:0, draws:0, total:0 } });
+  const [user360, setUser360] = useState<{ loading: boolean, txs: any[], recent_games: any[], games: { wins:number, losses:number, draws:number, total:number, totalGames?:number } }>({ loading: false, txs: [], recent_games: [], games: { wins:0, losses:0, draws:0, total:0, totalGames:0 } });
 
   const fetchUsers = useCallback(async (searchOverride?: string) => {
     try {
@@ -133,7 +133,7 @@ export default function AdminUsers() {
       ]);
       if (res360.ok) {
         const d = await res360.json();
-        setUser360({ loading: false, txs: d.txs || [], recent_games: d.recent_games || [], games: d.games || {wins:0,losses:0,draws:0,total:0} });
+        setUser360({ loading: false, txs: d.transactions || [], recent_games: d.games || [], games: d.stats || {wins:0,losses:0,draws:0,total:0,totalGames:0} });
       } else {
         setUser360(p => ({ ...p, loading: false }));
       }
@@ -631,7 +631,7 @@ export default function AdminUsers() {
                  <View style={{ flexDirection: 'row', gap: isMobile ? 8 : 12, width: isMobile ? '100%' : 'auto', marginTop: isMobile ? 8 : 0 }}>
                     <View style={{ flex: 1, backgroundColor: '#161a21', padding: isMobile ? 10 : 16, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', minWidth: isMobile ? 'auto' : 100 }}>
                        <Text style={{ fontSize: isMobile ? 9 : 10, color: '#a9abb3', textTransform: 'uppercase', marginBottom: 4 }}>Total</Text>
-                       <Text style={{ fontSize: isMobile ? 16 : 20, fontWeight: '800', color: '#ecedf6' }}>{user360.games.total || (user360.games.wins + user360.games.losses)}</Text>
+                       <Text style={{ fontSize: isMobile ? 16 : 20, fontWeight: '800', color: '#ecedf6' }}>{user360.games.totalGames || user360.games.total || (user360.games.wins + user360.games.losses)}</Text>
                     </View>
                     <View style={{ flex: 1, backgroundColor: 'rgba(129,236,255,0.1)', padding: isMobile ? 10 : 16, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(129,236,255,0.2)', minWidth: isMobile ? 'auto' : 100 }}>
                        <Text style={{ fontSize: isMobile ? 9 : 10, color: '#81ecff', textTransform: 'uppercase', marginBottom: 4 }}>Wins</Text>

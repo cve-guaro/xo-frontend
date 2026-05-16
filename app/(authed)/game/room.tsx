@@ -30,7 +30,7 @@ import { useAuth } from "../../../context/authContext";
 import { useSocket } from "../../../context/socketContext";
 import FlashToast, { MatchFoundToastHandle } from "../../../components/game/FlashToast";
 import RematchTopPopup from "../../../components/game/RematchPopup";
-import EmojiBar from "../../../components/game/EmojiBar";
+import EmojiBar, { EMOJI_GIFS } from "../../../components/game/EmojiBar";
 import EmojiFloat from "../../../components/game/EmojiFloat";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useBackgroundMusic } from "../../../context/BackgroundMusicProvider";
@@ -643,7 +643,7 @@ export default function GameRoom() {
             // Delay result overlay to show win line first
             setTimeout(() => {
               setResult({ visible: true, outcome: meWon ? "win" : "lose", amount: meWon ? (p?.prizeAmount || amt) : amt });
-            }, wl ? 800 : 0);
+            }, wl ? 2000 : 0);
 
             setToast({
               msg: meWon ? tRef.current("victory") : tRef.current("defeat"),
@@ -1164,9 +1164,17 @@ export default function GameRoom() {
               alignItems: 'center',
               pointerEvents: 'none',
             }}>
-              <Text style={{ fontSize: 80, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 4 }, textShadowRadius: 12 }}>
-                {floatingEmoji}
-              </Text>
+              {EMOJI_GIFS[floatingEmoji] ? (
+                <Image 
+                  source={{ uri: EMOJI_GIFS[floatingEmoji] }} 
+                  style={{ width: 100, height: 100 }} 
+                  resizeMode="contain" 
+                />
+              ) : (
+                <Text style={{ fontSize: 80, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 4 }, textShadowRadius: 12 }}>
+                  {floatingEmoji}
+                </Text>
+              )}
             </View>
           )}
 
@@ -1189,6 +1197,19 @@ export default function GameRoom() {
               <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>
                 Waiting for {opponent} to accept...
               </Text>
+            </View>
+          )}
+
+          {/* Emoji Quick Actions */}
+          {!result.visible && !waitingForRematch && (
+            <View style={{ marginTop: 24, marginBottom: 8 }}>
+              <EmojiBar
+                onSend={(emoji) => {
+                  send("send_emoji", { matchId, emoji });
+                  setFloatingEmoji(emoji);
+                  setTimeout(() => setFloatingEmoji(null), 3000);
+                }}
+              />
             </View>
           )}
 
