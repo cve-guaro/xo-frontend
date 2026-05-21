@@ -39,7 +39,6 @@ export default function AdminUsers() {
   const [page, setPage] = useState(0);
   const [total, setTotal] = useState(0);
   const limit = 100;
-  const [confirmUserAction, setConfirmUserAction] = useState<'ban' | 'unban' | 'delete' | null>(null);
   
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editData, setEditData] = useState({ display_name: '', username: '', number: '', role: 'user', available_balance: '0', bonus_balance: '0', admin_edit_balance: '0' });
@@ -697,7 +696,7 @@ export default function AdminUsers() {
                   <View style={{ flex: isMobile ? undefined : 2, width: isMobile ? '100%' : 'auto' }}>
                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16, alignItems: 'center' }}>
                         <Text style={{ fontSize: 12, color: '#a9abb3', textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: '600' }}><Ionicons name="reader-outline" size={14} /> Game History</Text>
-                        <TouchableOpacity onPress={() => setReferralUserId(user360.id)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(16,185,129,0.1)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
+                        <TouchableOpacity onPress={() => setReferralUserId(selected?.id || null)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(16,185,129,0.1)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
                            <Ionicons name="people" size={12} color="#10b981" />
                            <Text style={{ color: '#10b981', fontSize: 10, fontWeight: '700', textTransform: 'uppercase' }}>Referral Analytics</Text>
                         </TouchableOpacity>
@@ -1015,33 +1014,7 @@ export default function AdminUsers() {
         userId={referralUserId || undefined}
       />
 
-    
-      <ActionConfirmModal
-        visible={!!confirmUserAction}
-        title={confirmUserAction === 'delete' ? 'Delete User Account' : confirmUserAction === 'ban' ? 'Ban User' : 'Unban User'}
-        message={
-          confirmUserAction === 'delete'
-            ? `Are you sure you want to permanently delete ${selected?.username || 'this user'}? All associated data, balances, and game history will be wiped. This is irreversible.`
-            : confirmUserAction === 'ban'
-            ? `Are you sure you want to ban ${selected?.username || 'this user'}? They will not be able to log in or play games until unbanned.`
-            : `Are you sure you want to unban ${selected?.username || 'this user'}? Their account access will be fully restored.`
-        }
-        confirmText={confirmUserAction === 'delete' ? 'Delete User' : confirmUserAction === 'ban' ? 'Ban User' : 'Unban User'}
-        confirmColor={confirmUserAction === 'delete' ? 'red' : confirmUserAction === 'ban' ? 'yellow' : 'blue'}
-        iconName={confirmUserAction === 'delete' ? 'trash-outline' : confirmUserAction === 'ban' ? 'warning-outline' : 'shield-checkmark-outline'}
-        onCancel={() => setConfirmUserAction(null)}
-        onConfirm={() => {
-          if (!confirmUserAction || !selected) return;
-          if (confirmUserAction === 'delete') {
-            deleteUser(selected.id);
-          } else if (confirmUserAction === 'ban') {
-            toggleBan(selected.id, true);
-          } else if (confirmUserAction === 'unban') {
-            toggleBan(selected.id, false);
-          }
-          setConfirmUserAction(null);
-        }}
-      />
+
     </View>
   );
 }
@@ -1118,7 +1091,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(167,139,250,0.3)',
   },
-  modalBox: { width: '100%', maxWidth: 800, maxHeight: '90%', padding: 24, borderRadius: 24, borderWidth: 1, borderColor: 'rgba(166,140,255,0.2)' },
   userModalBox: { width: '100%', maxWidth: 480, padding: 28, borderRadius: 28, borderWidth: 1, borderColor: 'rgba(166,140,255,0.3)', maxHeight: '90%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   modalTitle: { color: '#fff', fontSize: 18, fontWeight: '900' },
