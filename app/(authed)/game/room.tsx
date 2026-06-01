@@ -692,7 +692,7 @@ export default function GameRoom() {
             const delay = p?.startingInMs || 3000;
             setToast({
               msg: languageRef.current === "en" ? `Match starting in ${Math.round(delay / 1000)}s...` : `ጨዋታ በ ${Math.round(delay / 1000)} ሰከንድ ይጀምራል...`,
-              color: "#a68bff",
+              color: "#00daf3",
               icon: "hourglass",
             });
             setLocked(false);
@@ -741,7 +741,7 @@ export default function GameRoom() {
           case "rematch_cancelled": {
              setWaitingForRematch(false);
              setRematchOffer(null);
-             setToast({ msg: "Opponent left the match.", color: "#ffabf3", icon: "walk" });
+             setToast({ msg: "Opponent left the match.", color: "#00daf3", icon: "walk" });
              break;
           }
 
@@ -886,7 +886,7 @@ export default function GameRoom() {
       if (opponentId) {
         setWaitingForRematch(true);
         send("rematch_request", { token, opponentId, amount: amt });
-        setToast({ msg: "Rematch offer sent!", color: "#7C3AED", icon: "paper-plane" });
+        setToast({ msg: "Rematch offer sent!", color: "#00daf3", icon: "paper-plane" });
       } else {
         // Fallback: If for some reason opponentId is lost
         router.replace({
@@ -988,7 +988,7 @@ export default function GameRoom() {
   if (!matchId || matchId === "undefined" || matchId === "null") {
     return (
       <View style={[styles.container, { backgroundColor: '#060814', justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color="#a68cff" />
+        <ActivityIndicator size="large" color="#00daf3" />
         <Text style={{ color: '#fff', marginTop: 16, fontWeight: '600' }}>Initializing Game Room...</Text>
       </View>
     );
@@ -1001,155 +1001,187 @@ export default function GameRoom() {
       {/* Background Decor */}
       {isDesktop && (
         <>
-          <View style={[styles.glowBg, { top: '5%', left: '5%', width: 500, height: 500, backgroundColor: 'rgba(166,139,255,0.06)' }]} />
+          <View style={[styles.glowBg, { top: '5%', left: '5%', width: 500, height: 500, backgroundColor: 'rgba(0,218,243,0.06)' }]} />
           <View style={[styles.glowBg, { bottom: '5%', right: '5%', width: 400, height: 400, backgroundColor: 'rgba(0,218,243,0.04)' }]} />
         </>
       )}
 
+      {/* Background XO Illustrations */}
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <Text style={{ position: 'absolute', top: '15%', left: '-10%', fontSize: 240, fontWeight: '900', color: '#00daf3', opacity: 0.03, transform: [{ rotate: '-15deg' }] }}>X</Text>
+        <Text style={{ position: 'absolute', bottom: '20%', right: '-15%', fontSize: 280, fontWeight: '900', color: '#00daf3', opacity: 0.02, transform: [{ rotate: '25deg' }] }}>O</Text>
+      </View>
+
       <MainWrapper style={styles.safe}>
-        <RematchTopPopup
-          visible={!!rematchOffer?.visible}
-          fromName={rematchOffer?.fromName}
-          amount={rematchOffer?.amount}
-          onAccept={onAcceptRematch}
-          onDecline={onDeclineRematch}
-        />
         <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
 
           <FlashToast amount={parseInt(amountParam)} ref={toastRef} message="Match Found! 🎉" />
 
-          {/* TOP BAR */}
-          <View style={[styles.topBar, isDesktop && { paddingHorizontal: 40, marginTop: 24 }]}>
-            <PlayerBadge
-              name={languageRef.current === "en" ? "You" : "አንተ"}
-              isMe={true}
-              sub={user?.number || ""}
-              symbol={mySymbol}
-              time={timers[mySymbol]}
-              active={turn === mySymbol}
-              timerColor="#fff"
-              avatar={user?.avatar}
-            />
+          {/* MAIN GAME LAYOUT */}
+          <View style={[isDesktop && { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40, marginTop: 40 }]}>
+            {/* LEFT COLUMN: Player 1 (On mobile, this acts as the Top Bar) */}
+            <View style={[isDesktop ? { flex: 1, alignItems: 'flex-end', paddingRight: 40 } : styles.topBar]}>
+              <PlayerBadge
+                name={languageRef.current === "en" ? "You" : "አንተ"}
+                isMe={true}
+                sub={user?.number || ""}
+                symbol={mySymbol}
+                time={timers[mySymbol]}
+                active={turn === mySymbol}
+                timerColor="#fff"
+                avatar={user?.avatar}
+              />
 
-            <View style={styles.betWrapper}>
-              <View style={[styles.betPill, { backgroundColor: 'rgba(255,215,0,0.1)' }]}>
-                <Ionicons name="trophy" size={14} color="#ffd700" />
-                <Text style={styles.betText}>PRIZE: {calculateWinAmount(Number(amountParam))} ETB</Text>
-              </View>
-            </View>
-
-            <PlayerBadge
-              name={opponent}
-              isMe={false}
-              sub=""
-              symbol={mySymbol === "X" ? "O" : "X"}
-              time={timers[mySymbol === "X" ? "O" : "X"]}
-              active={turn !== mySymbol}
-              timerColor="#fff"
-              avatar={(params as any)?.opponentAvatar}
-            />
-          </View>
-
-          {/* TURN BANNER */}
-          <Animated.View
-            style={[
-              styles.turnBanner,
-              {
-                backgroundColor: isMyTurn ? "rgba(166,139,255,0.08)" : "rgba(0, 200, 255, 0.08)",
-                borderColor: isMyTurn ? "rgba(166,139,255,0.2)" : "rgba(0, 200, 255, 0.2)",
-                opacity: bannerGlowOpacity,
-                maxWidth: isDesktop ? 600 : 'auto',
-                alignSelf: isDesktop ? 'center' : 'auto',
-                width: isDesktop ? '100%' : 'auto',
-              },
-            ]}
-          >
-            <Ionicons name={isMyTurn ? "sparkles" : "hourglass"} size={16} color={isMyTurn ? "#a68cff" : "#00daf3"} />
-            <Text style={[styles.turnText, { color: isMyTurn ? "#e5e3ff" : "rgba(255,255,255,0.8)" }]}>
-              {isMyTurn ? t("your_turn") : t("opponent_turn")}
-            </Text>
-          </Animated.View>
-
-          {/* BOARD AREA */}
-          <View style={[styles.boardSection, { alignItems: 'center' }, isDesktop && { flex: 1, justifyContent: 'center' }]}>
-            <View style={[styles.boardContainer, { width: boardOuterSize, height: boardOuterSize, padding: 24, backgroundColor: 'rgba(17,17,40,0.6)' }]}>
-              <View style={styles.boardGlowLayer} />
-              <View style={[styles.mainBoard, { width: boardInnerSize, height: boardInnerSize }]}>
-                {[0, 1, 2].map((r) => (
-                  <View key={r} style={styles.boardRow}>
-                    {[0, 1, 2].map((c) => {
-                      const idx = r * 3 + c;
-                      return (
-                        <Pressable
-                          key={idx}
-                          onPress={() => makeMove(idx)}
-                          style={({ pressed }) => [
-                            styles.cell,
-                            isDesktop && { width: dynamicCellSize, height: dynamicCellSize, borderRadius: 28 },
-                            pressed && { opacity: 0.7, transform: [{ scale: 0.98 }] },
-                            board[idx] === "_" && isMyTurn && styles.cellEmptyActive
-                          ]}
-                        >
-                          {board[idx] !== "_" ? (
-                            <CellSymbol symbol={board[idx]} size={dynamicCellSize} isDesktop={isDesktop} />
-                          ) : (
-                            isMyTurn && (
-                              <View style={[styles.turnCellDot, { backgroundColor: '#fff', opacity: 0.8 }]} />
-                            )
-                          )}
-                        </Pressable>
-                      );
-                    })}
+              {!isDesktop && (
+                <View style={styles.betWrapper}>
+                  <View style={[styles.betPill, { backgroundColor: 'rgba(255,215,0,0.1)' }]}>
+                    <Ionicons name="trophy" size={14} color="#ffd700" />
+                    <Text style={styles.betText}>PRIZE: {calculateWinAmount(Number(amountParam))} ETB</Text>
                   </View>
-                ))}
+                </View>
+              )}
 
-                {/* Win Line Overlay */}
-                {winLine && (() => {
-                  const cellSize = (boardInnerSize - 24) / 3;
-                  const getCenter = (idx: number) => {
-                    const col = idx % 3;
-                    const row = Math.floor(idx / 3);
-                    return {
-                      x: col * (cellSize + 12) + cellSize / 2,
-                      y: row * (cellSize + 12) + cellSize / 2
-                    };
-                  };
-                  const p1 = getCenter(winLine[0]);
-                  const p2 = getCenter(winLine[2]);
-                  const dx = p2.x - p1.x;
-                  const dy = p2.y - p1.y;
-                  const length = Math.sqrt(dx * dx + dy * dy);
-                  const angle = Math.atan2(dy, dx) * (180 / Math.PI);
-                  const winSymbol = board[winLine[0]];
-                  const lineColor = winSymbol === 'X' ? '#fd6f85' : '#00daf3';
-                  return (
-                    <Animated.View
-                      pointerEvents="none"
-                      style={{
-                        position: 'absolute',
-                        left: p1.x,
-                        top: p1.y - 3,
-                        width: winLineAnim.interpolate({ inputRange: [0, 1], outputRange: [0, length] }),
-                        height: 6,
-                        backgroundColor: lineColor,
-                        borderRadius: 3,
-                        transform: [
-                          { translateX: 0 },
-                          { translateY: 0 },
-                          { rotate: `${angle}deg` }
-                        ],
-                        transformOrigin: 'left center',
-                        shadowColor: lineColor,
-                        shadowOffset: { width: 0, height: 0 },
-                        shadowOpacity: 0.8,
-                        shadowRadius: 10,
-                        zIndex: 10,
-                      }}
-                    />
-                  );
-                })()}
+              {!isDesktop && (
+                <PlayerBadge
+                  name={opponent}
+                  isMe={false}
+                  sub=""
+                  symbol={mySymbol === "X" ? "O" : "X"}
+                  time={timers[mySymbol === "X" ? "O" : "X"]}
+                  active={turn !== mySymbol}
+                  timerColor="#fff"
+                  avatar={(params as any)?.opponentAvatar}
+                />
+              )}
+            </View>
+
+            {/* CENTER COLUMN: Bet (Desktop), Turn Banner, Board */}
+            <View style={[isDesktop && { alignItems: 'center' }]}>
+              {isDesktop && (
+                <View style={{ alignItems: 'center', marginBottom: 20 }}>
+                  <View style={[styles.betPill, { backgroundColor: 'rgba(255,215,0,0.1)' }]}>
+                    <Ionicons name="trophy" size={14} color="#ffd700" />
+                    <Text style={styles.betText}>PRIZE: {calculateWinAmount(Number(amountParam))} ETB</Text>
+                  </View>
+                </View>
+              )}
+
+              <Animated.View
+                style={[
+                  styles.turnBanner,
+                  {
+                    backgroundColor: isMyTurn ? "rgba(0,218,243,0.08)" : "rgba(0, 200, 255, 0.08)",
+                    borderColor: isMyTurn ? "rgba(0,218,243,0.2)" : "rgba(0, 200, 255, 0.2)",
+                    opacity: bannerGlowOpacity,
+                    maxWidth: isDesktop ? 600 : 'auto',
+                    alignSelf: isDesktop ? 'center' : 'auto',
+                    width: isDesktop ? '100%' : 'auto',
+                  },
+                ]}
+              >
+                <Ionicons name={isMyTurn ? "sparkles" : "hourglass"} size={16} color="#00daf3" />
+                <Text style={[styles.turnText, { color: isMyTurn ? "#00daf3" : "rgba(255,255,255,0.8)" }]}>
+                  {isMyTurn ? t("your_turn") : t("opponent_turn")}
+                </Text>
+              </Animated.View>
+
+              <View style={[styles.boardSection, { alignItems: 'center' }, isDesktop && { justifyContent: 'center' }]}>
+                <View style={[styles.boardContainer, { width: boardOuterSize, height: boardOuterSize, padding: 24, backgroundColor: 'rgba(17,17,40,0.6)' }]}>
+                  <View style={styles.boardGlowLayer} />
+                  <View style={[styles.mainBoard, { width: boardInnerSize, height: boardInnerSize }]}>
+                    {[0, 1, 2].map((r) => (
+                      <View key={r} style={styles.boardRow}>
+                        {[0, 1, 2].map((c) => {
+                          const idx = r * 3 + c;
+                          return (
+                            <Pressable
+                              key={idx}
+                              onPress={() => makeMove(idx)}
+                              style={({ pressed }) => [
+                                styles.cell,
+                                isDesktop && { width: dynamicCellSize, height: dynamicCellSize, borderRadius: 28 },
+                                pressed && { opacity: 0.7, transform: [{ scale: 0.98 }] },
+                                board[idx] === "_" && isMyTurn && styles.cellEmptyActive
+                              ]}
+                            >
+                              {board[idx] !== "_" ? (
+                                <CellSymbol symbol={board[idx]} size={dynamicCellSize} isDesktop={isDesktop} />
+                              ) : (
+                                isMyTurn && (
+                                  <View style={[styles.turnCellDot, { backgroundColor: '#fff', opacity: 0.8 }]} />
+                                )
+                              )}
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    ))}
+
+                    {/* Win Line Overlay */}
+                    {winLine && (() => {
+                      const cellSize = (boardInnerSize - 24) / 3;
+                      const getCenter = (idx: number) => {
+                        const col = idx % 3;
+                        const row = Math.floor(idx / 3);
+                        return {
+                          x: col * (cellSize + 12) + cellSize / 2,
+                          y: row * (cellSize + 12) + cellSize / 2
+                        };
+                      };
+                      const p1 = getCenter(winLine[0]);
+                      const p2 = getCenter(winLine[2]);
+                      const dx = p2.x - p1.x;
+                      const dy = p2.y - p1.y;
+                      const length = Math.sqrt(dx * dx + dy * dy);
+                      const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+                      const winSymbol = board[winLine[0]];
+                      const lineColor = winSymbol === 'X' ? '#fd6f85' : '#00daf3';
+                      return (
+                        <Animated.View
+                          pointerEvents="none"
+                          style={{
+                            position: 'absolute',
+                            left: p1.x,
+                            top: p1.y - 3,
+                            width: winLineAnim.interpolate({ inputRange: [0, 1], outputRange: [0, length] }),
+                            height: 6,
+                            backgroundColor: lineColor,
+                            borderRadius: 3,
+                            transform: [
+                              { translateX: 0 },
+                              { translateY: 0 },
+                              { rotate: `${angle}deg` }
+                            ],
+                            transformOrigin: 'left center',
+                            shadowColor: lineColor,
+                            shadowOffset: { width: 0, height: 0 },
+                            shadowOpacity: 0.8,
+                            shadowRadius: 10,
+                            zIndex: 10,
+                          }}
+                        />
+                      );
+                    })()}
+                  </View>
+                </View>
               </View>
             </View>
+
+            {/* RIGHT COLUMN: Player 2 (Desktop only, mobile renders in Top Bar) */}
+            {isDesktop && (
+              <View style={{ flex: 1, alignItems: 'flex-start', paddingLeft: 40 }}>
+                <PlayerBadge
+                  name={opponent}
+                  isMe={false}
+                  sub=""
+                  symbol={mySymbol === "X" ? "O" : "X"}
+                  time={timers[mySymbol === "X" ? "O" : "X"]}
+                  active={turn !== mySymbol}
+                  timerColor="#fff"
+                  avatar={(params as any)?.opponentAvatar}
+                />
+              </View>
+            )}
           </View>
 
           {/* Floating Emoji - Top notification */}

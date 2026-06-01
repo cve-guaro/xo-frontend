@@ -31,7 +31,7 @@ export default function WelcomeTermsPopup({ visible, onAgree, language }: Welcom
 
             <View style={styles.rulesContainer}>
               <View style={styles.rule}>
-                <Ionicons name="checkmark-circle" size={16} color="#a78bfa" />
+                <Ionicons name="checkmark-circle" size={16} color="#00daf3" />
                 <Text style={styles.ruleText}>{isEN ? "You can use this bonus to play ANY match." : "ይህንን ቦነስ በማንኛውም ጨዋታ ላይ ሊጠቀሙበት ይችላሉ።"}</Text>
               </View>
 

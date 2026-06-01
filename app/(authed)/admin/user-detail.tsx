@@ -2,13 +2,28 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, Platform, useWindowDimensions, Alert, TextInput, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import ActionConfirmModal from '../../../components/ActionConfirmModal';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../../context/authContext';
 import { API_URL } from '../../../config';
 
-const fmt = (n: number) => Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const timeFmt = (d: string) => d ? new Date(d).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
-const dateFmt = (d: string) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }).toUpperCase() : '—';
+const fmt = (n: number) => {
+  const num = Number(n || 0);
+  if (Number.isNaN(num)) return "0.00";
+  return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+const timeFmt = (d: string) => {
+  if (!d) return '-';
+  const parsed = new Date(d);
+  if (Number.isNaN(parsed.getTime())) return '-';
+  return parsed.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+};
+const dateFmt = (d: string) => {
+  if (!d) return '-';
+  const parsed = new Date(d);
+  if (Number.isNaN(parsed.getTime())) return '-';
+  return parsed.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }).toUpperCase();
+};
 
 export default function UserDetail() {
   const { token, user: authUser } = useAuth();
@@ -37,6 +52,7 @@ export default function UserDetail() {
   const [txDetailModal, setTxDetailModal] = useState<any>(null);
   const [boardStep, setBoardStep] = useState(0);
   const PAGE_SIZE = 20;
+  const [confirmAction, setConfirmAction] = useState<'ban' | 'delete' | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!userId) { setLoading(false); return; }
@@ -76,7 +92,7 @@ export default function UserDetail() {
     </View>
   );
 
-  const { user: targetUser, wallet, stats, games, transactions, totals } = data;
+  const { user: targetUser, wallet, stats, games, transactions, totals, entries } = data;
   const initials = (targetUser.username || targetUser.number || '??').slice(0, 2).toUpperCase();
   const isBanned = targetUser.banned;
   const tier = stats.totalGames > 50 ? 'PRO' : stats.totalGames > 10 ? 'REGULAR' : 'STANDARD';
@@ -120,27 +136,11 @@ export default function UserDetail() {
             <Ionicons name="create" size={14} color="#0a0f1c" />
             <Text style={[s.headerBtnText, { color: '#0a0f1c' }]}>Edit Data</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[s.headerBtn, { backgroundColor: '#ef4444' }]} disabled={actionLoading} onPress={async () => {
-            if (!confirm(`${isBanned ? 'Unban' : 'Ban'} this user?`)) return;
-            setActionLoading(true);
-            try {
-              await fetch(`${API_URL}/admin/users/${userId}/ban`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'x-platform': 'web' }, body: JSON.stringify({ banned: !isBanned }) });
-              fetchData();
-            } catch(e) { console.error(e); }
-            setActionLoading(false);
-          }}>
+          <TouchableOpacity style={[s.headerBtn, { backgroundColor: '#ef4444' }]} disabled={actionLoading} onPress={() => setConfirmAction('ban')}>
             <Ionicons name="ban" size={14} color="#fff" />
             <Text style={s.headerBtnText}>{isBanned ? 'Unban User' : 'Ban User'}</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[s.headerBtn, { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#ef4444' }]} disabled={actionLoading} onPress={async () => {
-            if (!confirm('PERMANENTLY delete this user and all their data?')) return;
-            setActionLoading(true);
-            try {
-              await fetch(`${API_URL}/admin/users/${userId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}`, 'x-platform': 'web' } });
-              router.back();
-            } catch(e) { console.error(e); }
-            setActionLoading(false);
-          }}>
+          <TouchableOpacity style={[s.headerBtn, { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#ef4444' }]} disabled={actionLoading} onPress={() => setConfirmAction('delete')}>
             <Ionicons name="trash" size={14} color="#ef4444" />
             <Text style={[s.headerBtnText, { color: '#ef4444' }]}>Delete Account</Text>
           </TouchableOpacity>
@@ -237,46 +237,6 @@ export default function UserDetail() {
         </View>
       </View>
 
-      {/* Room 1 Win Tracker (25 cap) */}
-      <View style={[s.card, { marginBottom: 12 }]}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-          <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: 'rgba(251,191,36,0.1)', alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="trophy" size={16} color="#fbbf24" />
-          </View>
-          <View>
-            <Text style={{ color: '#fff', fontSize: 14, fontWeight: '900' }}>Room 1 Win Tracker</Text>
-            <Text style={{ color: '#475569', fontSize: 10, fontWeight: '600' }}>20 wins cap per bet tier</Text>
-          </View>
-        </View>
-        <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-          {[
-            { label: '10 ETB', wins: Number(targetUser.r1_10_wins || 0), color: '#34d399' },
-            { label: '25 ETB', wins: Number(targetUser.r1_25_wins || 0), color: '#00e5ff' },
-            { label: '50 ETB', wins: Number(targetUser.r1_50_wins || 0), color: '#a78bfa' },
-            { label: '99 ETB', wins: Number(targetUser.r1_99_wins || 0), color: '#fbbf24' },
-          ].map(tier => {
-            const pct = Math.min((tier.wins / 20) * 100, 100);
-            const isMaxed = tier.wins >= 20;
-            return (
-              <View key={tier.label} style={{ flex: 1, minWidth: isMobile ? '44%' : 120, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: isMaxed ? `${tier.color}40` : 'rgba(255,255,255,0.05)' }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <Text style={{ color: tier.color, fontSize: 12, fontWeight: '900' }}>{tier.label}</Text>
-                  {isMaxed && (
-                    <View style={{ backgroundColor: `${tier.color}20`, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                      <Text style={{ color: tier.color, fontSize: 8, fontWeight: '900' }}>LOCKED</Text>
-                    </View>
-                  )}
-                </View>
-                <Text style={{ color: '#fff', fontSize: 20, fontWeight: '900' }}>{tier.wins}<Text style={{ color: '#475569', fontSize: 13 }}>/20</Text></Text>
-                {/* Progress bar */}
-                <View style={{ marginTop: 8, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-                  <View style={{ height: '100%', width: `${pct}%`, backgroundColor: tier.color, borderRadius: 2 } as any} />
-                </View>
-              </View>
-            );
-          })}
-        </View>
-      </View>
 
       {/* Member Since + Tier */}
       <View style={{ flexDirection: 'row', gap: 12, marginBottom: 24 }}>
@@ -289,6 +249,37 @@ export default function UserDetail() {
           <Text style={[s.miniValue, { color: '#00e5ff' }]}>{tier}</Text>
         </View>
       </View>
+
+      {/* User Login Entry Frequency Statistics */}
+      {(() => {
+        const estats = entries || { today: 0, thisWeek: 0, thisMonth: 0, total: 0 };
+        return (
+          <View style={[s.card, { marginBottom: 24 }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+              <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: 'rgba(52,211,153,0.1)', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="calendar-outline" size={16} color="#34d399" />
+              </View>
+              <View>
+                <Text style={{ color: '#fff', fontSize: 14, fontWeight: '900' }}>App Visit Entry Frequency</Text>
+                <Text style={{ color: '#475569', fontSize: 10, fontWeight: '600' }}>Activity metrics based on daily unique entries</Text>
+              </View>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+              {[
+                { label: 'TODAY', value: estats.today, color: '#34d399' },
+                { label: 'THIS WEEK', value: estats.thisWeek, color: '#00e5ff' },
+                { label: 'THIS MONTH', value: estats.thisMonth, color: '#a78bfa' },
+                { label: 'TOTAL ENTRIES', value: estats.total, color: '#fbbf24' },
+              ].map(item => (
+                <View key={item.label} style={{ flex: 1, minWidth: isMobile ? '44%' : 120, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
+                  <Text style={{ color: '#475569', fontSize: 9, fontWeight: '800', letterSpacing: 0.5, marginBottom: 6 }}>{item.label}</Text>
+                  <Text style={{ color: item.color, fontSize: 20, fontWeight: '900' }}>{item.value}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        );
+      })()}
 
       {/* Transaction History Table */}
       {(() => {
@@ -867,6 +858,46 @@ export default function UserDetail() {
         </Modal>
         );
       })()}
+
+      <ActionConfirmModal
+        visible={!!confirmAction}
+        title={confirmAction === 'delete' ? 'Delete User Account' : isBanned ? 'Unban User' : 'Ban User'}
+        message={
+          confirmAction === 'delete'
+            ? 'Are you sure you want to PERMANENTLY delete this user? This action will purge all their transactional data and is completely irreversible.'
+            : `Are you sure you want to ${isBanned ? 'unban' : 'ban'} this user? ${isBanned ? 'This will restore their access.' : 'This will immediately lock them out of the application.'}`
+        }
+        confirmText={confirmAction === 'delete' ? 'Delete User' : isBanned ? 'Unban User' : 'Ban User'}
+        confirmColor={confirmAction === 'delete' ? 'red' : isBanned ? 'blue' : 'yellow'}
+        iconName={confirmAction === 'delete' ? 'trash-outline' : isBanned ? 'shield-checkmark-outline' : 'warning-outline'}
+        isLoading={actionLoading}
+        onCancel={() => setConfirmAction(null)}
+        onConfirm={async () => {
+          if (!confirmAction) return;
+          setActionLoading(true);
+          try {
+            if (confirmAction === 'ban') {
+              await fetch(`${API_URL}/admin/users/${userId}/ban`, {
+                method: 'PATCH',
+                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'x-platform': 'web' },
+                body: JSON.stringify({ banned: !isBanned })
+              });
+              await fetchData();
+            } else if (confirmAction === 'delete') {
+              await fetch(`${API_URL}/admin/users/${userId}`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${token}`, 'x-platform': 'web' }
+              });
+              router.back();
+            }
+          } catch (e) {
+            console.error(e);
+          } finally {
+            setActionLoading(false);
+            setConfirmAction(null);
+          }
+        }}
+      />
     </ScrollView>
   );
 }

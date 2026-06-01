@@ -36,7 +36,7 @@ import { haptics } from "../../lib/haptcs";
  */
 
 // ---------------- Constants ----------------
-const SUCCESS_URL_PATTERNS = [/success/i, /status=paid/i, /payment\/done/i, /receipt/i];
+const SUCCESS_URL_PATTERNS = [/success/i, /status=paid/i, /payment\/done/i, /receipt/i, /chapa-return/i, /gameplay/i];
 const PRESETS = [50, 100, 200, 500];
 const MAX_DEPOSIT = 100000;
 
@@ -116,7 +116,7 @@ const Notice = memo(function Notice({ type, text, onClose }: { type: "error" | "
 });
 
 const MethodCard = memo(function MethodCard({ item, selected, onPress }: { item: PaymentMethod; selected: boolean; onPress: () => void; }) {
-  const colors = item.colors ?? ["#7C3AED", "#22D3EE"];
+  const colors = item.colors ?? ["#00daf3", "#22D3EE"];
   const icon = item.icon ?? "card-outline";
 
   return (
@@ -177,7 +177,7 @@ export default function DepositScreen() {
         key: "CHAPA",
         label: isEN ? "Chapa" : "ቻፓ",
         subtitle: isEN ? "Card & bank checkout" : "በካርድ እና በባንክ ማስገቢያ",
-        colors: ["#7C3AED", "#22D3EE"],
+        colors: ["#00daf3", "#22D3EE"],
         icon: "card",
         imageUrl: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ0f2iB3_eSklK4Hc4DyH2IiG3vUM_bdm2sWA&s",
       }];
@@ -193,6 +193,7 @@ export default function DepositScreen() {
   const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
   const [currentTxId, setCurrentTxId] = useState<string | null>(null);
   const webRef = useRef<WebView>(null);
+  const redirectingRef = useRef(false);
 
   useEffect(() => {
     if (!method && methods.length) setMethod(methods[0].key);
@@ -279,14 +280,21 @@ export default function DepositScreen() {
   const onWebNav = useCallback(async (navState: WebViewNavigation) => {
     const isSuccess = SUCCESS_URL_PATTERNS.some((re) => re.test(navState.url));
     if (!isSuccess) return;
-    setCheckoutUrl(null);
+    if (redirectingRef.current) return;
+    redirectingRef.current = true;
+
     if (currentTxId && token) {
       fetch(`${API_URL}/payments/verify/${currentTxId}`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => {});
     }
-    await refreshProfile?.();
-    toast.push("Payment completed", "success");
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    router.replace("/(authed)/home/gameplay");
+
+    setTimeout(async () => {
+      setCheckoutUrl(null);
+      await refreshProfile?.();
+      toast.push("Payment completed", "success");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      router.replace("/(authed)/home/gameplay");
+      redirectingRef.current = false;
+    }, 5000);
   }, [refreshProfile, router, toast, currentTxId, token]);
 
   return (
@@ -299,7 +307,7 @@ export default function DepositScreen() {
             {/* Ambient Glows for Desktop */}
             {isDesktop && (
               <>
-                <View style={[styles.glowBg, { top: -200, right: -200, backgroundColor: 'rgba(167,139,250,0.05)' }]} />
+                <View style={[styles.glowBg, { top: -200, right: -200, backgroundColor: 'rgba(0,218,243,0.05)' }]} />
                 <View style={[styles.glowBg, { bottom: -200, left: -200, backgroundColor: 'rgba(0,218,243,0.03)' }]} />
               </>
             )}
@@ -326,7 +334,7 @@ export default function DepositScreen() {
               )}
 
               {/* Hero */}
-              <LinearGradient colors={["rgba(166,139,255,0.15)", "rgba(0,218,243,0.05)", "rgba(255,255,255,0.02)"]} style={styles.hero}>
+              <LinearGradient colors={["rgba(0,218,243,0.15)", "rgba(0,218,243,0.05)", "rgba(255,255,255,0.02)"]} style={styles.hero}>
                 <View style={styles.heroLeft}>
                   <Text style={styles.heroKicker}>Fast Checkout</Text>
                   <Text style={styles.heroText}>Deposit with {methodMeta?.label || "provider"} • Instant</Text>
@@ -350,9 +358,9 @@ export default function DepositScreen() {
                       onChangeText={setAmount}
                       keyboardType="numeric"
                       placeholder="0"
-                      placeholderTextColor="rgba(166,139,255,0.3)"
+                      placeholderTextColor="rgba(0,218,243,0.3)"
                       style={[styles.amountInput, isInvalidAmount && { color: "#f87171" }]}
-                      selectionColor="#a68cff"
+                      selectionColor="#00daf3"
                     />
                   </View>
                   <View style={styles.presetRow}>
@@ -389,7 +397,7 @@ export default function DepositScreen() {
                 activeOpacity={0.92}
                 style={[styles.ctaOuter, (busy || isInvalidAmount) && { opacity: 0.5 }]}
               >
-                <LinearGradient colors={(methodMeta?.colors as any) || ["#a68cff", "#00daf3"]} style={styles.cta}>
+                <LinearGradient colors={(methodMeta?.colors as any) || ["#00daf3", "#00a3ff"]} style={styles.cta}>
                   {busy ? <ActivityIndicator color="#0B0B0F" /> : (
                     <>
                       <Ionicons name="flash" size={20} color="#0B0B0F" />
@@ -447,11 +455,11 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 16 },
   headerBtn: {
     width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center",
-    backgroundColor: "rgba(166,139,255,0.08)", borderWidth: 1, borderColor: "rgba(166,139,255,0.15)",
+    backgroundColor: "rgba(0,218,243,0.08)", borderWidth: 1, borderColor: "rgba(0,218,243,0.15)",
   },
   headerTitle: { color: "#e5e3ff", fontWeight: "900", fontSize: 20, letterSpacing: 0.5 },
   headerSub: { color: "rgba(168,167,212,0.6)", fontWeight: "700", fontSize: 13, marginTop: 4 },
-  hero: { marginTop: 12, borderRadius: 24, padding: 20, borderWidth: 1, borderColor: "rgba(166,139,255,0.2)", flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  hero: { marginTop: 12, borderRadius: 24, padding: 20, borderWidth: 1, borderColor: "rgba(0,218,243,0.2)", flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   heroLeft: { flex: 1 },
   heroKicker: { color: "rgba(168,167,212,0.8)", fontWeight: "800", fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 },
   heroText: { color: "#fff", fontWeight: "900", fontSize: 18, marginTop: 4 },
@@ -464,14 +472,14 @@ const styles = StyleSheet.create({
   noticeClose: { padding: 4 },
   block: { marginTop: 28 },
   blockTitle: { color: "rgba(229,227,255,0.5)", fontWeight: "900", fontSize: 12, marginBottom: 14, textTransform: 'uppercase', letterSpacing: 1.5 },
-  amountCard: { borderRadius: 24, padding: 20, backgroundColor: "rgba(166,139,255,0.05)", borderWidth: 1, borderColor: "rgba(166,139,255,0.1)" },
+  amountCard: { borderRadius: 24, padding: 20, backgroundColor: "rgba(0,218,243,0.05)", borderWidth: 1, borderColor: "rgba(0,218,243,0.1)" },
   amountCardError: { borderColor: "#f87171", borderWidth: 2, backgroundColor: "rgba(248,113,113,0.03)" },
-  amountTopRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: "rgba(166,139,255,0.1)" },
+  amountTopRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: "rgba(0,218,243,0.1)" },
   amountPrefix: { color: "rgba(168,167,212,0.5)", fontWeight: "900", fontSize: 18 },
   amountInput: { fontWeight: "900", fontSize: 32, padding: 0, flex: 1, color: '#fff' },
   presetRow: { flexDirection: "row", gap: 12, marginTop: 16 },
-  preset: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 14, backgroundColor: "rgba(166,139,255,0.1)", borderWidth: 1, borderColor: "rgba(166,139,255,0.2)" },
-  presetText: { color: "#a68cff", fontWeight: "900", fontSize: 14 },
+  preset: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 14, backgroundColor: "rgba(0,218,243,0.1)", borderWidth: 1, borderColor: "rgba(0,218,243,0.2)" },
+  presetText: { color: "#00daf3", fontWeight: "900", fontSize: 14 },
   limitHint: { color: 'rgba(168,167,212,0.4)', fontSize: 11, fontWeight: '700', marginTop: 10, paddingLeft: 4 },
   methodsGrid: { gap: 12 },
   methodGridItem: { width: '100%' },
@@ -506,11 +514,11 @@ const styles = StyleSheet.create({
   webWrap: { flex: 1, backgroundColor: "#0c0c1f" },
   webHeader: {
     height: 64, paddingHorizontal: 16, flexDirection: "row", alignItems: "center",
-    justifyContent: "space-between", borderBottomWidth: 1, borderBottomColor: "rgba(166,139,255,0.1)",
+    justifyContent: "space-between", borderBottomWidth: 1, borderBottomColor: "rgba(0,218,243,0.1)",
   },
   webBtn: {
     width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center",
-    backgroundColor: "rgba(166,139,255,0.08)",
+    backgroundColor: "rgba(0,218,243,0.08)",
   },
   webTitle: { color: "#fff", fontWeight: "900", fontSize: 16 },
 });

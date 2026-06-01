@@ -3,7 +3,7 @@ import React, { useState, useRef } from 'react';
 import { View, TouchableOpacity, StyleSheet, Animated, Easing, Image } from 'react-native';
 
 export const EMOJI_GIFS: Record<string, string> = {
-  '🤦‍♂️': 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f926_200d_2642_fe0f/512.gif',
+  '👋': 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f44b/512.gif',
   '🤝': 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f91d/512.gif',
   '😂': 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f602/512.gif',
   '🥱': 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f971/512.gif',

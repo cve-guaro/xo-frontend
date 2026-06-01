@@ -11,7 +11,7 @@ import { AdminTheme as C } from './_layout';
 import ActionConfirmModal from '../../../components/ActionConfirmModal';
 
 const glass: any = {
-  backgroundColor: 'rgba(23,23,50,0.4)',
+  backgroundColor: 'rgba(24, 24, 27, 0.65)',
 };
 
 interface User {
@@ -50,7 +50,7 @@ export default function AdminUsers() {
   const [createData, setCreateData] = useState({ display_name: '', username: '', number: '', role: 'user' });
   const [referralUserId, setReferralUserId] = useState<string | null>(null);
 
-  const [roleFilter, setRoleFilter] = useState<'all' | 'user' | 'admin' | 'superadmin'>('all');
+  const [roleFilter, setRoleFilter] = useState<'all' | 'user' | 'admin' | 'superadmin' | 'maintenance_admin'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'banned'>('all');
   const [amountRange, setAmountRange] = useState<'all' | '0-100' | '100-10000' | '10000-100000'>('all');
 
@@ -378,7 +378,10 @@ export default function AdminUsers() {
   const balanceEtb = (v: number) => Number(v || 0).toFixed(2);
   const timeSince = (iso: string) => {
     if (!iso) return '—';
-    const d = Date.now() - new Date(iso).getTime();
+    const parsed = new Date(iso).getTime();
+    if (Number.isNaN(parsed)) return '—';
+    const d = Date.now() - parsed;
+    if (d < 0) return 'Just now'; // Handle future dates (e.g. slight clock skew)
     if (d < 60000) return 'Just now';
     if (d < 3600000) return `${Math.floor(d/60000)} mins ago`;
     if (d < 86400000) return `${Math.floor(d/3600000)} hours ago`;
@@ -419,14 +422,14 @@ export default function AdminUsers() {
                       <option value="user" style={{ background: '#111128' }}>User</option>
                       <option value="admin" style={{ background: '#111128' }}>Admin</option>
                       <option value="superadmin" style={{ background: '#111128' }}>Superadmin</option>
-                      <option value="maintenance" style={{ background: '#111128' }}>Maintenance</option>
+                      <option value="maintenance_admin" style={{ background: '#111128' }}>Maintenance</option>
                     </select>
                   ) : (
                     <TouchableOpacity onPress={() => {
-                      const order = ['all','user','admin','superadmin','maintenance'] as const;
+                      const order = ['all','user','admin','superadmin','maintenance_admin'] as const;
                       setRoleFilter(order[(order.indexOf(roleFilter) + 1) % order.length]);
                     }}>
-                      <Text style={{ color: '#e5e3ff', fontSize: 12, fontWeight: '700' }}>{roleFilter.toUpperCase()}</Text>
+                      <Text style={{ color: '#e5e3ff', fontSize: 12, fontWeight: '700' }}>{roleFilter === 'maintenance_admin' ? 'MAINTENANCE' : roleFilter.toUpperCase()}</Text>
                     </TouchableOpacity>
                   )}
                   <Ionicons name="chevron-down" size={11} color="rgba(168,167,212,0.4)" />
@@ -606,7 +609,7 @@ export default function AdminUsers() {
                  {/* Left Profile Box */}
                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: isMobile ? 12 : 24 }}>
                     <View style={{ position: 'relative' }}>
-                       <View style={{ width: isMobile ? 56 : 80, height: isMobile ? 56 : 80, borderRadius: isMobile ? 28 : 40, borderWidth: 2, borderColor: '#00d4ec', backgroundColor: '#171732', alignItems: 'center', justifyContent: 'center' }}>
+                       <View style={{ width: isMobile ? 56 : 80, height: isMobile ? 56 : 80, borderRadius: isMobile ? 28 : 40, borderWidth: 2, borderColor: '#00d4ec', backgroundColor: '#18181b', alignItems: 'center', justifyContent: 'center' }}>
                           <Text style={{ fontSize: isMobile ? 18 : 24, fontWeight: '900', color: '#00e3fd' }}>{initials(selected as any)}</Text>
                        </View>
                        <View style={{ position: 'absolute', bottom: -4, right: -4, width: isMobile ? 20 : 24, height: isMobile ? 20 : 24, backgroundColor: '#81ecff', borderRadius: 12, borderWidth: 3, borderColor: '#10131a', alignItems: 'center', justifyContent: 'center' }}>
@@ -697,7 +700,7 @@ export default function AdminUsers() {
                   <View style={{ flex: isMobile ? undefined : 2, width: isMobile ? '100%' : 'auto' }}>
                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16, alignItems: 'center' }}>
                         <Text style={{ fontSize: 12, color: '#a9abb3', textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: '600' }}><Ionicons name="reader-outline" size={14} /> Game History</Text>
-                        <TouchableOpacity onPress={() => setReferralUserId(user360.id)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(16,185,129,0.1)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
+                        <TouchableOpacity onPress={() => setReferralUserId(selected?.id || null)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(16,185,129,0.1)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
                            <Ionicons name="people" size={12} color="#10b981" />
                            <Text style={{ color: '#10b981', fontSize: 10, fontWeight: '700', textTransform: 'uppercase' }}>Referral Analytics</Text>
                         </TouchableOpacity>
@@ -981,7 +984,7 @@ export default function AdminUsers() {
       {/* Generic Centered Confirm Modal */}
       <Modal transparent visible={genericModal.visible} animationType="fade">
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-          <View style={{ width: '100%', maxWidth: 360, backgroundColor: '#111128', borderRadius: 24, padding: 28, borderWidth: 1, borderColor: genericModal.isDestructive ? 'rgba(253,111,133,0.3)' : 'rgba(166,140,255,0.3)', shadowColor: genericModal.isDestructive ? '#fd6f85' : '#7c4dff', shadowOpacity: 0.2, shadowRadius: 30 }}>
+          <View style={{ width: '100%', maxWidth: 360, backgroundColor: '#0f0f11', borderRadius: 24, padding: 28, borderWidth: 1, borderColor: genericModal.isDestructive ? 'rgba(253,111,133,0.3)' : 'rgba(166,140,255,0.3)', shadowColor: genericModal.isDestructive ? '#fd6f85' : '#7c4dff', shadowOpacity: 0.2, shadowRadius: 30 }}>
             <View style={{ alignItems: 'center', marginBottom: 20 }}>
                <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: genericModal.isDestructive ? 'rgba(253,111,133,0.1)' : 'rgba(166,140,255,0.1)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: genericModal.isDestructive ? 'rgba(253,111,133,0.2)' : 'rgba(166,140,255,0.2)' }}>
                   <Ionicons name={genericModal.isDestructive ? "warning" : "information-circle"} size={32} color={genericModal.isDestructive ? C.error : C.primary} />
@@ -1015,33 +1018,6 @@ export default function AdminUsers() {
         userId={referralUserId || undefined}
       />
 
-    
-      <ActionConfirmModal
-        visible={!!confirmUserAction}
-        title={confirmUserAction === 'delete' ? 'Delete User Account' : confirmUserAction === 'ban' ? 'Ban User' : 'Unban User'}
-        message={
-          confirmUserAction === 'delete'
-            ? `Are you sure you want to permanently delete ${selected?.username || 'this user'}? All associated data, balances, and game history will be wiped. This is irreversible.`
-            : confirmUserAction === 'ban'
-            ? `Are you sure you want to ban ${selected?.username || 'this user'}? They will not be able to log in or play games until unbanned.`
-            : `Are you sure you want to unban ${selected?.username || 'this user'}? Their account access will be fully restored.`
-        }
-        confirmText={confirmUserAction === 'delete' ? 'Delete User' : confirmUserAction === 'ban' ? 'Ban User' : 'Unban User'}
-        confirmColor={confirmUserAction === 'delete' ? 'red' : confirmUserAction === 'ban' ? 'yellow' : 'blue'}
-        iconName={confirmUserAction === 'delete' ? 'trash-outline' : confirmUserAction === 'ban' ? 'warning-outline' : 'shield-checkmark-outline'}
-        onCancel={() => setConfirmUserAction(null)}
-        onConfirm={() => {
-          if (!confirmUserAction || !selected) return;
-          if (confirmUserAction === 'delete') {
-            deleteUser(selected.id);
-          } else if (confirmUserAction === 'ban') {
-            toggleBan(selected.id, true);
-          } else if (confirmUserAction === 'unban') {
-            toggleBan(selected.id, false);
-          }
-          setConfirmUserAction(null);
-        }}
-      />
     </View>
   );
 }
@@ -1050,17 +1026,17 @@ const styles = StyleSheet.create({
   root: { flex: 1, gap: 16, padding: 12 },
   tableWrap: { flex: 1 },
   tableCard: { flex: 1, backgroundColor: 'transparent' },
-  tableHeader: { padding: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(23,23,50,0.6)', borderTopLeftRadius: 20, borderTopRightRadius: 20, borderWidth: 1, borderBottomWidth: 0, borderColor: 'rgba(166,140,255,0.2)' },
-  tableHeadUnder: { padding: 16, backgroundColor: 'rgba(23,23,50,0.6)', borderBottomLeftRadius: 20, borderBottomRightRadius: 20, borderWidth: 1, borderTopWidth: 0, borderColor: 'rgba(166,140,255,0.2)', marginBottom: 16 },
+  tableHeader: { padding: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(24, 24, 27, 0.65)', borderTopLeftRadius: 20, borderTopRightRadius: 20, borderWidth: 1, borderBottomWidth: 0, borderColor: 'rgba(39, 39, 42, 0.6)' },
+  tableHeadUnder: { padding: 16, backgroundColor: 'rgba(24, 24, 27, 0.65)', borderBottomLeftRadius: 20, borderBottomRightRadius: 20, borderWidth: 1, borderTopWidth: 0, borderColor: 'rgba(39, 39, 42, 0.6)', marginBottom: 16 },
   tableTitle: { color: '#fff', fontSize: 20, fontWeight: '900', letterSpacing: 0.5 },
   tableSub: { color: C.onSurfaceVariant, fontSize: 12, marginTop: 4, fontWeight: '500' },
   tableActions: { flexDirection: 'row', gap: 10, alignItems: 'center' },
-  selectWrap: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(0,0,0,0.3)', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(166,140,255,0.3)' },
+  selectWrap: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(0,0,0,0.3)', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(0, 218, 243, 0.3)' },
   searchBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(0,0,0,0.3)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(0,218,243,0.3)', width: 180 },
   searchInput: { flex: 1, color: '#fff', fontSize: 13, fontWeight: '600' },
   thead: { flexDirection: 'row', paddingHorizontal: 20, paddingVertical: 12, backgroundColor: 'transparent' },
   th: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase' },
-  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: 'rgba(23,23,50,0.5)', borderRadius: 16, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(166,140,255,0.1)' },
+  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: 'rgba(24, 24, 27, 0.5)', borderRadius: 16, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(39, 39, 42, 0.4)' },
   rowSelected: { backgroundColor: 'rgba(166,140,255,0.1)', borderColor: 'rgba(166,140,255,0.4)' },
   tdId: { flex: 0.8, color: 'rgba(166,140,255,0.8)', fontSize: 11, fontFamily: 'monospace', fontWeight: '700' },
   tdUser: { flex: 1.8, flexDirection: 'row', alignItems: 'center', gap: 10 },
@@ -1076,10 +1052,10 @@ const styles = StyleSheet.create({
   viewBtn: { padding: 4 },
   emptyText: { color: '#a8a7d4', textAlign: 'center', padding: 30 },
   panel: { width: '100%', maxWidth: 380 },
-  profileCard: { padding: 16, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(68,68,107,0.1)' },
+  profileCard: { padding: 16, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(39, 39, 42, 0.2)' },
   profileHeader: { flexDirection: 'row', gap: 12, marginBottom: 16 },
   profileAvatarWrap: { position: 'relative' },
-  profileAvatar: { width: 48, height: 48, borderRadius: 12, backgroundColor: '#171732', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'rgba(166,140,255,0.2)' },
+  profileAvatar: { width: 48, height: 48, borderRadius: 12, backgroundColor: '#18181b', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'rgba(39, 39, 42, 0.6)' },
   profileAvatarText: { color: '#a68cff', fontSize: 16, fontWeight: '900' },
   onlineIndicator: { position: 'absolute', bottom: -2, right: -2, width: 10, height: 10, borderRadius: 5, borderWidth: 2, borderColor: '#0c0c1f' },
   profileName: { color: '#fff', fontSize: 16, fontWeight: '900' },
@@ -1093,7 +1069,7 @@ const styles = StyleSheet.create({
   miniStatItem: { flex: 1, backgroundColor: 'rgba(0,0,0,0.2)', padding: 10, borderRadius: 10 },
   miniStatLabel: { color: '#666', fontSize: 8, fontWeight: '800', textTransform: 'uppercase' },
   miniStatVal: { color: '#fff', fontSize: 14, fontWeight: '900', marginTop: 2 },
-  actionCard: { padding: 14, borderRadius: 16, gap: 10, borderWidth:1, borderColor:'rgba(68,68,107,0.1)' },
+  actionCard: { padding: 14, borderRadius: 16, gap: 10, borderWidth:1, borderColor: 'rgba(39, 39, 42, 0.2)' },
   editBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 12, backgroundColor: 'rgba(166,140,255,0.1)', borderRadius: 12 },
   actionRow: { flexDirection: 'row', gap: 8 },
   banBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, padding: 10, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(253,111,133,0.3)' },
@@ -1112,17 +1088,16 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 800,
     maxHeight: '90%',
-    backgroundColor: '#171732',
+    backgroundColor: '#18181b',
     borderRadius: 24,
     padding: 24,
     borderWidth: 1,
     borderColor: 'rgba(167,139,250,0.3)',
   },
-  modalBox: { width: '100%', maxWidth: 800, maxHeight: '90%', padding: 24, borderRadius: 24, borderWidth: 1, borderColor: 'rgba(166,140,255,0.2)' },
-  userModalBox: { width: '100%', maxWidth: 480, padding: 28, borderRadius: 28, borderWidth: 1, borderColor: 'rgba(166,140,255,0.3)', maxHeight: '90%' },
+  userModalBox: { width: '100%', maxWidth: 480, padding: 28, borderRadius: 28, borderWidth: 1, borderColor: 'rgba(0, 218, 243, 0.3)', maxHeight: '90%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   modalTitle: { color: '#fff', fontSize: 18, fontWeight: '900' },
-  inputField: { backgroundColor: '#0c0c1f', color: '#fff', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(68,68,107,0.3)', fontSize: 13 },
+  inputField: { backgroundColor: '#09090b', color: '#fff', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(39, 39, 42, 0.6)', fontSize: 13 },
   saveBtn: { backgroundColor: C.primary, padding: 14, borderRadius: 12, alignItems: 'center', marginTop: 12 },
   saveBtnText: { color: '#fff', fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1 },
   formLabel: { color: 'rgba(168,167,212,0.6)', fontSize: 10, fontWeight: '800', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 },
@@ -1150,8 +1125,8 @@ const styles = StyleSheet.create({
     marginTop: 8,
     borderRadius: 20,
     borderWidth: 1, 
-    borderColor: 'rgba(166,140,255,0.2)',
-    backgroundColor: 'rgba(23,23,50,0.6)'
+    borderColor: 'rgba(39, 39, 42, 0.6)',
+    backgroundColor: 'rgba(24, 24, 27, 0.65)'
   },
   paginationInfo: { color: C.onSurfaceVariant, fontSize: 12, fontWeight: '700' },
   pageBtn: { 
@@ -1163,7 +1138,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6, 
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(166,140,255,0.2)'
+    borderColor: 'rgba(39, 39, 42, 0.6)'
   },
   pageBtnText: { color: '#fff', fontSize: 12, fontWeight: '700' },
 });

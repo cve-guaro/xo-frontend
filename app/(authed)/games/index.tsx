@@ -178,8 +178,9 @@ export default function GamesHistory() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
-  const { user, token } = useAuth();
+  const { user, token, language } = useAuth();
   const myId = user?.id ?? null;
+  const isEN = language === "en";
 
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -231,7 +232,7 @@ export default function GamesHistory() {
                 style={styles.backBtn}
                 activeOpacity={0.8}
               >
-                <Ionicons name="arrow-back" size={18} color="#a68cff" />
+                <Ionicons name="arrow-back" size={18} color="#00daf3" />
                 <Text style={styles.backBtnText}>Back</Text>
               </TouchableOpacity>
               <Text style={styles.mainTitle}>Match History</Text>
@@ -239,7 +240,7 @@ export default function GamesHistory() {
             </View>
 
             <View style={[styles.statsGrid, isDesktop && styles.statsGridDesktop]}>
-              <StatCard label="TOTAL GAMES" value={String(summary.total)} icon="layers" color="#a68cff" isDesktop={isDesktop} />
+              <StatCard label="TOTAL GAMES" value={String(summary.total)} icon="layers" color="#00daf3" isDesktop={isDesktop} />
               <StatCard label="WIN RATE" value={`${summary.winRate}%`} icon="trending-up" color="#00daf3" isDesktop={isDesktop} />
               <StatCard label="WINS" value={String(summary.wins)} icon="trophy" color="#4CAF50" isDesktop={isDesktop} />
               <StatCard label="LOSSES" value={String(summary.losses)} icon="skull" color="#fd6f85" isDesktop={isDesktop} />
@@ -253,10 +254,11 @@ export default function GamesHistory() {
               className="match-history-list"
             />
           </View>
-          {loading && <ActivityIndicator color="#a68cff" style={{ marginTop: 20 }} />}
+          {loading && <ActivityIndicator color="#00daf3" style={{ marginTop: 20 }} />}
           {!loading && games.length === 0 && (
             <View style={styles.empty}>
-              <Text style={styles.emptyText}>No matches found</Text>
+              <Ionicons name="game-controller-outline" size={48} color="rgba(255,255,255,0.15)" style={{ marginBottom: 12 }} />
+              <Text style={styles.emptyText}>{isEN ? "No matches found" : "ምንም የተጫወቱት ጨዋታ የለም"}</Text>
             </View>
           )}
         </SafeAreaView>
@@ -281,13 +283,13 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 10,
-    backgroundColor: 'rgba(166,140,255,0.08)',
+    backgroundColor: 'rgba(0, 218, 243, 0.08)',
     borderWidth: 1,
-    borderColor: 'rgba(166,140,255,0.15)',
+    borderColor: 'rgba(0, 218, 243, 0.15)',
     alignSelf: 'flex-start',
     marginBottom: 16,
   },
-  backBtnText: { color: '#a68cff', fontWeight: '700', fontSize: 12, letterSpacing: 0.5 },
+  backBtnText: { color: '#00daf3', fontWeight: '700', fontSize: 12, letterSpacing: 0.5 },
 
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   statsGridDesktop: { flexWrap: 'nowrap', gap: 20 },

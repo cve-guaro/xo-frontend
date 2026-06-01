@@ -40,7 +40,7 @@ export const WebPressable: React.FC<WebPressableProps> = ({
 
         return [
           baseStyle,
-          Platform.OS === 'web' && { cursor: 'pointer', transition: 'all 0.2s ease-in-out' },
+          Platform.OS === 'web' && { cursor: 'pointer', transition: 'all 0.15s ease-in-out' },
           { transform, opacity }
         ] as any;
       }}

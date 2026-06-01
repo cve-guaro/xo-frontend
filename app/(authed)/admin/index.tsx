@@ -19,7 +19,10 @@ const fmtK = (n: number) => {
 };
 const timeSince = (d: string) => {
   if (!d) return '—';
-  const s = Math.floor((Date.now() - new Date(d).getTime()) / 1000);
+  const time = new Date(d).getTime();
+  if (isNaN(time)) return '—';
+  const s = Math.floor((Date.now() - time) / 1000);
+  if (s < 0) return 'Just now';
   if (s < 60) return 'Just now';
   if (s < 3600) return `${Math.floor(s / 60)}m ago`;
   if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
@@ -38,6 +41,97 @@ function ACount({ value, prefix = '', suffix = '', style }: { value: number; pre
   return <Text style={style}>{prefix}{dv.toLocaleString()}{suffix}</Text>;
 }
 
+function AdminSkeleton({ isMobile }: { isMobile: boolean }) {
+  const pulseAnim = useRef(new Animated.Value(0.3)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 0.7,
+          duration: 1000,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: Platform.OS !== 'web',
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 0.3,
+          duration: 1000,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: Platform.OS !== 'web',
+        }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulseAnim]);
+
+  const styleWithPulse = (baseStyle: any) => [baseStyle, { opacity: pulseAnim }];
+
+  return (
+    <ScrollView style={st.container} showsVerticalScrollIndicator={false}>
+      {/* Header Skeleton */}
+      <View style={[st.header, isMobile && { flexDirection: 'column', gap: 12 }]}>
+        <View style={{ gap: 6 }}>
+          <Animated.View style={styleWithPulse({ width: 180, height: 28, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 4 })} />
+          <Animated.View style={styleWithPulse({ width: 140, height: 14, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 4 })} />
+        </View>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <Animated.View style={styleWithPulse({ width: 120, height: 28, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 10 })} />
+          <Animated.View style={styleWithPulse({ width: 36, height: 36, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 10 })} />
+        </View>
+      </View>
+
+      {/* Top Metric Cards Skeleton */}
+      <View style={[st.topGrid, isMobile && { flexDirection: 'column' }]}>
+        {[1, 2, 3, 4].map(i => (
+          <View key={i} style={st.metricCard}>
+            <Animated.View style={styleWithPulse({ width: '60%', height: 10, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 2, marginBottom: 12 })} />
+            <Animated.View style={styleWithPulse({ width: '40%', height: 24, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 4 })} />
+          </View>
+        ))}
+      </View>
+
+      {/* Charts Row Skeleton */}
+      <View style={[st.bentoRow, isMobile && { flexDirection: 'column' }]}>
+        <View style={[st.chartCard, { flex: 1.2, height: 320, justifyContent: 'space-between' }]}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <View style={{ gap: 6 }}>
+              <Animated.View style={styleWithPulse({ width: 160, height: 12, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 4 })} />
+              <Animated.View style={styleWithPulse({ width: 120, height: 8, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 2 })} />
+            </View>
+            <Animated.View style={styleWithPulse({ width: 100, height: 24, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 10 })} />
+          </View>
+          <Animated.View style={styleWithPulse({ flex: 1, backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 12, marginTop: 16 })} />
+        </View>
+        <View style={[st.chartCard, { flex: 0.8, height: 320, justifyContent: 'space-between' }]}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <View style={{ width: 120, height: 12, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 4 }} />
+            <View style={{ width: 60, height: 12, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 4 }} />
+          </View>
+          <Animated.View style={styleWithPulse({ flex: 1, backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 12, marginTop: 16 })} />
+        </View>
+      </View>
+
+      {/* Live Matchmaking Rooms Skeleton */}
+      <View style={[st.panelCard, { marginBottom: 16 }]}>
+        <Animated.View style={styleWithPulse({ width: 160, height: 12, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 4, marginBottom: 16 })} />
+        <View style={{ gap: 12, flexDirection: isMobile ? 'column' : 'row' }}>
+          {[1, 2, 3].map(i => (
+            <View key={i} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.02)', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', gap: 8 }}>
+              <Animated.View style={styleWithPulse({ width: 100, height: 10, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 2 })} />
+              <Animated.View style={styleWithPulse({ width: 60, height: 8, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 2 })} />
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 }}>
+                <Animated.View style={styleWithPulse({ width: 40, height: 16, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 4 })} />
+                <Animated.View style={styleWithPulse({ width: 40, height: 16, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 4 })} />
+              </View>
+            </View>
+          ))}
+        </View>
+      </View>
+    </ScrollView>
+  );
+}
+
 export default function AdminOverview() {
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
@@ -48,28 +142,37 @@ export default function AdminOverview() {
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState<any>(null);
   const [live, setLive] = useState<any>(null);
+  const [liveQueueStats, setLiveQueueStats] = useState<any>(null);
   const [recentData, setRecentData] = useState<{ users: any[]; transactions: any[] }>({ users: [], transactions: [] });
   const [timeframe, setTimeframe] = useState<'day' | 'week' | 'month'>('week');
+  const [dauData, setDauData] = useState<any[]>([]);
 
   const fetchData = useCallback(async (showR = false) => {
     if (showR) setRefreshing(true);
     try {
       const h = { Authorization: `Bearer ${token}`, 'x-platform': 'web' };
-      const [sR, rR, lR] = await Promise.all([
+      const [sR, rR, lR, dR, qR] = await Promise.all([
         fetch(`${API_URL}/admin/dashboard-data?range=${timeframe}`, { headers: h }),
         fetch(`${API_URL}/admin/metrics/recent`, { headers: h }),
         fetch(`${API_URL}/admin/metrics/live`, { headers: h }),
+        fetch(`${API_URL}/admin/dau-list`, { headers: h }),
+        fetch(`${API_URL}/admin/live-queue-stats`, { headers: h }),
       ]);
       if (sR.ok) setStats(await sR.json());
       if (rR.ok) { const d = await rR.json(); setRecentData({ users: d.users || [], transactions: d.transactions || [] }); }
       if (lR.ok) setLive(await lR.json());
+      if (dR.ok) {
+        const d = await dR.json();
+        setDauData(d.dauList || []);
+      }
+      if (qR.ok) setLiveQueueStats(await qR.json());
     } catch (e) { console.log(e); }
     finally { setLoading(false); setRefreshing(false); }
   }, [token, timeframe]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-  // Auto-refresh every 30s
-  useEffect(() => { const id = setInterval(() => fetchData(), 30000); return () => clearInterval(id); }, [fetchData]);
+  // Auto-refresh every 2s
+  useEffect(() => { const id = setInterval(() => fetchData(), 2000); return () => clearInterval(id); }, [fetchData]);
 
   const d = useMemo(() => {
     const s = stats || {};
@@ -114,13 +217,48 @@ export default function AdminOverview() {
       labels: d.newUserGraphData.map((i: any) => i.date),
       datasets: [
         { label: 'New Users', backgroundColor: 'rgba(0,163,255,0.6)', borderRadius: 6, data: d.newUserGraphData.map((i: any) => i.count) },
-        { label: 'DAU', backgroundColor: 'rgba(16,185,129,0.6)', borderRadius: 6, data: d.newUserGraphData.map(() => Math.max(1, d.dau)) },
+        { label: 'DAU', backgroundColor: 'rgba(16,185,129,0.6)', borderRadius: 6, data: d.newUserGraphData.map((i: any) => i.dau || 0) },
       ]
     });
     setUserChartOptions({ maintainAspectRatio: false, plugins: { legend: { labels: { color: '#94a3b8', font: { size: 10 } } } }, scales: { x: { ticks: { color: '#475569', font: { size: 10 } }, grid: { display: false } }, y: { ticks: { color: '#475569', stepSize: 1 }, grid: { color: 'rgba(255,255,255,0.04)' } } } });
   }, [d.newUserGraphData, d.dau]);
 
-  if (loading) return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0a0f1c' }}><ActivityIndicator size="large" color="#00A3FF" /></View>;
+  const combinedBreakdown = useMemo(() => {
+    const flat: Record<number, { searching: number; liveMatches: number }> = {};
+    if (liveQueueStats?.roomStats) {
+      [1, 2, 3].forEach(roomNum => {
+        const breakdown = liveQueueStats.roomStats[roomNum]?.betBreakdown || {};
+        Object.entries(breakdown).forEach(([bet, item]: [string, any]) => {
+          const betNum = Number(bet);
+          if (!flat[betNum]) {
+            flat[betNum] = { searching: 0, liveMatches: 0 };
+          }
+          flat[betNum].searching += item.searching || 0;
+          flat[betNum].liveMatches += item.liveMatches || 0;
+        });
+      });
+    }
+    return flat;
+  }, [liveQueueStats]);
+
+  if (loading) return <View style={{ flex: 1, backgroundColor: C.background }}><AdminSkeleton isMobile={isMobile} /></View>;
+
+  const getRoomTotals = (bets: number[]) => {
+    let searching = 0;
+    let liveMatches = 0;
+    bets.forEach(b => {
+      const item = combinedBreakdown[b];
+      if (item) {
+        searching += item.searching || 0;
+        liveMatches += item.liveMatches || 0;
+      }
+    });
+    return { searching, liveMatches };
+  };
+
+  const r1Totals = getRoomTotals([10, 25, 50, 100]);
+  const r2Totals = getRoomTotals([100, 250, 500, 1000]);
+  const r3Totals = getRoomTotals([1000, 2500, 5000, 10000]);
 
   const txs = recentData.transactions || [];
   const healthItems = Object.entries(d.health || {}).map(([key, val]: [string, any]) => ({
@@ -175,7 +313,6 @@ export default function AdminOverview() {
           <Text style={st.metricLabel}>TOTAL VOLUME (ETB)</Text>
           <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
             <ACount value={d.volume24h} style={st.metricValue} />
-            <View style={st.trendBadge}><Text style={st.trendText}>+15.8% (24h)</Text></View>
           </View>
         </View>
         <View style={st.metricCard}>
@@ -252,10 +389,83 @@ export default function AdminOverview() {
         </View>
       </View>
 
-      {/* ═══ Bottom Bento (3 panels) ═══ */}
+      {/* ═══ Live Matchmaking Rooms Overview ═══ */}
+      <View style={[st.panelCard, { marginBottom: 16 }]}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <Text style={st.panelTitle}>LIVE MATCHMAKING ROOMS</Text>
+          <TouchableOpacity
+            onPress={() => router.push('/admin/controls?activeTab=live_queue' as any)}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+          >
+            <Text style={{ color: '#00daf3', fontSize: 11, fontWeight: '800' }}>See More</Text>
+            <Ionicons name="arrow-forward" size={12} color="#00daf3" />
+          </TouchableOpacity>
+        </View>
+        
+        <View style={{ gap: 12, flexDirection: isMobile ? 'column' : 'row' }}>
+          {/* Room 1 */}
+          <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.02)', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#8b5cf6' }} />
+              <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>Room 1 - Beginner</Text>
+            </View>
+            <Text style={{ color: '#64748b', fontSize: 11, marginBottom: 12 }}>10 - 100 ETB</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <View>
+                <Text style={{ color: '#00e5ff', fontSize: 16, fontWeight: '900' }}>{r1Totals.searching}</Text>
+                <Text style={{ color: '#475569', fontSize: 10, fontWeight: '700', marginTop: 2 }}>SEARCHING</Text>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={{ color: '#a78bfa', fontSize: 16, fontWeight: '900' }}>{r1Totals.liveMatches}</Text>
+                <Text style={{ color: '#475569', fontSize: 10, fontWeight: '700', marginTop: 2 }}>LIVE MATCHES</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Room 2 */}
+          <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.02)', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#3b82f6' }} />
+              <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>Room 2 - Intermediate</Text>
+            </View>
+            <Text style={{ color: '#64748b', fontSize: 11, marginBottom: 12 }}>100 - 1000 ETB</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <View>
+                <Text style={{ color: '#00e5ff', fontSize: 16, fontWeight: '900' }}>{r2Totals.searching}</Text>
+                <Text style={{ color: '#475569', fontSize: 10, fontWeight: '700', marginTop: 2 }}>SEARCHING</Text>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={{ color: '#a78bfa', fontSize: 16, fontWeight: '900' }}>{r2Totals.liveMatches}</Text>
+                <Text style={{ color: '#475569', fontSize: 10, fontWeight: '700', marginTop: 2 }}>LIVE MATCHES</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Room 3 */}
+          <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.02)', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#06b6d4' }} />
+              <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>Room 3 - Advanced</Text>
+            </View>
+            <Text style={{ color: '#64748b', fontSize: 11, marginBottom: 12 }}>1000 - 10000 ETB</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <View>
+                <Text style={{ color: '#00e5ff', fontSize: 16, fontWeight: '900' }}>{r3Totals.searching}</Text>
+                <Text style={{ color: '#475569', fontSize: 10, fontWeight: '700', marginTop: 2 }}>SEARCHING</Text>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={{ color: '#a78bfa', fontSize: 16, fontWeight: '900' }}>{r3Totals.liveMatches}</Text>
+                <Text style={{ color: '#475569', fontSize: 10, fontWeight: '700', marginTop: 2 }}>LIVE MATCHES</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      </View>
+
+      {/* ═══ Bottom Bento Row 1 ═══ */}
       <View style={[st.bentoRow, isMobile && { flexDirection: 'column' }]}>
         {/* Recent Transactions */}
-        <View style={[st.panelCard, { flex: 1 }]}>
+        <View style={[st.panelCard, { flex: 1.2 }]}>
           <Text style={st.panelTitle}>RECENT TRANSACTIONS</Text>
           <View style={{ gap: 8 }}>
             {txs.slice(0, 5).map((tx: any, i: number) => {
@@ -285,7 +495,7 @@ export default function AdminOverview() {
         </View>
 
         {/* Pending Withdrawals (3 oldest) */}
-        <View style={[st.panelCard, { flex: 0.7 }]}>
+        <View style={[st.panelCard, { flex: 0.8 }]}>
           <Text style={st.panelTitle}>PENDING WITHDRAWALS (3 oldest)</Text>
           <View style={{ gap: 10 }}>
             {d.pendingList.length > 0 ? d.pendingList.map((pw: any, i: number) => (
@@ -309,9 +519,56 @@ export default function AdminOverview() {
             )}
           </View>
         </View>
+      </View>
+
+      {/* ═══ Bottom Bento Row 2 ═══ */}
+      <View style={[st.bentoRow, isMobile && { flexDirection: 'column' }]}>
+        {/* Active Users Today (DAU List) */}
+        <View style={[st.panelCard, { flex: 1.2 }]}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <Text style={st.panelTitle}>ACTIVE USERS TODAY (DAU: {dauData.length})</Text>
+            <Ionicons name="people" size={16} color="#34d399" />
+          </View>
+          <ScrollView nestedScrollEnabled style={{ maxHeight: 240 }} showsVerticalScrollIndicator={false}>
+            <View style={{ gap: 8 }}>
+              {dauData.map((usr: any, i: number) => (
+                <TouchableOpacity
+                  key={usr.id || i}
+                  style={st.txRow}
+                  onPress={() => router.push(`/admin/user-detail?id=${usr.id}` as any)}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                    <View style={[st.txIcon, { backgroundColor: 'rgba(52,211,153,0.1)' }]}>
+                      <Ionicons name="person" color="#34d399" size={14} />
+                    </View>
+                    <View>
+                      <Text style={{ color: '#e2e8f0', fontSize: 12, fontWeight: '700' }}>
+                        {usr.username || `User ${usr.number?.slice(-4)}`}
+                      </Text>
+                      <Text style={{ color: '#475569', fontSize: 9, fontWeight: '600' }}>
+                        {usr.number || 'No Phone'}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={{ color: '#64748b', fontSize: 10, fontWeight: '600' }}>
+                      Last seen: {timeSince(usr.last_seen)}
+                    </Text>
+                    <Text style={{ color: '#00daf3', fontSize: 9, fontWeight: '800', marginTop: 2 }}>Details →</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+              {dauData.length === 0 && (
+                <Text style={{ color: '#475569', fontSize: 11, textAlign: 'center', paddingVertical: 20 }}>
+                  No active users recorded today yet.
+                </Text>
+              )}
+            </View>
+          </ScrollView>
+        </View>
 
         {/* System Status */}
-        <View style={[st.panelCard, { flex: 0.6 }]}>
+        <View style={[st.panelCard, { flex: 0.8 }]}>
           <Text style={st.panelTitle}>SYSTEM STATUS</Text>
           <View style={{ gap: 10 }}>
             {healthItems.map((h, i) => (
@@ -319,11 +576,11 @@ export default function AdminOverview() {
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                   <View style={[st.healthDot, { backgroundColor: h.status === 'operational' ? '#34d399' : '#f87171' }]} />
                   <View>
-                    <Text style={{ color: h.status === 'operational' ? '#34d399' : '#f87171', fontSize: 11, fontWeight: '800' }}>{h.name} ({h.status === 'operational' ? 'Active' : 'Down'})</Text>
-                    <Text style={{ color: '#475569', fontSize: 9 }}>Operational</Text>
+                    <Text style={{ color: h.status === 'operational' ? '#34d399' : '#f87171', fontSize: 11, fontWeight: '800' }}>{h.name}</Text>
+                    <Text style={{ color: '#475569', fontSize: 9 }}>{h.status === 'operational' ? 'Operational' : 'Issue Detected'}</Text>
                   </View>
                 </View>
-                <Text style={{ color: '#64748b', fontSize: 11, fontWeight: '700' }}>{h.uptime || 99.9}%</Text>
+                <Text style={{ color: h.status === 'operational' ? '#34d399' : '#f87171', fontSize: 11, fontWeight: '700' }}>{h.status === 'operational' ? '✓' : '!'}</Text>
               </View>
             ))}
           </View>
@@ -352,28 +609,28 @@ const st = StyleSheet.create({
   refreshBtn: { backgroundColor: C.secondary, width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', shadowColor: C.secondary, shadowOpacity: 0.5, shadowRadius: 10, elevation: 5 },
   // Top metric cards
   topGrid: { flexDirection: 'row', gap: 12, marginBottom: 16 },
-  metricCard: { flex: 1, backgroundColor: 'rgba(23,23,50,0.6)', borderWidth: 1, borderColor: 'rgba(166,140,255,0.2)', borderRadius: 20, padding: 24, justifyContent: 'space-between', minHeight: 120, shadowColor: C.primary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 24, elevation: 10 },
+  metricCard: { flex: 1, backgroundColor: 'rgba(24, 24, 27, 0.65)', borderWidth: 1, borderColor: 'rgba(39, 39, 42, 0.6)', borderRadius: 20, padding: 24, justifyContent: 'space-between', minHeight: 120, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.25, shadowRadius: 16, elevation: 6 },
   metricLabel: { color: C.onSurfaceVariant, fontSize: 9, fontWeight: '800', letterSpacing: 1.5, marginBottom: 6 },
   metricValue: { color: '#fff', fontSize: 24, fontWeight: '900', letterSpacing: -0.5 },
   trendBadge: { backgroundColor: 'rgba(52,211,153,0.08)', borderWidth: 1, borderColor: 'rgba(52,211,153,0.2)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
   trendText: { color: '#34d399', fontSize: 9, fontWeight: '800' },
   // Bento rows
   bentoRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
-  chartCard: { backgroundColor: 'rgba(23,23,50,0.6)', borderWidth: 1, borderColor: 'rgba(166,140,255,0.2)', borderRadius: 24, padding: 20, overflow: 'hidden', shadowColor: C.primary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 24, elevation: 10 },
+  chartCard: { backgroundColor: 'rgba(24, 24, 27, 0.65)', borderWidth: 1, borderColor: 'rgba(39, 39, 42, 0.6)', borderRadius: 24, padding: 20, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.25, shadowRadius: 16, elevation: 6 },
   chartTitle: { color: '#fff', fontSize: 12, fontWeight: '900', letterSpacing: 0.5 },
   chartSub: { color: C.onSurfaceVariant, fontSize: 9, fontWeight: '600', marginTop: 2 },
   tfSelector: { flexDirection: 'row', gap: 4, padding: 3, backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
   tfOpt: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 8 },
   tfText: { fontSize: 9, fontWeight: '700', letterSpacing: 1, color: C.onSurfaceVariant },
   // Bottom panels
-  panelCard: { backgroundColor: 'rgba(23,23,50,0.6)', borderWidth: 1, borderColor: 'rgba(166,140,255,0.2)', borderRadius: 24, padding: 20, shadowColor: C.primary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 24, elevation: 10 },
+  panelCard: { backgroundColor: 'rgba(24, 24, 27, 0.65)', borderWidth: 1, borderColor: 'rgba(39, 39, 42, 0.6)', borderRadius: 24, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.25, shadowRadius: 16, elevation: 6 },
   panelTitle: { color: '#fff', fontSize: 11, fontWeight: '900', letterSpacing: 1, marginBottom: 16 },
-  txRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderColor: 'rgba(166,140,255,0.1)' },
+  txRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderColor: 'rgba(39, 39, 42, 0.3)' },
   txIcon: { width: 30, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   statusPill: { borderWidth: 1, paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6, marginTop: 2 },
-  pendingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderColor: 'rgba(166,140,255,0.1)' },
+  pendingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderColor: 'rgba(39, 39, 42, 0.3)' },
   goBtn: { backgroundColor: 'rgba(0,218,243,0.1)', borderWidth: 1, borderColor: 'rgba(0,218,243,0.3)', paddingVertical: 8, borderRadius: 10, alignItems: 'center', marginTop: 8 },
   goBtnText: { color: C.secondary, fontSize: 11, fontWeight: '900' },
-  healthRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(11,11,30,0.5)', borderWidth: 1, borderRadius: 12, padding: 12 },
+  healthRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(24,24,27,0.5)', borderWidth: 1, borderColor: 'rgba(39,39,42,0.3)', borderRadius: 12, padding: 12 },
   healthDot: { width: 8, height: 8, borderRadius: 4, shadowOpacity: 0.8, shadowRadius: 6 },
 });

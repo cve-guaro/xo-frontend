@@ -123,7 +123,7 @@ export default function ReferralDetailsModal({ visible, onClose, token, userId }
                           {r.referred_name || r.referred_id.substring(0,8)}
                           {"\n"}
                           <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>
-                            {new Date(r.joined_at).toLocaleDateString()}
+                            {r.joined_at && !isNaN(new Date(r.joined_at).getTime()) ? new Date(r.joined_at).toLocaleDateString() : '—'}
                           </Text>
                         </Text>
                         <Text style={[styles.td, { flex: 1, textAlign: 'center', color: r.games_played > 0 ? '#10b981' : '#a8a7d4' }]}>

@@ -163,8 +163,8 @@ export default function ProfileEditModal({
                 </TouchableOpacity>
 
                 <View style={styles.cameraBtn}>
-                  <LinearGradient colors={["#7c3aed", "#6d28d9"]} style={styles.cameraInner}>
-                    <Ionicons name="camera" size={16} color="#fff" />
+                  <LinearGradient colors={["#00daf3", "#00a3ff"]} style={styles.cameraInner}>
+                    <Ionicons name="camera" size={16} color="#0c0c1f" />
                   </LinearGradient>
                 </View>
               </View>
@@ -215,12 +215,12 @@ export default function ProfileEditModal({
                 onPress={saveProfile}
                 style={[styles.btn, styles.btnPrimary, saving && { opacity: 0.7 }]}
               >
-                <LinearGradient colors={["#00ccff", "#0077ff"]} style={styles.btnPrimaryInner}>
+                <LinearGradient colors={["#00daf3", "#00a3ff"]} style={styles.btnPrimaryInner}>
                   {saving ? (
-                    <ActivityIndicator color="#fff" />
+                    <ActivityIndicator color="#0c0c1f" />
                   ) : (
                     <>
-                      <Ionicons name="save" size={16} color="#fff" />
+                      <Ionicons name="save" size={16} color="#0c0c1f" />
                       <Text style={styles.btnPrimaryText}>{isEN ? "Save" : "አስቀምጥ"}</Text>
                     </>
                   )}
@@ -269,5 +269,5 @@ const styles = StyleSheet.create({
   btnGhostText: { color: "#e5e7eb", fontWeight: "800" },
   btnPrimary: {},
   btnPrimaryInner: { paddingVertical: 12, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8 },
-  btnPrimaryText: { color: "#fff", fontWeight: "900" },
+  btnPrimaryText: { color: "#0c0c1f", fontWeight: "900" },
 });

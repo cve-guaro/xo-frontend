@@ -200,7 +200,7 @@ export default function LoginScreen() {
       <LinearGradient colors={["#060614", "#0c0c1f", "#060614"]} style={StyleSheet.absoluteFill} />
       {/* Subtle secondary glow overlay */}
       <LinearGradient 
-        colors={["transparent", "rgba(168,85,247,0.03)", "transparent"]} 
+        colors={["transparent", "rgba(0, 218, 243, 0.03)", "transparent"]} 
         start={{x:0, y:0}} end={{x:1, y:1}} 
         style={StyleSheet.absoluteFill} 
       />
@@ -215,7 +215,7 @@ export default function LoginScreen() {
             <View style={styles.glassCard}>
               <View style={styles.cardHeader}>
                 <View style={styles.logoCircle}>
-                  <Image source={require("../../assets/images/icon.jpg")} style={{ width: 28, height: 28, borderRadius: 6 }} />
+                  <Image source={require("../../assets/images/adaptive-icon.png")} style={{ width: 28, height: 28, borderRadius: 6 }} />
                 </View>
                 <Text style={styles.cardBrand}>XO ET</Text>
               </View>
@@ -256,16 +256,16 @@ export default function LoginScreen() {
                     style={{ marginTop: 20 }}
                   >
                     <LinearGradient 
-                      colors={canSend ? ["#a855f7", "#7c3aed"] : ["rgba(168,85,247,0.3)", "rgba(124,58,237,0.3)"]} 
+                      colors={canSend ? ["#00daf3", "#00a3ff"] : ["rgba(0, 218, 243, 0.15)", "rgba(0, 163, 255, 0.15)"]} 
                       start={{x:0,y:0}} end={{x:1,y:0}}
                       style={styles.sendBtn}
                     >
                       {requestingOtp ? (
-                        <ActivityIndicator color="#fff" />
+                        <ActivityIndicator color={canSend ? "#0c0c1f" : "rgba(255,255,255,0.4)"} />
                       ) : (
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                          <Text style={styles.sendBtnText}>Send OTP</Text>
-                          <Ionicons name="arrow-forward" size={18} color="#fff" />
+                          <Text style={[styles.sendBtnText, { color: canSend ? '#0c0c1f' : 'rgba(255,255,255,0.4)' }]}>Send OTP</Text>
+                          <Ionicons name="arrow-forward" size={18} color={canSend ? '#0c0c1f' : 'rgba(255,255,255,0.4)'} />
                         </View>
                       )}
                     </LinearGradient>
@@ -297,16 +297,16 @@ export default function LoginScreen() {
                     style={{ marginTop: 20 }}
                   >
                     <LinearGradient 
-                      colors={canVerify ? ["#06b6d4", "#0891b2"] : ["rgba(6,182,212,0.3)", "rgba(8,145,178,0.3)"]} 
+                      colors={canVerify ? ["#00daf3", "#00a3ff"] : ["rgba(0, 218, 243, 0.15)", "rgba(0, 163, 255, 0.15)"]} 
                       start={{x:0,y:0}} end={{x:1,y:0}}
                       style={styles.sendBtn}
                     >
                       {verifyingOtp ? (
-                        <ActivityIndicator color="#fff" />
+                        <ActivityIndicator color={canVerify ? "#0c0c1f" : "rgba(255,255,255,0.4)"} />
                       ) : (
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                          <Text style={styles.sendBtnText}>{t("verify_button")}</Text>
-                          <Ionicons name="checkmark-circle" size={18} color="#fff" />
+                          <Text style={[styles.sendBtnText, { color: canVerify ? '#0c0c1f' : 'rgba(255,255,255,0.4)' }]}>{t("verify_button")}</Text>
+                          <Ionicons name="checkmark-circle" size={18} color={canVerify ? '#0c0c1f' : 'rgba(255,255,255,0.4)'} />
                         </View>
                       )}
                     </LinearGradient>
@@ -318,7 +318,7 @@ export default function LoginScreen() {
                     </TouchableOpacity>
                     
                     <TouchableOpacity onPress={resend} disabled={requestingOtp || resendTimer > 0}>
-                      <Text style={{ color: (requestingOtp || resendTimer > 0) ? '#64748b' : '#06b6d4', fontSize: 13, fontWeight: '700' }}>
+                      <Text style={{ color: (requestingOtp || resendTimer > 0) ? '#64748b' : '#00daf3', fontSize: 13, fontWeight: '700' }}>
                         {requestingOtp ? 'Sending...' : (resendTimer > 0 ? `Resend OTP in ${resendTimer}s` : 'Resend OTP')}
                       </Text>
                     </TouchableOpacity>
@@ -330,7 +330,7 @@ export default function LoginScreen() {
                 <Text style={styles.footerInfo}>
                   By continuing, you agree to our{" "}
                   <Text style={styles.footerLink} onPress={() => router.push('/(auth)/terms')}>Terms of Service</Text> and{" "}
-                  <Text style={styles.footerLink} onPress={() => router.push('/(auth)/terms')}>Privacy Policy</Text>
+                  <Text style={styles.footerLink} onPress={() => router.push('/(auth)/privacy')}>Privacy Policy</Text>
                 </Text>
               </View>
             </View>
@@ -378,8 +378,8 @@ export default function LoginScreen() {
                 shadowColor: '#00daf3', shadowOpacity: 0.5, shadowRadius: 20
               }}>
                 <Ionicons name="server-outline" size={54} color="#00daf3" />
-                <View style={{ position: 'absolute', bottom: -5, right: -5, width: 44, height: 44, borderRadius: 22, backgroundColor: '#0c0c1f', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'rgba(166,140,255,0.4)' }}>
-                   <Ionicons name="construct" size={20} color="#a68cff" />
+                <View style={{ position: 'absolute', bottom: -5, right: -5, width: 44, height: 44, borderRadius: 22, backgroundColor: '#0c0c1f', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'rgba(0, 218, 243, 0.4)' }}>
+                   <Ionicons name="construct" size={20} color="#00daf3" />
                 </View>
               </View>
 
@@ -451,11 +451,11 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 12,
-    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    backgroundColor: 'rgba(0, 218, 243, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.3)',
+    borderColor: 'rgba(0, 218, 243, 0.3)',
   },
   cardBrand: {
     color: '#fff',
@@ -548,14 +548,14 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 28,
     fontWeight: '900',
-    shadowColor: '#a855f7',
+    shadowColor: '#00daf3',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0,
     shadowRadius: 10,
   },
   otpInputActive: {
-    borderColor: 'rgba(168, 85, 247, 0.8)',
-    backgroundColor: 'rgba(168, 85, 247, 0.08)',
+    borderColor: 'rgba(0, 218, 243, 0.8)',
+    backgroundColor: 'rgba(0, 218, 243, 0.08)',
     shadowOpacity: 0.3,
   },
 
@@ -570,7 +570,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   footerLink: {
-    color: '#6366f1',
+    color: '#00daf3',
     fontWeight: '700',
   },
 
@@ -586,8 +586,8 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#3b82f6',
-    shadowColor: '#3b82f6',
+    backgroundColor: '#00daf3',
+    shadowColor: '#00daf3',
     shadowOpacity: 1,
     shadowRadius: 4,
   },

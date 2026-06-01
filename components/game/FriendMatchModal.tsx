@@ -163,7 +163,7 @@ export default function FriendMatchModal({ visible, onClose, onSendInvite, invit
 
               {/* Your balance context */}
               <View style={s.balanceRow}>
-                <Ionicons name="wallet-outline" size={14} color="#a78bfa" />
+                <Ionicons name="wallet-outline" size={14} color="#00daf3" />
                 <Text style={s.balanceText}>Your balance: <Text style={{ color: '#e5e3ff', fontWeight: '900' }}>{senderBalance.toLocaleString()} ETB</Text></Text>
               </View>
 
@@ -250,8 +250,8 @@ const s = StyleSheet.create({
   targetName: { color: '#e5e3ff', fontSize: 16, fontWeight: '800' },
   statusDot: { width: 8, height: 8, borderRadius: 4 },
   statusText: { fontSize: 10, fontWeight: '800' },
-  balanceRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: 'rgba(167,139,250,0.06)', borderRadius: 10 },
-  balanceText: { color: '#a78bfa', fontSize: 11, fontWeight: '600' },
+  balanceRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: 'rgba(0,218,243,0.06)', borderRadius: 10 },
+  balanceText: { color: '#00daf3', fontSize: 11, fontWeight: '600' },
   betGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
   betBtn: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(68,68,107,0.2)', minWidth: 70, alignItems: 'center' },
   betBtnSelected: { backgroundColor: 'rgba(0,227,253,0.15)', borderColor: '#00e3fd' },

@@ -12,15 +12,28 @@ import { API_URL } from "../config"; // e.g. https://api.yourapp.com
  */
 export const fixAvatarUrl = (url?: string | null) => {
   if (!url) return null;
+  
+  let resolvedUrl = url;
+  if (url.startsWith('/')) {
+    resolvedUrl = `${API_URL}${url}`;
+  }
+
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1') {
+      resolvedUrl = resolvedUrl.replace(/localhost/g, hostname).replace(/127\.0\.0\.1/g, hostname);
+    }
+  }
+
   // If it's a local development URL, swap it for the production API URL
-  if (url.includes('localhost:9001')) {
-    return url.replace('http://localhost:9001', API_URL);
+  if (resolvedUrl.includes('localhost:9001')) {
+    return resolvedUrl.replace('http://localhost:9001', API_URL);
   }
   // Ensure HTTPS for production if it's already using the production domain but with HTTP
-  if (url.startsWith('http://xo-et-backend-production')) {
-    return url.replace('http://', 'https://');
+  if (resolvedUrl.startsWith('http://xo-et-backend-production')) {
+    return resolvedUrl.replace('http://', 'https://');
   }
-  return url;
+  return resolvedUrl;
 };
 
 type AuthUser = {
@@ -30,7 +43,7 @@ type AuthUser = {
   avatar: string | null;
   new_user: boolean;
   display_name: string | null;
-  role: 'user' | 'admin' | 'superadmin';
+  role: 'user' | 'admin' | 'superadmin' | 'maintenance' | 'maintenance_admin';
   room_1_wins: number;
   bonus_balance: number;
   banned: boolean;
@@ -1146,7 +1159,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#a68cff',
+    shadowColor: '#00daf3',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8
@@ -1191,7 +1204,7 @@ export const GlobalUIComponents = () => {
           <TouchableOpacity 
             activeOpacity={0.8}
             onPress={closeAlert}
-            style={[styles.alertBtn, { backgroundColor: alertConfig.type === 'error' ? '#fd6f85' : '#a68cff' }]}
+            style={[styles.alertBtn, { backgroundColor: alertConfig.type === 'error' ? '#fd6f85' : '#00daf3' }]}
           >
             <Text style={styles.alertBtnText}>OKAY</Text>
           </TouchableOpacity>

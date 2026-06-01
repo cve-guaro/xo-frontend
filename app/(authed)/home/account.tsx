@@ -23,6 +23,7 @@ import { useAuth } from "../../../context/authContext";
 import { API_URL } from "../../../config";
 import LogoutConfirmation from "../../../components/LogoutConfirmation";
 import ReferralModal from "../../../components/ReferralModal";
+import RulesModal from "../../../components/RulesModal";
 import { useToast } from "../../../context/ToastContext";
 
 const clamp = (n: number, a: number, b: number) => Math.max(a, Math.min(b, n));
@@ -36,6 +37,7 @@ export default function ProfileScreen() {
   const isDesktop = width > 768 && Platform.OS === 'web';
 
   const [showReferralModal, setShowReferralModal] = useState(false);
+  const [rulesVisible, setRulesVisible] = useState(false);
 
   // mounted guard (prevents setState after unmount)
   const mountedRef = useRef(true);
@@ -121,9 +123,9 @@ export default function ProfileScreen() {
   }, [rank]);
 
   const rankBadgeColors = useMemo(() => {
-    if (rankMeta.tone === "platinum") return ["rgba(124,58,237,0.95)", "rgba(59,130,246,0.85)"] as const;
-    if (rankMeta.tone === "gold") return ["rgba(245,158,11,0.95)", "rgba(124,58,237,0.85)"] as const;
-    return ["rgba(148,163,184,0.25)", "rgba(124,58,237,0.55)"] as const;
+    if (rankMeta.tone === "platinum") return ["rgba(0, 229, 255, 0.95)", "rgba(0, 180, 220, 0.85)"] as const;
+    if (rankMeta.tone === "gold") return ["rgba(255, 184, 77, 0.95)", "rgba(217, 119, 6, 0.85)"] as const;
+    return ["rgba(148, 163, 184, 0.25)", "rgba(255, 255, 255, 0.1)"] as const;
   }, [rankMeta.tone]);
 
   const meNumber = useMemo(() => {
@@ -204,6 +206,11 @@ export default function ProfileScreen() {
 
   return (
     <View style={styles.container}>
+      <LinearGradient colors={["#0A090E", "#08070B", "#060508"]} style={StyleSheet.absoluteFill} />
+
+      <View pointerEvents="none" style={[styles.blob, styles.blob1]} />
+      <View pointerEvents="none" style={[styles.blob, styles.blob2]} />
+
       <ReferralModal visible={showReferralModal} onClose={() => setShowReferralModal(false)} token={token || null} isEN={isEN} toast={toast} />
       <LogoutConfirmation visible={exitModalVisible} onCancel={cancelExit} onConfirm={confirmExit} />
       <SafeAreaView style={styles.safe} edges={["bottom"]}>
@@ -236,11 +243,11 @@ export default function ProfileScreen() {
           {/* Missing Profile Notice */}
           {(user && (!user.username || !user.display_name)) && (
             <LinearGradient
-              colors={["rgba(167,139,250,0.15)", "rgba(124,58,237,0.08)"]}
+              colors={["rgba(0, 218, 243, 0.15)", "rgba(0, 218, 243, 0.03)"]}
               style={styles.onboardingNotice}
             >
               <View style={styles.onboardingIcon}>
-                <Ionicons name="sparkles" size={20} color="#a78bfa" />
+                <Ionicons name="sparkles" size={20} color="#00daf3" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.onboardingTitle}>{isEN ? "Complete your Profile" : "መገለጫዎን ያጠናቅቁ"}</Text>
@@ -255,12 +262,12 @@ export default function ProfileScreen() {
 
           {/* Hero section */}
           <View style={[styles.heroCard, isDesktop && styles.heroCardDesktop]}>
-            <LinearGradient colors={["rgba(167,139,250,0.08)", "rgba(0,218,243,0.03)", "rgba(6,6,20,0.6)"]} style={styles.glass} />
+            <LinearGradient colors={["rgba(0, 229, 255, 0.08)", "rgba(0, 229, 255, 0.03)", "rgba(10, 10, 15, 0.6)"]} style={styles.glass} />
 
             <View style={[styles.heroRow, isDesktop && { gap: 28 }]}>
               <View style={[styles.avatarShell, isDesktop && { width: 100, height: 100 }]}>
                 <LinearGradient
-                  colors={["#a78bfa", "#00daf3"]}
+                  colors={["#00daf3", "#00e5ff"]}
                   style={[styles.avatarRing, isDesktop && { width: 100, height: 100 }]}
                 />
                 <View style={[styles.avatarInner, isDesktop && { width: 90, height: 90 }]}>
@@ -279,8 +286,8 @@ export default function ProfileScreen() {
                   disabled
                   activeOpacity={1}
                 >
-                  <LinearGradient colors={["#a78bfa", "#7c3aed"]} style={styles.fabInner}>
-                    <Ionicons name="camera-outline" size={isDesktop ? 16 : 16} color="#fff" />
+                  <LinearGradient colors={["#00daf3", "#00e5ff"]} style={styles.fabInner}>
+                    <Ionicons name="camera-outline" size={isDesktop ? 16 : 16} color="#0a0a0f" />
                   </LinearGradient>
                 </TouchableOpacity>
               </View>
@@ -304,7 +311,7 @@ export default function ProfileScreen() {
                   <View style={styles.dotDivider} />
 
                   <View style={styles.inlineRow}>
-                    <Ionicons name="shield-checkmark-outline" size={14} color="rgba(0,218,243,0.6)" />
+                    <Ionicons name="shield-checkmark-outline" size={14} color="rgba(168, 85, 247, 0.8)" />
                     <Text style={styles.mutedText}>{isEN ? "Verified" : "የተረጋገጠ"}</Text>
                   </View>
                 </View>
@@ -327,7 +334,7 @@ export default function ProfileScreen() {
                 <View style={[styles.panel, isDesktop && { marginTop: 0 }]}>
                   <View style={styles.panelHeader}>
                     <View style={styles.panelTitleRow}>
-                      <Ionicons name="person-circle-outline" size={18} color="#a78bfa" />
+                      <Ionicons name="person-circle-outline" size={18} color="#a855f7" />
                       <Text style={styles.panelTitle}>{isEN ? "Account Info" : "የመለያ መረጃ"}</Text>
                     </View>
                   </View>
@@ -357,12 +364,12 @@ export default function ProfileScreen() {
                   />
 
                   <TouchableOpacity disabled={saving} onPress={saveProfile} activeOpacity={0.9} style={styles.primaryBtn}>
-                    <LinearGradient colors={["#a78bfa", "#7c3aed"]} style={styles.primaryBtnInner}>
+                    <LinearGradient colors={["#00daf3", "#00daf3"]} style={styles.primaryBtnInner}>
                       {saving ? (
-                        <ActivityIndicator color="#fff" />
+                        <ActivityIndicator color="#0a0a0f" />
                       ) : (
                         <>
-                          <Ionicons name="save-outline" size={18} color="#fff" />
+                          <Ionicons name="save-outline" size={18} color="#0a0a0f" />
                           <Text style={styles.primaryBtnText}>{isEN ? "Save Changes" : "ለውጦችን አስቀምጥ"}</Text>
                         </>
                       )}
@@ -383,30 +390,22 @@ export default function ProfileScreen() {
                       />
                     )}
                     <QuickAction
-                      title={isEN ? "Game History" : "የጨዋታ ታሪክ"}
-                      subtitle={isEN ? "See past matches" : "ያለፉ ጨዋታዎች"}
-                      icon="time-outline"
-                      onPress={goHistory}
+                      title={isEN ? "Privacy & Rules" : "የግላዊነት ፖሊሲ"}
+                      subtitle={isEN ? "Terms and conditions" : "ህጎች እና መመሪያዎች"}
+                      icon="document-text-outline"
+                      onPress={() => setRulesVisible(true)}
                     />
-                    {appConfig.referral_enabled === true && (
-                      <QuickAction
-                        title={isEN ? "Share & Earn" : "አጋራ እና አግኝ"}
-                        subtitle={isEN ? "Invite friends" : "ጓደኞችን ይጋብዙ"}
-                        icon="share-social"
-                        onPress={() => setShowReferralModal(true)}
-                      />
-                    )}
+                    <QuickAction
+                      title={isEN ? "Telegram Support" : "የቴሌግራም ድጋፍ"}
+                      subtitle={isEN ? "Get support" : "ድጋፍ ያግኙ"}
+                      icon="chatbubbles-outline"
+                      onPress={() => Linking.openURL("https://t.me/xoetsupport").catch(() => {})}
+                    />
                     <QuickAction
                       title={isEN ? "Community" : "ማህበረሰብ"}
-                      subtitle={isEN ? "Join Telegram" : "ቴሌግራም ይቀላቀሉ"}
+                      subtitle={isEN ? "Join our Telegram channel" : "የቴሌግራም ቻናላችንን ይቀላቀሉ"}
                       icon="paper-plane-outline"
-                      onPress={() => Linking.openURL("https://t.me/xoethiopian")}
-                    />
-                    <QuickAction
-                      title={isEN ? "Security" : "ደህንነት"}
-                      subtitle={isEN ? "Account settings" : "የመለያ ቅንብሮች"}
-                      icon="lock-closed-outline"
-                      onPress={() => toast.info(isEN ? "Coming Soon" : "በቅርብ ጊዜ", isEN ? "Security settings are under development." : "የደህንነት ቅንብሮች በልማት ላይ ናቸው።")}
+                      onPress={() => Linking.openURL("https://t.me/xoethiopia1").catch(() => {})}
                     />
                   </View>
                 )}
@@ -416,31 +415,25 @@ export default function ProfileScreen() {
                      <View style={styles.panel}>
                         <View style={styles.panelHeader}>
                           <View style={styles.panelTitleRow}>
-                            <Ionicons name="settings-outline" size={18} color="#a78bfa" />
+                            <Ionicons name="settings-outline" size={18} color="#a855f7" />
                             <Text style={styles.panelTitle}>{isEN ? "Preferences" : "ምርጫዎች"}</Text>
                           </View>
                         </View>
-                        <TouchableOpacity onPress={goHistory} style={styles.secondaryBtn}>
-                           <Ionicons name="time-outline" size={18} color="#e5e3ff" />
-                           <Text style={styles.secondaryBtnText}>{isEN ? "Game History" : "የጨዋታ ታሪክ"}</Text>
-                        </TouchableOpacity>
                         {(user?.role === 'admin' || user?.role === 'superadmin' || user?.role === 'maintenance') && (
                           <TouchableOpacity onPress={() => router.push('/admin' as any)} style={[styles.secondaryBtn, { borderColor: 'rgba(52,211,153,0.3)', backgroundColor: 'rgba(52,211,153,0.05)' }]}>
                             <Ionicons name="shield-checkmark" size={18} color="#34d399" />
                             <Text style={[styles.secondaryBtnText, { color: '#34d399' }]}>{isEN ? "Admin Dashboard" : "አድሚን ዳሽቦርድ"}</Text>
                           </TouchableOpacity>
                         )}
-                        <TouchableOpacity onPress={() => Linking.openURL("https://t.me/xoethiopian")} style={[styles.secondaryBtn, { borderColor: 'rgba(0,162,255,0.3)', backgroundColor: 'rgba(0,162,255,0.05)' }]}>
-                          <Ionicons name="paper-plane-outline" size={18} color="#00a2ff" />
-                          <Text style={[styles.secondaryBtnText, { color: '#00a2ff' }]}>{isEN ? "Join Telegram" : "ቴሌግራም ይቀላቀሉ"}</Text>
+                        <TouchableOpacity onPress={() => setRulesVisible(true)} style={styles.secondaryBtn}>
+                           <Ionicons name="document-text-outline" size={18} color="#e5e3ff" />
+                           <Text style={styles.secondaryBtnText}>{isEN ? "Privacy & Rules" : "የግላዊነት ፖሊሲ"}</Text>
                         </TouchableOpacity>
                         <TouchableOpacity onPress={openExitModal} style={[styles.secondaryBtn, { borderColor: 'rgba(239,68,68,0.2)' }]}>
                           <Ionicons name="log-out-outline" size={18} color="#ef4444" />
                           <Text style={[styles.secondaryBtnText, { color: '#ef4444' }]}>{t("logout")}</Text>
                         </TouchableOpacity>
                      </View>
-
-
                    </>
                 )}
              </View>
@@ -454,6 +447,11 @@ export default function ProfileScreen() {
           visible={exitModalVisible}
           onCancel={cancelExit}
           onConfirm={confirmExit}
+        />
+        <RulesModal
+          visible={rulesVisible}
+          onClose={() => setRulesVisible(false)}
+          language={language}
         />
       </SafeAreaView>
     </View>
@@ -496,10 +494,10 @@ const QuickAction = memo(function QuickAction({
 }) {
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.9} style={styles.quickCard}>
-      <LinearGradient colors={["rgba(32, 31, 31, 0.5)", "rgba(60, 60, 60, 0.54)"]} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={["rgba(255, 255, 255, 0.03)", "rgba(255, 255, 255, 0.01)"]} style={StyleSheet.absoluteFill} />
       <View style={styles.quickIcon}>
-        <LinearGradient colors={["rgba(124,58,237,0.95)", "rgba(59,130,246,0.75)"]} style={styles.quickIconInner}>
-          <Ionicons name={icon} size={18} color="#fff" />
+        <LinearGradient colors={["#00daf3", "#00e5ff"]} style={styles.quickIconInner}>
+          <Ionicons name={icon} size={18} color="#0a0a0f" />
         </LinearGradient>
       </View>
       <View style={{ flex: 1 }}>
@@ -574,15 +572,30 @@ const ReadOnlyRow = memo(function ReadOnlyRow({
 });
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0c0c1f" },
+  container: { flex: 1 },
   safe: { flex: 1 },
 
-  glowBg: {
-    position: 'absolute',
-    width: 600,
-    height: 600,
-    borderRadius: 300,
-    opacity: 0.15,
+  blob: {
+    position: "absolute",
+    width: 450,
+    height: 450,
+    borderRadius: 225,
+    opacity: 0.12,
+    ...Platform.select({
+      web: {
+        filter: "blur(80px)",
+      } as any,
+    }),
+  },
+  blob1: {
+    top: "5%",
+    left: "-20%",
+    backgroundColor: "#ff4766", // Glowing Coral Red
+  },
+  blob2: {
+    bottom: "15%",
+    right: "-30%",
+    backgroundColor: "#00daf3", // Glowing Cyan
   },
 
   topBar: {
@@ -599,9 +612,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(166,139,255,0.08)",
+    backgroundColor: "rgba(0, 218, 243, 0.08)",
     borderWidth: 1,
-    borderColor: "rgba(166,139,255,0.14)",
+    borderColor: "rgba(0, 218, 243, 0.14)",
   },
   topTitle: {
     color: "#e5e3ff",
@@ -626,14 +639,14 @@ const styles = StyleSheet.create({
     gap: 16,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: "rgba(167,139,250,0.25)",
+    borderColor: "rgba(0, 218, 243, 0.25)",
     overflow: "hidden",
   },
   onboardingIcon: {
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: "rgba(167,139,250,0.12)",
+    backgroundColor: "rgba(0, 218, 243, 0.12)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -655,8 +668,8 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     padding: 20,
     borderWidth: 1,
-    borderColor: "rgba(167,139,250,0.12)",
-    backgroundColor: "rgba(6,6,20,0.5)",
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: "rgba(255, 255, 255, 0.02)",
   },
   heroCardDesktop: {
     borderRadius: 20,
@@ -716,7 +729,7 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.1)",
   },
   badgeText: { color: "#fff", fontSize: 13, fontWeight: "900" },
-  dotDivider: { width: 6, height: 6, borderRadius: 3, backgroundColor: "rgba(166,139,255,0.2)" },
+  dotDivider: { width: 6, height: 6, borderRadius: 3, backgroundColor: "rgba(0, 218, 243, 0.2)" },
 
   statsStrip: {
     marginTop: 20,
@@ -744,8 +757,8 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
-    backgroundColor: "rgba(166,139,255,0.05)",
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: "rgba(255, 255, 255, 0.03)",
   },
   quickIcon: {
     width: 44,
@@ -792,21 +805,21 @@ const styles = StyleSheet.create({
 
   primaryBtn: { marginTop: 8, borderRadius: 18, overflow: "hidden" },
   primaryBtnInner: { paddingVertical: 16, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 10 },
-  primaryBtnText: { color: "#fff", fontWeight: "900", fontSize: 16, letterSpacing: 0.5 },
+  primaryBtnText: { color: "#0a0a0f", fontWeight: "900", fontSize: 16, letterSpacing: 0.5 },
 
   secondaryBtn: {
     marginTop: 12,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: "rgba(166,139,255,0.2)",
-    backgroundColor: "rgba(166,139,255,0.05)",
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: "rgba(255, 255, 255, 0.03)",
     paddingVertical: 14,
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
     gap: 10,
   },
-  secondaryBtnText: { color: "#e5e3ff", fontWeight: "900", fontSize: 14 },
+  secondaryBtnText: { color: "#e3e0f8", fontWeight: "900", fontSize: 14 },
 
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" },
   sheet: {
@@ -814,9 +827,9 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 32,
     padding: 24,
     paddingBottom: 40,
-    backgroundColor: "#1c1c3c",
+    backgroundColor: "#111118",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
+    borderColor: "rgba(255, 255, 255, 0.08)",
   },
   sheetHandle: { alignSelf: "center", width: 40, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.1)", marginBottom: 20 },
   sheetHeader: { flexDirection: "row", gap: 16, alignItems: "center" },
