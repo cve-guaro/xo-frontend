@@ -1,5 +1,5 @@
 // XO ET — Service Worker (PWA offline support + caching)
-const CACHE_NAME = "xoet-v2";
+const CACHE_NAME = "xoet-v3";
 const STATIC_ASSETS = [
   "/",
   "/manifest.json",
@@ -38,8 +38,9 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
-  // Skip non-GET requests and API/websocket calls
+  // Skip non-GET requests, cross-origin API calls, and websocket connections
   if (event.request.method !== "GET") return;
+  if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/admin/")) return;
   if (url.protocol === "ws:" || url.protocol === "wss:") return;
 
