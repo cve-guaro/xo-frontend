@@ -44,6 +44,7 @@ if (Platform.OS === 'web' && typeof console !== 'undefined') {
     'style.resizeMode is deprecated',
     'pointerEvents is deprecated',
     'Unexpected text node',
+    'useNativeDriver',
   ];
   const isSuppressed = (msg: string) => SUPPRESSED.some(s => String(msg).includes(s));
   console.warn = (...args: any[]) => { if (!isSuppressed(args[0])) _warn(...args); };

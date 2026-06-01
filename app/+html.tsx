@@ -20,8 +20,9 @@ export default function HTML({ children }: { children: React.ReactNode }) {
         <link rel="manifest" href="/manifest.json" />
         <link rel="shortcut icon" href="/favicon.png" />
 
-        {/* Apple PWA Meta Tags */}
+        {/* Apple & Modern PWA Meta Tags */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="XO ET" />
 

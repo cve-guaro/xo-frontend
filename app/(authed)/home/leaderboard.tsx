@@ -623,6 +623,12 @@ export default function LeaderboardScreen() {
               data={listData}
               keyExtractor={(item) => item.id}
               stickyHeaderIndices={isDesktop ? undefined : [1]}
+              onScrollToIndexFailed={(info) => {
+                const wait = new Promise(resolve => setTimeout(resolve, 50));
+                wait.then(() => {
+                  flatListRef.current?.scrollToIndex({ index: info.index, animated: true, viewPosition: 0.5 });
+                });
+              }}
               renderItem={({ item }) => {
                 if ((item as any).isHeaderAndPodium) {
                   return (
@@ -644,7 +650,7 @@ export default function LeaderboardScreen() {
                 }
                 if ((item as any).isStickyHeader) {
                   return (
-                    <View style={{ backgroundColor: '#0A090E', paddingTop: 10, paddingBottom: 6 }}>
+                    <View style={{ backgroundColor: 'transparent', paddingTop: 10, paddingBottom: 6 }}>
                       {/* Mobile Unified Prize & Timer Card */}
                       <MobileUnifiedCard
                         secondsRemaining={secondsRemaining}
@@ -653,7 +659,7 @@ export default function LeaderboardScreen() {
                       />
 
                       {/* Sub Header */}
-                      <View style={[s.subHeader, { paddingBottom: 6, backgroundColor: '#0A090E' }]}>
+                      <View style={[s.subHeader, { paddingBottom: 6, backgroundColor: 'transparent' }]}>
                         <Text style={s.subHeaderTitle}>{isEN ? "All Players" : "ሁሉም ተጫዋቾች"}</Text>
                         <Text style={s.subHeaderLabel}>{isEN ? "(Weekly)" : "(ሳምንታዊ)"}</Text>
                       </View>
