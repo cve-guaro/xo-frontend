@@ -34,6 +34,7 @@ export default function AdminSettings() {
   const [bonusAmount, setBonusAmount] = useState('10'); // displayed in ETB (DB stores cents)
   const [emergencyLock, setEmergencyLock] = useState(false);
   const [mobileAppLock, setMobileAppLock] = useState(false);
+  const [roomsLocked, setRoomsLocked] = useState(false);
   const [showOnlineCount, setShowOnlineCount] = useState(true);
   
   const [minWithdrawal, setMinWithdrawal] = useState('50');
@@ -94,6 +95,7 @@ export default function AdminSettings() {
         }
         setEmergencyLock(config.system_emergency_lockout === true || config.system_emergency_lockout === 'true');
         setMobileAppLock(config.mobile_app_lockout === true || config.mobile_app_lockout === 'true');
+        setRoomsLocked(config.rooms_locked === true || config.rooms_locked === 'true');
         setShowOnlineCount(config.show_online_count !== false && config.show_online_count !== 'false');
         setManualApproval(config.is_manual_approval_enabled === true || config.is_manual_approval_enabled === 'true');
         if (config.max_daily_withdraw_amount) setMaxWithdrawAmount(String(config.max_daily_withdraw_amount));
@@ -225,6 +227,7 @@ export default function AdminSettings() {
         welcome_bonus_amount: String(bonusAmount),
         system_emergency_lockout: emergencyLock,
         mobile_app_lockout: mobileAppLock,
+        rooms_locked: roomsLocked,
         min_withdraw_amount: String(minWithdrawal),
         min_deposit_amount: String(minDeposit),
         show_online_count: showOnlineCount,
@@ -486,20 +489,69 @@ export default function AdminSettings() {
           </View>
         </View>
 
-        <View style={[styles.settingRow, isMobile && { flexDirection: 'column', alignItems: 'flex-start', gap: 16 }, { borderTopWidth: 1, borderTopColor: 'rgba(39, 39, 42, 0.1)', paddingTop: 20 }]}>
-          <View style={{ flex: isMobile ? 0 : 1, paddingRight: isMobile ? 0 : 20 }}>
-            <Text style={styles.settingName}>{(t as any)('Organic Growth Metrics')}</Text>
-            <Text style={styles.settingDesc}>{(t as any)('If enabled, users will see the actual number of players currently active on the platform. If disabled, a simulated "fake" high-activity count is shown.')}</Text>
+          {/* Game Rooms Lock Card */}
+          <View style={[styles.card, glass, {
+            borderColor: 'rgba(253,111,133,0.3)', borderTopWidth: 4, borderTopColor: C.error,
+            opacity: isSuperAdmin ? 1 : 0.4
+          }]}>
+            <View style={[styles.cardHeader, { borderBottomColor: 'rgba(253,111,133,0.2)' }]}>
+              <View style={[styles.cardHeaderIcon, { borderColor: 'rgba(253,111,133,0.2)' }]}>
+                <Ionicons name="lock-closed" size={20} color={C.error} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.cardTitle, { color: C.error }]}>{'Game Rooms Lock'}</Text>
+                <Text style={styles.cardSubTitle}>Globally disable all game rooms (R1, R2, R3)</Text>
+              </View>
+              {!isSuperAdmin && (
+                <View style={{ marginLeft: 'auto', backgroundColor: 'rgba(253,111,133,0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 }}>
+                  <Text style={{ color: C.error, fontSize: 10, fontWeight: '900' }}>SUPER ADMIN ONLY</Text>
+                </View>
+              )}
+            </View>
+
+            <View style={[styles.settingRow, isMobile && { flexDirection: 'column', alignItems: 'flex-start', gap: 16 }]}>
+              <View style={{ flex: isMobile ? 0 : 1, paddingRight: isMobile ? 0 : 20 }}>
+                <Text style={styles.settingName}>{'Game Rooms Lock'}</Text>
+                <Text style={styles.settingDesc}>{'When ON, all game rooms (R1, R2, R3) are globally disabled. No new games can be started or joined by any user. Existing ongoing games are not affected.'}</Text>
+              </View>
+              <View style={isMobile && { alignSelf: 'flex-end' }}>
+                <Switch
+                  value={roomsLocked}
+                  onValueChange={isSuperAdmin ? setRoomsLocked : () => {}}
+                  disabled={!isSuperAdmin}
+                  thumbColor={roomsLocked ? C.error : '#f4f3f4'}
+                  trackColor={{ false: 'rgba(68,68,107,0.4)', true: 'rgba(253,111,133,0.3)' }}
+                />
+              </View>
+            </View>
+
+            {roomsLocked && (
+              <View style={{ marginTop: 12, backgroundColor: 'rgba(253,111,133,0.07)', padding: 14, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(253,111,133,0.2)' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <Ionicons name="warning" color={C.error} size={14} />
+                  <Text style={{ color: C.error, fontWeight: '700', fontSize: 13 }}>Rooms are currently LOCKED</Text>
+                </View>
+                <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, lineHeight: 18 }}>
+                  All users will see a lock message when trying to enter any game room. Toggle OFF and save to restore access.
+                </Text>
+              </View>
+            )}
           </View>
-          <View style={isMobile && { alignSelf: 'flex-end' }}>
-            <Switch
-              value={showOnlineCount}
-              onValueChange={setShowOnlineCount}
-              thumbColor={showOnlineCount ? C.primary : '#f4f3f4'}
-              trackColor={{ false: 'rgba(39, 39, 42, 0.4)', true: 'rgba(166,140,255,0.3)' }}
-            />
+
+          <View style={[styles.settingRow, isMobile && { flexDirection: 'column', alignItems: 'flex-start', gap: 16 }, { borderTopWidth: 1, borderTopColor: 'rgba(68,68,107,0.05)', paddingTop: 20 }]}>
+            <View style={{ flex: isMobile ? 0 : 1, paddingRight: isMobile ? 0 : 20 }}>
+              <Text style={styles.settingName}>{(t as any)('Organic Growth Metrics')}</Text>
+              <Text style={styles.settingDesc}>{(t as any)('If enabled, users will see the actual number of players currently active on the platform. If disabled, a simulated "fake" high-activity count is shown.')}</Text>
+            </View>
+            <View style={isMobile && { alignSelf: 'flex-end' }}>
+              <Switch
+                value={showOnlineCount}
+                onValueChange={setShowOnlineCount}
+                thumbColor={showOnlineCount ? C.primary : '#f4f3f4'}
+                trackColor={{ false: 'rgba(68,68,107,0.4)', true: 'rgba(166,140,255,0.3)' }}
+              />
+            </View>
           </View>
-        </View>
 
           </>
         )}

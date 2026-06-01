@@ -39,7 +39,6 @@ export default function AdminUsers() {
   const [page, setPage] = useState(0);
   const [total, setTotal] = useState(0);
   const limit = 100;
-  const [confirmUserAction, setConfirmUserAction] = useState<'ban' | 'unban' | 'delete' | null>(null);
   
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editData, setEditData] = useState({ display_name: '', username: '', number: '', role: 'user', available_balance: '0', bonus_balance: '0', admin_edit_balance: '0' });
@@ -1017,7 +1016,6 @@ export default function AdminUsers() {
         token={token || ""} 
         userId={referralUserId || undefined}
       />
-
     </View>
   );
 }

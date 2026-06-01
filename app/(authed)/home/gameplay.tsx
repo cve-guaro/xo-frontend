@@ -442,19 +442,44 @@ const RoomSheet = memo(function RoomSheet({
 
           {step === "ROOMS" ? (
             <View style={styles.roomList}>
+              {/* Global rooms lock banner */}
+              {userCaps?.rooms_locked && (
+                <View style={{
+                  backgroundColor: 'rgba(253,111,133,0.08)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(253,111,133,0.3)',
+                  borderRadius: 16,
+                  padding: 20,
+                  alignItems: 'center',
+                  marginBottom: 16,
+                  gap: 8,
+                }}>
+                  <Ionicons name="lock-closed" size={32} color="#fd6f85" />
+                  <Text style={{ color: '#fd6f85', fontWeight: '900', fontSize: 16, letterSpacing: 0.5 }}>
+                    {isEN ? 'Rooms Locked' : 'ክፍሎች ተዘግተዋል'}
+                  </Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, textAlign: 'center', lineHeight: 18 }}>
+                    {isEN
+                      ? 'All game rooms are temporarily locked by the admin. Please check back later.'
+                      : 'ሁሉም የጨዋታ ክፍሎች በጊዜያዊነት ተዘግተዋል። ቆይተው ይሞክሩ።'}
+                  </Text>
+                </View>
+              )}
               {ROOMS.map((room) => {
-                const r1Locked = false;
+                const isR1 = room.id === "R1";
+                const r1Locked = isR1 && ((userCaps?.r1_10||0)>=20 && (userCaps?.r1_25||0)>=20 && (userCaps?.r1_50||0)>=20 && (userCaps?.r1_99||0)>=20);
+                const globalLocked = !!userCaps?.rooms_locked;
                 return (
-                  <TouchableOpacity
-                    key={room.id}
-                    activeOpacity={0.88}
-                    disabled={r1Locked}
-                    onPress={() => onSelectRoom(room.id)}
-                    style={[styles.roomBtn, r1Locked && { opacity: 0.4 }]}
+                  <TouchableOpacity 
+                    key={room.id} 
+                    activeOpacity={0.88} 
+                    disabled={r1Locked || globalLocked} 
+                    onPress={() => onSelectRoom(room.id)} 
+                    style={[styles.roomBtn, (r1Locked || globalLocked) && { opacity: 0.4 }]}
                   >
-                    <LinearGradient colors={r1Locked ? ['#444', '#222'] : room.colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.roomInner}>
+                    <LinearGradient colors={r1Locked || globalLocked ? ['#444', '#222'] : room.colors} start={{x:0,y:0}} end={{x:1,y:0}} style={styles.roomInner}>
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.roomName}>{isEN ? room.titleEn : room.titleAm} {r1Locked && "(MAXED)"}</Text>
+                        <Text style={styles.roomName}>{isEN ? room.titleEn : room.titleAm} {r1Locked && "(MAXED)"}{globalLocked && "🔐"}</Text>
                         <Text style={styles.roomDetail}>
                           {isEN ? `ETB ${room.rangeLabel} • ${room.cut}% Commission • ${room.time}s` : `ETB ${room.rangeLabel} • ${room.cut}% ክፍያ • ${room.time} ሰ`}
                         </Text>
@@ -1001,7 +1026,7 @@ export default function Landing() {
     setGlobalRematchOffer(null);
   }, [globalRematchOffer, token, send]);
 
-  const [appConfig, setAppConfig] = useState<{ referral_enabled?: boolean }>({ referral_enabled: false });
+  const [appConfig, setAppConfig] = useState<{ referral_enabled?: boolean; rooms_locked?: boolean }>({ referral_enabled: false, rooms_locked: false });
   useEffect(() => {
     if (token) {
       fetch(`${API_URL}/account/config`, { headers: { Authorization: `Bearer ${token}` } })
@@ -1476,6 +1501,10 @@ export default function Landing() {
   }, [params.openRooms, openRoomSheet]);
 
   const onSelectRoom = useCallback(async (roomId: RoomConfig["id"]) => {
+    if (appConfig.rooms_locked) {
+      showAlert('Rooms Locked', 'All game rooms are currently locked by the admin. Please try again later.');
+      return;
+    }
     haptics.selection("soft");
     await playClick();
     setSelectedRoomId(roomId);
@@ -1596,7 +1625,7 @@ export default function Landing() {
             onSelectRoom={onSelectRoom}
             onSelectAmount={selectAmount}
             isDesktop={isDesktop}
-            userCaps={{ r1_10: (user as any)?.r1_10_wins, r1_25: (user as any)?.r1_25_wins, r1_50: (user as any)?.r1_50_wins, r1_99: (user as any)?.r1_99_wins }}
+            userCaps={{ r1_10: (user as any)?.r1_10_wins, r1_25: (user as any)?.r1_25_wins, r1_50: (user as any)?.r1_50_wins, r1_99: (user as any)?.r1_99_wins, rooms_locked: appConfig.rooms_locked }}
           />
         )}
 
@@ -2681,7 +2710,7 @@ export default function Landing() {
           onSelectRoom={onSelectRoom}
           onSelectAmount={selectAmount}
           isDesktop={false}
-          userCaps={{ r1_10: (user as any)?.r1_10_wins, r1_25: (user as any)?.r1_25_wins, r1_50: (user as any)?.r1_50_wins, r1_99: (user as any)?.r1_99_wins }}
+          userCaps={{ r1_10: (user as any)?.r1_10_wins, r1_25: (user as any)?.r1_25_wins, r1_50: (user as any)?.r1_50_wins, r1_99: (user as any)?.r1_99_wins, rooms_locked: appConfig.rooms_locked }}
         />
       )}
 
