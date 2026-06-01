@@ -380,6 +380,12 @@ export default function AuthedLayout() {
   const handleAppDownload = useCallback(async () => {
     haptics.selection("soft");
 
+    const isTelegram = Platform.OS === 'web' && typeof navigator !== 'undefined' && /telegram/i.test(navigator.userAgent);
+    if (isTelegram) {
+      setPwaModalVisible(true);
+      return;
+    }
+
     // Try PWA install prompt first (web only)
     if (Platform.OS === 'web' && deferredPrompt) {
       deferredPrompt.prompt();
@@ -898,7 +904,39 @@ export default function AuthedLayout() {
 
               {/* Device specific instructions */}
               <View style={{ marginBottom: 24 }}>
-                {Platform.OS === 'web' && typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent) ? (
+                {Platform.OS === 'web' && typeof navigator !== 'undefined' && /telegram/i.test(navigator.userAgent) ? (
+                  // Telegram Browser Instructions
+                  <View style={{ gap: 12 }}>
+                    <Text style={{ color: '#00daf3', fontWeight: '800', fontSize: 14 }}>Telegram Browser Detected:</Text>
+                    <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, lineHeight: 18 }}>
+                      Telegram's in-app browser has sandbox restrictions that prevent installing web apps or downloading files directly.
+                    </Text>
+                    <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+                      <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,218,243,0.15)', alignItems: 'center', justifyContent: 'center' }}>
+                        <Text style={{ color: '#00daf3', fontSize: 12, fontWeight: '800' }}>1</Text>
+                      </View>
+                      <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, flex: 1 }}>
+                        Tap the <Text style={{ color: '#00daf3', fontWeight: 'bold' }}>three dots</Text> at the top right of this screen.
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+                      <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,218,243,0.15)', alignItems: 'center', justifyContent: 'center' }}>
+                        <Text style={{ color: '#00daf3', fontSize: 12, fontWeight: '800' }}>2</Text>
+                      </View>
+                      <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, flex: 1 }}>
+                        Select <Text style={{ color: '#00daf3', fontWeight: 'bold' }}>"Open in Browser"</Text> or <Text style={{ color: '#00daf3', fontWeight: 'bold' }}>"Open in Chrome/Safari"</Text>.
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+                      <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,218,243,0.15)', alignItems: 'center', justifyContent: 'center' }}>
+                        <Text style={{ color: '#00daf3', fontSize: 12, fontWeight: '800' }}>3</Text>
+                      </View>
+                      <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, flex: 1 }}>
+                        Once opened in your system browser, click the download button again.
+                      </Text>
+                    </View>
+                  </View>
+                ) : Platform.OS === 'web' && typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent) ? (
                   // iOS Safari Instructions
                   <View style={{ gap: 12 }}>
                     <Text style={{ color: '#00daf3', fontWeight: '800', fontSize: 14 }}>Instructions for iOS Safari:</Text>
@@ -953,26 +991,53 @@ export default function AuthedLayout() {
 
               {/* Fallback to Android APK */}
               <View style={{ borderTopWidth: 1, borderColor: 'rgba(255,255,255,0.06)', paddingTop: 16 }}>
-                <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '700', marginBottom: 12, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                  Android Users (Direct APK)
-                </Text>
-                <TouchableOpacity
-                  onPress={() => {
-                    Linking.openURL('https://xoethiopia.com/xoet.apk').catch(() => { });
-                  }}
-                  style={{
-                    backgroundColor: '#ef4444',
-                    borderRadius: 12,
-                    paddingVertical: 12,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 8
-                  }}
-                >
-                  <Ionicons name="cloud-download-outline" size={18} color="#fff" />
-                  <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>Download Android APK</Text>
-                </TouchableOpacity>
+                {Platform.OS === 'web' && typeof navigator !== 'undefined' && /telegram/i.test(navigator.userAgent) ? (
+                  <>
+                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '700', marginBottom: 12, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                      Android Users (Via Telegram Channel)
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        Linking.openURL('https://t.me/xoethiopia1').catch(() => { });
+                      }}
+                      style={{
+                        backgroundColor: '#0088cc',
+                        borderRadius: 12,
+                        paddingVertical: 12,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8
+                      }}
+                    >
+                      <Ionicons name="paper-plane-outline" size={18} color="#fff" />
+                      <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>Get APK from Channel</Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <>
+                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '700', marginBottom: 12, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                      Android Users (Direct APK)
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        Linking.openURL('https://xoethiopia.com/xoet.apk').catch(() => { });
+                      }}
+                      style={{
+                        backgroundColor: '#ef4444',
+                        borderRadius: 12,
+                        paddingVertical: 12,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8
+                      }}
+                    >
+                      <Ionicons name="cloud-download-outline" size={18} color="#fff" />
+                      <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>Download Android APK</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
               </View>
             </View>
           </View>

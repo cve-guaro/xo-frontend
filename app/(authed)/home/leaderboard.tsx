@@ -333,7 +333,7 @@ function Podium({ top3, prizes }: { top3: LeaderboardUser[]; prizes: { rank: num
 // ── Leaderboard Item ──────────────────────────────────────────────────
 function LBItem({ item }: { item: LeaderboardUser }) {
   const isTop3 = item.rank <= 3;
-  const rankColor = item.isMe ? '#00daf3' : (item.rank === 1 ? '#ffb84d' : item.rank === 2 ? '#b9cacb' : item.rank === 3 ? '#fb923c' : '#a855f7');
+  const rankColor = item.isMe ? '#00daf3' : (item.rank === 1 ? '#ffb84d' : item.rank === 2 ? '#b9cacb' : item.rank === 3 ? '#fb923c' : '#00daf3');
   const scoreColor = item.isMe ? '#00daf3' : '#ffb84d';
 
   return (
@@ -519,106 +519,125 @@ export default function LeaderboardScreen() {
       }} pointerEvents="none">
         {/* Horizontal lines */}
         <View style={{ 
-          position: 'absolute', top: 106, left: 0, right: 0, height: 2.5, backgroundColor: '#a855f7',
-          shadowColor: '#a855f7', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 6
+          position: 'absolute', top: 106, left: 0, right: 0, height: 2.5, backgroundColor: '#00daf3',
+          shadowColor: '#00daf3', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 6
         }} />
         <View style={{ 
-          position: 'absolute', top: 213, left: 0, right: 0, height: 2.5, backgroundColor: '#a855f7',
-          shadowColor: '#a855f7', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 6
+          position: 'absolute', top: 213, left: 0, right: 0, height: 2.5, backgroundColor: '#00daf3',
+          shadowColor: '#00daf3', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 6
         }} />
         {/* Vertical lines */}
         <View style={{ 
-          position: 'absolute', left: 106, top: 0, bottom: 0, width: 2.5, backgroundColor: '#a855f7',
-          shadowColor: '#a855f7', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 6
+          position: 'absolute', left: 106, top: 0, bottom: 0, width: 2.5, backgroundColor: '#00daf3',
+          shadowColor: '#00daf3', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 6
         }} />
         <View style={{ 
-          position: 'absolute', left: 213, top: 0, bottom: 0, width: 2.5, backgroundColor: '#a855f7',
-          shadowColor: '#a855f7', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 6
+          position: 'absolute', left: 213, top: 0, bottom: 0, width: 2.5, backgroundColor: '#00daf3',
+          shadowColor: '#00daf3', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 6
         }} />
         
         {/* Illustrative faded board moves */}
         <Text style={{ 
-          position: 'absolute', top: 15, left: 25, fontSize: 52, fontWeight: '900', color: '#8b5cf6',
-          textShadowColor: 'rgba(139, 92, 246, 0.4)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 6
+          position: 'absolute', top: 15, left: 25, fontSize: 52, fontWeight: '900', color: '#00daf3',
+          textShadowColor: 'rgba(0, 218, 243, 0.4)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 6
         }}>X</Text>
         <Text style={{ 
-          position: 'absolute', top: 125, left: 135, fontSize: 52, fontWeight: '900', color: '#a855f7',
-          textShadowColor: 'rgba(168, 85, 247, 0.4)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 6
+          position: 'absolute', top: 125, left: 135, fontSize: 52, fontWeight: '900', color: '#00daf3',
+          textShadowColor: 'rgba(0, 218, 243, 0.4)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 6
         }}>O</Text>
         <Text style={{ 
-          position: 'absolute', top: 235, left: 245, fontSize: 52, fontWeight: '900', color: '#8b5cf6',
-          textShadowColor: 'rgba(139, 92, 246, 0.4)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 6
+          position: 'absolute', top: 235, left: 245, fontSize: 52, fontWeight: '900', color: '#00daf3',
+          textShadowColor: 'rgba(0, 218, 243, 0.4)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 6
         }}>X</Text>
       </View>
 
       <SafeAreaView style={s.safe} edges={['top', 'left', 'right']}>
-        {isDesktop ? (
-          <View style={{ flexDirection: 'row', gap: 24, paddingHorizontal: 20, marginBottom: 24 }}>
-            {/* Left Box: Podium */}
-            <View style={{ flex: 1.5, backgroundColor: '#111115', borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', padding: 24 }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                <Text style={{ fontSize: 18, fontWeight: '900', color: '#fff' }}>{isEN ? "Weekly Top Winners" : "ሳምንታዊ ከፍተኛ አሸናፊዎች"}</Text>
-                <TouchableOpacity onPress={fetchData} style={s.refreshBtn}>
-                  <Ionicons name="refresh" size={18} color="#a855f7" />
-                </TouchableOpacity>
+        {/* Unified ListHeaderComponent builder to render headers dynamically while allowing full scrolling on mobile */}
+        {(() => {
+          const renderHeader = () => {
+            if (isDesktop) {
+              return (
+                <View>
+                  <View style={{ flexDirection: 'row', gap: 24, paddingHorizontal: 20, marginBottom: 24 }}>
+                    {/* Left Box: Podium */}
+                    <View style={{ flex: 1.5, backgroundColor: '#111115', borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', padding: 24 }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                        <Text style={{ fontSize: 18, fontWeight: '900', color: '#fff' }}>{isEN ? "Weekly Top Winners" : "ሳምንታዊ ከፍተኛ አሸናፊዎች"}</Text>
+                        <TouchableOpacity onPress={fetchData} style={s.refreshBtn}>
+                          <Ionicons name="refresh" size={18} color="#00daf3" />
+                        </TouchableOpacity>
+                      </View>
+                      <Podium top3={top3} prizes={prizes} />
+                    </View>
+
+                    {/* Right Box: Countdown + Prize Pool */}
+                    <View style={{ flex: 1, gap: 16 }}>
+                      {secondsRemaining > 0 && (
+                        <CountdownTimer secondsRemaining={secondsRemaining} isEN={isEN} />
+                      )}
+                      <PrizePoolCard isEN={isEN} topPrize={prizes.find(p => p.rank === 1)?.amount || 500} />
+                    </View>
+                  </View>
+
+                  {/* Sub Header */}
+                  <View style={s.subHeader}>
+                    <Text style={s.subHeaderTitle}>{isEN ? "All Players" : "ሁሉም ተጫዋቾች"}</Text>
+                    <Text style={s.subHeaderLabel}>{isEN ? "(Weekly)" : "(ሳምንታዊ)"}</Text>
+                  </View>
+                </View>
+              );
+            }
+
+            return (
+              <View>
+                {/* Header */}
+                <View style={s.header}>
+                  <Text style={s.headerTitle}>{isEN ? "Weekly Top Winners" : "ሳምንታዊ ከፍተኛ አሸናፊዎች"}</Text>
+                  <TouchableOpacity onPress={fetchData} style={s.refreshBtn}>
+                    <Ionicons name="refresh" size={18} color="#00daf3" />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Podium */}
+                <View style={{ marginTop: 15, marginBottom: 20 }}>
+                  <Podium top3={top3} prizes={prizes} />
+                </View>
+
+                {/* Mobile Unified Prize & Timer Card */}
+                <MobileUnifiedCard
+                  secondsRemaining={secondsRemaining}
+                  isEN={isEN}
+                  prizes={prizes}
+                />
+
+                {/* Sub Header */}
+                <View style={s.subHeader}>
+                  <Text style={s.subHeaderTitle}>{isEN ? "All Players" : "ሁሉም ተጫዋቾች"}</Text>
+                  <Text style={s.subHeaderLabel}>{isEN ? "(Weekly)" : "(ሳምንታዊ)"}</Text>
+                </View>
               </View>
-              <Podium top3={top3} prizes={prizes} />
-            </View>
+            );
+          };
 
-            {/* Right Box: Countdown + Prize Pool */}
-            <View style={{ flex: 1, gap: 16 }}>
-              {secondsRemaining > 0 && (
-                <CountdownTimer secondsRemaining={secondsRemaining} isEN={isEN} />
-              )}
-              <PrizePoolCard isEN={isEN} topPrize={prizes.find(p => p.rank === 1)?.amount || 500} />
-            </View>
-          </View>
-        ) : (
-          <>
-            {/* Header */}
-            <View style={s.header}>
-              <Text style={s.headerTitle}>{isEN ? "Weekly Top Winners" : "ሳምንታዊ ከፍተኛ አሸናፊዎች"}</Text>
-              <TouchableOpacity onPress={fetchData} style={s.refreshBtn}>
-                <Ionicons name="refresh" size={18} color="#a855f7" />
-              </TouchableOpacity>
-            </View>
-
-            {/* Podium */}
-            <View style={{ marginTop: 15, marginBottom: 20 }}>
-              <Podium top3={top3} prizes={prizes} />
-            </View>
-
-            {/* Mobile Unified Prize & Timer Card */}
-            <MobileUnifiedCard
-              secondsRemaining={secondsRemaining}
-              isEN={isEN}
-              prizes={prizes}
+          return (
+            <FlatList
+              ref={flatListRef}
+              data={listData}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => <LBItem item={item} />}
+              ListHeaderComponent={renderHeader}
+              contentContainerStyle={s.listContent}
+              style={{ flex: 1 }}
+              showsVerticalScrollIndicator={false}
+              ListEmptyComponent={
+                <View style={s.emptyWrap}>
+                  <Ionicons name="trophy-outline" size={40} color="rgba(255,255,255,0.2)" />
+                  <Text style={s.emptyText}>{isEN ? "No players ranked yet this week" : "በዚህ ሳምንት ገና ምንም ተጫዋች አልተመዘገበም"}</Text>
+                </View>
+              }
             />
-          </>
-        )}
-
-        {/* Sub Header */}
-        <View style={s.subHeader}>
-          <Text style={s.subHeaderTitle}>{isEN ? "All Players" : "ሁሉም ተጫዋቾች"}</Text>
-          <Text style={s.subHeaderLabel}>{isEN ? "(Weekly)" : "(ሳምንታዊ)"}</Text>
-        </View>
-
-        {/* List */}
-        <FlatList
-          ref={flatListRef}
-          data={listData}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <LBItem item={item} />}
-          contentContainerStyle={s.listContent}
-          style={{ flex: 1 }}
-          showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <View style={s.emptyWrap}>
-              <Ionicons name="trophy-outline" size={40} color="rgba(255,255,255,0.2)" />
-              <Text style={s.emptyText}>{isEN ? "No players ranked yet this week" : "በዚህ ሳምንት ገና ምንም ተጫዋች አልተመዘገበም"}</Text>
-            </View>
-          }
-        />
+          );
+        })()}
 
         {/* Find Me Button */}
         {myRank && myRank.rank && (
@@ -662,7 +681,7 @@ const s = StyleSheet.create({
   root: { flex: 1 },
   safe: { flex: 1 },
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  loadingText: { color: '#a496c3', fontSize: 13, marginTop: 12, fontWeight: '600' },
+  loadingText: { color: '#00daf3', fontSize: 13, marginTop: 12, fontWeight: '600' },
 
   blob: {
     position: "absolute",
@@ -729,7 +748,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 20, paddingBottom: 12,
   },
   subHeaderTitle: { fontSize: 16, fontWeight: '700', color: '#fff' },
-  subHeaderLabel: { fontSize: 12, color: '#a855f7', fontWeight: '500' },
+  subHeaderLabel: { fontSize: 12, color: '#00daf3', fontWeight: '500' },
 
   // List
   listContent: { paddingHorizontal: 20, gap: 10, paddingBottom: 120 },
@@ -740,9 +759,9 @@ const s = StyleSheet.create({
     borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   lbItemMe: {
-    backgroundColor: 'rgba(139, 92, 246, 0.08)',
-    borderColor: 'rgba(168, 85, 247, 0.25)',
-    shadowColor: '#a855f7', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.15, shadowRadius: 15,
+    backgroundColor: 'rgba(0, 218, 243, 0.08)',
+    borderColor: 'rgba(0, 218, 243, 0.25)',
+    shadowColor: '#00daf3', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.15, shadowRadius: 15,
   },
   lbRank: { width: 28, fontWeight: '900', textAlign: 'center' },
   lbAvatar: {

@@ -661,7 +661,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const testConnection = async () => {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000);
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
 
     try {
       const res = await fetch(`${API_URL}/health`, {
