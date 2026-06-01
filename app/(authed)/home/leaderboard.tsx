@@ -444,7 +444,11 @@ export default function LeaderboardScreen() {
       base.push(myRank);
     }
     if (!isDesktop) {
-      return [{ id: 'sticky-prize-header', isStickyHeader: true } as any, ...base];
+      return [
+        { id: 'header-and-podium', isHeaderAndPodium: true } as any,
+        { id: 'sticky-prize-header', isStickyHeader: true } as any,
+        ...base
+      ];
     }
     return base;
   }, [leaderboard, myRank, isDesktop]);
@@ -618,8 +622,26 @@ export default function LeaderboardScreen() {
               ref={flatListRef}
               data={listData}
               keyExtractor={(item) => item.id}
-              stickyHeaderIndices={isDesktop ? undefined : [0]}
+              stickyHeaderIndices={isDesktop ? undefined : [1]}
               renderItem={({ item }) => {
+                if ((item as any).isHeaderAndPodium) {
+                  return (
+                    <View>
+                      {/* Header */}
+                      <View style={s.header}>
+                        <Text style={s.headerTitle}>{isEN ? "Weekly Top Winners" : "ሳምንታዊ ከፍተኛ አሸናፊዎች"}</Text>
+                        <TouchableOpacity onPress={fetchData} style={s.refreshBtn}>
+                          <Ionicons name="refresh" size={18} color="#00daf3" />
+                        </TouchableOpacity>
+                      </View>
+
+                      {/* Podium */}
+                      <View style={{ marginTop: 15, marginBottom: 20 }}>
+                        <Podium top3={top3} prizes={prizes} />
+                      </View>
+                    </View>
+                  );
+                }
                 if ((item as any).isStickyHeader) {
                   return (
                     <View style={{ backgroundColor: '#0A090E', paddingTop: 10, paddingBottom: 6 }}>
@@ -640,7 +662,7 @@ export default function LeaderboardScreen() {
                 }
                 return <LBItem item={item} />;
               }}
-              ListHeaderComponent={renderHeader}
+              ListHeaderComponent={isDesktop ? renderHeader : undefined}
               contentContainerStyle={s.listContent}
               style={{ flex: 1 }}
               showsVerticalScrollIndicator={false}

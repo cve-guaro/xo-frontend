@@ -40,7 +40,9 @@
     },
     "owner": "amaldo123",
     "extra": {
-      "router": {},
+      "router": {
+        "asyncRoutes": "production"
+      },
       "eas": {
         "projectId": "fd2e2e2d-2655-4cbe-af0e-609420c5bac4"
       }
