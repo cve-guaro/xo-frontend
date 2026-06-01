@@ -22,10 +22,10 @@ export default function Index() {
     console.log("offline status: ",offline)
   },[offline])
 
-  if (booting) {
+  if (booting && !user) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator />
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#060614" }}>
+        <ActivityIndicator color="#00daf3" />
       </View>
     );
   }

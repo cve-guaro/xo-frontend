@@ -478,6 +478,7 @@ const KEY = "auth_v2_token";
 const REFRESH_KEY = "auth_v2_refresh";
 const LANGUAGE_KEY = "app_language";
 const METHODS_KEY = "payment_methods_v1";
+const USER_KEY = "auth_v2_user";
 
 const normalizeTo251 = (raw: string) => {
   const digits = (raw || "").replace(/\D/g, "");
@@ -735,25 +736,108 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return fetchPaymentMethods();
   }, [fetchPaymentMethods]);
 
-  // Boot: restore token and preload /me + methods
+  // Boot: restore token and preload /me + methods in parallel (Non-blocking Speed Optimization!)
   useEffect(() => {
     (async () => {
       try {
-        await testConnection();
+        // Run health check in the background without blocking boot
+        void testConnection();
 
-        // load cached methods early (even before login)
-        const cached = await loadCachedMethods();
-        if (cached.length) setPaymentMethod(cached);
+        // 1) Load cached tokens, cached user profile, and cached methods in parallel (near-instant)
+        const [savedToken, cachedUserRaw, cachedMethods] = await Promise.all([
+          storage.getItemAsync(KEY),
+          storage.getItemAsync(USER_KEY),
+          loadCachedMethods(),
+        ]);
 
-        const saved = await storage.getItemAsync(KEY);
-        if (saved) {
-          setToken(saved);
+        if (cachedMethods.length) {
+          setPaymentMethod(cachedMethods);
+        }
+
+        let cachedUser: AuthUser | null = null;
+        if (cachedUserRaw) {
+          try {
+            cachedUser = JSON.parse(cachedUserRaw) as AuthUser;
+          } catch {}
+        }
+
+        if (savedToken) {
+          setToken(savedToken);
+          if (cachedUser) {
+            setUser(cachedUser);
+            // Hide the splash screen instantly for users with valid cached session!
+            setBooting(false);
+          }
 
           try {
-            const profile = await fetchMe(saved);
-            setUser(profile);
-            setOffline(false);
-            await playSuccessSound();
+            if (!cachedUser) {
+              // Blocking boot if no cache exists to prevent UI flicker
+              const [profile] = await Promise.all([
+                fetchMe(savedToken),
+                fetchPaymentMethods(),
+              ]);
+              setUser(profile);
+              await storage.setItemAsync(USER_KEY, JSON.stringify(profile));
+              setOffline(false);
+              await playSuccessSound();
+            } else {
+              // Non-blocking background revalidation if cache exists (Perceived instant load!)
+              void (async () => {
+                try {
+                  const [profile] = await Promise.all([
+                    fetchMe(savedToken),
+                    fetchPaymentMethods(),
+                  ]);
+                  setUser(profile);
+                  await storage.setItemAsync(USER_KEY, JSON.stringify(profile));
+                  setOffline(false);
+                } catch (err: any) {
+                  console.warn("[boot background] Refresh failed:", err?.message);
+                  if (err?.status === 401) {
+                    const rt = await storage.getItemAsync(REFRESH_KEY);
+                    if (rt) {
+                      try {
+                        const refRes = await fetch(`${API_URL}/auth/refresh`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ refreshToken: rt })
+                        });
+                        if (refRes.ok) {
+                          const { token: newToken, refreshToken: newRt } = await refRes.json();
+                          await storage.setItemAsync(KEY, newToken);
+                          await storage.setItemAsync(REFRESH_KEY, newRt);
+                          setToken(newToken);
+                          
+                          const [profile] = await Promise.all([
+                            fetchMe(newToken),
+                            fetchPaymentMethods(),
+                          ]);
+                          setUser(profile);
+                          await storage.setItemAsync(USER_KEY, JSON.stringify(profile));
+                        } else {
+                          await storage.deleteItemAsync(KEY);
+                          await storage.deleteItemAsync(REFRESH_KEY);
+                          await storage.deleteItemAsync(USER_KEY);
+                          setToken(null);
+                          setUser(null);
+                        }
+                      } catch {
+                        await storage.deleteItemAsync(KEY);
+                        await storage.deleteItemAsync(REFRESH_KEY);
+                        await storage.deleteItemAsync(USER_KEY);
+                        setToken(null);
+                        setUser(null);
+                      }
+                    } else {
+                      await storage.deleteItemAsync(KEY);
+                      await storage.deleteItemAsync(USER_KEY);
+                      setToken(null);
+                      setUser(null);
+                    }
+                  }
+                }
+              })();
+            }
           } catch (err: any) {
             if (err?.status === 401) {
               // Token expired — try silent refresh to keep user logged in
@@ -771,15 +855,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     await storage.setItemAsync(KEY, newToken);
                     await storage.setItemAsync(REFRESH_KEY, newRt);
                     setToken(newToken);
-                    const profile = await fetchMe(newToken);
+                    
+                    // Parallelize fresh profile and methods fetch after refresh
+                    const [profile] = await Promise.all([
+                      fetchMe(newToken),
+                      fetchPaymentMethods(),
+                    ]);
                     setUser(profile);
+                    await storage.setItemAsync(USER_KEY, JSON.stringify(profile));
                     setOffline(false);
                     await playSuccessSound();
                   } else {
-                    // Refresh token also invalid — clear everything, user must re-login
                     console.warn("[boot] Refresh token invalid, clearing session");
                     await storage.deleteItemAsync(KEY);
                     await storage.deleteItemAsync(REFRESH_KEY);
+                    await storage.deleteItemAsync(USER_KEY);
                     setToken(null);
                     setUser(null);
                   }
@@ -787,22 +877,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   console.warn("[boot] Refresh request failed");
                   await storage.deleteItemAsync(KEY);
                   await storage.deleteItemAsync(REFRESH_KEY);
+                  await storage.deleteItemAsync(USER_KEY);
                   setToken(null);
                   setUser(null);
                 }
               } else {
-                // No refresh token stored — clear and force re-login
                 await storage.deleteItemAsync(KEY);
+                await storage.deleteItemAsync(USER_KEY);
                 setToken(null);
                 setUser(null);
               }
             } else if (err?.status === 429) {
-              // Rate-limited on boot — wait 5s and retry once
               console.warn("[boot] Rate-limited, waiting 5s…");
               await new Promise(r => setTimeout(r, 5000));
               try {
-                const profile = await fetchMe(saved);
+                const profile = await fetchMe(savedToken);
                 setUser(profile);
+                await storage.setItemAsync(USER_KEY, JSON.stringify(profile));
                 setOffline(false);
               } catch {
                 console.warn("[boot] Retry also failed, continuing with cached state");
@@ -816,16 +907,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               await playErrorSound();
             }
           }
-        }
-
-        // fetch fresh methods (non-fatal) - skip on mobile to reduce reloading
-        if (Platform.OS !== 'web') {
-          void fetchPaymentMethods();
         } else {
-          try {
-            const methods = await fetchPaymentMethods();
-            if (methods.length) setPaymentMethod(methods);
-          } catch {}
+          // 3) Anonymous guest / login page route: pre-fetch fresh payment methods in background (Zero-blocking boot!)
+          void fetchPaymentMethods();
         }
       } finally {
         setBooting(false);
@@ -900,6 +984,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const profile = await fetchMe(newToken);
       setUser(profile);
+      await storage.setItemAsync(USER_KEY, JSON.stringify(profile));
       setPendingNumber(null);
 
       // fetch methods after login (in case endpoint requires auth)
@@ -947,6 +1032,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           try {
             const profile = await fetchMe(activeToken);
             setUser(profile);
+            await storage.setItemAsync(USER_KEY, JSON.stringify(profile));
           } catch (profileErr: any) {
             // ✅ Military-Grade: Transparent Token Rotation on 401
             if (profileErr?.status === 401) {
@@ -970,6 +1056,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               // Retry profile fetch with new access token
               const profile = await fetchMe(activeToken);
               setUser(profile);
+              await storage.setItemAsync(USER_KEY, JSON.stringify(profile));
             } else {
               throw profileErr;
             }
@@ -986,6 +1073,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                if (data && data.completedCount > 0) {
                   const updatedProfile = await fetchMe(token);
                   setUser(updatedProfile);
+                  await storage.setItemAsync(USER_KEY, JSON.stringify(updatedProfile));
                }
             })
             .catch(() => {});
@@ -1025,6 +1113,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     await storage.deleteItemAsync(KEY);
     await storage.deleteItemAsync(REFRESH_KEY);
+    await storage.deleteItemAsync(USER_KEY);
     setToken(null);
     setUser(null);
     setPendingNumber(null);

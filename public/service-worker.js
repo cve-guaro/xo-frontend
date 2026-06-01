@@ -66,6 +66,7 @@ self.addEventListener("fetch", (event) => {
   // For static assets (JS, CSS, images): stale-while-revalidate
   if (
     url.pathname.match(/\.(js|css|png|jpg|jpeg|svg|woff2?|ttf|eot|ico)$/) ||
+    url.pathname.startsWith("/_expo/static/") ||
     url.pathname.startsWith("/_next/") ||
     url.pathname.startsWith("/static/")
   ) {

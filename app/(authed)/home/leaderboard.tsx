@@ -650,7 +650,7 @@ export default function LeaderboardScreen() {
                 }
                 if ((item as any).isStickyHeader) {
                   return (
-                    <View style={{ backgroundColor: 'transparent', paddingTop: 10, paddingBottom: 6 }}>
+                    <View style={{ backgroundColor: '#0A090E', paddingTop: 10, paddingBottom: 6 }}>
                       {/* Mobile Unified Prize & Timer Card */}
                       <MobileUnifiedCard
                         secondsRemaining={secondsRemaining}
@@ -659,7 +659,7 @@ export default function LeaderboardScreen() {
                       />
 
                       {/* Sub Header */}
-                      <View style={[s.subHeader, { paddingBottom: 6, backgroundColor: 'transparent' }]}>
+                      <View style={[s.subHeader, { paddingBottom: 6, backgroundColor: '#0A090E' }]}>
                         <Text style={s.subHeaderTitle}>{isEN ? "All Players" : "ሁሉም ተጫዋቾች"}</Text>
                         <Text style={s.subHeaderLabel}>{isEN ? "(Weekly)" : "(ሳምንታዊ)"}</Text>
                       </View>
