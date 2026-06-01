@@ -436,11 +436,18 @@ export default function LeaderboardScreen() {
   };
 
   const top3 = leaderboard.slice(0, 3);
-  const listData = [...leaderboard];
-  const myInList = leaderboard.find(u => u.isMe);
-  if (!myInList && myRank && myRank.rank) {
-    listData.push(myRank);
-  }
+
+  const listData = useMemo(() => {
+    const base = [...leaderboard];
+    const myInList = leaderboard.find(u => u.isMe);
+    if (!myInList && myRank && myRank.rank) {
+      base.push(myRank);
+    }
+    if (!isDesktop) {
+      return [{ id: 'sticky-prize-header', isStickyHeader: true } as any, ...base];
+    }
+    return base;
+  }, [leaderboard, myRank, isDesktop]);
 
   const scrollToMe = () => {
     const myIdx = listData.findIndex(u => u.isMe);
@@ -602,19 +609,6 @@ export default function LeaderboardScreen() {
                 <View style={{ marginTop: 15, marginBottom: 20 }}>
                   <Podium top3={top3} prizes={prizes} />
                 </View>
-
-                {/* Mobile Unified Prize & Timer Card */}
-                <MobileUnifiedCard
-                  secondsRemaining={secondsRemaining}
-                  isEN={isEN}
-                  prizes={prizes}
-                />
-
-                {/* Sub Header */}
-                <View style={s.subHeader}>
-                  <Text style={s.subHeaderTitle}>{isEN ? "All Players" : "ሁሉም ተጫዋቾች"}</Text>
-                  <Text style={s.subHeaderLabel}>{isEN ? "(Weekly)" : "(ሳምንታዊ)"}</Text>
-                </View>
               </View>
             );
           };
@@ -624,7 +618,28 @@ export default function LeaderboardScreen() {
               ref={flatListRef}
               data={listData}
               keyExtractor={(item) => item.id}
-              renderItem={({ item }) => <LBItem item={item} />}
+              stickyHeaderIndices={isDesktop ? undefined : [0]}
+              renderItem={({ item }) => {
+                if ((item as any).isStickyHeader) {
+                  return (
+                    <View style={{ backgroundColor: '#0A090E', paddingTop: 10, paddingBottom: 6 }}>
+                      {/* Mobile Unified Prize & Timer Card */}
+                      <MobileUnifiedCard
+                        secondsRemaining={secondsRemaining}
+                        isEN={isEN}
+                        prizes={prizes}
+                      />
+
+                      {/* Sub Header */}
+                      <View style={[s.subHeader, { paddingBottom: 6, backgroundColor: '#0A090E' }]}>
+                        <Text style={s.subHeaderTitle}>{isEN ? "All Players" : "ሁሉም ተጫዋቾች"}</Text>
+                        <Text style={s.subHeaderLabel}>{isEN ? "(Weekly)" : "(ሳምንታዊ)"}</Text>
+                      </View>
+                    </View>
+                  );
+                }
+                return <LBItem item={item} />;
+              }}
               ListHeaderComponent={renderHeader}
               contentContainerStyle={s.listContent}
               style={{ flex: 1 }}
