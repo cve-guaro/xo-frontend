@@ -8,7 +8,7 @@ import { AdminTheme as C } from './_layout';
 
 let PrimeChart: any = null;
 if (Platform.OS === 'web') {
-  PrimeChart = require('primereact/chart').Chart;
+  PrimeChart = React.lazy(() => import('primereact/chart').then(m => ({ default: m.Chart })));
 }
 
 const fmt = (n: number) => Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
@@ -359,7 +359,9 @@ export default function AdminOverview() {
           </View>
           <View style={{ height: 240 }}>
             {Platform.OS === 'web' && PrimeChart && Object.keys(chartData).length > 0 ? (
-              <PrimeChart type="line" data={chartData} options={chartOptions} style={{ height: '100%' }} />
+              <React.Suspense fallback={<View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator size="small" color="#00daf3" /></View>}>
+                <PrimeChart type="line" data={chartData} options={chartOptions} style={{ height: '100%' }} />
+              </React.Suspense>
             ) : (
               <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#475569', fontSize: 12 }}>Loading chart...</Text></View>
             )}
@@ -381,7 +383,9 @@ export default function AdminOverview() {
           </View>
           <View style={{ height: 180 }}>
             {Platform.OS === 'web' && PrimeChart && Object.keys(userChartData).length > 0 ? (
-              <PrimeChart type="bar" data={userChartData} options={userChartOptions} style={{ height: '100%' }} />
+              <React.Suspense fallback={<View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator size="small" color="#00daf3" /></View>}>
+                <PrimeChart type="bar" data={userChartData} options={userChartOptions} style={{ height: '100%' }} />
+              </React.Suspense>
             ) : (
               <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#475569', fontSize: 12 }}>Loading...</Text></View>
             )}

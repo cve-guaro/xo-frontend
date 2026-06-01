@@ -8,7 +8,7 @@ import { AdminTheme as C } from './_layout';
 
 let PrimeChart: any = null;
 if (Platform.OS === 'web') {
-  try { PrimeChart = require('primereact/chart').Chart; } catch {}
+  PrimeChart = React.lazy(() => import('primereact/chart').then(m => ({ default: m.Chart })));
 }
 
 const fmt = (n: number) => Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
@@ -285,7 +285,9 @@ export default function FinancialDashboard() {
           </View>
           <View style={{ height: 220 }}>
             {Platform.OS === 'web' && PrimeChart && Object.keys(depositChartData).length > 0 ? (
-              <PrimeChart type="line" data={depositChartData} options={chartOpts} style={{ height: '100%' }} />
+              <React.Suspense fallback={<View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator size="small" color="#00daf3" /></View>}>
+                <PrimeChart type="line" data={depositChartData} options={chartOpts} style={{ height: '100%' }} />
+              </React.Suspense>
             ) : (
               <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
                 <Text style={{ color: '#475569', fontSize: 12 }}>Chart loading...</Text>
@@ -304,7 +306,9 @@ export default function FinancialDashboard() {
           </View>
           <View style={{ height: 220 }}>
             {Platform.OS === 'web' && PrimeChart && Object.keys(withdrawalChartData).length > 0 ? (
-              <PrimeChart type="line" data={withdrawalChartData} options={chartOpts} style={{ height: '100%' }} />
+              <React.Suspense fallback={<View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator size="small" color="#00daf3" /></View>}>
+                <PrimeChart type="line" data={withdrawalChartData} options={chartOpts} style={{ height: '100%' }} />
+              </React.Suspense>
             ) : (
               <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
                 <Text style={{ color: '#475569', fontSize: 12 }}>Chart loading...</Text>
