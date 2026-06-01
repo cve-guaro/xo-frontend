@@ -101,7 +101,7 @@ The Admin Dashboard is the control center for the platform.
 
 ### Promotion Popup Config
 - **Access**: `admin`, `superadmin`.
-- **Function**: Configures an image popup that appears when a user logs in. Stored in `global_settings` table as JSON. Requires an image URL, duration, and active toggle.
+- **Function**: Configures an image popup that appears when a user logs in. Stored in `global_settings` table as JSON. Requires an image URL, duration, and active toggle. To optimize performance and user experience, the popup is fetched and launched strictly on initial app mount, page refreshes, and direct logins, rather than during routine tab-to-tab navigation focus shifts.
 
 ### Targeted Bulk SMS (`/admin/bulk-sms`)
 - **Access**: `admin`, `superadmin`.
@@ -116,6 +116,22 @@ The Admin Dashboard is the control center for the platform.
   - `feature_withdrawals`: Enable/disable user withdrawals.
   - `referral_enabled`: Toggle the visibility of the "Share & Earn" system.
   - `system_emergency_lockout`: A "kill switch" that instantly kicks all users out of the platform and displays a maintenance screen. Only `superadmin` and explicitly whitelisted IPs can bypass this.
+
+### Weekly Leaderboard Controller (`/admin/leaderboard`)
+- **Access**: `admin`, `superadmin`.
+- **Function**: Manages the weekly leaderboard prize payouts and historical snapshots.
+  - **Live Countdown Timer**: Displays a real-time countdown timer tracking the exact remaining time until the next Sunday midnight weekly reset.
+  - **Automated Payouts (`autoApprove`)**: When enabled, a Sunday midnight cron job automatically distributes prize pools into the top 3 users' `available_balance`, logs the action in `bonus_logs`, and sends a celebratory SMS. To prevent administrative errors, the admin panel automatically hides manual override buttons (snapshot capture, individual approve, bulk approve) and shows a green "Automatic Distribution Active" status badge.
+  - **Manual Payouts & Console Redesign**: When disabled, the cron captures the top 3 snapshot and leaves them "PENDING". The admin panel displays all manual controls: the snapshot creator button, individual approvals, and the **"Approve All Pending" (Checkmate)** button to process the entire week at once. Includes a highly redesigned, professional manual console featuring click-to-adjust suggestions (`+50`, `+100`, `Reset`) right below prize inputs, and clickable template variable tags (`{username}`, `{rank}`, `{prize}`) that automatically append into the SMS template textarea for extreme ease of use. Tapping **"Send & Snapshot"** triggers the backend `/leaderboard/send-giveaway` endpoint to dynamically credit winner wallets, create approved snapshot rows, log bonus updates, dispatch GeezSMS alerts, and postcelebration card notifications in real-time. The action button uses a dark label text on its bright cyan background for premium readability.
+  - **Grouped Past Snapshots**: Past leaderboard winners are grouped and sectioned by their respective weekly start and end date ranges, sorted ascendingly by rank.
+  - **Leaderboard Payout Notifications**: Both automated payouts and manual admin approvals emit consistent `leaderboard_award` notifications that encapsulate performance metadata (wins count, rank, prize, and week start/end dates) to render a premium celebratory victory card with gold styling in the client.
+
+### Live Winner Ticker Priority Logic
+- **Endpoint**: `GET /leaderboard/ticker`
+- **Logic**: Implements configurable, priority-merged winner display:
+  - If **Show Real** is ON and **Show Fake** is OFF: Returns only real winner data sorted by `g.finished_at DESC` so the absolute most recently completed games are shown first in real-time. If empty, the frontend hides the ticker container completely.
+  - If **Show Real** is OFF and **Show Fake** is ON: Returns only fake entries configured by admins (randomly shuffled).
+  - If **Both** are ON: Combines both, prioritizing real winners first and then appending fake entries (up to 30 total).
 
 ---
 
@@ -163,3 +179,37 @@ The Admin Dashboard is the control center for the platform.
   npm install
   npx expo start --web
   ```
+
+---
+
+## 9. Weekly Leaderboard & Prize Distribution
+
+The platform features a weekly competitive leaderboard with prize distribution.
+
+### Architecture
+- **User-facing routes** (`/leaderboard/*`): Weekly standings, podium top-3, live ticker feed, prize claiming
+- **Admin routes** (`/admin/leaderboard/*`): Current standings with phone numbers, snapshots, giveaway distribution, fake ticker management
+- **Cron job** (`weeklyLeaderboard.js`): Fires at midnight every Sunday to auto-distribute prizes if `leaderboard_auto_approve` is enabled
+
+### Settlement Modes
+1. **Automatic Protocol**: At week end (Sunday midnight UTC), the cron job automatically snapshots top-3 winners, credits `available_balance` (via `bonus_balance`), sends SMS via GeezSMS, and creates in-app notifications.
+2. **Manual Console**: Admin manually triggers distribution via "Send & Snapshot" button. Supports custom prize amounts per winner, SMS template customization with `{username}`, `{rank}`, `{prize}` variables, and dry-run previews before committing.
+
+### Key Endpoints
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `/leaderboard/weekly` | GET | Top 50 + current user rank + previous week win |
+| `/leaderboard/podium` | GET | Top 3 for home widget |
+| `/leaderboard/ticker` | GET | Live winner feed (real + fake entries, priority rules) |
+| `/leaderboard/claim` | POST | User marks a prize notification as claimed |
+| `/admin/leaderboard/giveaway-status` | GET | Top-3 winners with phone numbers for manual console |
+| `/admin/leaderboard/send-giveaway` | POST | Full prize distribution (snapshot + wallet + SMS + notifications) |
+
+### Ticker Priority Rules
+- **Real ON, Fake OFF**: Only real winners shown (from `games` table)
+- **Real OFF, Fake ON**: Only fake entries shown (from `fake_ticker_entries` table)
+- **Both ON**: Real winners first, then fake entries (up to 30 total)
+- **Both OFF**: Ticker hidden on home page
+
+### Prize Flow (available_balance only)
+All leaderboard prizes are credited to `available_balance` and `bonus_balance` (NOT `withdrawable_balance`), ensuring prizes follow the standard 1x rollover AML rule.
