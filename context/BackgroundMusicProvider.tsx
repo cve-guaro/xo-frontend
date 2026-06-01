@@ -20,9 +20,31 @@ export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = 
   const [isPlaying, setIsPlaying] = useState(true);
   const isPlayingRef = useRef(true);
   const hasInitialized = useRef(false);
+  const [shouldLoadSound, setShouldLoadSound] = useState(false);
 
-  const player = useAudioPlayer(require('../assets/sounds/background.mp3'));
-  player.loop = true;
+  useEffect(() => {
+    // Delay audio loading by 2.5 seconds to give the initial page load full network bandwidth!
+    const timer = setTimeout(() => {
+      setShouldLoadSound(true);
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const player = useAudioPlayer(shouldLoadSound ? require('../assets/sounds/background.mp3') : null);
+  
+  if (player) {
+    player.loop = true;
+  }
+
+  // Trigger playing when player becomes available (after SWR delay)
+  useEffect(() => {
+    if (shouldLoadSound && player && isPlayingRef.current && !player.playing) {
+      if (Platform.OS !== 'web') {
+        player.volume = 0.15;
+        player.play();
+      }
+    }
+  }, [shouldLoadSound, player]);
 
   // Initial load effect
   useEffect(() => {
@@ -40,9 +62,11 @@ export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = 
       setIsPlaying(shouldStartPlaying);
       isPlayingRef.current = shouldStartPlaying;
       hasInitialized.current = true;
-      player.volume = 0.15;
+      if (player) {
+        player.volume = 0.15;
+      }
 
-      if (shouldStartPlaying && Platform.OS !== 'web') {
+      if (shouldStartPlaying && Platform.OS !== 'web' && player && player.play) {
         player.play();
       }
     };
@@ -50,7 +74,7 @@ export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = 
     if (!hasInitialized.current) {
         init();
     }
-  }, []);
+  }, [player]);
 
   // Sync with User DB if it changes
   useEffect(() => {
@@ -60,18 +84,18 @@ export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = 
         console.log('[AUDIO] Syncing state from User DB:', dbShouldPlay ? 'Playing' : 'Muted');
         setIsPlaying(dbShouldPlay);
         isPlayingRef.current = dbShouldPlay;
-        if (dbShouldPlay) player.play();
-        else player.pause();
+        if (dbShouldPlay && player && player.play) player.play();
+        else if (player && player.pause) player.pause();
       }
     }
-  }, [user?.sound_muted]);
+  }, [user?.sound_muted, player]);
 
   // App State listener for background pausing + Web Autoplay Unlocker
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (next) => {
         if (next === 'active') {
-          if (isPlayingRef.current) player.play();
-        } else if (next.match(/inactive|background/)) {
+          if (isPlayingRef.current && player && player.play) player.play();
+        } else if (next.match(/inactive|background/) && player && player.pause) {
           player.pause();
         }
     });
@@ -88,12 +112,12 @@ export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = 
         window.removeEventListener('click', handleWebInteraction);
         window.removeEventListener('keydown', handleWebInteraction);
       }
-      player.pause(); // Cleanup zombie player to prevent double playing
+      if (player && player.pause) player.pause(); // Cleanup zombie player to prevent double playing
     };
   }, [player]);
 
   const unlockAudio = async () => {
-    if (isPlayingRef.current && !player.playing) {
+    if (isPlayingRef.current && player && !player.playing && player.play) {
       player.play();
     }
   };
