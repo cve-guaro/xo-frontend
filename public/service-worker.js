@@ -1,5 +1,5 @@
 // XO ET — Service Worker (PWA offline support + caching)
-const CACHE_NAME = "xoet-v3";
+const CACHE_NAME = "xoet-v4";
 const STATIC_ASSETS = [
   "/",
   "/manifest.json",
