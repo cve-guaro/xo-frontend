@@ -1293,7 +1293,9 @@ export default function Landing() {
 
   const renderUserRankCard = useCallback(() => {
     const rankVal = myWeeklyRank && myWeeklyRank.rank ? `#${myWeeklyRank.rank}` : "#1";
-    const scoreVal = myWeeklyRank && myWeeklyRank.wins !== undefined ? `${myWeeklyRank.wins} Birr` : "2 Birr";
+    const scoreVal = myWeeklyRank && myWeeklyRank.wins !== undefined 
+      ? `${myWeeklyRank.wins} ${isEN ? 'Wins' : 'ድሎች'}` 
+      : `2 ${isEN ? 'Wins' : 'ድሎች'}`;
 
     return (
       <View style={{

@@ -113,7 +113,7 @@ export default function PrivacyScreen() {
 
             <Section
               title="11. OWNER AND DATA CONTROLLER"
-              text="Addis Ababa, Ethiopia\n\nOwner contact email: support@xoethiopia.com"
+              text="Addis Ababa, Ethiopia\n\nOwner contact: https://t.me/xoetsupport"
             />
 
             {/* Highlight Box */}

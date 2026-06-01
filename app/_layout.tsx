@@ -44,6 +44,7 @@ if (Platform.OS === 'web' && typeof console !== 'undefined') {
     'style.resizeMode is deprecated',
     'pointerEvents is deprecated',
     'Unexpected text node',
+    'useNativeDriver',
   ];
   const isSuppressed = (msg: string) => SUPPRESSED.some(s => String(msg).includes(s));
   console.warn = (...args: any[]) => { if (!isSuppressed(args[0])) _warn(...args); };
@@ -94,87 +95,6 @@ if (Platform.OS === 'web' && typeof window !== 'undefined') {
 }
 
 function RootLayout() {
-  if (Platform.OS === 'web' && typeof document !== 'undefined') {
-    const styleId = 'global-input-outline-fix';
-    if (!document.getElementById(styleId)) {
-      const style = document.createElement('style');
-      style.id = styleId;
-      style.type = 'text/css';
-      style.innerHTML = `
-        input:focus, textarea:focus {
-          outline: none !important;
-          box-shadow: 0 0 0 2px rgba(0, 218, 243, 0.4) !important;
-          border-color: #00daf3 !important;
-        }
-        
-        /* Custom Scrollbars for Data Lists */
-        [data-scrollbar="custom"]::-webkit-scrollbar {
-          width: 6px;
-          height: 6px;
-        }
-        [data-scrollbar="custom"]::-webkit-scrollbar-track {
-          background: rgba(255,255,255,0.02);
-          border-radius: 8px;
-        }
-        [data-scrollbar="custom"]::-webkit-scrollbar-thumb {
-          background: rgba(255,255,255,0.15);
-          border-radius: 8px;
-        }
-        [data-scrollbar="custom"]::-webkit-scrollbar-thumb:hover {
-          background: rgba(129,236,255,0.4);
-        }
-      `;
-      document.head.appendChild(style);
-    }
-
-    // PWA meta tags injection
-    const pwaMetaId = 'pwa-meta-tags';
-    if (!document.getElementById(pwaMetaId)) {
-      const frag = document.createDocumentFragment();
-      const marker = document.createElement('meta');
-      marker.id = pwaMetaId;
-      marker.name = 'pwa-injected';
-      marker.content = 'true';
-      frag.appendChild(marker);
-
-      // Manifest link
-      if (!document.querySelector('link[rel="manifest"]')) {
-        const manifestLink = document.createElement('link');
-        manifestLink.rel = 'manifest';
-        manifestLink.href = '/manifest.json';
-        frag.appendChild(manifestLink);
-      }
-
-      // Theme color
-      if (!document.querySelector('meta[name="theme-color"]')) {
-        const themeColor = document.createElement('meta');
-        themeColor.name = 'theme-color';
-        themeColor.content = '#0a0a14';
-        frag.appendChild(themeColor);
-      }
-
-      // Apple mobile web app
-      if (!document.querySelector('meta[name="apple-mobile-web-app-capable"]')) {
-        const appleMeta = document.createElement('meta');
-        appleMeta.name = 'apple-mobile-web-app-capable';
-        appleMeta.content = 'yes';
-        frag.appendChild(appleMeta);
-
-        const appleStatusBar = document.createElement('meta');
-        appleStatusBar.name = 'apple-mobile-web-app-status-bar-style';
-        appleStatusBar.content = 'black-translucent';
-        frag.appendChild(appleStatusBar);
-
-        const appleTitle = document.createElement('meta');
-        appleTitle.name = 'apple-mobile-web-app-title';
-        appleTitle.content = 'XO ET';
-        frag.appendChild(appleTitle);
-      }
-
-      document.head.appendChild(frag);
-    }
-  }
-
   useEffect(() => {
     if (Platform.OS === 'web' && 'serviceWorker' in navigator) {
       window.addEventListener('load', () => {

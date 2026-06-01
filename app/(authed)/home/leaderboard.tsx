@@ -290,11 +290,13 @@ function MobileUnifiedCard({
 // ── Podium Component ──────────────────────────────────────────────────
 function Podium({ top3, prizes }: { top3: LeaderboardUser[]; prizes: { rank: number; amount: number }[] }) {
   const getPrize = (rank: number) => prizes.find(p => p.rank === rank)?.amount || 0;
+  const { width } = useWindowDimensions();
+  const isDesktop = Platform.OS === 'web' && width >= 768;
 
   const spots = [
-    { data: top3[1], rank: 2, barH: 70, color: '#b9cacb', borderColor: 'rgba(185, 202, 203, 0.25)', bgColor: 'rgba(255,255,255,0.02)', textColor: '#b9cacb' },
-    { data: top3[0], rank: 1, barH: 100, color: '#ffb84d', borderColor: 'rgba(255, 184, 77, 0.3)', bgColor: 'rgba(255,255,255,0.03)', textColor: '#ffb84d' },
-    { data: top3[2], rank: 3, barH: 60, color: '#fb923c', borderColor: 'rgba(251, 146, 60, 0.25)', bgColor: 'rgba(255,255,255,0.02)', textColor: '#fb923c' },
+    { data: top3[1], rank: 2, barH: isDesktop ? 70 : 45, color: '#b9cacb', borderColor: 'rgba(185, 202, 203, 0.25)', bgColor: 'rgba(255,255,255,0.02)', textColor: '#b9cacb' },
+    { data: top3[0], rank: 1, barH: isDesktop ? 100 : 70, color: '#ffb84d', borderColor: 'rgba(255, 184, 77, 0.3)', bgColor: 'rgba(255,255,255,0.03)', textColor: '#ffb84d' },
+    { data: top3[2], rank: 3, barH: isDesktop ? 60 : 35, color: '#fb923c', borderColor: 'rgba(251, 146, 60, 0.25)', bgColor: 'rgba(255,255,255,0.02)', textColor: '#fb923c' },
   ];
 
   return (
@@ -436,11 +438,15 @@ export default function LeaderboardScreen() {
   };
 
   const top3 = leaderboard.slice(0, 3);
-  const listData = [...leaderboard];
-  const myInList = leaderboard.find(u => u.isMe);
-  if (!myInList && myRank && myRank.rank) {
-    listData.push(myRank);
-  }
+
+  const listData = useMemo(() => {
+    const base = [...leaderboard];
+    const myInList = leaderboard.find(u => u.isMe);
+    if (!myInList && myRank && myRank.rank) {
+      base.push(myRank);
+    }
+    return base;
+  }, [leaderboard, myRank]);
 
   const scrollToMe = () => {
     const myIdx = listData.findIndex(u => u.isMe);
@@ -553,62 +559,70 @@ export default function LeaderboardScreen() {
 
       <SafeAreaView style={s.safe} edges={['top', 'left', 'right']}>
         {/* Unified ListHeaderComponent builder to render headers dynamically while allowing full scrolling on mobile */}
-        {(() => {
-          const renderHeader = () => {
-            if (isDesktop) {
-              return (
-                <View>
-                  <View style={{ flexDirection: 'row', gap: 24, paddingHorizontal: 20, marginBottom: 24 }}>
-                    {/* Left Box: Podium */}
-                    <View style={{ flex: 1.5, backgroundColor: '#111115', borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', padding: 24 }}>
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                        <Text style={{ fontSize: 18, fontWeight: '900', color: '#fff' }}>{isEN ? "Weekly Top Winners" : "ሳምንታዊ ከፍተኛ አሸናፊዎች"}</Text>
-                        <TouchableOpacity onPress={fetchData} style={s.refreshBtn}>
-                          <Ionicons name="refresh" size={18} color="#00daf3" />
-                        </TouchableOpacity>
-                      </View>
-                      <Podium top3={top3} prizes={prizes} />
-                    </View>
+        {!isDesktop && (
+          <View style={{ backgroundColor: 'transparent' }}>
+            {/* Header */}
+            <View style={s.header}>
+              <Text style={s.headerTitle}>{isEN ? "Weekly Top Winners" : "ሳምንታዊ ከፍተኛ አሸናፊዎች"}</Text>
+              <TouchableOpacity onPress={fetchData} style={s.refreshBtn}>
+                <Ionicons name="refresh" size={18} color="#00daf3" />
+              </TouchableOpacity>
+            </View>
 
-                    {/* Right Box: Countdown + Prize Pool */}
-                    <View style={{ flex: 1, gap: 16 }}>
-                      {secondsRemaining > 0 && (
-                        <CountdownTimer secondsRemaining={secondsRemaining} isEN={isEN} />
-                      )}
-                      <PrizePoolCard isEN={isEN} topPrize={prizes.find(p => p.rank === 1)?.amount || 500} />
-                    </View>
-                  </View>
+            {/* Podium */}
+            <View style={{ marginTop: 8, marginBottom: 12 }}>
+              <Podium top3={top3} prizes={prizes} />
+            </View>
 
-                  {/* Sub Header */}
-                  <View style={s.subHeader}>
-                    <Text style={s.subHeaderTitle}>{isEN ? "All Players" : "ሁሉም ተጫዋቾች"}</Text>
-                    <Text style={s.subHeaderLabel}>{isEN ? "(Weekly)" : "(ሳምንታዊ)"}</Text>
-                  </View>
-                </View>
-              );
-            }
+            {/* Mobile Unified Prize & Timer Card */}
+            <MobileUnifiedCard
+              secondsRemaining={secondsRemaining}
+              isEN={isEN}
+              prizes={prizes}
+            />
 
+            {/* Sub Header */}
+            <View style={[s.subHeader, { paddingBottom: 6, backgroundColor: 'transparent' }]}>
+              <Text style={s.subHeaderTitle}>{isEN ? "All Players" : "ሁሉም ተጫዋቾች"}</Text>
+              <Text style={s.subHeaderLabel}>{isEN ? "(Weekly)" : "(ሳምንታዊ)"}</Text>
+            </View>
+          </View>
+        )}
+
+        <FlatList
+          ref={flatListRef}
+          data={listData}
+          keyExtractor={(item) => item.id}
+          onScrollToIndexFailed={(info) => {
+            const wait = new Promise(resolve => setTimeout(resolve, 50));
+            wait.then(() => {
+              flatListRef.current?.scrollToIndex({ index: info.index, animated: true, viewPosition: 0.5 });
+            });
+          }}
+          renderItem={({ item }) => <LBItem item={item} />}
+          ListHeaderComponent={isDesktop ? (() => {
             return (
               <View>
-                {/* Header */}
-                <View style={s.header}>
-                  <Text style={s.headerTitle}>{isEN ? "Weekly Top Winners" : "ሳምንታዊ ከፍተኛ አሸናፊዎች"}</Text>
-                  <TouchableOpacity onPress={fetchData} style={s.refreshBtn}>
-                    <Ionicons name="refresh" size={18} color="#00daf3" />
-                  </TouchableOpacity>
-                </View>
+                <View style={{ flexDirection: 'row', gap: 24, paddingHorizontal: 20, marginBottom: 24 }}>
+                  {/* Left Box: Podium */}
+                  <View style={{ flex: 1.5, backgroundColor: '#111115', borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', padding: 24 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                      <Text style={{ fontSize: 18, fontWeight: '900', color: '#fff' }}>{isEN ? "Weekly Top Winners" : "ሳምንታዊ ከፍተኛ አሸናፊዎች"}</Text>
+                      <TouchableOpacity onPress={fetchData} style={s.refreshBtn}>
+                        <Ionicons name="refresh" size={18} color="#00daf3" />
+                      </TouchableOpacity>
+                    </View>
+                    <Podium top3={top3} prizes={prizes} />
+                  </View>
 
-                {/* Podium */}
-                <View style={{ marginTop: 15, marginBottom: 20 }}>
-                  <Podium top3={top3} prizes={prizes} />
+                  {/* Right Box: Countdown + Prize Pool */}
+                  <View style={{ flex: 1, gap: 16 }}>
+                    {secondsRemaining > 0 && (
+                      <CountdownTimer secondsRemaining={secondsRemaining} isEN={isEN} />
+                    )}
+                    <PrizePoolCard isEN={isEN} topPrize={prizes.find(p => p.rank === 1)?.amount || 500} />
+                  </View>
                 </View>
-
-                {/* Mobile Unified Prize & Timer Card */}
-                <MobileUnifiedCard
-                  secondsRemaining={secondsRemaining}
-                  isEN={isEN}
-                  prizes={prizes}
-                />
 
                 {/* Sub Header */}
                 <View style={s.subHeader}>
@@ -617,27 +631,17 @@ export default function LeaderboardScreen() {
                 </View>
               </View>
             );
-          };
-
-          return (
-            <FlatList
-              ref={flatListRef}
-              data={listData}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => <LBItem item={item} />}
-              ListHeaderComponent={renderHeader}
-              contentContainerStyle={s.listContent}
-              style={{ flex: 1 }}
-              showsVerticalScrollIndicator={false}
-              ListEmptyComponent={
-                <View style={s.emptyWrap}>
-                  <Ionicons name="trophy-outline" size={40} color="rgba(255,255,255,0.2)" />
-                  <Text style={s.emptyText}>{isEN ? "No players ranked yet this week" : "በዚህ ሳምንት ገና ምንም ተጫዋች አልተመዘገበም"}</Text>
-                </View>
-              }
-            />
-          );
-        })()}
+          }) : undefined}
+          contentContainerStyle={s.listContent}
+          style={{ flex: 1 }}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={s.emptyWrap}>
+              <Ionicons name="trophy-outline" size={40} color="rgba(255,255,255,0.2)" />
+              <Text style={s.emptyText}>{isEN ? "No players ranked yet this week" : "በዚህ ሳምንት ገና ምንም ተጫዋች አልተመዘገበም"}</Text>
+            </View>
+          }
+        />
 
         {/* Find Me Button */}
         {myRank && myRank.rank && (
@@ -720,7 +724,7 @@ const s = StyleSheet.create({
   // Podium
   podiumContainer: {
     flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center',
-    height: 200, gap: 16, paddingHorizontal: 20,
+    height: 160, gap: 16, paddingHorizontal: 20,
   },
   podiumSpot: { alignItems: 'center' },
   podiumPrize: { fontSize: 13, fontWeight: '700', marginBottom: 10, textShadowColor: 'rgba(0,0,0,0.5)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 },
