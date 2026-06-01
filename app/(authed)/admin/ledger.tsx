@@ -8,7 +8,7 @@ import { API_URL } from '../../../config';
 import { AdminTheme as C } from './_layout';
 
 const glass: any = {
-  backgroundColor: 'rgba(23,23,50,0.4)',
+  backgroundColor: 'rgba(24, 24, 27, 0.65)',
 };
 
 interface Tx {
@@ -276,7 +276,7 @@ export default function AdminLedger() {
           <ScrollView horizontal={isMobile} showsHorizontalScrollIndicator={isMobile}>
             <View style={isMobile ? { minWidth: 900 } : undefined}>
               {/* Column headers */}
-              <View style={[styles.colRow, { backgroundColor: 'rgba(17,17,40,0.8)', borderBottomWidth: 1, borderBottomColor: 'rgba(68,68,107,0.2)' }]}>
+              <View style={[styles.colRow, { backgroundColor: 'rgba(17,17,40,0.8)', borderBottomWidth: 1, borderBottomColor: 'rgba(39, 39, 42, 0.4)' }]}>
                 <View style={{ flex: 2 }}><Text style={styles.colHead}>User Account</Text></View>
                 <View style={{ flex: 1.1 }}><Text style={styles.colHead}>Amount (ETB)</Text></View>
                 <View style={{ flex: 0.9 }}><Text style={styles.colHead}>Method</Text></View>
@@ -574,7 +574,7 @@ const styles = StyleSheet.create({
   pageTitle: { color: '#e5e3ff', fontSize: 36, fontWeight: '900', letterSpacing: -1 },
   pageSub: { color: '#a8a7d4', fontSize: 14, marginTop: 8 },
   tabContainer: { 
-    backgroundColor: '#111128', borderRadius: 16, padding: 4, borderWidth: 1, borderColor: 'rgba(68,68,107,0.1)' 
+    backgroundColor: '#0f0f11', borderRadius: 16, padding: 4, borderWidth: 1, borderColor: 'rgba(39, 39, 42, 0.2)' 
   },
   tabBar: { flexDirection: 'row', gap: 4 },
   tabBtn: { paddingHorizontal: 28, paddingVertical: 12, borderRadius: 12 },
@@ -592,19 +592,19 @@ const styles = StyleSheet.create({
 
   tableCard: { flex: 1, marginBottom: 0, backgroundColor: 'transparent' },
   tableHead: { 
-    paddingHorizontal: 24, paddingVertical: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(23,23,50,0.6)', borderTopLeftRadius: 20, borderTopRightRadius: 20, borderWidth: 1, borderBottomWidth: 0, borderColor: 'rgba(166,140,255,0.2)'
+    paddingHorizontal: 24, paddingVertical: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(24, 24, 27, 0.65)', borderTopLeftRadius: 20, borderTopRightRadius: 20, borderWidth: 1, borderBottomWidth: 0, borderColor: 'rgba(39, 39, 42, 0.6)'
   },
   tableTitle: { color: '#fff', fontSize: 20, fontWeight: '900', letterSpacing: 0.5 },
-  searchBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(0,0,0,0.3)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(166,140,255,0.3)', width: 220, shadowColor: C.primary, shadowOpacity: 0.2, shadowRadius: 10 },
+  searchBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(0,0,0,0.3)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(0, 218, 243, 0.3)', width: 220, shadowColor: C.primary, shadowOpacity: 0.2, shadowRadius: 10 },
   searchInput: { flex: 1, color: '#fff', fontSize: 13, height: 20 },
-  filterChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 16, backgroundColor: 'rgba(166,140,255,0.1)', borderRadius: 20, borderWidth: 1, borderColor: 'rgba(166,140,255,0.3)' },
+  filterChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 16, backgroundColor: 'rgba(166,140,255,0.1)', borderRadius: 20, borderWidth: 1, borderColor: 'rgba(0, 218, 243, 0.3)' },
   filterChipText: { color: C.primary, fontSize: 13, fontWeight: '800' },
   colRow: { 
     flexDirection: 'row', paddingHorizontal: 24, paddingVertical: 14, alignItems: 'center',
     backgroundColor: 'transparent'
   },
   colHead: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1.5, flex: 1 },
-  txRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, backgroundColor: 'rgba(23,23,50,0.5)', borderRadius: 16, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(166,140,255,0.1)' },
+  txRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, backgroundColor: 'rgba(24, 24, 27, 0.5)', borderRadius: 16, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(39, 39, 42, 0.4)' },
   txUser: { flex: 2, flexDirection: 'row', alignItems: 'center', gap: 10, minWidth: 0, overflow: 'hidden' },
   txAvatar: { width: 34, height: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center', flexShrink: 0, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   txAvatarText: { fontSize: 12, fontWeight: '900' },
@@ -630,8 +630,8 @@ const styles = StyleSheet.create({
   receiptTxt: { color: C.primary, fontSize: 12, fontWeight: '800' },
   empty: { color: '#a8a7d4', textAlign: 'center', marginVertical: 40, fontSize: 14 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  receiptModal: { width: '100%', maxWidth: 450, backgroundColor: '#0c0c1f', borderRadius: 28, borderWidth: 1, borderColor: 'rgba(68,68,107,0.3)', overflow: 'hidden' },
-  receiptHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 24, borderBottomWidth: 1, borderBottomColor: 'rgba(68,68,107,0.2)' },
+  receiptModal: { width: '100%', maxWidth: 450, backgroundColor: '#09090b', borderRadius: 28, borderWidth: 1, borderColor: 'rgba(39, 39, 42, 0.6)', overflow: 'hidden' },
+  receiptHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 24, borderBottomWidth: 1, borderBottomColor: 'rgba(39, 39, 42, 0.4)' },
   receiptTitle: { color: '#fff', fontSize: 18, fontWeight: '900', flex: 1, marginLeft: 12 },
   
   receiptAmountRow: { alignItems: 'center', marginVertical: 32 },
@@ -646,19 +646,19 @@ const styles = StyleSheet.create({
   receiptInfoLabel: { color: 'rgba(168,167,212,0.5)', fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1 },
   receiptInfoVal: { color: '#fff', fontSize: 15, fontWeight: '600' },
   
-  printBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: 'rgba(166,140,255,0.1)', height: 56, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(166,140,255,0.3)' },
+  printBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: 'rgba(166,140,255,0.1)', height: 56, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(0, 218, 243, 0.3)' },
   printBtnTxt: { color: '#fff', fontSize: 14, fontWeight: '800' },
   paginationRow: { 
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', 
-    padding: 20, marginTop: 8, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(166,140,255,0.2)',
-    backgroundColor: 'rgba(23,23,50,0.6)'
+    padding: 20, marginTop: 8, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(39, 39, 42, 0.6)',
+    backgroundColor: 'rgba(24, 24, 27, 0.65)'
   },
   paginationInfo: { color: C.onSurfaceVariant, fontSize: 12, fontWeight: '700' },
   pageBtn: { 
     flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(166,140,255,0.1)', 
-    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(166,140,255,0.3)' 
+    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(0, 218, 243, 0.3)' 
   },
   pageBtnText: { color: '#fff', fontSize: 13, fontWeight: '800' },
-  reviewBtn: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: 'rgba(166,140,255,0.1)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(166,140,255,0.3)' },
+  reviewBtn: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: 'rgba(166,140,255,0.1)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(0, 218, 243, 0.3)' },
   reviewBtnTxt: { color: '#fff', fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
 });

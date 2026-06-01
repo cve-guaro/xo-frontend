@@ -3,8 +3,8 @@ export const colors = {
   card: '#14141B',
   text: '#F9F9F9',
   subtext: '#C7C7D1',
-  primary: '#7C3AED',
-  primaryAlt: '#A78BFA',
+  primary: '#00daf3',
+  primaryAlt: '#00a3ff',
   danger: '#EF4444',
   success: '#10B981',
 };

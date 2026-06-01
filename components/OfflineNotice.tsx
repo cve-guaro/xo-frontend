@@ -80,16 +80,16 @@ export default function OfflineNotice({
           )}
 
           {lastChecked && (
-            <Text style={styles.meta}>Last checked: {new Date(lastChecked).toLocaleTimeString()}</Text>
+            <Text style={styles.meta}>Last checked: {lastChecked && !isNaN(new Date(lastChecked).getTime()) ? new Date(lastChecked).toLocaleTimeString() : '—'}</Text>
           )}
 
           <TouchableOpacity onPress={onRetry} disabled={isRetrying} style={[styles.cta, isRetrying && styles.ctaDisabled] }>
-            <LinearGradient colors={["#7c3aed", "#6d28d9"]} style={styles.ctaInner}>
+            <LinearGradient colors={["#00daf3", "#00a3ff"]} style={styles.ctaInner}>
               {isRetrying ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color="#0c0c1f" />
               ) : (
                 <>
-                  <Ionicons name="refresh" size={18} color="#fff" />
+                  <Ionicons name="refresh" size={18} color="#0c0c1f" />
                   <Text style={styles.ctaText}>{retryLabel}</Text>
                 </>
               )}
@@ -133,5 +133,5 @@ const styles = StyleSheet.create({
   cta: { borderRadius: 14, overflow: "hidden", marginTop: 14 },
   ctaDisabled: { opacity: 0.6 },
   ctaInner: { paddingVertical: 14, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8 },
-  ctaText: { color: "#fff", fontSize: 15, fontWeight: "800" },
+  ctaText: { color: "#0c0c1f", fontSize: 15, fontWeight: "800" },
 });

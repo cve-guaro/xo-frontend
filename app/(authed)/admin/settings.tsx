@@ -18,7 +18,7 @@ const timeSince = (iso?: string) => {
 };
 
 const glass: any = {
-  backgroundColor: 'rgba(23,23,50,0.4)',
+  backgroundColor: 'rgba(24, 24, 27, 0.65)',
 };
 
 export default function AdminSettings() {
@@ -34,6 +34,7 @@ export default function AdminSettings() {
   const [bonusAmount, setBonusAmount] = useState('10'); // displayed in ETB (DB stores cents)
   const [emergencyLock, setEmergencyLock] = useState(false);
   const [mobileAppLock, setMobileAppLock] = useState(false);
+  const [roomsLocked, setRoomsLocked] = useState(false);
   const [showOnlineCount, setShowOnlineCount] = useState(true);
   
   const [minWithdrawal, setMinWithdrawal] = useState('50');
@@ -94,6 +95,7 @@ export default function AdminSettings() {
         }
         setEmergencyLock(config.system_emergency_lockout === true || config.system_emergency_lockout === 'true');
         setMobileAppLock(config.mobile_app_lockout === true || config.mobile_app_lockout === 'true');
+        setRoomsLocked(config.rooms_locked === true || config.rooms_locked === 'true');
         setShowOnlineCount(config.show_online_count !== false && config.show_online_count !== 'false');
         setManualApproval(config.is_manual_approval_enabled === true || config.is_manual_approval_enabled === 'true');
         if (config.max_daily_withdraw_amount) setMaxWithdrawAmount(String(config.max_daily_withdraw_amount));
@@ -225,6 +227,7 @@ export default function AdminSettings() {
         welcome_bonus_amount: String(bonusAmount),
         system_emergency_lockout: emergencyLock,
         mobile_app_lockout: mobileAppLock,
+        rooms_locked: roomsLocked,
         min_withdraw_amount: String(minWithdrawal),
         min_deposit_amount: String(minDeposit),
         show_online_count: showOnlineCount,
@@ -297,7 +300,7 @@ export default function AdminSettings() {
         {activeTab === 'Promotional Campaigns' && (
           <>
             {/* New Giveaway Manager */}
-        <View style={[styles.card, glass, { borderColor: 'rgba(166,140,255,0.3)', borderTopWidth: 4, borderTopColor: C.primary }]}>
+        <View style={[styles.card, glass, { borderColor: 'rgba(0, 218, 243, 0.3)', borderTopWidth: 4, borderTopColor: C.primary }]}>
           <View style={[styles.cardHeader, { borderBottomColor: 'rgba(166,140,255,0.2)' }]}>
             <View style={styles.cardHeaderIcon}>
               <Ionicons name="rocket" size={20} color={C.primary} />
@@ -369,7 +372,7 @@ export default function AdminSettings() {
                 value={bonusActive}
                 onValueChange={handleToggleBonus}
                 thumbColor={bonusActive ? C.secondary : '#f4f3f4'}
-                trackColor={{ false: 'rgba(68,68,107,0.4)', true: 'rgba(0,218,243,0.3)' }}
+                trackColor={{ false: 'rgba(39, 39, 42, 0.4)', true: 'rgba(0,218,243,0.3)' }}
               />
             </View>
           </View>
@@ -402,13 +405,13 @@ export default function AdminSettings() {
                 value={referralEnabled}
                 onValueChange={setReferralEnabled}
                 thumbColor={referralEnabled ? '#10b981' : '#f4f3f4'}
-                trackColor={{ false: 'rgba(68,68,107,0.4)', true: 'rgba(16,185,129,0.3)' }}
+                trackColor={{ false: 'rgba(39, 39, 42, 0.4)', true: 'rgba(16,185,129,0.3)' }}
               />
             </View>
           </View>
 
           {referralEnabled && (
-            <View style={[styles.actionRow, isMobile && { flexDirection: 'column', alignItems: 'flex-start', gap: 16 }, { borderTopWidth: 1, borderTopColor: 'rgba(68,68,107,0.05)', paddingTop: 20 }]}>
+            <View style={[styles.actionRow, isMobile && { flexDirection: 'column', alignItems: 'flex-start', gap: 16 }, { borderTopWidth: 1, borderTopColor: 'rgba(39, 39, 42, 0.1)', paddingTop: 20 }]}>
               <View style={[{ flex: isMobile ? 0 : 1, paddingRight: isMobile ? 0 : 20 }, isMobile && { paddingBottom: 8 }]}>
                 <Text style={styles.settingName}>Referral Bonus Amount</Text>
                 <Text style={styles.settingDesc}>Non-withdrawable bonus credited to the referrer per new user sign-up.</Text>
@@ -464,7 +467,7 @@ export default function AdminSettings() {
                 onValueChange={isSuperAdmin ? setEmergencyLock : () => {}}
                 disabled={!isSuperAdmin}
                 thumbColor={emergencyLock ? C.error : '#f4f3f4'}
-                trackColor={{ false: 'rgba(68,68,107,0.4)', true: 'rgba(253,111,133,0.3)' }}
+                trackColor={{ false: 'rgba(39, 39, 42, 0.4)', true: 'rgba(253,111,133,0.3)' }}
               />
             </View>
           </View>
@@ -480,26 +483,75 @@ export default function AdminSettings() {
                 onValueChange={isSuperAdmin ? setMobileAppLock : () => {}}
                 disabled={!isSuperAdmin}
                 thumbColor={mobileAppLock ? C.error : '#f4f3f4'}
-                trackColor={{ false: 'rgba(68,68,107,0.4)', true: 'rgba(253,111,133,0.3)' }}
+                trackColor={{ false: 'rgba(39, 39, 42, 0.4)', true: 'rgba(253,111,133,0.3)' }}
               />
             </View>
           </View>
         </View>
 
-        <View style={[styles.settingRow, isMobile && { flexDirection: 'column', alignItems: 'flex-start', gap: 16 }, { borderTopWidth: 1, borderTopColor: 'rgba(68,68,107,0.05)', paddingTop: 20 }]}>
-          <View style={{ flex: isMobile ? 0 : 1, paddingRight: isMobile ? 0 : 20 }}>
-            <Text style={styles.settingName}>{(t as any)('Organic Growth Metrics')}</Text>
-            <Text style={styles.settingDesc}>{(t as any)('If enabled, users will see the actual number of players currently active on the platform. If disabled, a simulated "fake" high-activity count is shown.')}</Text>
+          {/* Game Rooms Lock Card */}
+          <View style={[styles.card, glass, {
+            borderColor: 'rgba(253,111,133,0.3)', borderTopWidth: 4, borderTopColor: C.error,
+            opacity: isSuperAdmin ? 1 : 0.4
+          }]}>
+            <View style={[styles.cardHeader, { borderBottomColor: 'rgba(253,111,133,0.2)' }]}>
+              <View style={[styles.cardHeaderIcon, { borderColor: 'rgba(253,111,133,0.2)' }]}>
+                <Ionicons name="lock-closed" size={20} color={C.error} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.cardTitle, { color: C.error }]}>{'Game Rooms Lock'}</Text>
+                <Text style={styles.cardSubTitle}>Globally disable all game rooms (R1, R2, R3)</Text>
+              </View>
+              {!isSuperAdmin && (
+                <View style={{ marginLeft: 'auto', backgroundColor: 'rgba(253,111,133,0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 }}>
+                  <Text style={{ color: C.error, fontSize: 10, fontWeight: '900' }}>SUPER ADMIN ONLY</Text>
+                </View>
+              )}
+            </View>
+
+            <View style={[styles.settingRow, isMobile && { flexDirection: 'column', alignItems: 'flex-start', gap: 16 }]}>
+              <View style={{ flex: isMobile ? 0 : 1, paddingRight: isMobile ? 0 : 20 }}>
+                <Text style={styles.settingName}>{'Game Rooms Lock'}</Text>
+                <Text style={styles.settingDesc}>{'When ON, all game rooms (R1, R2, R3) are globally disabled. No new games can be started or joined by any user. Existing ongoing games are not affected.'}</Text>
+              </View>
+              <View style={isMobile && { alignSelf: 'flex-end' }}>
+                <Switch
+                  value={roomsLocked}
+                  onValueChange={isSuperAdmin ? setRoomsLocked : () => {}}
+                  disabled={!isSuperAdmin}
+                  thumbColor={roomsLocked ? C.error : '#f4f3f4'}
+                  trackColor={{ false: 'rgba(68,68,107,0.4)', true: 'rgba(253,111,133,0.3)' }}
+                />
+              </View>
+            </View>
+
+            {roomsLocked && (
+              <View style={{ marginTop: 12, backgroundColor: 'rgba(253,111,133,0.07)', padding: 14, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(253,111,133,0.2)' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <Ionicons name="warning" color={C.error} size={14} />
+                  <Text style={{ color: C.error, fontWeight: '700', fontSize: 13 }}>Rooms are currently LOCKED</Text>
+                </View>
+                <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, lineHeight: 18 }}>
+                  All users will see a lock message when trying to enter any game room. Toggle OFF and save to restore access.
+                </Text>
+              </View>
+            )}
           </View>
-          <View style={isMobile && { alignSelf: 'flex-end' }}>
-            <Switch
-              value={showOnlineCount}
-              onValueChange={setShowOnlineCount}
-              thumbColor={showOnlineCount ? C.primary : '#f4f3f4'}
-              trackColor={{ false: 'rgba(68,68,107,0.4)', true: 'rgba(166,140,255,0.3)' }}
-            />
+
+          <View style={[styles.settingRow, isMobile && { flexDirection: 'column', alignItems: 'flex-start', gap: 16 }, { borderTopWidth: 1, borderTopColor: 'rgba(68,68,107,0.05)', paddingTop: 20 }]}>
+            <View style={{ flex: isMobile ? 0 : 1, paddingRight: isMobile ? 0 : 20 }}>
+              <Text style={styles.settingName}>{(t as any)('Organic Growth Metrics')}</Text>
+              <Text style={styles.settingDesc}>{(t as any)('If enabled, users will see the actual number of players currently active on the platform. If disabled, a simulated "fake" high-activity count is shown.')}</Text>
+            </View>
+            <View style={isMobile && { alignSelf: 'flex-end' }}>
+              <Switch
+                value={showOnlineCount}
+                onValueChange={setShowOnlineCount}
+                thumbColor={showOnlineCount ? C.primary : '#f4f3f4'}
+                trackColor={{ false: 'rgba(68,68,107,0.4)', true: 'rgba(166,140,255,0.3)' }}
+              />
+            </View>
           </View>
-        </View>
 
           </>
         )}
@@ -508,9 +560,9 @@ export default function AdminSettings() {
         {activeTab === 'Financial Operations' && (
           <>
             {/* Financial Operations */}
-        <View style={[styles.card, glass, { borderColor: 'rgba(166,140,255,0.3)', borderTopWidth: 4, borderTopColor: C.primary }]}>
+        <View style={[styles.card, glass, { borderColor: 'rgba(0, 218, 243, 0.3)', borderTopWidth: 4, borderTopColor: C.primary }]}>
           <View style={[styles.cardHeader, { borderBottomColor: 'rgba(166,140,255,0.2)' }]}>
-            <View style={[styles.cardHeaderIcon, { borderColor: 'rgba(166,140,255,0.2)' }]}>
+            <View style={[styles.cardHeaderIcon, { borderColor: 'rgba(39, 39, 42, 0.6)' }]}>
               <Ionicons name="cash-outline" size={20} color={C.primary} />
             </View>
             <View>
@@ -536,7 +588,7 @@ export default function AdminSettings() {
             </View>
           </View>
 
-          <View style={[styles.actionRow, isMobile && { flexDirection: 'column', alignItems: 'flex-start', gap: 16 }, { borderTopWidth: 1, borderTopColor: 'rgba(68,68,107,0.05)', paddingTop: 20 }]}>
+          <View style={[styles.actionRow, isMobile && { flexDirection: 'column', alignItems: 'flex-start', gap: 16 }, { borderTopWidth: 1, borderTopColor: 'rgba(39, 39, 42, 0.1)', paddingTop: 20 }]}>
             <View style={[{ flex: isMobile ? 0 : 1, paddingRight: isMobile ? 0 : 20 }, isMobile && { paddingBottom: 8 }]}>
               <Text style={styles.settingName}>{(t as any)('Minimum Deposit')}</Text>
               <Text style={styles.settingDesc}>{(t as any)('The lowest top-up amount available via Chapa.')}</Text>
@@ -585,14 +637,14 @@ export default function AdminSettings() {
                 onValueChange={isSuperAdmin ? setManualApproval : () => {}}
                 disabled={!isSuperAdmin}
                 thumbColor={manualApproval ? C.error : '#f4f3f4'}
-                trackColor={{ false: 'rgba(68,68,107,0.4)', true: 'rgba(255,87,87,0.3)' }}
+                trackColor={{ false: 'rgba(39, 39, 42, 0.4)', true: 'rgba(255,87,87,0.3)' }}
               />
             </View>
           </View>
           
           {manualApproval && (
             <>
-              <View style={[styles.actionRow, isMobile && { flexDirection: 'column', alignItems: 'flex-start', gap: 16 }, { borderTopWidth: 1, borderTopColor: 'rgba(68,68,107,0.05)', paddingTop: 20 }]}>
+              <View style={[styles.actionRow, isMobile && { flexDirection: 'column', alignItems: 'flex-start', gap: 16 }, { borderTopWidth: 1, borderTopColor: 'rgba(39, 39, 42, 0.1)', paddingTop: 20 }]}>
                 <View style={[{ flex: isMobile ? 0 : 1, paddingRight: isMobile ? 0 : 20 }, isMobile && { paddingBottom: 8 }]}>
                   <Text style={styles.settingName}>{(t as any)('Auto-Payout Threshold (Master Approval)')}</Text>
                   <Text style={styles.settingDesc}>{(t as any)('Withdrawals above this amount instantly drop into PENDING for manual review.')}</Text>
@@ -610,7 +662,7 @@ export default function AdminSettings() {
                 </View>
               </View>
 
-              <View style={[styles.actionRow, isMobile && { flexDirection: 'column', alignItems: 'flex-start', gap: 16 }, { borderTopWidth: 1, borderTopColor: 'rgba(68,68,107,0.05)', paddingTop: 20 }]}>
+              <View style={[styles.actionRow, isMobile && { flexDirection: 'column', alignItems: 'flex-start', gap: 16 }, { borderTopWidth: 1, borderTopColor: 'rgba(39, 39, 42, 0.1)', paddingTop: 20 }]}>
                 <View style={[{ flex: isMobile ? 0 : 1, paddingRight: isMobile ? 0 : 20 }, isMobile && { paddingBottom: 8 }]}>
                   <Text style={styles.settingName}>{(t as any)('Maximum Withdrawal Hard Limit')}</Text>
                   <Text style={styles.settingDesc}>{(t as any)('The absolute maximum cap a user can hit per 24 hours.')}</Text>
@@ -628,7 +680,7 @@ export default function AdminSettings() {
                 </View>
               </View>
 
-              <View style={[styles.actionRow, isMobile && { flexDirection: 'column', alignItems: 'flex-start', gap: 16 }, { borderTopWidth: 1, borderTopColor: 'rgba(68,68,107,0.05)', paddingTop: 20 }]}>
+              <View style={[styles.actionRow, isMobile && { flexDirection: 'column', alignItems: 'flex-start', gap: 16 }, { borderTopWidth: 1, borderTopColor: 'rgba(39, 39, 42, 0.1)', paddingTop: 20 }]}>
                 <View style={[{ flex: isMobile ? 0 : 1, paddingRight: isMobile ? 0 : 20 }, isMobile && { paddingBottom: 8 }]}>
                   <Text style={styles.settingName}>{(t as any)('Daily Transaction Count Limit')}</Text>
                   <Text style={styles.settingDesc}>{(t as any)('Max automated withdrawals per user per day.')}</Text>
@@ -668,7 +720,7 @@ export default function AdminSettings() {
         {activeTab === 'Admin Profile' && (
           <>
             {/* Admin Passport Profile */}
-        <View style={[styles.card, glass, { padding: 0, overflow: 'hidden', borderColor: 'rgba(166,140,255,0.3)', maxWidth: isMobile ? '100%' : 420 }]}>
+        <View style={[styles.card, glass, { padding: 0, overflow: 'hidden', borderColor: 'rgba(0, 218, 243, 0.3)', maxWidth: isMobile ? '100%' : 420 }]}>
            <LinearGradient colors={['#1c1c3c', '#0b0b1e']} style={styles.passportHeader}>
               <View style={styles.passportPattern} />
               <View style={styles.passportTop}>
@@ -825,11 +877,11 @@ export default function AdminSettings() {
               </TouchableOpacity>
             </View>
 
-            <View style={{ flex: 1, backgroundColor: '#0B0B1E' }}>
+            <View style={{ flex: 1, backgroundColor: '#18181b' }}>
               {/* Meta Stats Row */}
               {giveawayMeta && (
-                <View style={{ flexDirection: 'row', padding: 24, gap: 24, borderBottomWidth: 1, borderBottomColor: 'rgba(68,68,107,0.1)' }}>
-                  <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.02)', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(68,68,107,0.2)' }}>
+                <View style={{ flexDirection: 'row', padding: 24, gap: 24, borderBottomWidth: 1, borderBottomColor: 'rgba(39, 39, 42, 0.2)' }}>
+                  <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.02)', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(39, 39, 42, 0.4)' }}>
                     <Text style={{ color: 'rgba(168,167,212,0.5)', fontSize: 10, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1 }}>Total Claims</Text>
                     <Text style={{ color: '#fff', fontSize: 24, fontWeight: '900', marginTop: 4 }}>{claimsTotal}</Text>
                   </View>
@@ -837,7 +889,7 @@ export default function AdminSettings() {
                     <Text style={{ color: C.secondary, fontSize: 10, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1 }}>Total Disbursed</Text>
                     <Text style={{ color: '#fff', fontSize: 24, fontWeight: '900', marginTop: 4 }}>ETB {(claimsTotal * (giveawayMeta.amount || 0)).toLocaleString()}</Text>
                   </View>
-                  <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.02)', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(68,68,107,0.2)' }}>
+                  <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.02)', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(39, 39, 42, 0.4)' }}>
                     <Text style={{ color: 'rgba(168,167,212,0.5)', fontSize: 10, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1 }}>Started At</Text>
                     <Text style={{ color: '#fff', fontSize: 16, fontWeight: '800', marginTop: 8 }}>{giveawayMeta.starts_at ? new Date(giveawayMeta.starts_at).toLocaleDateString() : 'N/A'}</Text>
                   </View>
@@ -845,7 +897,7 @@ export default function AdminSettings() {
               )}
 
               <View style={{ flex: 1, padding: 24 }}>
-                <View style={[styles.searchBox, { marginBottom: 20, width: '100%', borderColor: 'rgba(68,68,107,0.3)' }]}>
+                <View style={[styles.searchBox, { marginBottom: 20, width: '100%', borderColor: 'rgba(39, 39, 42, 0.6)' }]}>
                   <Ionicons name="search" size={16} color="rgba(168,167,212,0.4)" />
                   <TextInput 
                     style={styles.searchInput} 
@@ -866,7 +918,7 @@ export default function AdminSettings() {
                     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                       <View style={{ minWidth: 700 }}>
                         {/* Table Header */}
-                        <View style={{ flexDirection: 'row', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(68,68,107,0.3)', paddingHorizontal: 8 }}>
+                        <View style={{ flexDirection: 'row', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(39, 39, 42, 0.6)', paddingHorizontal: 8 }}>
                           <Text style={{ flex: 2, color: 'rgba(168,167,212,0.6)', fontSize: 10, fontWeight: '900', textTransform: 'uppercase' }}>User Identity</Text>
                           <Text style={{ flex: 1.5, color: 'rgba(168,167,212,0.6)', fontSize: 10, fontWeight: '900', textTransform: 'uppercase' }}>Phone Number</Text>
                           <Text style={{ flex: 1, color: 'rgba(168,167,212,0.6)', fontSize: 10, fontWeight: '900', textTransform: 'uppercase' }}>Amount</Text>
@@ -878,7 +930,7 @@ export default function AdminSettings() {
                           {claimsList
                             .filter(c => (c.username||'').toLowerCase().includes(claimsSearch.toLowerCase()) || (c.number||'').includes(claimsSearch))
                             .map((c, i) => (
-                              <View key={i} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(68,68,107,0.1)', paddingHorizontal: 8 }}>
+                              <View key={i} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(39, 39, 42, 0.2)', paddingHorizontal: 8 }}>
                                 <Text style={{ flex: 2, color: '#fff', fontSize: 13, fontWeight: '700' }}>{c.username || 'Unknown'}</Text>
                                 <Text style={{ flex: 1.5, color: 'rgba(168,167,212,0.8)', fontSize: 13 }}>{c.number}</Text>
                                 <Text style={{ flex: 1, color: C.secondary, fontSize: 13, fontWeight: '800' }}>{giveawayMeta?.amount || '0'} ETB</Text>
@@ -901,7 +953,7 @@ export default function AdminSettings() {
               </View>
 
               {/* Pagination Controls */}
-              <View style={{ padding: 20, borderTopWidth: 1, borderTopColor: 'rgba(68,68,107,0.2)', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(11,11,30,0.5)' }}>
+              <View style={{ padding: 20, borderTopWidth: 1, borderTopColor: 'rgba(39, 39, 42, 0.4)', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(24, 24, 27, 0.5)' }}>
                 <Text style={{ color: 'rgba(168,167,212,0.6)', fontSize: 12 }}>Showing {claimsList.length} of {claimsTotal} claims</Text>
                 <View style={{ flexDirection: 'row', gap: 12 }}>
                    <TouchableOpacity 
@@ -928,7 +980,7 @@ export default function AdminSettings() {
       {/* Custom Confirmation Modal */}
       <Modal transparent visible={confirmModal.visible} animationType="fade">
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' }}>
-          <View style={{ width: 340, backgroundColor: '#111128', borderRadius: 16, padding: 24, borderWidth: 1, borderColor: 'rgba(0,218,243,0.3)', shadowColor: '#00ccff', shadowOpacity: 0.1, shadowRadius: 20 }}>
+          <View style={{ width: 340, backgroundColor: '#0f0f11', borderRadius: 16, padding: 24, borderWidth: 1, borderColor: 'rgba(0,218,243,0.3)', shadowColor: '#00ccff', shadowOpacity: 0.1, shadowRadius: 20 }}>
             <View style={{ alignItems: 'center', marginBottom: 16 }}>
               <Ionicons name="warning-outline" size={40} color={confirmModal.action ? '#00daf3' : '#fd6f85'} />
             </View>
@@ -953,7 +1005,7 @@ export default function AdminSettings() {
       {/* Security Protocols Documentation Modal */}
       <Modal transparent visible={showSecurityInfo} animationType="slide">
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-          <View style={{ width: '100%', maxWidth: 500, backgroundColor: '#111128', borderRadius: 16, padding: 32, borderWidth: 1, borderColor: 'rgba(253,111,133,0.3)', shadowColor: 'rgba(253,111,133,0.5)', shadowOpacity: 0.2, shadowRadius: 30 }}>
+          <View style={{ width: '100%', maxWidth: 500, backgroundColor: '#0f0f11', borderRadius: 16, padding: 32, borderWidth: 1, borderColor: 'rgba(253,111,133,0.3)', shadowColor: 'rgba(253,111,133,0.5)', shadowOpacity: 0.2, shadowRadius: 30 }}>
             <View style={{ alignItems: 'center', marginBottom: 24 }}>
               <Ionicons name="shield-checkmark" size={48} color={'#fd6f85'} />
               <Text style={{ color: '#fff', fontSize: 24, fontWeight: 'bold', marginTop: 12 }}>Security Protocols</Text>
@@ -999,13 +1051,13 @@ const styles = StyleSheet.create({
   saveBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.primary, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12 },
   saveTxt: { color: '#fff', fontSize: 14, fontWeight: '800' },
   settingsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 32, maxWidth: 1200 },
-  card: { flex: 1, minWidth: 320, borderRadius: 24, padding: 32, borderWidth: 1, borderColor: 'rgba(68,68,107,0.2)' },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 32, paddingBottom: 20, borderBottomWidth: 1, borderBottomColor: 'rgba(68,68,107,0.2)' },
-  cardHeaderIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(23,23,50,0.4)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  card: { flex: 1, minWidth: 320, borderRadius: 24, padding: 32, borderWidth: 1, borderColor: 'rgba(39, 39, 42, 0.4)' },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 32, paddingBottom: 20, borderBottomWidth: 1, borderBottomColor: 'rgba(39, 39, 42, 0.4)' },
+  cardHeaderIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(24, 24, 27, 0.65)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
   cardTitle: { color: '#e5e3ff', fontSize: 20, fontWeight: '900', letterSpacing: 0.5 },
   cardSubTitle: { color: 'rgba(168,167,212,0.5)', fontSize: 12, marginTop: 2, fontWeight: '600' },
   
-  settingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 20, borderBottomWidth: 1, borderBottomColor: 'rgba(68,68,107,0.05)' },
+  settingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 20, borderBottomWidth: 1, borderBottomColor: 'rgba(39, 39, 42, 0.1)' },
   settingName: { color: '#e5e3ff', fontSize: 16, fontWeight: '800', marginBottom: 4 },
   settingDesc: { color: '#a8a7d4', fontSize: 13, maxWidth: 450, lineHeight: 22 },
 
@@ -1042,7 +1094,7 @@ const styles = StyleSheet.create({
   passportSerial: { color: 'rgba(255,255,255,0.15)', fontSize: 10, fontWeight: '700', letterSpacing: 2 },
   profileActionBtn: { flexDirection: 'row', alignItems: 'center', gap: 16, padding: 16, backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
   profileActionTxt: { color: '#e5e3ff', fontSize: 14, fontWeight: '700' },
-  searchBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#111128', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(68,68,107,0.2)' },
+  searchBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#0f0f11', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(39, 39, 42, 0.4)' },
   searchInput: { flex: 1, color: '#e5e3ff', fontSize: 13, height: 20 },
   
   // New Styles
@@ -1058,23 +1110,39 @@ const styles = StyleSheet.create({
   giveawayActionBtn: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  modalContent: { width: '100%', backgroundColor: '#0B0B1E', borderRadius: 24, borderWidth: 1, borderColor: 'rgba(68,68,107,0.3)', overflow: 'hidden' },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 24, borderBottomWidth: 1, borderBottomColor: 'rgba(68,68,107,0.2)' },
+  modalContent: { width: '100%', backgroundColor: '#18181b', borderRadius: 24, borderWidth: 1, borderColor: 'rgba(39, 39, 42, 0.6)', overflow: 'hidden' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 24, borderBottomWidth: 1, borderBottomColor: 'rgba(39, 39, 42, 0.4)' },
   modalTitle: { color: '#fff', fontSize: 20, fontWeight: '900' },
   
   formGroup: { marginBottom: 20 },
   formLabel: { color: 'rgba(168,167,212,0.8)', fontSize: 12, fontWeight: '800', marginBottom: 8, textTransform: 'uppercase' },
   formInput: { backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(68,68,107,0.4)', borderRadius: 12, height: 50, paddingHorizontal: 16, color: '#fff', fontSize: 15 },
   
-  typeBtn: { flex: 1, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(68,68,107,0.3)' },
+  typeBtn: { flex: 1, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(39, 39, 42, 0.6)' },
   typeBtnActive: { backgroundColor: C.primary, borderColor: C.primary },
   typeBtnTxt: { color: '#a8a7d4', fontSize: 11, fontWeight: '900' },
   
   submitBtn: { backgroundColor: C.secondary, height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginTop: 20, shadowColor: C.secondary, shadowOpacity: 0.2, shadowRadius: 15 },
   submitBtnTxt: { color: '#000', fontSize: 16, fontWeight: '900' },
 
-  claimRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(68,68,107,0.1)' },
+  claimRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(39, 39, 42, 0.2)' },
   claimUser: { color: '#fff', fontSize: 14, fontWeight: '700' },
   claimPhone: { color: 'rgba(168,167,212,0.6)', fontSize: 12 },
   claimTime: { color: 'rgba(168,167,212,0.4)', fontSize: 11 },
+  btnSecondary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(168,167,212,0.2)',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.02)',
+  },
+  btnSecondaryText: {
+    color: '#e5e3ff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
 });

@@ -134,8 +134,8 @@ export const WebDepositModal = ({ visible, onClose, user, token, onSuccess, lang
 
           <View style={styles.modalHeader}>
             <View style={styles.modalIcon}>
-              <LinearGradient colors={['rgba(167,139,250,0.2)', 'rgba(0,218,243,0.1)']} style={StyleSheet.absoluteFill} />
-              <Ionicons name="add-circle" size={24} color="#a78bfa" />
+              <LinearGradient colors={['rgba(0,218,243,0.2)', 'rgba(0,218,243,0.1)']} style={StyleSheet.absoluteFill} />
+              <Ionicons name="add-circle" size={24} color="#00daf3" />
             </View>
             <View>
               <Text style={styles.title}>{isEN ? "Deposit Funds" : "ገንዘብ ማስገቢያ"}</Text>
@@ -154,9 +154,9 @@ export const WebDepositModal = ({ visible, onClose, user, token, onSuccess, lang
                 value={amount}
                 onChangeText={(t) => { const v = t.replace(/[^0-9]/g, ""); setAmount(v); validateAmount(v); }}
                 placeholder="0"
-                placeholderTextColor="rgba(167,139,250,0.3)"
+                placeholderTextColor="rgba(0,218,243,0.3)"
                 inputMode="decimal"
-                selectionColor="#a78bfa"
+                selectionColor="#00daf3"
               />
             </View>
             {!!amtError && <Text style={styles.errorText}>{amtError}</Text>}
@@ -180,14 +180,14 @@ export const WebDepositModal = ({ visible, onClose, user, token, onSuccess, lang
             <TouchableOpacity 
               style={[styles.methodCard, styles.methodCardActive]}
             >
-              <View style={[styles.methodIcon, { backgroundColor: 'rgba(167,139,250,0.12)' }]}>
-                <Ionicons name="card-outline" size={18} color="#a78bfa" />
+              <View style={[styles.methodIcon, { backgroundColor: 'rgba(0,218,243,0.12)' }]}>
+                <Ionicons name="card-outline" size={18} color="#00daf3" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.methodName}>Chapa</Text>
                 <Text style={styles.methodSub}>Card &amp; Bank Checkout</Text>
               </View>
-              <Ionicons name="checkmark-circle" size={20} color="#a78bfa" />
+              <Ionicons name="checkmark-circle" size={20} color="#00daf3" />
             </TouchableOpacity>
           </View>
 
@@ -211,14 +211,14 @@ export const WebDepositModal = ({ visible, onClose, user, token, onSuccess, lang
             disabled={loading}
           >
             <LinearGradient
-              colors={['#7c4dff', '#a78bfa']}
+              colors={['#00daf3', '#00a3ff']}
               start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
               style={styles.ctaGradient}
             >
               {loading
-                ? <ActivityIndicator color="#fff" size="small" />
+                ? <ActivityIndicator color="#0B0B0F" size="small" />
                 : <>
-                    <Ionicons name="flash" size={18} color="#fff" />
+                    <Ionicons name="flash" size={18} color="#0B0B0F" />
                     <Text style={styles.ctaText}>{isEN ? "Deposit" : "አስገባ"}{Number(amount) > 0 ? ` • ETB ${Number(amount).toLocaleString()}` : ''}</Text>
                   </>
 
@@ -286,8 +286,8 @@ export const WebDepositModal = ({ visible, onClose, user, token, onSuccess, lang
               onPress={() => setDontShowAgain(!dontShowAgain)}
               style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 10 }}
             >
-              <View style={{ width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: dontShowAgain ? '#a78bfa' : 'rgba(255,255,255,0.2)', backgroundColor: dontShowAgain ? 'rgba(167,139,250,0.2)' : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
-                {dontShowAgain && <Ionicons name="checkmark" size={14} color="#a78bfa" />}
+              <View style={{ width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: dontShowAgain ? '#00daf3' : 'rgba(255,255,255,0.2)', backgroundColor: dontShowAgain ? 'rgba(0,218,243,0.2)' : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+                {dontShowAgain && <Ionicons name="checkmark" size={14} color="#00daf3" />}
               </View>
               <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: '600' }}>
                 {isEN ? "Don't show this again" : 'ይህን እንደገና አታሳየኝ'}
@@ -306,8 +306,8 @@ export const WebDepositModal = ({ visible, onClose, user, token, onSuccess, lang
               activeOpacity={0.85}
               style={{ borderRadius: 14, overflow: 'hidden' }}
             >
-              <LinearGradient colors={['#7c4dff', '#a78bfa']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ paddingVertical: 16, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                <Ionicons name="shield-checkmark" size={18} color="#fff" />
+              <LinearGradient colors={['#00daf3', '#00a3ff']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ paddingVertical: 16, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                <Ionicons name="shield-checkmark" size={18} color="#0B0B0F" />
                 <Text style={{ color: '#fff', fontSize: 15, fontWeight: '900' }}>
                   {isEN ? 'I Understand, Continue' : 'ተረድቻለሁ፣ ቀጥል'}
                 </Text>
@@ -506,7 +506,7 @@ export const WebWithdrawModal = ({ visible, onClose, user, token, onSuccess, lan
                 <Text style={styles.balanceLabel}>{isEN ? "WITHDRAWABLE" : "ሊወጣ የሚችል"}</Text>
                 <Text style={[styles.balanceValue, { fontSize: 20 }]}>ETB {withdrawable.toLocaleString()}</Text>
               </View>
-              <Ionicons name="wallet-outline" size={28} color="rgba(167,139,250,0.3)" />
+              <Ionicons name="wallet-outline" size={28} color="rgba(0,218,243,0.3)" />
             </View>
 
             {/* 1. AMOUNT INPUT */}
@@ -519,7 +519,7 @@ export const WebWithdrawModal = ({ visible, onClose, user, token, onSuccess, lan
                   value={amount}
                   onChangeText={(t) => { const v = t.replace(/[^0-9]/g, ""); setAmount(v); validateAmount(v); }}
                   placeholder="0"
-                  placeholderTextColor="rgba(167,139,250,0.3)"
+                  placeholderTextColor="rgba(0,218,243,0.3)"
                   inputMode="numeric"
                 />
               </View>
@@ -547,7 +547,7 @@ export const WebWithdrawModal = ({ visible, onClose, user, token, onSuccess, lan
                   value={accountNumber}
                   onChangeText={setAccountNumber}
                   placeholder="251..."
-                  placeholderTextColor="rgba(167,139,250,0.3)"
+                  placeholderTextColor="rgba(0,218,243,0.3)"
                   inputMode="tel"
                 />
               </View>
@@ -656,19 +656,19 @@ const styles = StyleSheet.create({
   modalHeader: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 24 },
   modalIcon: {
     width: 48, height: 48, borderRadius: 16,
-    backgroundColor: 'rgba(167,139,250,0.08)',
+    backgroundColor: 'rgba(0,218,243,0.08)',
     alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
   },
   title: { color: '#fff', fontSize: 20, fontWeight: '900', letterSpacing: 0.2 },
   subTitle: { color: 'rgba(255,255,255,0.4)', fontSize: 12, fontWeight: '600', marginTop: 2 },
-  label: { color: 'rgba(167,139,250,0.5)', fontSize: 10, fontWeight: '800', letterSpacing: 1.5, marginBottom: 10, textTransform: 'uppercase' },
+  label: { color: 'rgba(0,218,243,0.5)', fontSize: 10, fontWeight: '800', letterSpacing: 1.5, marginBottom: 10, textTransform: 'uppercase' },
   inputContainer: { marginBottom: 16 },
   inputWrapper: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 16,
     paddingHorizontal: 16, 
     height: 58,
-    borderWidth: 1, borderColor: 'rgba(167,139,250,0.15)', gap: 10,
+    borderWidth: 1, borderColor: 'rgba(0,218,243,0.15)', gap: 10,
   },
   currencyPrefix: { color: 'rgba(255,255,255,0.4)', fontSize: 14, fontWeight: '800', flexShrink: 0 },
   input: { flex: 1, color: '#fff', fontSize: 22, fontWeight: '900', padding: 0, minWidth: 0 },
@@ -678,9 +678,9 @@ const styles = StyleSheet.create({
     paddingVertical: 10, borderRadius: 12, alignItems: 'center',
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)',
   },
-  presetBtnActive: { backgroundColor: 'rgba(167,139,250,0.08)', borderColor: 'rgba(167,139,250,0.25)' },
+  presetBtnActive: { backgroundColor: 'rgba(0,218,243,0.08)', borderColor: 'rgba(0,218,243,0.25)' },
   presetText: { color: 'rgba(255,255,255,0.5)', fontWeight: '800', fontSize: 13 },
-  presetTextActive: { color: '#a78bfa' },
+  presetTextActive: { color: '#00daf3' },
   methodSection: { marginBottom: 24 },
   methodCard: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
@@ -688,7 +688,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.02)',
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', marginBottom: 10,
   },
-  methodCardActive: { backgroundColor: 'rgba(167,139,250,0.04)', borderColor: 'rgba(167,139,250,0.2)' },
+  methodCardActive: { backgroundColor: 'rgba(0,218,243,0.04)', borderColor: 'rgba(0,218,243,0.2)' },
   methodIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   methodName: { color: '#fff', fontSize: 14, fontWeight: '800' },
   methodSub: { color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: '600', marginTop: 2 },
@@ -704,11 +704,11 @@ const styles = StyleSheet.create({
   ctaText: { color: '#fff', fontSize: 15, fontWeight: '900', letterSpacing: 0.5 },
   balanceSummary: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: 'rgba(167,139,250,0.04)', padding: 20, borderRadius: 18, marginBottom: 24,
-    borderWidth: 1, borderColor: 'rgba(167,139,250,0.08)',
+    backgroundColor: 'rgba(0,218,243,0.04)', padding: 20, borderRadius: 18, marginBottom: 24,
+    borderWidth: 1, borderColor: 'rgba(0,218,243,0.08)',
   },
-  balanceLabel: { color: 'rgba(167,139,250,0.5)', fontSize: 10, fontWeight: '800', letterSpacing: 1, marginBottom: 6 },
+  balanceLabel: { color: 'rgba(0,218,243,0.5)', fontSize: 10, fontWeight: '800', letterSpacing: 1, marginBottom: 6 },
   balanceValue: { color: '#fff', fontSize: 24, fontWeight: '900' },
   errorText: { color: '#f87171', fontSize: 11, fontWeight: '700', marginTop: 6, marginLeft: 2 },
-  hintText: { color: 'rgba(167,139,250,0.5)', fontSize: 11, fontWeight: '600', marginTop: 6, marginLeft: 2 },
+  hintText: { color: 'rgba(0,218,243,0.5)', fontSize: 11, fontWeight: '600', marginTop: 6, marginLeft: 2 },
 });

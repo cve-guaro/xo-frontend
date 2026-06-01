@@ -6,12 +6,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { WebDepositModal, WebWithdrawModal } from "../../../components/WebModals";
 import BonusLogsModal from "../../../components/BonusLogsModal";
 import ReferralModal from "../../../components/ReferralModal";
+import { WebPressable } from "../../../components/WebPressable";
 import FriendMatchModal from "../../../components/game/FriendMatchModal";
 import IncomingInviteModal from "../../../components/game/IncomingInviteModal";
 import RematchTopPopup from "../../../components/game/RematchPopup";
 import RulesModal from "../../../components/RulesModal";
+import PromotionPopup from "../../../components/PromotionPopup";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
+import NotificationsPopover from "../../../components/NotificationsPopover";
 import { useAudioPlayer } from "expo-audio";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -24,6 +27,7 @@ import {
   Easing,
   Image,
   Modal,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -42,6 +46,7 @@ import { haptics } from "../../../lib/haptcs";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useBackgroundMusic } from "../../../context/BackgroundMusicProvider";
 import { useToast } from "../../../context/ToastContext";
+import Svg, { Circle } from 'react-native-svg';
 
 
 
@@ -58,38 +63,36 @@ type RoomConfig = {
   cut: number;
   time: number;
   colors: [string, string];
-  amountOptions: { amount: number; colors: [string, string] }[];
+  amountOptions: { amount: number; min: number; max: number; rangeLabel?: string; colors: [string, string] }[];
 };
 
 const ROOMS: RoomConfig[] = [
   {
     id: "R1",
-    rangeLabel: "10-99",
+    rangeLabel: "10-100",
     titleEn: "Room 1",
     titleAm: "ክፍል 1",
     cut: 10,
     time: 30,
-    colors: ["#10b981", "#059669"], // Vibrant Green
+    colors: ["#8b5cf6", "#6d28d9"], // Premium Purple matching HTML
     amountOptions: [
-      { amount: 10, colors: ["#10b981", "#059669"] },
-      { amount: 25, colors: ["#10b981", "#059669"] },
-      { amount: 50, colors: ["#10b981", "#059669"] },
-      { amount: 99, colors: ["#10b981", "#059669"] },
+      { amount: 25, min: 10, max: 25, rangeLabel: "10 - 25", colors: ["#8b5cf6", "#6d28d9"] },
+      { amount: 50, min: 25, max: 50, rangeLabel: "25 - 50", colors: ["#8b5cf6", "#6d28d9"] },
+      { amount: 100, min: 50, max: 100, rangeLabel: "50 - 100", colors: ["#8b5cf6", "#6d28d9"] },
     ],
   },
   {
     id: "R2",
-    rangeLabel: "100-999",
+    rangeLabel: "100-1000",
     titleEn: "Room 2",
     titleAm: "ክፍል 2",
     cut: 10,
     time: 30,
-    colors: ["#3b82f6", "#2563eb"], // Vibrant Blue
+    colors: ["#3b82f6", "#2563eb"], // Blue
     amountOptions: [
-      { amount: 100, colors: ["#3b82f6", "#2563eb"] },
-      { amount: 250, colors: ["#3b82f6", "#2563eb"] },
-      { amount: 500, colors: ["#3b82f6", "#2563eb"] },
-      { amount: 999, colors: ["#3b82f6", "#2563eb"] },
+      { amount: 250, min: 100, max: 250, rangeLabel: "100 - 250", colors: ["#3b82f6", "#2563eb"] },
+      { amount: 500, min: 250, max: 500, rangeLabel: "250 - 500", colors: ["#3b82f6", "#2563eb"] },
+      { amount: 1000, min: 500, max: 1000, rangeLabel: "500 - 1000", colors: ["#3b82f6", "#2563eb"] },
     ],
   },
   {
@@ -99,32 +102,19 @@ const ROOMS: RoomConfig[] = [
     titleAm: "ክፍል 3",
     cut: 10,
     time: 30,
-    colors: ["#06b6d4", "#0891b2"], // Cyan/Teal
+    colors: ["#06b6d4", "#0891b2"], // Cyan
     amountOptions: [
-      { amount: 1000, colors: ["#06b6d4", "#0891b2"] },
-      { amount: 2500, colors: ["#06b6d4", "#0891b2"] },
-      { amount: 5000, colors: ["#06b6d4", "#0891b2"] },
-      { amount: 7500, colors: ["#06b6d4", "#0891b2"] },
-      { amount: 10000, colors: ["#06b6d4", "#0891b2"] },
+      { amount: 2500, min: 1000, max: 2500, rangeLabel: "1000 - 2500", colors: ["#06b6d4", "#0891b2"] },
+      { amount: 5000, min: 2500, max: 5000, rangeLabel: "2500 - 5000", colors: ["#06b6d4", "#0891b2"] },
+      { amount: 7500, min: 5000, max: 7500, rangeLabel: "5000 - 7500", colors: ["#06b6d4", "#0891b2"] },
+      { amount: 10000, min: 10000, max: 10000, rangeLabel: "10000 (itself)", colors: ["#06b6d4", "#0891b2"] },
     ],
   },
 ];
 
 
 type SheetStep = "ROOMS" | "AMOUNTS";
-type FloatDot = { top: number; left: number; opacity: number };
 
-function buildFloatingDots(width: number): FloatDot[] {
-  const dots: FloatDot[] = [];
-  for (let i = 0; i < 6; i++) {
-    dots.push({
-      top: 40 + ((i * 70) % 320),
-      left: (i * 90) % (width - 40),
-      opacity: 0.07 + (i % 3) * 0.04,
-    });
-  }
-  return dots;
-}
 
 
 const HeaderPill = memo(function HeaderPill({
@@ -223,7 +213,7 @@ const InfoPill = memo(function InfoPill({
 const BoardDemo = memo(function BoardDemo({ isDesktop }: { isDesktop: boolean }) {
   const { width } = useWindowDimensions();
   // Adjust sizing dynamically: max 260px on desktop, scaling down based on viewport on mobile/tablet
-  const BOARD_DIM = isDesktop ? 320 : Math.min(width - 90, 280); 
+  const BOARD_DIM = isDesktop ? 320 : Math.min(width - 90, 280);
   const FONT_SIZE = BOARD_DIM * 0.22;
 
   return (
@@ -237,9 +227,9 @@ const BoardDemo = memo(function BoardDemo({ isDesktop }: { isDesktop: boolean })
               <View key={col} style={styles.neonCell}>
                 {cell !== "_" && (
                   <Text style={[
-                      styles.cellText, 
-                      cell === "O" ? styles.neonOText : styles.neonXText,
-                      { fontSize: FONT_SIZE }
+                    styles.cellText,
+                    cell === "O" ? styles.neonOText : styles.neonXText,
+                    { fontSize: FONT_SIZE }
                   ]}>{cell}</Text>
                 )}
               </View>
@@ -293,10 +283,10 @@ const ExitModal = memo(function ExitModal({
 const SearchingView = memo(function SearchingView({ onCancel, isMatched }: { onCancel: () => void, isMatched?: boolean }) {
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
-  
+
   const [elapsed, setElapsed] = useState(0);
   const pulse = useRef(new Animated.Value(0)).current;
-  
+
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
@@ -322,10 +312,10 @@ const SearchingView = memo(function SearchingView({ onCancel, isMatched }: { onC
           transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.95, 1.05] }) }],
           opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.7] })
         }} />
-        
-        <LinearGradient colors={isMatched ? ['#10b981', '#059669'] : ['#81ecff', '#a68cff']} style={{ 
+
+        <LinearGradient colors={isMatched ? ['#10b981', '#059669'] : ['#81ecff', '#00daf3']} style={{
           width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center',
-          shadowColor: '#81ecff', shadowOpacity: 0.5, shadowRadius: 15, elevation: 10,
+          shadowColor: '#00daf3', shadowOpacity: 0.5, shadowRadius: 15, elevation: 10,
           borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)'
         }}>
           <Ionicons name={isMatched ? 'checkmark-circle' : 'search'} size={32} color="#000" />
@@ -335,26 +325,26 @@ const SearchingView = memo(function SearchingView({ onCancel, isMatched }: { onC
       <Text style={{ color: '#fff', fontSize: 20, fontWeight: '900', marginTop: 24, letterSpacing: 1 }}>
         {isMatched ? 'MATCH FOUND!' : 'FINDING OPPONENT...'}
       </Text>
-      
+
       <View style={{ backgroundColor: 'rgba(255,255,255,0.05)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, marginTop: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
         <Text style={{ color: '#81ecff', fontWeight: '900', fontSize: 14, fontFamily: Platform.OS === 'ios' ? 'Courier' : undefined }}>{timeStr}</Text>
       </View>
 
       <View style={{ flexDirection: 'row', gap: 10, marginTop: 32, width: '100%' }}>
-         <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
-            <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 8, fontWeight: '800', letterSpacing: 0.5 }}>ONLINE</Text>
-            <Text style={{ color: '#fff', fontSize: 14, fontWeight: '900', marginTop: 2 }}>12,402</Text>
-         </View>
-         <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
-            <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 8, fontWeight: '800', letterSpacing: 0.5 }}>LATENCY</Text>
-            <Text style={{ color: '#10b981', fontSize: 14, fontWeight: '900', marginTop: 2 }}>24ms</Text>
-         </View>
+        <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
+          <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 8, fontWeight: '800', letterSpacing: 0.5 }}>ONLINE</Text>
+          <Text style={{ color: '#fff', fontSize: 14, fontWeight: '900', marginTop: 2 }}>12,402</Text>
+        </View>
+        <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
+          <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 8, fontWeight: '800', letterSpacing: 0.5 }}>LATENCY</Text>
+          <Text style={{ color: '#10b981', fontSize: 14, fontWeight: '900', marginTop: 2 }}>24ms</Text>
+        </View>
       </View>
 
       <TouchableOpacity onPress={onCancel} disabled={isMatched} style={{ marginTop: 40, width: '100%', borderRadius: 18, overflow: 'hidden' }}>
-         <LinearGradient colors={["rgba(253,111,133,0.2)", "rgba(253,111,133,0.1)"]} style={{ paddingVertical: 16, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(253,111,133,0.2)', borderRadius: 18 }}>
-            <Text style={{ color: '#fd6f85', fontWeight: '900', letterSpacing: 1 }}>CANCEL</Text>
-         </LinearGradient>
+        <LinearGradient colors={["rgba(253,111,133,0.2)", "rgba(253,111,133,0.1)"]} style={{ paddingVertical: 16, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(253,111,133,0.2)', borderRadius: 18 }}>
+          <Text style={{ color: '#fd6f85', fontWeight: '900', letterSpacing: 1 }}>CANCEL</Text>
+        </LinearGradient>
       </TouchableOpacity>
     </View>
   );
@@ -387,7 +377,7 @@ const RoomSheet = memo(function RoomSheet({
   onClose: () => void;
   onBack: () => void;
   onSelectRoom: (roomId: RoomConfig["id"]) => void;
-  onSelectAmount: (room: RoomConfig, amount: number) => void;
+  onSelectAmount: (room: RoomConfig, min: number, max: number) => void;
   isDesktop?: boolean;
   userCaps?: any;
 }) {
@@ -400,7 +390,10 @@ const RoomSheet = memo(function RoomSheet({
 
   const handleConfirmDesktop = () => {
     if (localAmount !== null) {
-      onSelectAmount(selectedRoom, localAmount);
+      const opt = selectedRoom.amountOptions.find(o => o.amount === localAmount);
+      if (opt) {
+        onSelectAmount(selectedRoom, opt.min, opt.max);
+      }
     }
   };
 
@@ -408,14 +401,14 @@ const RoomSheet = memo(function RoomSheet({
     <View style={[{ ...(Platform.OS === 'web' ? { position: 'fixed' } : { position: 'absolute' }), top: 0, left: 0, right: 0, bottom: 0, zIndex: 999999 }, isDesktop && { alignItems: 'center', justifyContent: 'center' }]} pointerEvents="box-none">
       <Animated.View style={[styles.sheetBackdrop, { opacity: backdropOpacity }]} />
       <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-      
-      <Animated.View 
+
+      <Animated.View
         style={[
           isDesktop ? styles.desktopModal : styles.sheet,
           !isDesktop && { transform: [{ translateY: sheetTranslateY }] },
-          isDesktop && { 
-            transform: [{ scale: backdropOpacity.interpolate({ inputRange: [0, 1], outputRange: [0.95, 1] }) }], 
-            opacity: backdropOpacity 
+          isDesktop && {
+            transform: [{ scale: backdropOpacity.interpolate({ inputRange: [0, 1], outputRange: [0.95, 1] }) }],
+            opacity: backdropOpacity
           }
         ]}
       >
@@ -449,20 +442,44 @@ const RoomSheet = memo(function RoomSheet({
 
           {step === "ROOMS" ? (
             <View style={styles.roomList}>
+              {/* Global rooms lock banner */}
+              {userCaps?.rooms_locked && (
+                <View style={{
+                  backgroundColor: 'rgba(253,111,133,0.08)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(253,111,133,0.3)',
+                  borderRadius: 16,
+                  padding: 20,
+                  alignItems: 'center',
+                  marginBottom: 16,
+                  gap: 8,
+                }}>
+                  <Ionicons name="lock-closed" size={32} color="#fd6f85" />
+                  <Text style={{ color: '#fd6f85', fontWeight: '900', fontSize: 16, letterSpacing: 0.5 }}>
+                    {isEN ? 'Rooms Locked' : 'ክፍሎች ተዘግተዋል'}
+                  </Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, textAlign: 'center', lineHeight: 18 }}>
+                    {isEN
+                      ? 'All game rooms are temporarily locked by the admin. Please check back later.'
+                      : 'ሁሉም የጨዋታ ክፍሎች በጊዜያዊነት ተዘግተዋል። ቆይተው ይሞክሩ።'}
+                  </Text>
+                </View>
+              )}
               {ROOMS.map((room) => {
                 const isR1 = room.id === "R1";
                 const r1Locked = isR1 && ((userCaps?.r1_10||0)>=20 && (userCaps?.r1_25||0)>=20 && (userCaps?.r1_50||0)>=20 && (userCaps?.r1_99||0)>=20);
+                const globalLocked = !!userCaps?.rooms_locked;
                 return (
                   <TouchableOpacity 
                     key={room.id} 
                     activeOpacity={0.88} 
-                    disabled={r1Locked} 
+                    disabled={r1Locked || globalLocked} 
                     onPress={() => onSelectRoom(room.id)} 
-                    style={[styles.roomBtn, r1Locked && { opacity: 0.4 }]}
+                    style={[styles.roomBtn, (r1Locked || globalLocked) && { opacity: 0.4 }]}
                   >
-                    <LinearGradient colors={r1Locked ? ['#444', '#222'] : room.colors} start={{x:0,y:0}} end={{x:1,y:0}} style={styles.roomInner}>
+                    <LinearGradient colors={r1Locked || globalLocked ? ['#444', '#222'] : room.colors} start={{x:0,y:0}} end={{x:1,y:0}} style={styles.roomInner}>
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.roomName}>{isEN ? room.titleEn : room.titleAm} {r1Locked && "(MAXED)"}</Text>
+                        <Text style={styles.roomName}>{isEN ? room.titleEn : room.titleAm} {r1Locked && "(MAXED)"}{globalLocked && "🔐"}</Text>
                         <Text style={styles.roomDetail}>
                           {isEN ? `ETB ${room.rangeLabel} • ${room.cut}% Commission • ${room.time}s` : `ETB ${room.rangeLabel} • ${room.cut}% ክፍያ • ${room.time} ሰ`}
                         </Text>
@@ -490,12 +507,11 @@ const RoomSheet = memo(function RoomSheet({
                   let capReached = false;
                   let plays = 0;
                   if (selectedRoom.id === "R1") {
-                    if (opt.amount === 10) { capReached = (userCaps?.r1_10 || 0) >= 20; plays = (userCaps?.r1_10 || 0); }
-                    if (opt.amount === 25) { capReached = (userCaps?.r1_25 || 0) >= 20; plays = (userCaps?.r1_25 || 0); }
-                    if (opt.amount === 50) { capReached = (userCaps?.r1_50 || 0) >= 20; plays = (userCaps?.r1_50 || 0); }
-                    if (opt.amount === 99) { capReached = (userCaps?.r1_99 || 0) >= 20; plays = (userCaps?.r1_99 || 0); }
+                    if (opt.min === 10) { plays = (userCaps?.r1_10 || 0); }
+                    if (opt.min === 25) { plays = (userCaps?.r1_25 || 0); }
+                    if (opt.min === 50) { plays = (userCaps?.r1_50 || 0); }
                   }
-                  const disabled = (balance < opt.amount) || capReached;
+                  const disabled = (balance < opt.min) || capReached;
                   const isSelected = localAmount === opt.amount;
                   const pillColors = disabled
                     ? ['rgba(60,60,80,0.6)', 'rgba(40,40,60,0.4)'] as [string, string]
@@ -505,7 +521,7 @@ const RoomSheet = memo(function RoomSheet({
                     <Pressable
                       key={opt.amount}
                       disabled={disabled}
-                      onPress={() => isDesktop ? setLocalAmount(opt.amount) : onSelectAmount(selectedRoom, opt.amount)}
+                      onPress={() => isDesktop ? setLocalAmount(opt.amount) : onSelectAmount(selectedRoom, opt.min, opt.max)}
                       style={({ pressed }) => [
                         { width: '48%', marginBottom: 16, borderRadius: 16, overflow: 'hidden', opacity: disabled ? 0.45 : 1 },
                         pressed && !disabled ? { transform: [{ scale: 0.98 }] } : null,
@@ -529,7 +545,7 @@ const RoomSheet = memo(function RoomSheet({
                       >
                         <View style={{ flex: 1 }}>
                           <Text style={{ color: '#fff', fontWeight: '900', fontSize: 18, letterSpacing: 0.3 }}>
-                            ETB {opt.amount.toLocaleString()}
+                            ETB {opt.rangeLabel ? opt.rangeLabel : opt.amount.toLocaleString()}
                           </Text>
                           <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 11, fontWeight: '700', marginTop: 4 }}>
                             Commission {selectedRoom.cut}% • {selectedRoom.time}s
@@ -537,23 +553,8 @@ const RoomSheet = memo(function RoomSheet({
                           </Text>
                         </View>
                         <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.9)" />
-                        
-                        {/* Tracker Pill (Top Right) */}
-                        {selectedRoom.id === "R1" && (
-                           <View style={{
-                             position: 'absolute',
-                             top: 6,
-                             right: 6,
-                             backgroundColor: 'rgba(0,0,0,0.4)',
-                             paddingHorizontal: 6,
-                             paddingVertical: 2,
-                             borderRadius: 8,
-                           }}>
-                             <Text style={{ color: capReached ? '#ef4444' : '#fff', fontSize: 10, fontWeight: 'bold' }}>
-                               {plays}/20
-                             </Text>
-                           </View>
-                        )}
+
+
                       </LinearGradient>
                     </Pressable>
                   );
@@ -578,7 +579,7 @@ const RoomSheet = memo(function RoomSheet({
                     activeOpacity={0.8}
                   >
                     <LinearGradient
-                      colors={localAmount !== null ? ['#a68cff', '#7c4dff'] : ['rgba(255,255,255,0.05)', 'rgba(255,255,255,0.02)']}
+                      colors={localAmount !== null ? ['#00daf3', '#00a3ff'] : ['rgba(255,255,255,0.05)', 'rgba(255,255,255,0.02)']}
                       start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                       style={styles.confirmBtn}
                     >
@@ -601,15 +602,202 @@ const RoomSheet = memo(function RoomSheet({
   );
 });
 
+const MobileQuickTile = ({ icon, iconColor, title, subtitle, onPress }: { icon: string; iconColor: string; title: string; subtitle: string; onPress: () => void }) => (
+  <TouchableOpacity
+    onPress={onPress}
+    activeOpacity={0.9}
+    style={{
+      flex: 1,
+      backgroundColor: 'rgba(20, 19, 26, 0.6)',
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: 'rgba(255, 255, 255, 0.05)',
+      paddingVertical: 18,
+      paddingHorizontal: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 12
+    }}
+  >
+    <Ionicons name={icon as any} size={28} color={iconColor} />
+    <View style={{ alignItems: 'center' }}>
+      <Text style={{ color: '#fff', fontSize: 14, fontWeight: '900', textAlign: 'center' }}>{title}</Text>
+      <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9, fontWeight: '800', textTransform: 'uppercase', marginTop: 4, letterSpacing: 0.5 }}>{subtitle}</Text>
+    </View>
+  </TouchableOpacity>
+);
+
+// Session tracker for promotion popup to prevent showing it on web page tab transitions
+let hasShownPromoThisSession = false;
+
 export default function Landing() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === "web" && width >= 768;
+
+  // Promotion Popup & Scrolling Ticker States
+  const [promoConfig, setPromoConfig] = useState<any>(null);
+  const [showPromo, setShowPromo] = useState(false);
+  const [tickerList, setTickerList] = useState<string[]>([]);
+  const [pwaModalVisible, setPwaModalVisible] = useState(false);
+  const [currentWinAnnouncement, setCurrentWinAnnouncement] = useState<string | null>(null);
+  const [hideInstallBanner, setHideInstallBanner] = useState(false);
+
+  const fetchActivePromo = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_URL}/promo-popup/active`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.ok && data.popup) {
+          setPromoConfig(data.popup);
+          setShowPromo(true);
+        } else {
+          setShowPromo(false);
+        }
+      }
+    } catch (e) {
+      console.error('[Landing] fetch active promo error:', e);
+    }
+  }, []);
+
+  const fetchTickerFeed = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_URL}/leaderboard/ticker`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.ticker)) {
+          setRawTickerList(data.ticker);
+          const formatted = data.ticker.map((item: any) => {
+            const amt = Number(item.amount) || 0;
+            let emoji = '⚡';
+            if (amt >= 500) emoji = '👑';
+            else if (amt >= 200) emoji = '🔥';
+            else if (amt >= 100) emoji = '🏆';
+            return `${emoji} ${item.username.toUpperCase()} WON ${amt} Birr`;
+          });
+          setTickerList(formatted);
+        }
+      }
+    } catch (e) {
+      console.error('[Landing] fetch ticker error:', e);
+    }
+  }, []);
   const isTablet = Platform.OS === "web" && width >= 768 && width < 1024;
   const isLargeScreen = isDesktop || isTablet;
   const { ensureConnected, findMatch, cancelFind, isSearching, onMessage, send } = useSocket();
-  const { user, token, booting, refreshProfile, language, switchLanguage, t, showAlert } = useAuth();
+  const { user, token, booting, refreshProfile, language, switchLanguage, t, showAlert, fixUrl } = useAuth();
   const { isPlaying: bgMusicPlaying, toggleMusic } = useBackgroundMusic();
+
+  // PWA Install state
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(
+    Platform.OS === 'web' && typeof window !== 'undefined' ? (window as any).deferredPrompt : null
+  );
+  const [isPwaInstalled, setIsPwaInstalled] = useState(false);
+  const winTickerAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+
+    const checkPwaInstalled = async () => {
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+        (navigator as any).standalone;
+      if (isStandalone) return true;
+
+      if ((navigator as any).getInstalledRelatedApps) {
+        try {
+          const relatedApps = await (navigator as any).getInstalledRelatedApps();
+          if (relatedApps && relatedApps.length > 0) {
+            return true;
+          }
+        } catch (e) {
+          console.log('[PWA Gameplay] getInstalledRelatedApps error:', e);
+        }
+      }
+      return false;
+    };
+
+    const handleCheck = () => {
+      checkPwaInstalled().then(installed => {
+        setIsPwaInstalled(installed);
+      });
+    };
+
+    handleCheck();
+
+    const handleAppInstalled = () => {
+      setIsPwaInstalled(true);
+    };
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    const mediaQuery = window.matchMedia('(display-mode: standalone)');
+    const handleMediaChange = (e: MediaQueryListEvent) => {
+      setIsPwaInstalled(e.matches);
+    };
+
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', handleMediaChange);
+    } else {
+      mediaQuery.addListener(handleMediaChange);
+    }
+
+    const interval = setInterval(handleCheck, 3000);
+
+    return () => {
+      window.removeEventListener('appinstalled', handleAppInstalled);
+      if (mediaQuery.removeEventListener) {
+        mediaQuery.removeEventListener('change', handleMediaChange);
+      } else {
+        mediaQuery.removeListener(handleMediaChange);
+      }
+      clearInterval(interval);
+    };
+  }, []);
+
+  const appPulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (!deferredPrompt) {
+      appPulseAnim.setValue(1);
+      return;
+    }
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(appPulseAnim, {
+          toValue: 1.06,
+          duration: 1000,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: Platform.OS !== 'web',
+        }),
+        Animated.timing(appPulseAnim, {
+          toValue: 1.0,
+          duration: 1000,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: Platform.OS !== 'web',
+        }),
+      ])
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [deferredPrompt]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+
+    const handleReady = () => {
+      setDeferredPrompt((window as any).deferredPrompt);
+    };
+
+    window.addEventListener('pwa-prompt-ready', handleReady);
+
+    // Check if already available
+    if ((window as any).deferredPrompt) {
+      setDeferredPrompt((window as any).deferredPrompt);
+    }
+
+    return () => {
+      window.removeEventListener('pwa-prompt-ready', handleReady);
+    };
+  }, []);
   const isEN = language === "en";
   const isBanned = !!(user as any)?.banned;
   const [depositVisible, setDepositVisible] = useState(false);
@@ -624,6 +812,91 @@ export default function Landing() {
   const [rulesVisible, setRulesVisible] = useState(false);
   const toast = useToast();
   const [incomingInvite, setIncomingInvite] = useState<any>(null);
+
+  // Notifications and Weekly Leaderboard states
+  const [notificationsVisible, setNotificationsVisible] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [weeklyLeaderboard, setWeeklyLeaderboard] = useState<any[]>([]);
+  const [secondsRemaining, setSecondsRemaining] = useState(0);
+  const [rawTickerList, setRawTickerList] = useState<any[]>([]);
+  const [myWeeklyRank, setMyWeeklyRank] = useState<any | null>(null);
+  const [loadingWeekly, setLoadingWeekly] = useState(false);
+  const [weeklyPrizes, setWeeklyPrizes] = useState<any[]>([
+    { rank: 1, amount: 500 },
+    { rank: 2, amount: 300 },
+    { rank: 3, amount: 200 },
+  ]);
+
+  // Win announcements rotation states (vertical fading ticker)
+  const tickerAnim = useRef(new Animated.Value(0)).current;
+  const [tickerIdx, setTickerIdx] = useState(0);
+
+  // Collapsible Floating actions bar state
+  const [floatingExpanded, setFloatingExpanded] = useState(false);
+  const floatingAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.spring(floatingAnim, {
+      toValue: floatingExpanded ? 1 : 0,
+      tension: 50,
+      friction: 7,
+      useNativeDriver: Platform.OS !== 'web',
+    }).start();
+  }, [floatingExpanded]);
+
+  const fetchWeeklyLeaderboard = useCallback(async () => {
+    if (!token) return;
+    setLoadingWeekly(true);
+    try {
+      const res = await fetch(`${API_URL}/leaderboard/weekly`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setWeeklyLeaderboard(data.leaderboard || []);
+        setMyWeeklyRank(data.myRank || null);
+        if (data.prizes) setWeeklyPrizes(data.prizes);
+        if (data.secondsRemaining !== undefined) {
+          setSecondsRemaining(data.secondsRemaining);
+        }
+      }
+    } catch (e) {
+      console.error("Weekly leaderboard fetch error in gameplay:", e);
+    } finally {
+      setLoadingWeekly(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (secondsRemaining <= 0) return;
+    const interval = setInterval(() => {
+      setSecondsRemaining(prev => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [secondsRemaining > 0]);
+
+  useEffect(() => {
+    fetchWeeklyLeaderboard();
+  }, [fetchWeeklyLeaderboard]);
+
+  useEffect(() => {
+    if (tickerList.length === 0) return;
+    const timer = setInterval(() => {
+      tickerAnim.setValue(0);
+      Animated.timing(tickerAnim, {
+        toValue: 1,
+        duration: 800,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: Platform.OS !== 'web',
+      }).start(() => {
+        setTickerIdx((prev) => (prev + 1) % tickerList.length);
+        tickerAnim.setValue(0);
+      });
+    }, 4500);
+
+    return () => clearInterval(timer);
+  }, [tickerAnim, tickerList]);
+
 
   // Global rematch state — shows popup even when on home page
   const [globalRematchOffer, setGlobalRematchOffer] = useState<{ visible: boolean; fromName?: string; amount?: number; fromUserId?: string } | null>(null);
@@ -642,13 +915,64 @@ export default function Landing() {
         setInviteResult(msg.payload);
       } else if (msg.type === 'friend_invite_declined') {
         const declinedBy = msg.payload?.byUsername || 'Your friend';
-        toast.show(`${declinedBy} declined your challenge!`, 'info');
+        toast.info(`${declinedBy} declined your challenge!`);
         // Update inviteResult so FriendMatchModal shows the decline clearly
         setInviteResult((prev: any) => ({ ...prev, declined: true, declinedByUsername: declinedBy }));
       }
     });
-    return () => { try { off(); } catch {} };
+    return () => { try { off(); } catch { } };
   }, [onMessage, toast]);
+
+  // Listen for global real-time win announcements from the socket
+  useEffect(() => {
+    const off = onMessage((msg: any) => {
+      if (msg.type === "global_win") {
+        const payload = msg.payload || {};
+        const username = String(payload.username || "User").toUpperCase();
+        const amt = Number(payload.amount) || 0;
+        let emoji = '⚡';
+        if (amt >= 500) emoji = '👑';
+        else if (amt >= 200) emoji = '🔥';
+        else if (amt >= 100) emoji = '🏆';
+
+        setCurrentWinAnnouncement(`${emoji} ${username} WON ${amt} Birr`);
+      }
+    });
+    return () => {
+      try { off(); } catch { }
+    };
+  }, [onMessage]);
+
+  useEffect(() => {
+    if (!currentWinAnnouncement) return;
+
+    // Reset animation to 0 (hidden at bottom)
+    winTickerAnim.setValue(0);
+
+    // Slide in to middle (0 to 1)
+    Animated.timing(winTickerAnim, {
+      toValue: 1,
+      duration: 500,
+      easing: Easing.out(Easing.back(1.0)),
+      useNativeDriver: Platform.OS !== 'web',
+    }).start();
+
+    // Slide out to top and fade out (1 to 2) after 4.1s
+    const exitTimer = setTimeout(() => {
+      Animated.timing(winTickerAnim, {
+        toValue: 2,
+        duration: 400,
+        easing: Easing.in(Easing.ease),
+        useNativeDriver: Platform.OS !== 'web',
+      }).start(() => {
+        setCurrentWinAnnouncement(null);
+      });
+    }, 4100);
+
+    return () => {
+      clearTimeout(exitTimer);
+    };
+  }, [currentWinAnnouncement]);
 
   const handleInviteResponse = useCallback((accept: boolean) => {
     if (!incomingInvite || !token) return;
@@ -702,13 +1026,13 @@ export default function Landing() {
     setGlobalRematchOffer(null);
   }, [globalRematchOffer, token, send]);
 
-  const [appConfig, setAppConfig] = useState<{ referral_enabled?: boolean }>({ referral_enabled: false });
+  const [appConfig, setAppConfig] = useState<{ referral_enabled?: boolean; rooms_locked?: boolean }>({ referral_enabled: false, rooms_locked: false });
   useEffect(() => {
     if (token) {
       fetch(`${API_URL}/account/config`, { headers: { Authorization: `Bearer ${token}` } })
         .then(res => res.json())
         .then(data => setAppConfig(data))
-        .catch(() => {});
+        .catch(() => { });
     }
   }, [token]);
 
@@ -717,7 +1041,7 @@ export default function Landing() {
   // Auto-connect socket on load so user appears "Online" to others
   useEffect(() => {
     if (token) {
-      ensureConnected(token).catch(() => {});
+      ensureConnected(token).catch(() => { });
     }
   }, [token, ensureConnected]);
 
@@ -733,10 +1057,36 @@ export default function Landing() {
   useFocusEffect(
     useCallback(() => {
       if (token && refreshProfile) {
-        refreshProfile().catch(() => {});
+        refreshProfile().catch(() => { });
       }
-    }, [token, refreshProfile])
+      fetchTickerFeed();
+    }, [token, refreshProfile, fetchTickerFeed])
   );
+
+  // Reset promo session tracker on logout
+  useEffect(() => {
+    if (!token) {
+      hasShownPromoThisSession = false;
+    }
+  }, [token]);
+
+  // Fetch promo popup and ticker feed only on app mount / refresh / login (not on focus shifts)
+  useEffect(() => {
+    if (!hasShownPromoThisSession) {
+      fetchActivePromo();
+      hasShownPromoThisSession = true;
+    }
+    fetchTickerFeed();
+  }, [fetchActivePromo, fetchTickerFeed]);
+
+  // Periodic polling for ticker wins to keep it fully real-time
+  useEffect(() => {
+    if (!token) return;
+    const interval = setInterval(() => {
+      fetchTickerFeed();
+    }, 30000); // 30 seconds
+    return () => clearInterval(interval);
+  }, [token, fetchTickerFeed]);
 
   // ---------- welcome terms ----------
   const [termsVisible, setTermsVisible] = useState(false);
@@ -757,7 +1107,7 @@ export default function Landing() {
           setTermsVisible(true);
         }
         setTermsChecked(true);
-      } catch {}
+      } catch { }
     };
     checkTerms();
   }, [user, termsChecked]);
@@ -769,7 +1119,7 @@ export default function Landing() {
       await AsyncStorage.setItem(`welcome_shown_${user.id}`, 'true');
       setTermsVisible(false);
       haptics.success();
-    } catch {}
+    } catch { }
   }, [user]);
 
   // -- DESKTOP EXACT MATCH NAVIGATOR --
@@ -795,17 +1145,17 @@ export default function Landing() {
             },
           } as any);
         }
-      } catch {}
+      } catch { }
     });
     return () => {
-      try { off(); } catch {}
+      try { off(); } catch { }
     };
   }, [isLargeScreen, onMessage, router]);
 
   // Poll profile every 30s while banned so the UI auto-recovers when admin unbans
   useEffect(() => {
     if (!isBanned) return;
-    const timer = setInterval(() => { refreshProfile().catch(() => {}); }, 30_000);
+    const timer = setInterval(() => { refreshProfile().catch(() => { }); }, 30_000);
     return () => clearInterval(timer);
   }, [isBanned, refreshProfile]);
 
@@ -816,8 +1166,175 @@ export default function Landing() {
     if (!bgMusicPlaying) return;
     try {
       clickSound.play();
-    } catch {}
+    } catch { }
   }, [bgMusicPlaying, clickSound]);
+
+  const handleAppDownload = useCallback(async () => {
+    haptics.tap();
+    await playClick();
+
+    const isTelegram = Platform.OS === 'web' && typeof navigator !== 'undefined' && /telegram/i.test(navigator.userAgent);
+    if (isTelegram) {
+      setPwaModalVisible(true);
+      return;
+    }
+
+    if (Platform.OS === 'web' && deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then((choiceResult: any) => {
+        if (choiceResult.outcome === 'accepted') {
+          console.log('User accepted the install prompt');
+        } else {
+          console.log('User dismissed the install prompt');
+        }
+        setDeferredPrompt(null);
+        if (typeof window !== 'undefined') (window as any).deferredPrompt = null;
+      });
+      return;
+    }
+
+    if (Platform.OS === 'web') {
+      setPwaModalVisible(true);
+      return;
+    }
+
+    const url = 'https://xoethiopia.com/xoet.apk';
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        await Linking.openURL('https://xoethiopia.com');
+      }
+    } catch (err) {
+      console.error("Failed to open app download URL", err);
+      Linking.openURL('https://xoethiopia.com');
+    }
+  }, [playClick, deferredPrompt]);
+
+  const renderPodiumSpot = useCallback((spot: { rank: number; prize: number; color: string; barH: number; label: string }) => {
+    const userAtRank = weeklyLeaderboard.find(u => u.rank === spot.rank);
+    const username = userAtRank ? userAtRank.username : "—";
+    const isFirst = spot.rank === 1;
+    const circleSize = isFirst ? 54 : 42;
+
+    return (
+      <View key={spot.rank} style={{ alignItems: 'center', flex: 1 }}>
+        {/* Prize */}
+        <Text style={{
+          color: spot.color,
+          fontSize: 12,
+          fontWeight: '900',
+          marginBottom: 8,
+          textShadowColor: 'rgba(0,0,0,0.5)',
+          textShadowOffset: { width: 0, height: 1 },
+          textShadowRadius: 2
+        }}>
+          {spot.prize} Birr
+        </Text>
+
+        {/* Rank Circle */}
+        <View style={{
+          width: circleSize,
+          height: circleSize,
+          borderRadius: circleSize / 2,
+          borderWidth: 2,
+          borderColor: spot.color,
+          backgroundColor: '#0c0c1d',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: -10,
+          zIndex: 2,
+          position: 'relative'
+        }}>
+          <Text style={{ fontSize: isFirst ? 18 : 14, fontWeight: '900', color: '#fff' }}>{spot.rank}</Text>
+
+          {isFirst && (
+            <View style={{
+              position: 'absolute',
+              bottom: -2,
+              right: -2,
+              width: 16,
+              height: 16,
+              borderRadius: 8,
+              backgroundColor: spot.color,
+              alignItems: 'center',
+              justifyContent: 'center',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 1 },
+              shadowOpacity: 0.3,
+              shadowRadius: 2
+            }}>
+              <Ionicons name="trophy" size={9} color="#000" />
+            </View>
+          )}
+        </View>
+
+        {/* Column Bar (fully rounded rectangle with border) */}
+        <View style={{
+          width: '100%',
+          maxWidth: isFirst ? 82 : 72,
+          height: spot.barH,
+          borderRadius: 16,
+          borderWidth: 1.5,
+          borderColor: spot.color,
+          backgroundColor: 'rgba(255,255,255,0.02)',
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingVertical: 10
+        }}>
+          <Text style={{ fontSize: 11, fontWeight: '800', color: '#fff', textAlign: 'center' }} numberOfLines={1}>
+            {username}
+          </Text>
+        </View>
+      </View>
+    );
+  }, [weeklyLeaderboard]);
+
+  const renderUserRankCard = useCallback(() => {
+    const rankVal = myWeeklyRank && myWeeklyRank.rank ? `#${myWeeklyRank.rank}` : "#1";
+    const scoreVal = myWeeklyRank && myWeeklyRank.wins !== undefined ? `${myWeeklyRank.wins} Birr` : "2 Birr";
+
+    return (
+      <View style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+        borderRadius: 16,
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.05)',
+        marginTop: 16,
+        width: '100%'
+      }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <View style={{
+            backgroundColor: 'rgba(255, 255, 255, 0.08)',
+            paddingHorizontal: 8,
+            paddingVertical: 4,
+            borderRadius: 8
+          }}>
+            <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11, fontWeight: '900' }}>
+              {rankVal}
+            </Text>
+          </View>
+          <View>
+            <Text style={{ color: '#fff', fontSize: 13, fontWeight: '900' }}>
+              {isEN ? "You" : "እርስዎ"}
+            </Text>
+            <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: '600', marginTop: 2 }}>
+              {isEN ? "All players" : "ሁሉም ተጫዋቾች"}
+            </Text>
+          </View>
+        </View>
+        <Text style={{ color: '#fff', fontSize: 13, fontWeight: '900' }}>
+          {scoreVal}
+        </Text>
+      </View>
+    );
+  }, [myWeeklyRank, isEN]);
 
   // ---------- exit modal ----------
   const [exitModalVisible, setExitModalVisible] = useState(false);
@@ -990,6 +1507,10 @@ export default function Landing() {
   }, [params.openRooms, openRoomSheet]);
 
   const onSelectRoom = useCallback(async (roomId: RoomConfig["id"]) => {
+    if (appConfig.rooms_locked) {
+      showAlert('Rooms Locked', 'All game rooms are currently locked by the admin. Please try again later.');
+      return;
+    }
     haptics.selection("soft");
     await playClick();
     setSelectedRoomId(roomId);
@@ -1003,14 +1524,14 @@ export default function Landing() {
   }, [playClick]);
 
   const selectAmount = useCallback(
-    async (room: RoomConfig, amount: number) => {
+    async (room: RoomConfig, min: number, max: number) => {
       haptics.tap();
       await playClick();
-      if (Number.isFinite(balance) && balance < amount) {
+      if (Number.isFinite(balance) && balance < min) {
         haptics.warning();
         toast.warning(
           isEN ? "Insufficient Balance" : "በቂ ሂሳብ የለም",
-          isEN ? `You need at least ETB ${amount} to play. Deposit more funds.` : `ለመጫወት ቢያንስ ETB ${amount} ያስፈልጋል። ተጨማሪ ገንዘብ ያስገቡ።`
+          isEN ? `You need at least ETB ${min} to play. Deposit more funds.` : `ለመጫወት ቢያንስ ETB ${min} ያስፈልጋል። ተጨማሪ ገንዘብ ያስገቡ።`
         );
         return;
       }
@@ -1028,7 +1549,9 @@ export default function Landing() {
           router.replace({
             pathname: "/game/waiting",
             params: {
-              amount: String(amount),
+              betMin: String(min),
+              betMax: String(max),
+              amount: String(max),
               token: String(token || ""),
               roomId: room.id,
               cut: String(room.cut),
@@ -1039,7 +1562,9 @@ export default function Landing() {
           router.replace({
             pathname: "/game/waiting",
             params: {
-              amount: String(amount),
+              betMin: String(min),
+              betMax: String(max),
+              amount: String(max),
               token: String(token || ""),
               roomId: room.id,
               cut: String(room.cut),
@@ -1052,7 +1577,7 @@ export default function Landing() {
     [backdropOpacity, balance, router, sheetTranslateY, token]
   );
 
-  const floatDots = useMemo(() => buildFloatingDots(width), [width]);
+
 
   if (booting) {
     return (
@@ -1064,15 +1589,34 @@ export default function Landing() {
   }
 
   if (isLargeScreen) {
+    const isDesktopRow = isDesktop && !isTablet;
+    const ContainerComponent = isDesktopRow ? View : ScrollView;
+    const containerProps = isDesktopRow
+      ? { style: { flex: 1, paddingTop: 24, paddingBottom: 24 } }
+      : { showsVerticalScrollIndicator: false, contentContainerStyle: { paddingTop: isDesktop ? 24 : 20, paddingBottom: 40 } };
+
+    const RightColumnWrapper = ({ children }: { children: React.ReactNode }) => {
+      if (isDesktopRow) {
+        return (
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 24, paddingBottom: 24 }}>
+            {children}
+          </ScrollView>
+        );
+      }
+      return <>{children}</>;
+    };
+
     return (
       <View style={styles.desktopHubRoot}>
+        <LinearGradient colors={["#0A090E", "#08070B", "#060508"]} style={StyleSheet.absoluteFill} />
+
         {/* Modals & Profile */}
         <WebDepositModal visible={depositVisible} onClose={() => setDepositVisible(false)} user={user} token={token || undefined} onSuccess={refreshProfile} />
         <WebWithdrawModal visible={withdrawVisible} onClose={() => setWithdrawVisible(false)} user={user} token={token || undefined} onSuccess={refreshProfile} />
-        <ProfileEditModal visible={!user?.username} onClose={() => {}} initialUsername={user?.username} initialDisplayName={(user as any)?.display_name} initialAvatar={(user as any)?.avatar} onSaved={refreshProfile} />
-        
+        <ProfileEditModal visible={!user?.username} onClose={() => { }} initialUsername={user?.username} initialDisplayName={(user as any)?.display_name} initialAvatar={(user as any)?.avatar} onSaved={refreshProfile} />
+
         <ReferralModal visible={showReferralModal} onClose={() => setShowReferralModal(false)} token={token || null} isEN={isEN} toast={toast} />
-        
+
         {roomSheetVisible && (
           <RoomSheet
             language={language}
@@ -1087,264 +1631,514 @@ export default function Landing() {
             onSelectRoom={onSelectRoom}
             onSelectAmount={selectAmount}
             isDesktop={isDesktop}
-            userCaps={{ r1_10: (user as any)?.r1_10_wins, r1_25: (user as any)?.r1_25_wins, r1_50: (user as any)?.r1_50_wins, r1_99: (user as any)?.r1_99_wins }}
+            userCaps={{ r1_10: (user as any)?.r1_10_wins, r1_25: (user as any)?.r1_25_wins, r1_50: (user as any)?.r1_50_wins, r1_99: (user as any)?.r1_99_wins, rooms_locked: appConfig.rooms_locked }}
           />
         )}
 
-        {/* Ambient Glows */}
+        {/* Ambient Glows & Watermarks */}
         <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-          <View style={{ position: 'absolute', top: -100, left: -100, width: 600, height: 600, borderRadius: 300, backgroundColor: 'rgba(124, 77, 255, 0.04)' }} />
-          <View style={{ position: 'absolute', bottom: -100, right: -100, width: 600, height: 600, borderRadius: 300, backgroundColor: 'rgba(0, 218, 243, 0.04)' }} />
+          <View pointerEvents="none" style={[styles.blob, styles.blob1, { width: 600, height: 600, borderRadius: 300, opacity: 0.14 }]} />
+          <View pointerEvents="none" style={[styles.blob, styles.blob2, { width: 600, height: 600, borderRadius: 300, opacity: 0.14 }]} />
+          <View pointerEvents="none" style={[styles.blob, styles.blob3, { width: 700, height: 700, borderRadius: 350, opacity: 0.10 }]} />
+
+          {/* Rotated soft blurry Tic-Tac-Toe graphic in desktop background */}
+          <View style={{
+            position: 'absolute',
+            top: '22%',
+            left: '6%',
+            width: 480,
+            height: 480,
+            transform: [{ rotate: '-18deg' }, { scale: 1.15 }],
+            opacity: 0.035,
+            ...Platform.select({
+              web: {
+                filter: "blur(2px)",
+              } as any,
+            }),
+          }} pointerEvents="none">
+            {/* Horizontal lines */}
+            <View style={{
+              position: 'absolute', top: 160, left: 0, right: 0, height: 3, backgroundColor: '#a855f7',
+              shadowColor: '#a855f7', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.45, shadowRadius: 8
+            }} />
+            <View style={{
+              position: 'absolute', top: 320, left: 0, right: 0, height: 3, backgroundColor: '#a855f7',
+              shadowColor: '#a855f7', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.45, shadowRadius: 8
+            }} />
+            {/* Vertical lines */}
+            <View style={{
+              position: 'absolute', left: 160, top: 0, bottom: 0, width: 3, backgroundColor: '#a855f7',
+              shadowColor: '#a855f7', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.45, shadowRadius: 8
+            }} />
+            <View style={{
+              position: 'absolute', left: 320, top: 0, bottom: 0, width: 3, backgroundColor: '#a855f7',
+              shadowColor: '#a855f7', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.45, shadowRadius: 8
+            }} />
+
+            {/* Illustrative faded board moves */}
+            <Text style={{
+              position: 'absolute', top: 25, left: 45, fontSize: 80, fontWeight: '900', color: '#8b5cf6',
+              textShadowColor: 'rgba(139, 92, 246, 0.4)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 8
+            }}>X</Text>
+            <Text style={{
+              position: 'absolute', top: 185, left: 205, fontSize: 80, fontWeight: '900', color: '#a855f7',
+              textShadowColor: 'rgba(168, 85, 247, 0.4)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 8
+            }}>O</Text>
+            <Text style={{
+              position: 'absolute', top: 345, left: 365, fontSize: 80, fontWeight: '900', color: '#8b5cf6',
+              textShadowColor: 'rgba(139, 92, 246, 0.4)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 8
+            }}>X</Text>
+          </View>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false}>
-          <View style={[styles.hubDesktopGrid, isTablet && { flexDirection: 'column', gap: 40 }]}>
-            
-            {/* ── LEFT COLUMN (8/12) ── */}
-            <View style={styles.desktopMainCol}>
-              <View style={styles.glassCard}>
-                {/* Background Blobs inside card */}
-                <View style={{ position: 'absolute', top: -50, left: -50, width: 200, height: 200, borderRadius: 100, backgroundColor: 'rgba(166,140,255,0.05)' }} />
-                <View style={{ position: 'absolute', bottom: -50, right: -50, width: 200, height: 200, borderRadius: 100, backgroundColor: 'rgba(0,218,243,0.05)' }} />
+        <ContainerComponent {...containerProps}>
+          <View style={[{
+            flexDirection: 'row',
+            alignItems: 'flex-start',
+            gap: 32,
+            maxWidth: 1600,
+            alignSelf: 'center',
+            paddingHorizontal: 32,
+            width: '100%',
+          }, isTablet && { flexDirection: 'column', gap: 40 }, isDesktopRow && { flex: 1, height: '100%' }]}>
 
-                <View style={{ zIndex: 1 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                    <Text style={styles.hubTitle}>{isEN ? "GAMEPLAY HUB" : "የጨዋታ ማዕከል"}</Text>
-                    {Number(user?.bonus_balance || 0) > 0 && (
-                      <TouchableOpacity onPress={() => setBonusModalVisible(true)} style={styles.bonusBadgeWeb}>
-                        <LinearGradient colors={["#00daf3", "#00a3ff"]} style={styles.bonusBadgeGradient}>
-                          <Ionicons name="gift" size={12} color="#0B0B0F" />
-                          <Text style={styles.bonusBadgeText}>{isEN ? "BONUS" : "ቦነስ"}</Text>
-                        </LinearGradient>
-                      </TouchableOpacity>
+            {/* ── LEFT COLUMN (8/12) ── */}
+            <View style={{
+              flex: 2.5,
+              maxWidth: 1100,
+              gap: 24,
+            }}>
+
+              {/* The Arena Header (Mockup Target) */}
+              <View style={{ marginBottom: 12 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <Text style={{ color: '#fff', fontSize: 34, fontWeight: '900', letterSpacing: -0.5 }}>
+                    {isEN ? "THE ARENA" : "የጨዋታ ሜዳው"}
+                  </Text>
+                </View>
+                <Text style={{ color: 'rgba(229, 227, 255, 0.4)', fontSize: 12, fontWeight: '600', letterSpacing: 0.2 }}>
+                  {isEN ? "Global skill-based competitive matchmaking" : "አለምአቀፍ ክህሎትን መሰረት ያደረገ ተወዳዳሪ ግጥሚያ"}
+                </Text>
+              </View>
+
+              {/* Horizontal Quick Actions Row (Mockup Target) */}
+              <View style={{ flexDirection: 'row', gap: 16, marginTop: 12, marginBottom: 20 }}>
+                {/* Deposit */}
+                <TouchableOpacity
+                  onPress={() => setDepositVisible(true)}
+                  activeOpacity={0.85}
+                  style={{
+                    flex: 1,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 16,
+                    backgroundColor: '#151518',
+                    borderWidth: 1,
+                    borderColor: '#27272a',
+                    borderRadius: 24,
+                    paddingVertical: 22,
+                    paddingHorizontal: 24,
+                  }}
+                >
+                  <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(0, 218, 243, 0.1)', alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="card-outline" size={24} color="#00daf3" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: '#fff', fontSize: 14, fontWeight: '900', letterSpacing: 0.5 }}>DEPOSIT</Text>
+                    <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 2, textTransform: 'uppercase' }}>Fast Local</Text>
+                  </View>
+                </TouchableOpacity>
+
+                {/* Withdraw */}
+                <TouchableOpacity
+                  onPress={() => setWithdrawVisible(true)}
+                  activeOpacity={0.85}
+                  style={{
+                    flex: 1,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 16,
+                    backgroundColor: '#151518',
+                    borderWidth: 1,
+                    borderColor: '#27272a',
+                    borderRadius: 24,
+                    paddingVertical: 22,
+                    paddingHorizontal: 24,
+                  }}
+                >
+                  <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(0, 218, 243, 0.1)', alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="arrow-up-circle-outline" size={24} color="#00daf3" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: '#fff', fontSize: 14, fontWeight: '900', letterSpacing: 0.5 }}>WITHDRAW</Text>
+                    <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 2, textTransform: 'uppercase' }}>Instant</Text>
+                  </View>
+                </TouchableOpacity>
+
+                {/* Transaction/History */}
+                <TouchableOpacity
+                  onPress={() => router.push('/(authed)/games' as any)}
+                  activeOpacity={0.85}
+                  style={{
+                    flex: 1,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 16,
+                    backgroundColor: '#151518',
+                    borderWidth: 1,
+                    borderColor: '#27272a',
+                    borderRadius: 24,
+                    paddingVertical: 22,
+                    paddingHorizontal: 24,
+                  }}
+                >
+                  <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(0, 218, 243, 0.1)', alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="time-outline" size={24} color="#00daf3" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: '#fff', fontSize: 14, fontWeight: '900', letterSpacing: 0.5 }}>TRANSACTION</Text>
+                    <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 2, textTransform: 'uppercase' }}>Recent Logs</Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+
+              {/* Main Game Card */}
+              <View style={{
+                backgroundColor: '#111115',
+                borderRadius: 36,
+                padding: isDesktop ? 32 : 40,
+                alignSelf: 'stretch',
+              }}>
+                <View style={{
+                  flexDirection: isDesktop ? 'row' : 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: isDesktop ? 40 : 20,
+                  width: '100%',
+                }}>
+                  {/* Left Column: Board Demo */}
+                  <View style={{
+                    flex: isDesktop ? 1.2 : undefined,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                    <View style={styles.hubBoardContainer}>
+                      <BoardDemo isDesktop={true} />
+                    </View>
+                  </View>
+
+                  {/* Right Column: Controls */}
+                  <View style={{
+                    flex: isDesktop ? 1 : undefined,
+                    alignSelf: isDesktop ? 'stretch' : 'center',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    width: isDesktop ? '100%' : 320,
+                  }}>
+                    {/* START MATCH Play Button */}
+                    <WebPressable
+                      onPress={isBanned || isSearching ? undefined : openRoomSheet}
+                      disabled={isBanned || isSearching}
+                      style={({ hovered }: { pressed: boolean; hovered: boolean }) => [
+                        {
+                          borderRadius: 30,
+                          overflow: 'hidden',
+                          shadowColor: '#00daf3',
+                          shadowOffset: { width: 0, height: 8 },
+                          shadowOpacity: hovered && !isBanned && !isSearching ? 0.8 : 0.5,
+                          shadowRadius: 24,
+                          alignSelf: 'stretch',
+                          transition: 'all 0.15s ease-in-out',
+                        },
+                        (isBanned || isSearching) && { opacity: 0.45 }
+                      ]}
+                    >
+                      <LinearGradient
+                        colors={isBanned ? ['#203a3a', '#152a2a'] : ['#00daf3', '#00e5ff']}
+                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                        style={{ paddingVertical: 20, alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        {isBanned && <Ionicons name="lock-closed" size={16} color="#00daf3" style={{ marginRight: 6 }} />}
+                        {isSearching && <ActivityIndicator size="small" color="#000" style={{ marginRight: 6 }} />}
+                        <Text style={{ color: '#000', fontSize: 20, fontWeight: '900', letterSpacing: 1 }}>
+                          {isBanned
+                            ? (isEN ? 'SUSPENDED' : 'ታግዷል')
+                            : isSearching
+                              ? (isEN ? 'SEARCHING...' : 'እየፈለገ ነው...')
+                              : (isEN ? 'START MATCH' : 'ግጥሚያ ጀምር')}
+                        </Text>
+                      </LinearGradient>
+                    </WebPressable>
+
+                    {/* Muted Entry Fee label */}
+                    <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1, marginTop: 12 }}>
+                      ENTRY: ETB 10.00
+                    </Text>
+
+                    {/* Play with Friend Action Button */}
+                    <WebPressable
+                      onPress={() => setFriendModalVisible(true)}
+                      style={({ hovered }: { pressed: boolean; hovered: boolean }) => [
+                        {
+                          marginTop: 16,
+                          alignSelf: 'stretch',
+                          backgroundColor: 'transparent',
+                          borderWidth: 1.5,
+                          borderColor: '#3b82f6',
+                          borderRadius: 30,
+                          transition: 'all 0.15s ease-in-out',
+                        }
+                      ]}
+                    >
+                      <View style={{ paddingVertical: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="people-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
+                        <Text style={{ color: '#fff', fontSize: 14, fontWeight: '900', letterSpacing: 1 }}>
+                          {isEN ? 'PLAY WITH FRIEND' : 'ከጓደኛ ጋር ይጫወቱ'}
+                        </Text>
+                      </View>
+                    </WebPressable>
+
+                    {isBanned && (
+                      <Text style={{ color: 'rgba(0,218,243,0.6)', fontSize: 11, textAlign: 'center', marginTop: 10, fontWeight: '700', letterSpacing: 0.5 }}>
+                        {isEN ? 'Your account is suspended · Contact support' : 'መለያዎ ታግዷል · ድጋፍን ያነጋግሩ'}
+                      </Text>
                     )}
                   </View>
-                  <Text style={styles.hubSub}>{isEN ? "OUTPACE. OUTSMART. WIN!" : "ፍጥነት። ብልሃት። ድል!"}</Text>
-
-                  <View style={styles.hubBoardContainer}>
-                    <BoardDemo isDesktop={true} />
-                  </View>
-
-                  {/* Play Now — disabled when banned or searching */}
-                  <TouchableOpacity
-                    onPress={isBanned || isSearching ? undefined : openRoomSheet}
-                    disabled={isBanned || isSearching}
-                    style={[styles.playNowBtn, (isBanned || isSearching) && { opacity: 0.45 }]}
-                    activeOpacity={(isBanned || isSearching) ? 1 : 0.85}
-                  >
-                    <LinearGradient
-                      colors={isBanned ? ['#3a2020', '#2a1515'] : ['#a68cff', '#7c4dff']}
-                      start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                      style={styles.playNowInner}
-                    >
-                      {isBanned && <Ionicons name="lock-closed" size={15} color="#fd6f85" style={{ marginRight: 6 }} />}
-                      {isSearching && <ActivityIndicator size="small" color="#fff" style={{ marginRight: 6 }} />}
-                      <Text style={[styles.playNowText, isBanned && { color: '#fd6f85' }]}>
-                        {isBanned 
-                          ? (isEN ? 'SUSPENDED' : 'ታግዷል') 
-                          : isSearching 
-                            ? (isEN ? 'SEARCHING...' : 'እየፈለገ ነው...') 
-                            : (isEN ? 'PLAY NOW' : 'አሁኑኑ ይጫወቱ')}
-                      </Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-
-                  {/* Friend Match Button Desktop */}
-                  <TouchableOpacity
-                    onPress={() => setFriendModalVisible(true)}
-                    style={[styles.playNowBtn, { marginTop: 10, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }]}
-                    activeOpacity={0.85}
-                  >
-                    <View style={styles.playNowInner}>
-                      <Ionicons name="people-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
-                      <Text style={[styles.playNowText, { color: '#fff' }]}>
-                        {isEN ? 'PLAY WITH FRIEND' : 'ከጓደኛ ጋር ይጫወቱ'}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-
-                  {isBanned && (
-                    <Text style={{ color: 'rgba(253,111,133,0.6)', fontSize: 11, textAlign: 'center', marginTop: 8, fontWeight: '700', letterSpacing: 0.5 }}>
-                      {isEN ? 'Your account is suspended · Contact support' : 'መለያዎ ታግዷል · ድጋፍን ያነጋግሩ'}
-                    </Text>
-                  )}
                 </View>
               </View>
 
-              <View style={styles.statsBento}>
-                <View style={styles.bentoCard}>
-                  <View style={[styles.bentoIcon, { backgroundColor: 'rgba(0,218,243,0.1)', borderColor: 'rgba(0,218,243,0.2)' }]}>
-                    <Ionicons name="trending-up" size={24} color="#00daf3" />
-                  </View>
-                  <View>
-                    <Text style={styles.bentoLabel}>{isEN ? "Win Rate" : "የድል መጠን"}</Text>
-
-                    <Text style={styles.bentoValue}>{winRate}%</Text>
-                  </View>
-                </View>
-                <View style={styles.bentoCard}>
-                  <View style={[styles.bentoIcon, { backgroundColor: 'rgba(255,81,250,0.1)', borderColor: 'rgba(255,81,250,0.2)' }]}>
-                    <Ionicons name={rankMeta.icon} size={24} color="#ff51fa" />
-                  </View>
-                  <View>
-                    <Text style={styles.bentoLabel}>{isEN ? "Current Rank" : "የአሁኑ ደረጃ"}</Text>
-
-                    <Text style={styles.bentoValue}>{rankMeta.label}</Text>
-                  </View>
-                </View>
-              </View>
             </View>
 
             {/* ── RIGHT COLUMN (4/12) ── */}
-            <View style={styles.desktopSideCol}>
-              {/* Profile Panel */}
-              <View style={[styles.glassCard, styles.accountCard]}>
-                <View style={styles.accountHeader}>
-                  <Text style={styles.accountTitle}>{isEN ? "Account Profile" : "የመለያ መገለጫ"}</Text>
+            <View style={{
+              flex: 1,
+              minWidth: 320,
+              maxWidth: 400,
+              gap: isDesktopRow ? undefined : 24,
+              alignSelf: isDesktopRow ? 'stretch' : undefined,
+              height: isDesktopRow ? '100%' : undefined,
+            }}>
+              <RightColumnWrapper>
 
-                  <TouchableOpacity onPress={() => router.push('/(authed)/home/account' as any)}>
-                    <Ionicons name="create-outline" size={20} color="rgba(255,255,255,0.4)" />
+              {/* Support Widget */}
+              <View style={[styles.glassCard, { padding: 24, borderRadius: 24, borderColor: '#27272a', backgroundColor: '#18181b' }]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#00daf3' }} />
+                    <Text style={{ color: '#fff', fontSize: 12, fontWeight: '900', letterSpacing: 0.8 }}>SUPPORT</Text>
+                  </View>
+                  {/* language toggle pill inside support card */}
+                  <TouchableOpacity onPress={handleLanguageToggle} style={{ flexDirection: 'row', height: 26, paddingHorizontal: 10, borderRadius: 13, backgroundColor: '#18181b', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: '#27272a' }}>
+                    <Ionicons name="globe-outline" size={12} color="#00daf3" />
+                    <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>{language === 'am' ? 'AM' : 'EN'}</Text>
                   </TouchableOpacity>
                 </View>
 
-                <View style={styles.accountRow}>
-                  <View style={styles.accountLabel}>
-                    <Ionicons name="person-outline" size={16} color="#a68cff" />
-                    <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: '600' }}>{isEN ? "Username" : "የተጠቃሚ ስም"}</Text>
-                  </View>
-
-                  <Text style={styles.accountValue}>{user?.username || 'NeonPlayer_01'}</Text>
-                </View>
-
-                <View style={styles.accountRow}>
-                  <View style={styles.accountLabel}>
-                    <Ionicons name="shield-checkmark-outline" size={16} color="#a68cff" />
-                    <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: '600' }}>{isEN ? "Status" : "ሁኔታ"}</Text>
-                  </View>
-
-                  {isBanned ? (
-                    <View style={[styles.verifiedPill, { backgroundColor: 'rgba(253,111,133,0.1)', borderColor: 'rgba(253,111,133,0.3)' }]}>
-                      <Ionicons name="ban" size={10} color="#fd6f85" />
-                      <Text style={[styles.verifiedText, { color: '#fd6f85' }]}>{isEN ? "BANNED" : "ታግዷል"}</Text>
+                <View style={{ gap: 14 }}>
+                  <TouchableOpacity onPress={() => Linking.openURL('https://t.me/xoet_support').catch(() => { })} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.03)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#27272a' }}>
+                      <Ionicons name="chatbubbles-outline" size={16} color="rgba(0,218,243,0.6)" />
                     </View>
-
-                  ) : (
-                    <View style={styles.verifiedPill}>
-                      <Text style={styles.verifiedText}>{isEN ? "Verified" : "ተረጋግጧል"}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: '#fff', fontSize: 12, fontWeight: '800' }}>{isEN ? "XO SUPPORT" : "ኤክስኦ ድጋፍ"}</Text>
+                      <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginTop: 2 }}>{isEN ? "AVAILABLE 24/7" : "ቀኑን ሙሉ ይገኛል"}</Text>
                     </View>
-
-                  )}
-                </View>
-
-                <View style={styles.accountRow}>
-                  <View style={styles.accountLabel}>
-                    <Ionicons name="mail-outline" size={16} color="#a68cff" />
-                    <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: '600' }}>{isEN ? "Phone" : "ስልክ"}</Text>
-                  </View>
-
-                  <Text style={[styles.accountValue, { color: 'rgba(229,227,255,0.5)' }]}>{user?.number || '—'}</Text>
-                </View>
-
-                {/* Quick Actions */}
-                <View style={styles.actionGrid}>
-                  <TouchableOpacity onPress={() => setDepositVisible(true)} style={styles.actionBtn}>
-                    <Ionicons name="add-circle-outline" size={24} color="#a68cff" />
-                    <Text style={styles.actionLabel}>Deposit</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => setWithdrawVisible(true)} style={styles.actionBtn}>
-                    <Ionicons name="log-out-outline" size={24} color="#fd6f85" />
-                    <Text style={[styles.actionLabel, { color: '#fd6f85' }]}>Withdraw</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => router.push('/(authed)/games' as any)} style={styles.actionBtn}>
-                    <Ionicons name="receipt-outline" size={24} color="rgba(255,255,255,0.6)" />
-                    <Text style={styles.actionLabel}>{isEN ? "History" : "ታሪክ"}</Text>
-                  </TouchableOpacity>
-                  {appConfig?.referral_enabled === true && (
-                    <TouchableOpacity onPress={() => setShowReferralModal(true)} style={styles.actionBtn}>
-                      <Ionicons name="share-social-outline" size={24} color="#10b981" />
-                      <Text style={[styles.actionLabel, { color: '#10b981' }]}>{isEN ? "Share" : "አጋራ"}</Text>
-                    </TouchableOpacity>
-                  )}
-
-                </View>
-
-                {/* Quick Stats */}
-                <View style={styles.quickStats}>
-                  <Text style={styles.quickStatsTitle}>{isEN ? "QUICK STATS" : "ፈጣን መረጃዎች"}</Text>
-                  <View style={styles.quickStatsRow}>
-
-                    <View style={styles.quickStatItem}>
-                      <Text style={styles.quickStatVal}>{gamesPlayed}</Text>
-                      <Text style={styles.quickStatLabel}>{isEN ? "Games Played" : "የተጫወቱት ጨዋታዎች"}</Text>
+                  <TouchableOpacity onPress={() => Linking.openURL('https://t.me/xoethiopia1').catch(() => { })} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.03)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#27272a' }}>
+                      <Ionicons name="paper-plane-outline" size={16} color="rgba(0,218,243,0.6)" />
                     </View>
-
-                    <View style={styles.quickStatItem}>
-                      <Text style={[styles.quickStatVal, { color: '#00daf3' }]}>{wins}</Text>
-                      <Text style={styles.quickStatLabel}>{isEN ? "Total Wins" : "አጠቃላይ ድሎች"}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: '#fff', fontSize: 12, fontWeight: '800' }}>{isEN ? "TELEGRAM" : "ቴሌግራም"}</Text>
+                      <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginTop: 2 }}>{isEN ? "OFFICIAL CHANNEL" : "ኦፊሴላዊ ቻናል"}</Text>
                     </View>
-
-                  </View>
+                  </TouchableOpacity>
                 </View>
               </View>
 
-              {/* Transactions Panel */}
-              <View style={[styles.glassCard, styles.txPanel]}>
-                <View style={styles.txHeader}>
-                  <Text style={styles.accountTitle}>{isEN ? "Game Matches" : "የጨዋታ ታሪክ"}</Text>
-                  <TouchableOpacity onPress={() => router.push('/(authed)/games' as any)}>
-
-                    <Text style={{ color: '#a68cff', fontSize: 11, fontWeight: '800' }}>{isEN ? "VIEW ALL" : "ሁሉንም ይመልከቱ"}</Text>
-
-                  </TouchableOpacity>
+              {/* Leaderboard Widget (Real Data) */}
+              <View style={[styles.glassCard, { padding: 24, borderRadius: 24, borderColor: '#27272a', backgroundColor: '#18181b', marginTop: 16 }]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#00daf3' }} />
+                    <Text style={{ color: '#fff', fontSize: 12, fontWeight: '900', letterSpacing: 0.8 }}>LEADERBOARD</Text>
+                  </View>
+                  {/* Timer Badge */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.05)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: '#27272a' }}>
+                    <Ionicons name="time-outline" size={12} color="#00daf3" />
+                    <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>{secondsRemaining > 0 ? `${Math.floor(secondsRemaining / 86400)}d ${Math.floor((secondsRemaining % 86400) / 3600)}h ${Math.floor((secondsRemaining % 3600) / 60)}m` : "00d 00h 00m"}</Text>
+                  </View>
                 </View>
 
-                  <ScrollView 
-                    style={{ maxHeight: 400 }} 
-                    showsVerticalScrollIndicator={false}
-                    contentContainerStyle={{ paddingBottom: 10 }}
-                  >
-                    {txHistory.length === 0 ? (
-                      <Text style={{color: 'rgba(255,255,255,0.4)', textAlign: 'center', marginTop: 20}}>{isEN ? "No recent activity" : "በቅርብ ጊዜ ምንም እንቅስቃሴ የለም"}</Text>
-                    ) : txHistory.map((tx, i) => {
-
-                      const isWin = tx.winner === user?.id;
-                      const isDraw = tx.status === 'draw';
-                      const amount = Number(tx.bet_amount || 0);
-                      const title = isDraw ? (isEN ? 'Match Draw' : 'ማነጻጸር') : (isWin ? (isEN ? 'Match Won' : 'አሸንፈዋል') : (isEN ? 'Match Lost' : 'ተሸንፈዋል'));
-                      const multiplier = amount < 100 ? 1.6 : (amount < 1000 ? 1.7 : 1.8);
-                      const amt = isDraw ? 'ETB 0' : (isWin ? `+${amount * multiplier}` : `-${amount}`);
-                      const col = isDraw ? '#94a3b8' : (isWin ? '#00daf3' : '#fd6f85');
-
-                      const bg = isDraw ? 'rgba(148,163,184,0.1)' : (isWin ? 'rgba(0,218,243,0.1)' : 'rgba(253,111,133,0.1)');
-                      const d = new Date(tx.created_at);
-                      const timeStr = d.toLocaleDateString(undefined, {month:'short', day:'numeric'}) + ", " + d.toLocaleTimeString(undefined, {hour:'2-digit', minute:'2-digit'});
-                      
-                      return (
-                        <View key={i} style={styles.txItem}>
-                          <View style={[styles.txIcon, { backgroundColor: bg }]}>
-                            <Ionicons name={isDraw ? 'git-compare' : (isWin ? 'trophy' : 'flash') as any} size={18} color={col} />
-                          </View>
-                          <View style={styles.txMain}>
-                            <Text style={styles.txLabel}>{title}</Text>
-                            <Text style={styles.txTime}>{timeStr}</Text>
-                          </View>
-                          <Text style={[styles.txAmount, { color: col }]}>{amt}</Text>
+                {/* Top 3 Rankings */}
+                <View style={{ gap: 16, marginBottom: 20 }}>
+                  {loadingWeekly && weeklyLeaderboard.length === 0 ? (
+                    <ActivityIndicator size="small" color="#00daf3" />
+                  ) : weeklyLeaderboard.slice(0, 3).map((item, index) => {
+                    const rank = index + 1;
+                    const borderColor = rank === 1 ? '#ffb84d' : (rank === 2 ? '#b9cacb' : '#fb923c');
+                    const rankBgColor = rank === 1 ? 'rgba(255, 184, 77, 0.05)' : (rank === 2 ? 'rgba(185, 202, 203, 0.03)' : 'rgba(251, 146, 60, 0.03)');
+                    const prize = weeklyPrizes.find(p => p.rank === rank)?.amount || 0;
+                    
+                    return (
+                      <View key={item.id || rank} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                        <View style={{ width: 28, height: 28, borderRadius: 14, borderWidth: 1.5, borderColor: borderColor, backgroundColor: rankBgColor, alignItems: 'center', justifyContent: 'center' }}>
+                          <Text style={{ color: borderColor, fontSize: 11, fontWeight: '900' }}>{rank}</Text>
                         </View>
-                      );
-                    })}
-                  </ScrollView>
+                        <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: '#27272a', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderWidth: item.isMe ? 1 : 0, borderColor: '#00daf3' }}>
+                          {item.avatar ? (
+                            <Image source={{ uri: fixUrl(item.avatar) || undefined }} style={{ width: '100%', height: '100%' }} />
+                          ) : (
+                            <Ionicons name="person" size={18} color={item.isMe ? '#00daf3' : 'rgba(255,255,255,0.6)'} />
+                          )}
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ color: item.isMe ? '#00daf3' : '#fff', fontSize: 12, fontWeight: '800' }} numberOfLines={1}>
+                            @{item.username || 'user'}{item.isMe ? ' (You)' : ''}
+                          </Text>
+                          <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9, fontWeight: '700', textTransform: 'uppercase', marginTop: 1 }}>
+                            {item.wins} Wins
+                          </Text>
+                        </View>
+                        <Text style={{ color: rank === 1 ? '#ffb84d' : '#fff', fontSize: 13, fontWeight: '900' }}>{prize} ETB</Text>
+                      </View>
+                    );
+                  })}
+                  {!loadingWeekly && weeklyLeaderboard.length === 0 && (
+                    <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, textAlign: 'center' }}>
+                      No rankings yet
+                    </Text>
+                  )}
+                </View>
 
+                {/* View Standings Button */}
+                <TouchableOpacity
+                  onPress={() => router.push('/(authed)/home/leaderboard' as any)}
+                  style={{
+                    backgroundColor: 'rgba(255,255,255,0.03)',
+                    borderWidth: 1,
+                    borderColor: '#27272a',
+                    borderRadius: 14,
+                    paddingVertical: 12,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Text style={{ color: '#fff', fontSize: 11, fontWeight: '900', letterSpacing: 0.8 }}>VIEW FULL STANDINGS</Text>
+                </TouchableOpacity>
               </View>
-            </View>
 
+              {/* Stats & Progress Layout */}
+              <View style={{ flexDirection: 'row', gap: 14, marginTop: 16 }}>
+                {/* Win Rate Card with Svg progress ring */}
+                <View style={{ flex: 1, backgroundColor: '#18181b', borderWidth: 1, borderColor: '#27272a', borderRadius: 20, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <View style={{ width: 44, height: 44, justifyContent: 'center', alignItems: 'center' }}>
+                    <Svg width={44} height={44} viewBox="0 0 44 44">
+                      <Circle cx="22" cy="22" r="18" stroke="#27272a" strokeWidth="3.5" fill="transparent" />
+                      <Circle
+                        cx="22"
+                        cy="22"
+                        r="18"
+                        stroke="#00daf3"
+                        strokeWidth="3.5"
+                        fill="transparent"
+                        strokeDasharray={`${2 * Math.PI * 18}`}
+                        strokeDashoffset={`${2 * Math.PI * 18 * (1 - winRate / 100)}`}
+                        strokeLinecap="round"
+                        transform="rotate(-90 22 22)"
+                      />
+                    </Svg>
+                    <View style={{ position: 'absolute' }}>
+                      <Text style={{ color: '#fff', fontSize: 10, fontWeight: '900' }}>{winRate}%</Text>
+                    </View>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: 9, fontWeight: '800', letterSpacing: 0.5 }}>WIN RATE</Text>
+                    <Text style={{ color: '#fff', fontSize: 11, fontWeight: '800', marginTop: 2 }}>{isEN ? "Active Stats" : "ንቁ አኃዝ"}</Text>
+                  </View>
+                </View>
+
+                {/* Rank Card */}
+                <View style={{ flex: 1, backgroundColor: '#18181b', borderWidth: 1, borderColor: '#27272a', borderRadius: 20, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(0, 218, 243, 0.1)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(0, 218, 243, 0.2)' }}>
+                    <Ionicons name="trophy-outline" size={16} color="#00daf3" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: 9, fontWeight: '800', letterSpacing: 0.5 }}>RANK</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: rankMeta.tone === 'platinum' ? '#00daf3' : (rankMeta.tone === 'gold' ? '#d4af37' : '#c0c0c0') }} />
+                      <Text style={{ color: '#fff', fontSize: 12, fontWeight: '900' }}>{rankMeta.label}</Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+
+              {/* Recently Winners Card */}
+              <View style={[styles.glassCard, { padding: 24, borderRadius: 24, borderColor: '#27272a', backgroundColor: '#18181b', marginTop: 16 }]}>
+                <View style={styles.txHeader}>
+                  <Text style={{ color: '#fff', fontSize: 16, fontWeight: '900' }}>{isEN ? "Recently Winners" : "የቅርብ ጊዜ አሸናፊዎች"}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(0, 218, 243, 0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 }}>
+                    <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#00daf3' }} />
+                    <Text style={{ color: '#00daf3', fontSize: 9, fontWeight: '900', letterSpacing: 0.5 }}>LIVE</Text>
+                  </View>
+                </View>
+
+                <ScrollView
+                  style={{ maxHeight: 280 }}
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={{ paddingBottom: 10, gap: 12, marginTop: 16 }}
+                >
+                  {rawTickerList.length === 0 ? (
+                    <Text style={{ color: 'rgba(255,255,255,0.4)', textAlign: 'center', marginTop: 20 }}>
+                      {isEN ? "Waiting for live wins..." : "የቀጥታ ድሎችን በመጠባበቅ ላይ..."}
+                    </Text>
+                  ) : rawTickerList.map((tx, i) => {
+                    const amount = Number(tx.amount || 0);
+                    let emoji = '⚡';
+                    let col = '#fd6f85';
+                    let bg = 'rgba(253,111,133,0.1)';
+                    if (amount >= 500) {
+                      emoji = '👑';
+                      col = '#ffb84d';
+                      bg = 'rgba(255,184,77,0.1)';
+                    } else if (amount >= 200) {
+                      emoji = '🔥';
+                      col = '#fb923c';
+                      bg = 'rgba(251,146,60,0.1)';
+                    } else if (amount >= 100) {
+                      emoji = '🏆';
+                      col = '#00daf3';
+                      bg = 'rgba(0,218,243,0.1)';
+                    }
+
+                    return (
+                      <View key={i} style={styles.txItem}>
+                        <View style={[styles.txIcon, { backgroundColor: bg }]}>
+                          <Text style={{ fontSize: 16 }}>{emoji}</Text>
+                        </View>
+                        <View style={styles.txMain}>
+                          <Text style={styles.txLabel}>@{tx.username.toUpperCase()}</Text>
+                          <Text style={styles.txTime}>{isEN ? 'Match Won' : 'አሸንፏል'}</Text>
+                        </View>
+                        <Text style={[styles.txAmount, { color: col }]}>ETB {amount}</Text>
+                      </View>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+
+            </RightColumnWrapper>
           </View>
-          <View style={{ height: 60 }} />
-        </ScrollView>
-        <WebDepositModal 
-          visible={depositVisible} 
-          onClose={() => setDepositVisible(false)} 
-          user={user} 
-          token={token || ""} 
+
+        </View>
+        {!isDesktopRow && <View style={{ height: 60 }} />}
+      </ContainerComponent>
+
+        <WebDepositModal
+          visible={depositVisible}
+          onClose={() => setDepositVisible(false)}
+          user={user}
+          token={token || ""}
           onSuccess={refreshProfile}
           language={language}
         />
@@ -1352,13 +2146,13 @@ export default function Landing() {
           visible={withdrawVisible}
           onClose={() => setWithdrawVisible(false)}
           user={user}
-          token={token || ""} 
+          token={token || ""}
           onSuccess={refreshProfile}
           language={language}
         />
         <ProfileEditModal
           visible={!user?.username}
-          onClose={() => {}}
+          onClose={() => { }}
           initialUsername={user?.username}
           initialDisplayName={(user as any)?.display_name}
           initialAvatar={(user as any)?.avatar}
@@ -1372,6 +2166,183 @@ export default function Landing() {
           onSendInvite={handleSendInvite}
           inviteResult={inviteResult}
         />
+        <PromotionPopup config={promoConfig} visible={showPromo} onClose={() => setShowPromo(false)} />
+
+        {/* PWA Install Instructions Modal */}
+        <Modal
+          visible={pwaModalVisible}
+          animationType="fade"
+          transparent
+          onRequestClose={() => setPwaModalVisible(false)}
+        >
+          <View style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.85)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 20
+          }}>
+            <View style={{
+              backgroundColor: '#0c0c1f',
+              borderWidth: 1,
+              borderColor: 'rgba(0,218,243,0.2)',
+              borderRadius: 24,
+              padding: 24,
+              width: '100%',
+              maxWidth: 420,
+              shadowColor: '#000',
+              shadowOpacity: 0.5,
+              shadowRadius: 20,
+              elevation: 10
+            }}>
+              {/* Header */}
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                <Text style={{ color: '#fff', fontSize: 18, fontWeight: '900' }}>Install XOET Web App</Text>
+                <TouchableOpacity onPress={() => setPwaModalVisible(false)} style={{ padding: 4 }}>
+                  <Ionicons name="close" size={24} color="rgba(255,255,255,0.6)" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Device specific instructions */}
+              <View style={{ marginBottom: 24 }}>
+                {Platform.OS === 'web' && typeof navigator !== 'undefined' && /telegram/i.test(navigator.userAgent) ? (
+                  // Telegram Browser Instructions
+                  <View style={{ gap: 12 }}>
+                    <Text style={{ color: '#00daf3', fontWeight: '800', fontSize: 14 }}>Telegram Browser Detected:</Text>
+                    <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, lineHeight: 18 }}>
+                      Telegram's in-app browser has sandbox restrictions that prevent installing web apps or downloading files directly.
+                    </Text>
+                    <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+                      <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,218,243,0.15)', alignItems: 'center', justifyContent: 'center' }}>
+                        <Text style={{ color: '#00daf3', fontSize: 12, fontWeight: '800' }}>1</Text>
+                      </View>
+                      <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, flex: 1 }}>
+                        Tap the <Text style={{ color: '#00daf3', fontWeight: 'bold' }}>three dots</Text> at the top right of this screen.
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+                      <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,218,243,0.15)', alignItems: 'center', justifyContent: 'center' }}>
+                        <Text style={{ color: '#00daf3', fontSize: 12, fontWeight: '800' }}>2</Text>
+                      </View>
+                      <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, flex: 1 }}>
+                        Select <Text style={{ color: '#00daf3', fontWeight: 'bold' }}>"Open in Browser"</Text> or <Text style={{ color: '#00daf3', fontWeight: 'bold' }}>"Open in Chrome/Safari"</Text>.
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+                      <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,218,243,0.15)', alignItems: 'center', justifyContent: 'center' }}>
+                        <Text style={{ color: '#00daf3', fontSize: 12, fontWeight: '800' }}>3</Text>
+                      </View>
+                      <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, flex: 1 }}>
+                        Once opened in your system browser, click the download button again.
+                      </Text>
+                    </View>
+                  </View>
+                ) : Platform.OS === 'web' && typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent) ? (
+                  // iOS Safari Instructions
+                  <View style={{ gap: 12 }}>
+                    <Text style={{ color: '#00daf3', fontWeight: '800', fontSize: 14 }}>Instructions for iOS Safari:</Text>
+                    <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+                      <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,218,243,0.15)', alignItems: 'center', justifyContent: 'center' }}>
+                        <Text style={{ color: '#00daf3', fontSize: 12, fontWeight: '800' }}>1</Text>
+                      </View>
+                      <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, flex: 1 }}>
+                        Tap the <Text style={{ color: '#00daf3', fontWeight: 'bold' }}>Share</Text> button in Safari (box with an arrow pointing up at the bottom).
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+                      <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,218,243,0.15)', alignItems: 'center', justifyContent: 'center' }}>
+                        <Text style={{ color: '#00daf3', fontSize: 12, fontWeight: '800' }}>2</Text>
+                      </View>
+                      <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, flex: 1 }}>
+                        Scroll down the share menu and select <Text style={{ color: '#00daf3', fontWeight: 'bold' }}>"Add to Home Screen"</Text>.
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+                      <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,218,243,0.15)', alignItems: 'center', justifyContent: 'center' }}>
+                        <Text style={{ color: '#00daf3', fontSize: 12, fontWeight: '800' }}>3</Text>
+                      </View>
+                      <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, flex: 1 }}>
+                        Tap <Text style={{ color: '#00daf3', fontWeight: 'bold' }}>"Add"</Text> in the top right corner to complete installation.
+                      </Text>
+                    </View>
+                  </View>
+                ) : (
+                  // Android / Desktop Instructions
+                  <View style={{ gap: 12 }}>
+                    <Text style={{ color: '#00daf3', fontWeight: '800', fontSize: 14 }}>How to Install:</Text>
+                    <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+                      <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,218,243,0.15)', alignItems: 'center', justifyContent: 'center' }}>
+                        <Text style={{ color: '#00daf3', fontSize: 12, fontWeight: '800' }}>1</Text>
+                      </View>
+                      <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, flex: 1 }}>
+                        Open your browser's menu (three dots icon in Chrome) and select <Text style={{ color: '#00daf3', fontWeight: 'bold' }}>"Add to Home Screen"</Text> or <Text style={{ color: '#00daf3', fontWeight: 'bold' }}>"Install App"</Text>.
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+                      <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,218,243,0.15)', alignItems: 'center', justifyContent: 'center' }}>
+                        <Text style={{ color: '#00daf3', fontSize: 12, fontWeight: '800' }}>2</Text>
+                      </View>
+                      <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, flex: 1 }}>
+                        On desktop, look for the <Text style={{ color: '#00daf3', fontWeight: 'bold' }}>Install icon</Text> in the browser address bar next to the URL.
+                      </Text>
+                    </View>
+                  </View>
+                )}
+              </View>
+
+              {/* Fallback to Android APK */}
+              <View style={{ borderTopWidth: 1, borderColor: 'rgba(255,255,255,0.06)', paddingTop: 16 }}>
+                {Platform.OS === 'web' && typeof navigator !== 'undefined' && /telegram/i.test(navigator.userAgent) ? (
+                  <>
+                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '700', marginBottom: 12, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                      Android Users (Via Telegram Channel)
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        Linking.openURL('https://t.me/xoethiopia1').catch(() => { });
+                      }}
+                      style={{
+                        backgroundColor: '#0088cc',
+                        borderRadius: 12,
+                        paddingVertical: 12,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8
+                      }}
+                    >
+                      <Ionicons name="paper-plane-outline" size={18} color="#fff" />
+                      <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>Get APK from Channel</Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <>
+                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '700', marginBottom: 12, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                      Android Users (Direct APK)
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        Linking.openURL('https://xoethiopia.com/xoet.apk').catch(() => { });
+                      }}
+                      style={{
+                        backgroundColor: '#ef4444',
+                        borderRadius: 12,
+                        paddingVertical: 12,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8
+                      }}
+                    >
+                      <Ionicons name="cloud-download-outline" size={18} color="#fff" />
+                      <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>Download Android APK</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+              </View>
+            </View>
+          </View>
+        </Modal>
       </View>
 
     );
@@ -1380,145 +2351,377 @@ export default function Landing() {
   // ── Mobile return ──
   return (
     <View style={styles.bg}>
-      <LinearGradient colors={["#0c0c1f", "#1e1e40", "#0c0c1f"]} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={["#0A090E", "#08070B", "#060508"]} style={StyleSheet.absoluteFill} />
 
       <View pointerEvents="none" style={[styles.blob, styles.blob1]} />
       <View pointerEvents="none" style={[styles.blob, styles.blob2]} />
+      <View pointerEvents="none" style={[styles.blob, styles.blob3]} />
+
+      {/* Blurry illustrative Tic-Tac-Toe game board in the background */}
+      <View style={{
+        position: 'absolute',
+        top: '28%',
+        left: '-15%',
+        width: 320,
+        height: 320,
+        transform: [{ rotate: '-18deg' }, { scale: 1.25 }],
+        opacity: 0.04, // Soft, premium visibility
+        zIndex: 0,
+        ...Platform.select({
+          web: {
+            filter: "blur(1.5px)",
+          } as any,
+        }),
+      }} pointerEvents="none">
+        {/* Horizontal lines */}
+        <View style={{
+          position: 'absolute', top: 106, left: 0, right: 0, height: 2.5, backgroundColor: '#a855f7',
+          shadowColor: '#a855f7', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 6
+        }} />
+        <View style={{
+          position: 'absolute', top: 213, left: 0, right: 0, height: 2.5, backgroundColor: '#a855f7',
+          shadowColor: '#a855f7', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 6
+        }} />
+        {/* Vertical lines */}
+        <View style={{
+          position: 'absolute', left: 106, top: 0, bottom: 0, width: 2.5, backgroundColor: '#a855f7',
+          shadowColor: '#a855f7', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 6
+        }} />
+        <View style={{
+          position: 'absolute', left: 213, top: 0, bottom: 0, width: 2.5, backgroundColor: '#a855f7',
+          shadowColor: '#a855f7', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 6
+        }} />
+
+        {/* Illustrative faded board moves */}
+        <Text style={{
+          position: 'absolute', top: 15, left: 25, fontSize: 52, fontWeight: '900', color: '#8b5cf6',
+          textShadowColor: 'rgba(139, 92, 246, 0.4)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 6
+        }}>X</Text>
+        <Text style={{
+          position: 'absolute', top: 125, left: 135, fontSize: 52, fontWeight: '900', color: '#a855f7',
+          textShadowColor: 'rgba(168, 85, 247, 0.4)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 6
+        }}>O</Text>
+        <Text style={{
+          position: 'absolute', top: 235, left: 245, fontSize: 52, fontWeight: '900', color: '#8b5cf6',
+          textShadowColor: 'rgba(139, 92, 246, 0.4)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 6
+        }}>X</Text>
+      </View>
+
       <SafeAreaView style={styles.safe} edges={['left', 'right', 'top']}>
         <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-          <View style={styles.floatingLayer} pointerEvents="none">
-            {floatDots.map((d, i) => (
-              <View key={i} style={[styles.floatDot, { top: d.top, left: d.left, opacity: d.opacity }]} />
-            ))}
-          </View>
+
           <Animated.View style={[styles.header, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
             <View style={styles.headerTop}>
-              <View style={styles.brand}>
-                <Image source={require("../../../assets/images/icon.jpg")} style={{ width: 80, height: 32, resizeMode: 'contain' }} />
-                <View style={{ marginLeft: 10 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    {hasBonus && (
-                      <View style={{ backgroundColor: 'rgba(0,218,243,0.15)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(0,218,243,0.3)' }}>
-                        <Text style={{ color: '#00daf3', fontSize: 9, fontWeight: '900' }}>{isEN ? "BONUS" : "ቦነስ"}</Text>
-                      </View>
-                    )}
-                  </View>
-                  <Text style={styles.brandSub}>{isEN ? "Fast matchmaking •" : "ፈጣን ማጣመር •"}</Text>
+              {/* Left Side: Avatar + Welcome back */}
+              <TouchableOpacity
+                onPress={() => goReplace("/(authed)/home/account")}
+                activeOpacity={0.85}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}
+              >
+                <View style={{
+                  width: 42,
+                  height: 42,
+                  borderRadius: 21,
+                  backgroundColor: 'rgba(255,255,255,0.04)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(255,255,255,0.1)',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <Ionicons name="person-outline" size={18} color="rgba(255,255,255,0.8)" />
                 </View>
-              </View>
-              <View style={styles.headerBtns}>
-                <HeaderPill onPress={handleLanguageToggle} icon="language-outline" text={language === "en" ? "አማ" : "EN"} gradient={["rgba(124,58,237,0.95)", "rgba(79,70,229,0.85)"]} />
-                <HeaderPill onPress={handleToggleSound} icon={bgMusicPlaying ? "volume-high-outline" : "volume-mute-outline"} gradient={bgMusicPlaying ? ["rgba(10,185,129,0.95)", "rgba(5,150,105,0.85)"] : ["rgba(148,163,184,0.28)", "rgba(148,163,184,0.14)"]} />
-                <HeaderPill onPress={() => goReplace("/(authed)/home/account")} icon="person-outline" gradient={["rgba(59,130,246,0.95)", "rgba(29,78,216,0.85)"]} />
-              </View>
-            </View>
-            <View style={styles.balanceCard}>
-              <LinearGradient colors={["rgba(10,12,28,0.50)", "rgba(10,12,28,0.28)"]} style={StyleSheet.absoluteFill} />
-              <View style={styles.balanceLeft}>
-                <Text style={styles.balanceLabel}>{t("balance")}</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Text style={styles.balanceValue}>ETB {balance.toLocaleString()}</Text>
-                  {hasBonus && (
-                    <TouchableOpacity onPress={() => setBonusModalVisible(true)} style={styles.bonusPillInline}>
-                      <LinearGradient colors={["#00daf3", "#00a3ff"]} style={styles.bonusPillGradient}>
-                        <Ionicons name="gift" size={10} color="#0B0B0F" />
-                        
-                      </LinearGradient>
-                    </TouchableOpacity>
-                  )}
+                <View>
+                  <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    {isEN ? "WELCOME BACK" : "እንኳን ደህና መጡ"}
+                  </Text>
+                  <Text style={{ color: '#fff', fontSize: 14, fontWeight: '900' }}>
+                    {user?.username || 'bina'}
+                  </Text>
                 </View>
-              </View>
-              <TouchableOpacity onPress={handleRefreshProfile} style={styles.refreshBtn} activeOpacity={0.85}>
-                <LinearGradient colors={["rgba(255,255,255,0.14)", "rgba(255,255,255,0.06)"]} style={styles.refreshInner}>
-                  <Ionicons name="reload-outline" size={16} color="rgba(255,255,255,0.92)" />
-                   <Text style={styles.refreshText}>{isEN ? "Refresh" : "አድስ"}</Text>
-
-                </LinearGradient>
               </TouchableOpacity>
+
+              {/* Right Side: APP, Language, Bell */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                {/* APP Download Button (Bordered dark capsule) */}
+                {!isPwaInstalled && (
+                  <Animated.View style={{ transform: [{ scale: appPulseAnim }] }}>
+                    <TouchableOpacity
+                      onPress={handleAppDownload}
+                      activeOpacity={0.85}
+                      style={{
+                        borderWidth: 1,
+                        borderColor: deferredPrompt ? '#00daf3' : 'rgba(255, 255, 255, 0.1)',
+                        backgroundColor: deferredPrompt ? 'rgba(0, 218, 243, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                        paddingHorizontal: 12,
+                        paddingVertical: 6,
+                        borderRadius: 14,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 5,
+                        // Ambient glow shadow when installable
+                        shadowColor: deferredPrompt ? '#00daf3' : 'transparent',
+                        shadowOffset: { width: 0, height: 0 },
+                        shadowOpacity: deferredPrompt ? 0.6 : 0,
+                        shadowRadius: deferredPrompt ? 8 : 0,
+                      }}
+                    >
+                      <Ionicons name="cloud-download-outline" size={14} color={deferredPrompt ? "#00daf3" : "#fff"} />
+                      <Text style={{ color: deferredPrompt ? "#00daf3" : "#fff", fontSize: 11, fontWeight: '900', letterSpacing: 0.5 }}>APP</Text>
+                    </TouchableOpacity>
+                  </Animated.View>
+                )}
+
+                {/* Language button */}
+                <TouchableOpacity
+                  onPress={handleLanguageToggle}
+                  activeOpacity={0.85}
+                  style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 14,
+                    backgroundColor: 'rgba(255,255,255,0.05)',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderWidth: 1,
+                    borderColor: 'rgba(255,255,255,0.1)'
+                  }}
+                >
+                  <Ionicons name="language" size={18} color="#fff" />
+                </TouchableOpacity>
+
+                {/* Notification Bell with Badge */}
+                <TouchableOpacity
+                  onPress={() => setNotificationsVisible(true)}
+                  activeOpacity={0.85}
+                  style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 14,
+                    backgroundColor: 'rgba(255,255,255,0.05)',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderWidth: 1,
+                    borderColor: 'rgba(255,255,255,0.1)',
+                    position: 'relative'
+                  }}
+                >
+                  <Ionicons name="notifications-outline" size={18} color="#fff" />
+                  {unreadCount > 0 && (
+                    <View style={{
+                      position: 'absolute',
+                      top: 6,
+                      right: 6,
+                      width: 8,
+                      height: 8,
+                      borderRadius: 4,
+                      backgroundColor: '#ef4444',
+                      borderWidth: 1,
+                      borderColor: '#000'
+                    }} />
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
 
+            {/* Available Balance Card */}
+            <LinearGradient
+              colors={["rgba(20, 19, 26, 0.6)", "rgba(27, 26, 36, 0.6)"]}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+              style={[styles.balanceCard, { borderColor: 'rgba(255,255,255,0.05)', overflow: 'hidden' }]}
+            >
+              {/* Huge X watermark in the background */}
+              <Text style={{ position: 'absolute', right: 40, bottom: -45, fontSize: 140, fontWeight: '900', color: 'rgba(0,218,243,0.06)', transform: [{ rotate: '-12deg' }], zIndex: 0 }}>X</Text>
+
+              <View style={[styles.balanceLeft, { zIndex: 1 }]}>
+                <Text style={styles.balanceLabel}>{isEN ? "AVAILABLE BALANCE" : "ቀሪ ሂሳብ"}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                  <Text style={[styles.balanceValue, { fontSize: 32 }]}>
+                    ETB {Math.floor(balance).toLocaleString()}
+                  </Text>
+                  {/* Purple dot next to the number */}
+                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#00daf3', alignSelf: 'center', marginTop: 12 }} />
+                </View>
+              </View>
+
+              <TouchableOpacity
+                onPress={handleRefreshProfile}
+                activeOpacity={0.85}
+                style={{
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  borderColor: 'rgba(255, 255, 255, 0.1)',
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                  overflow: 'hidden',
+                  zIndex: 1
+                }}
+              >
+                <View style={{ paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Ionicons name="reload" size={12} color="#fff" />
+                  <Text style={{ color: '#fff', fontWeight: '800', fontSize: 11 }}>
+                    {isEN ? "Refresh" : "አድስ"}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </LinearGradient>
           </Animated.View>
-          <View style={styles.quickGrid}>
-            <QuickTile 
-              icon="add-circle-outline" 
-              title={t("deposit")} 
-              subtitle={isEN ? "Top up" : "ማስገቢያ"} 
-              onPress={() => Platform.OS === 'web' ? setDepositVisible(true) : router.push("/(authed)/deposit")} 
+
+          {/* Quick Actions Grid (Mobile) */}
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+            {/* Deposit */}
+            <MobileQuickTile
+              icon="arrow-down"
+              iconColor="#60a5fa"
+              title={isEN ? "Deposit" : "ማስገቢያ"}
+              subtitle="TOP UP"
+              onPress={() => Platform.OS === 'web' ? setDepositVisible(true) : router.push("/(authed)/deposit")}
             />
-            <QuickTile 
-              icon="arrow-down-circle-outline" 
-              title={t("withdraw")} 
-              subtitle={isEN ? "Cash out" : "ማውጫ"} 
-              onPress={() => Platform.OS === 'web' ? setWithdrawVisible(true) : router.push("/(authed)/withdraw")} 
-              colors={["#ff4b4b", "#b91c1c"]} 
+            {/* Withdraw */}
+            <MobileQuickTile
+              icon="arrow-up"
+              iconColor="#eab308"
+              title={isEN ? "Withdraw" : "ማውጫ"}
+              subtitle="CASH OUT"
+              onPress={() => Platform.OS === 'web' ? setWithdrawVisible(true) : router.push("/(authed)/withdraw")}
             />
-            <QuickTile 
-              icon="time-outline" 
-              title={t("history")} 
-              subtitle={isEN ? "Games" : "ታሪክ"} 
-              onPress={() => router.push("/(authed)/games")} 
+            {/* Transactions */}
+            <MobileQuickTile
+              icon="swap-horizontal"
+              iconColor="#00daf3"
+              title={isEN ? "Transactions" : "ክፍያዎች"}
+              subtitle="TRANSFERS"
+              onPress={() => router.push("/(authed)/home/transactions")}
             />
           </View>
 
+          {/* Gameplay Hub Card (Podium style) */}
           <View style={styles.mainCard}>
-            <LinearGradient colors={["rgba(10,12,28,0.44)", "rgba(10,12,28,0.22)"]} style={StyleSheet.absoluteFill} />
-            <View style={styles.heroRow}>
-              <View style={styles.logoWrap}>
-                <Image source={require("../../../assets/images/icon.jpg")} style={styles.logo} />
-                <LinearGradient colors={["rgba(124,58,237,0.25)", "transparent"]} style={StyleSheet.absoluteFill} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.heroTitle}>{isEN ? "GAMEPLAY HUB" : "የጨዋታ ማዕከል"}</Text>
-                <Text style={styles.heroSub}>{isEN ? "OUTPACE. OUTSMART. WIN!" : "ፍጥነት። ብልሃት። ድል!"}</Text>
+            <LinearGradient colors={["#14131A", "#1B1A24"]} style={StyleSheet.absoluteFill} />
+
+            {/* Header: left brand circle icon, "GAMEPLAY HUB" title, "OUTPACE. OUTSMART. WIN!" subtitle, and a "Weekly" pill on the right. */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                {/* Brand circle icon (XO matching actual brand logo) */}
+                <View style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 19,
+                  overflow: 'hidden',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: '#000',
+                  borderWidth: 1,
+                  borderColor: 'rgba(255, 255, 255, 0.15)',
+                }}>
+                  <Image
+                    source={require("../../../assets/images/adaptive-icon.png")}
+                    style={{ width: '100%', height: '100%' }}
+                    resizeMode="cover"
+                  />
+                </View>
+                <View>
+                  <Text style={{ color: '#fff', fontSize: 15, fontWeight: '900', letterSpacing: 0.3 }}>
+                    {isEN ? "GAMEPLAY HUB" : "የጨዋታ ማዕከል"}
+                  </Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '600' }}>
+                    {isEN ? "OUTPACE. OUTSMART. WIN!" : "ፍጥነት። ብልሃት። ድል!"}
+                  </Text>
+                </View>
               </View>
 
+              {/* Weekly Pill */}
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 5,
+                backgroundColor: 'rgba(255,255,255,0.03)',
+                paddingHorizontal: 10,
+                paddingVertical: 5,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.08)'
+              }}>
+                <Ionicons name="trophy-outline" size={10} color="rgba(255,255,255,0.8)" />
+                <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 10, fontWeight: '900', letterSpacing: 0.5 }}>
+                  {isEN ? "Weekly" : "ሳምንታዊ"}
+                </Text>
+              </View>
             </View>
-            <View style={styles.boardWrap}><BoardDemo isDesktop={false} /></View>
+
+            <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10, marginTop: 10, width: '100%', paddingHorizontal: 10 }}>
+              {renderPodiumSpot({ rank: 2, prize: 300, color: '#94a3b8', barH: 52, label: "2nd" })}
+              {renderPodiumSpot({ rank: 1, prize: 500, color: '#f59e0b', barH: 72, label: "1st" })}
+              {renderPodiumSpot({ rank: 3, prize: 200, color: '#c2410c', barH: 42, label: "3rd" })}
+            </View>
+            {renderUserRankCard()}
+
             {/* Play Now — disabled when banned, visible always */}
-            <TouchableOpacity
+            <WebPressable
               onPress={isBanned ? undefined : openRoomSheet}
               disabled={isBanned}
-              activeOpacity={isBanned ? 1 : 0.9}
-              style={[styles.playBtn, isBanned && { opacity: 0.5 }]}
+              style={({ hovered }: { pressed: boolean; hovered: boolean }) => [
+                styles.playBtn,
+                {
+                  marginTop: 20,
+                  borderRadius: 16,
+                  overflow: 'hidden',
+                  transform: [{ scale: hovered && !isBanned ? 1.02 : 1 }],
+                  shadowColor: '#00daf3',
+                  shadowOffset: { width: 0, height: 6 },
+                  shadowOpacity: hovered && !isBanned ? 0.5 : 0.35,
+                  shadowRadius: 12,
+                  transition: 'all 0.15s ease-in-out',
+                }
+              ]}
             >
               <LinearGradient
-                colors={isBanned ? ['rgba(80,20,20,0.9)', 'rgba(60,10,10,0.9)'] : ["#7C3AED", "#4F46E5"]}
+                colors={isBanned ? ['#3a2020', '#2a1515'] : ['#00daf3', '#00daf3']}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                 style={styles.playInner}
               >
-                <Ionicons name={isBanned ? "lock-closed" : "flash-outline"} size={20} color={isBanned ? '#fd6f85' : '#fff'} />
-                <Text style={[styles.playText, isBanned && { color: '#fd6f85' }]}>
+                <Ionicons name={isBanned ? "lock-closed" : "flash-outline"} size={20} color={isBanned ? "#fff" : "#000"} />
+                <Text style={[styles.playText, { color: isBanned ? '#fff' : '#000' }]}>
                   {isBanned ? (isEN ? 'SUSPENDED' : 'ታግዷል') : t("play_now")}
                 </Text>
-                <View style={{ width: 6 }} />
-                {!isBanned && <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.9)" />}
               </LinearGradient>
-            </TouchableOpacity>
-
+            </WebPressable>
+ 
             {/* Friend Match Button Mobile */}
-            <TouchableOpacity
+            <WebPressable
               onPress={() => setFriendModalVisible(true)}
-              activeOpacity={0.9}
-              style={[styles.playBtn, { marginTop: 10, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }]}
+              style={({ hovered }: { pressed: boolean; hovered: boolean }) => [
+                styles.playBtn,
+                {
+                  marginTop: 10,
+                  backgroundColor: 'transparent',
+                  borderWidth: 1.5,
+                  borderColor: '#3b82f6',
+                  borderRadius: 16,
+                  transform: [{ scale: hovered ? 1.02 : 1 }],
+                  transition: 'all 0.15s ease-in-out',
+                }
+              ]}
             >
               <View style={styles.playInner}>
-                <Ionicons name="people-outline" size={20} color="#fff" />
-                <Text style={styles.playText}>
+                <Ionicons name="people-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
+                <Text style={[styles.playText, { color: '#fff' }]}>
                   {isEN ? 'PLAY WITH FRIEND' : 'ከጓደኛ ጋር ይጫወቱ'}
                 </Text>
               </View>
-            </TouchableOpacity>
+            </WebPressable>
 
             {isBanned && (
               <Text style={{ color: 'rgba(253,111,133,0.6)', fontSize: 11, textAlign: 'center', marginTop: 6, fontWeight: '700', letterSpacing: 0.5 }}>
                 {isEN ? 'Your account is suspended · Contact support' : 'መለያዎ ታግዷል · ድጋፍን ያነጋግሩ'}
               </Text>
             )}
+
+            {/* Rules and info row */}
             <View style={styles.infoRow}>
-              <InfoPill icon="shield-checkmark-outline" text={isEN ? "Anti-cheat" : "ፀረ-ማታለል አለ"} />
+              <InfoPill icon="shield-checkmark-outline" text={isEN ? "Anti-cheat" : "ፀረ-ማታለል"} />
               <InfoPill icon="timer-outline" text={isEN ? "Fast rounds" : "ፈጣን ዙር"} />
               <InfoPill icon="cash-outline" text={isEN ? "Instant pay" : "ፈጣን ክፍያ"} />
-              <TouchableOpacity onPress={() => setRulesVisible(true)}>
+              <TouchableOpacity onPress={() => setRulesVisible(true)} style={{ flex: 1 }}>
                 <InfoPill icon="book-outline" text={isEN ? "Rules" : "ህጎች"} />
               </TouchableOpacity>
             </View>
@@ -1572,9 +2775,367 @@ export default function Landing() {
           onSelectRoom={onSelectRoom}
           onSelectAmount={selectAmount}
           isDesktop={false}
-          userCaps={{ r1_10: (user as any)?.r1_10_wins, r1_25: (user as any)?.r1_25_wins, r1_50: (user as any)?.r1_50_wins, r1_99: (user as any)?.r1_99_wins }}
+          userCaps={{ r1_10: (user as any)?.r1_10_wins, r1_25: (user as any)?.r1_25_wins, r1_50: (user as any)?.r1_50_wins, r1_99: (user as any)?.r1_99_wins, rooms_locked: appConfig.rooms_locked }}
         />
       )}
+
+      {/* Notifications Popover */}
+      <NotificationsPopover
+        visible={notificationsVisible}
+        onClose={() => setNotificationsVisible(false)}
+        onUnreadCountChange={setUnreadCount}
+      />
+
+      {/* Live Wins Real-time Ticker (Mobile) */}
+      {!isLargeScreen && currentWinAnnouncement && (
+        <Animated.View style={{
+          position: 'absolute',
+          bottom: Platform.OS === 'ios' ? 76 : 64, // connect to nav top exactly
+          left: 0,
+          right: 0,
+          zIndex: 9998,
+          height: 36,
+          overflow: 'hidden',
+          opacity: winTickerAnim.interpolate({
+            inputRange: [0, 1, 2],
+            outputRange: [0, 1, 0],
+          }),
+          transform: [{
+            translateY: winTickerAnim.interpolate({
+              inputRange: [0, 1, 2],
+              outputRange: [24, 0, -24],
+            })
+          }],
+        }} pointerEvents="none">
+          {/* Real-time Ticker Item - Left Aligned */}
+          <View style={{ height: 36, justifyContent: 'center', alignItems: 'flex-start', paddingLeft: 24 }}>
+            <Text style={{
+              color: '#00daf3',
+              fontSize: 12,
+              fontWeight: '900',
+              letterSpacing: 0.5,
+              textShadowColor: 'rgba(0, 218, 243, 0.4)',
+              textShadowOffset: { width: 0, height: 1 },
+              textShadowRadius: 6,
+              textAlign: 'left',
+            }} numberOfLines={1}>
+              {currentWinAnnouncement}
+            </Text>
+          </View>
+        </Animated.View>
+      )}
+
+      {/* Collapsible Floating Action Toolbar (Mobile) */}
+      {!isLargeScreen && (
+        <View style={{
+          position: 'absolute',
+          bottom: 95,
+          right: 24, // push to left parallel with headers
+          width: 50, // explicit width to center absolute children horizontally
+          zIndex: 9998,
+          alignItems: 'center',
+          justifyContent: 'flex-end',
+          height: 180,
+        }} pointerEvents="box-none">
+
+          {/* Expanded State Menu */}
+          <Animated.View
+            pointerEvents={floatingExpanded ? 'auto' : 'none'}
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              alignSelf: 'center',
+              backgroundColor: 'rgba(12, 12, 31, 0.85)',
+              borderRadius: 24,
+              borderWidth: 1,
+              borderColor: 'rgba(255, 255, 255, 0.12)',
+              padding: 8,
+              gap: 10,
+              alignItems: 'center',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 6 },
+              shadowOpacity: 0.3,
+              shadowRadius: 12,
+              elevation: 8,
+              opacity: floatingAnim,
+              transform: [
+                { scale: floatingAnim.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }) },
+                { translateY: floatingAnim.interpolate({ inputRange: [0, 1], outputRange: [60, 0] }) }
+              ]
+            }}
+          >
+            {/* Mute/Unmute */}
+            <TouchableOpacity
+              onPress={handleToggleSound}
+              activeOpacity={0.85}
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 19,
+                backgroundColor: bgMusicPlaying ? 'rgba(16,185,129,0.92)' : 'rgba(255,255,255,0.06)',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderWidth: 1,
+                borderColor: bgMusicPlaying ? '#10b981' : 'rgba(255,255,255,0.15)',
+              }}
+            >
+              <Ionicons name={bgMusicPlaying ? "volume-high" : "volume-mute"} size={16} color="#fff" />
+            </TouchableOpacity>
+
+            {/* Gift/Bonus logs (Cohesive Brand Purple theme matching accent) */}
+            <TouchableOpacity
+              onPress={() => setBonusModalVisible(true)}
+              activeOpacity={0.85}
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 19,
+                backgroundColor: 'rgba(0, 218, 243, 0.92)',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderWidth: 1,
+                borderColor: '#00daf3',
+              }}
+            >
+              <Ionicons name="gift" size={16} color="#0a0a0f" />
+            </TouchableOpacity>
+
+            {/* Close 'x' button to collapse */}
+            <TouchableOpacity
+              onPress={() => setFloatingExpanded(false)}
+              activeOpacity={0.85}
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 19,
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderWidth: 1,
+                borderColor: 'rgba(255, 255, 255, 0.2)',
+              }}
+            >
+              <Ionicons name="close" size={18} color="#fff" />
+            </TouchableOpacity>
+          </Animated.View>
+
+          {/* Collapsed '+' button */}
+          <Animated.View
+            pointerEvents={floatingExpanded ? 'none' : 'auto'}
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              alignSelf: 'center',
+              opacity: floatingAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
+              transform: [
+                { scale: floatingAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 0.6] }) },
+                { translateY: floatingAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 40] }) }
+              ]
+            }}
+          >
+            <TouchableOpacity
+              onPress={() => setFloatingExpanded(true)}
+              activeOpacity={0.85}
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 22,
+                overflow: 'hidden',
+                shadowColor: '#00daf3',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.35,
+                shadowRadius: 8,
+                elevation: 6
+              }}
+            >
+              <LinearGradient
+                colors={["#00daf3", "#00daf3"]}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+              >
+                <Ionicons name="add" size={24} color="#fff" />
+              </LinearGradient>
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
+      )}
+      <PromotionPopup config={promoConfig} visible={showPromo} onClose={() => setShowPromo(false)} />
+
+      {/* PWA Install Instructions Modal */}
+      <Modal
+        visible={pwaModalVisible}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setPwaModalVisible(false)}
+      >
+        <View style={{
+          flex: 1,
+          backgroundColor: 'rgba(0,0,0,0.85)',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: 20
+        }}>
+          <View style={{
+            backgroundColor: '#0c0c1f',
+            borderWidth: 1,
+            borderColor: 'rgba(0,218,243,0.2)',
+            borderRadius: 24,
+            padding: 24,
+            width: '100%',
+            maxWidth: 420,
+            shadowColor: '#000',
+            shadowOpacity: 0.5,
+            shadowRadius: 20,
+            elevation: 10
+          }}>
+            {/* Header */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <Text style={{ color: '#fff', fontSize: 18, fontWeight: '900' }}>Install XOET Web App</Text>
+              <TouchableOpacity onPress={() => setPwaModalVisible(false)} style={{ padding: 4 }}>
+                <Ionicons name="close" size={24} color="rgba(255,255,255,0.6)" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Device specific instructions */}
+            <View style={{ marginBottom: 24 }}>
+              {Platform.OS === 'web' && typeof navigator !== 'undefined' && /telegram/i.test(navigator.userAgent) ? (
+                // Telegram Browser Instructions
+                <View style={{ gap: 12 }}>
+                  <Text style={{ color: '#00daf3', fontWeight: '800', fontSize: 14 }}>Telegram Browser Detected:</Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, lineHeight: 18 }}>
+                    Telegram's in-app browser has sandbox restrictions that prevent installing web apps or downloading files directly.
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+                    <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,218,243,0.15)', alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ color: '#00daf3', fontSize: 12, fontWeight: '800' }}>1</Text>
+                    </View>
+                    <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, flex: 1 }}>
+                      Tap the <Text style={{ color: '#00daf3', fontWeight: 'bold' }}>three dots</Text> at the top right of this screen.
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+                    <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,218,243,0.15)', alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ color: '#00daf3', fontSize: 12, fontWeight: '800' }}>2</Text>
+                    </View>
+                    <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, flex: 1 }}>
+                      Select <Text style={{ color: '#00daf3', fontWeight: 'bold' }}>"Open in Browser"</Text> or <Text style={{ color: '#00daf3', fontWeight: 'bold' }}>"Open in Chrome/Safari"</Text>.
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+                    <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,218,243,0.15)', alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ color: '#00daf3', fontSize: 12, fontWeight: '800' }}>3</Text>
+                    </View>
+                    <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, flex: 1 }}>
+                      Once opened in your system browser, click the download button again.
+                    </Text>
+                  </View>
+                </View>
+              ) : Platform.OS === 'web' && typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent) ? (
+                // iOS Safari Instructions
+                <View style={{ gap: 12 }}>
+                  <Text style={{ color: '#00daf3', fontWeight: '800', fontSize: 14 }}>Instructions for iOS Safari:</Text>
+                  <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+                    <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,218,243,0.15)', alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ color: '#00daf3', fontSize: 12, fontWeight: '800' }}>1</Text>
+                    </View>
+                    <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, flex: 1 }}>
+                      Tap the <Text style={{ color: '#00daf3', fontWeight: 'bold' }}>Share</Text> button in Safari (box with an arrow pointing up at the bottom).
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+                    <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,218,243,0.15)', alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ color: '#00daf3', fontSize: 12, fontWeight: '800' }}>2</Text>
+                    </View>
+                    <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, flex: 1 }}>
+                      Scroll down the share menu and select <Text style={{ color: '#00daf3', fontWeight: 'bold' }}>"Add to Home Screen"</Text>.
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+                    <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,218,243,0.15)', alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ color: '#00daf3', fontSize: 12, fontWeight: '800' }}>3</Text>
+                    </View>
+                    <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, flex: 1 }}>
+                      Tap <Text style={{ color: '#00daf3', fontWeight: 'bold' }}>"Add"</Text> in the top right corner to complete installation.
+                    </Text>
+                  </View>
+                </View>
+              ) : (
+                // Android / Desktop Instructions
+                <View style={{ gap: 12 }}>
+                  <Text style={{ color: '#00daf3', fontWeight: '800', fontSize: 14 }}>How to Install:</Text>
+                  <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+                    <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,218,243,0.15)', alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ color: '#00daf3', fontSize: 12, fontWeight: '800' }}>1</Text>
+                    </View>
+                    <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, flex: 1 }}>
+                      Open your browser's menu (three dots icon in Chrome) and select <Text style={{ color: '#00daf3', fontWeight: 'bold' }}>"Add to Home Screen"</Text> or <Text style={{ color: '#00daf3', fontWeight: 'bold' }}>"Install App"</Text>.
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+                    <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,218,243,0.15)', alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ color: '#00daf3', fontSize: 12, fontWeight: '800' }}>2</Text>
+                    </View>
+                    <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, flex: 1 }}>
+                      On desktop, look for the <Text style={{ color: '#00daf3', fontWeight: 'bold' }}>Install icon</Text> in the browser address bar next to the URL.
+                    </Text>
+                  </View>
+                </View>
+              )}
+            </View>
+
+            {/* Fallback to Android APK */}
+            <View style={{ borderTopWidth: 1, borderColor: 'rgba(255,255,255,0.06)', paddingTop: 16 }}>
+              {Platform.OS === 'web' && typeof navigator !== 'undefined' && /telegram/i.test(navigator.userAgent) ? (
+                <>
+                  <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '700', marginBottom: 12, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    Android Users (Via Telegram Channel)
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      Linking.openURL('https://t.me/xoethiopia1').catch(() => { });
+                    }}
+                    style={{
+                      backgroundColor: '#0088cc',
+                      borderRadius: 12,
+                      paddingVertical: 12,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8
+                    }}
+                  >
+                    <Ionicons name="paper-plane-outline" size={18} color="#fff" />
+                    <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>Get APK from Channel</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '700', marginBottom: 12, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    Android Users (Direct APK)
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      Linking.openURL('https://xoethiopia.com/xoet.apk').catch(() => { });
+                    }}
+                    style={{
+                      backgroundColor: '#ef4444',
+                      borderRadius: 12,
+                      paddingVertical: 12,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8
+                    }}
+                  >
+                    <Ionicons name="cloud-download-outline" size={18} color="#fff" />
+                    <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>Download Android APK</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1593,25 +3154,41 @@ const styles = StyleSheet.create({
   // blobs
   blob: {
     position: "absolute",
-    width: 600,
-    height: 600,
-    borderRadius: 300,
-    opacity: 0.05,
-    backgroundColor: "#a68cff",
-    top: "10%",
-    left: "20%",
+    width: 450,
+    height: 450,
+    borderRadius: 225,
+    opacity: 0.12,
+    ...Platform.select({
+      web: {
+        filter: "blur(80px)",
+      } as any,
+    }),
   },
-  blob1: {},
-  blob2: { bottom: "-10%", right: "-5%", backgroundColor: "#00daf3", opacity: 0.08, top: "auto", left: "auto" },
+  blob1: {
+    top: "5%",
+    left: "-20%",
+    backgroundColor: "#ff4766", // Glowing Coral Red
+  },
+  blob2: {
+    bottom: "15%",
+    right: "-30%",
+    backgroundColor: "#00daf3", // Glowing Cyan
+  },
+  blob3: {
+    top: "45%",
+    left: "15%",
+    backgroundColor: "#1b1a24", // Glowing Stealth Grey
+    opacity: 0.08,
+    width: 500,
+    height: 500,
+    borderRadius: 250,
+  },
 
   // floating dots
   floatingLayer: { ...StyleSheet.absoluteFillObject },
   floatDot: {
     position: "absolute",
-    width: 84,
-    height: 84,
-    borderRadius: 42,
-    backgroundColor: "rgba(255,255,255,0.03)",
+    backgroundColor: "#ffffff",
   },
 
   // header
@@ -1636,41 +3213,41 @@ const styles = StyleSheet.create({
   pillInner: { height: 38, paddingHorizontal: 12, borderRadius: 14, flexDirection: "row", alignItems: "center", gap: 8 },
   pillText: { color: "#fff", fontSize: 12, fontWeight: "900" },
 
-balanceCard: {
-  marginTop: 12,
-  borderRadius: 22,
-  padding: 14,
-  overflow: "hidden",
-  borderWidth: 1,
-  borderColor: "rgba(166,139,255,0.2)", // brighter edge
-  backgroundColor: "rgba(12,12,31,0.6)", // lighter base
-  flexDirection: "row",
-  alignItems: "center",
-  justifyContent: "space-between",
-},
+  balanceCard: {
+    marginTop: 12,
+    borderRadius: 22,
+    padding: 14,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#27272a", // sleek NextUI border
+    backgroundColor: "rgba(24,24,27,0.7)", // dark slate surface base
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
 
-balanceLabel: { color: "rgba(255,255,255,0.62)", fontSize: 12, fontWeight: "800" },
-balanceValue: { marginTop: 4, color: "rgba(255,255,255,0.98)", fontSize: 22, fontWeight: "900" },
+  balanceLabel: { color: "rgba(255,255,255,0.62)", fontSize: 12, fontWeight: "800" },
+  balanceValue: { marginTop: 4, color: "rgba(255,255,255,0.98)", fontSize: 22, fontWeight: "900" },
 
-refreshInner: {
-  height: 38,
-  paddingHorizontal: 12,
-  borderRadius: 16,
-  flexDirection: "row",
-  alignItems: "center",
-  gap: 8,
-  borderWidth: 1,
-  borderColor: "rgba(255,255,255,0.12)",
-},
-refreshText: { color: "rgba(255,255,255,0.92)", fontWeight: "900", fontSize: 12 },
+  refreshInner: {
+    height: 38,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+  },
+  refreshText: { color: "rgba(255,255,255,0.92)", fontWeight: "900", fontSize: 12 },
 
   balanceLeft: { flex: 1 },
   refreshBtn: { borderRadius: 16, overflow: "hidden" },
   quickScroll: { paddingVertical: 12, paddingHorizontal: 4, gap: 10 },
   quickGrid: { flexDirection: 'row', gap: 10 },
-  
+
   // Quick Tile
-  tile: { flex: 1, borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  tile: { flex: 1, borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: '#27272a', backgroundColor: 'rgba(24,24,27,0.5)' },
   tileIcon: { padding: 12, alignItems: 'flex-start' },
   tileIconInner: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   tileTextWrap: { paddingHorizontal: 12, paddingBottom: 14 },
@@ -1684,8 +3261,8 @@ refreshText: { color: "rgba(255,255,255,0.92)", fontWeight: "900", fontSize: 12 
     padding: 16,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.16)",
-    backgroundColor: "rgba(10,12,28,0.18)", // lighter base
+    borderColor: "#27272a",
+    backgroundColor: "#18181b",
   },
   heroRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   logoWrap: {
@@ -1700,15 +3277,15 @@ refreshText: { color: "rgba(255,255,255,0.92)", fontWeight: "900", fontSize: 12 
   logo: { width: "100%", height: "100%" },
   heroTitle: { color: "rgba(255,255,255,0.96)", fontSize: 16, fontWeight: "900", letterSpacing: 0.2 },
   heroSub: { marginTop: 4, color: "rgba(255,255,255,0.55)", fontSize: 12, fontWeight: "600", lineHeight: 16 },
-  boardWrap: { 
-    marginTop: 14, 
-    borderRadius: 24, 
-    padding: 24, 
-    backgroundColor: "rgba(0,0,0,0.18)", 
-    borderWidth: 1, 
+  boardWrap: {
+    marginTop: 14,
+    borderRadius: 24,
+    padding: 24,
+    backgroundColor: "rgba(0,0,0,0.18)",
+    borderWidth: 1,
     borderColor: "rgba(255,255,255,0.08)",
-    alignItems: 'center', 
-    justifyContent: 'center' 
+    alignItems: 'center',
+    justifyContent: 'center'
   },
   board: { borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", borderRadius: 14, overflow: "hidden" },
   boardRow: { flexDirection: "row" },
@@ -1977,7 +3554,7 @@ refreshText: { color: "rgba(255,255,255,0.92)", fontWeight: "900", fontSize: 12 
     marginHorizontal: 28,
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#7c4dff',
+    shadowColor: '#00daf3',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
     shadowRadius: 16,
@@ -2110,7 +3687,7 @@ refreshText: { color: "rgba(255,255,255,0.92)", fontWeight: "900", fontSize: 12 
     width: 200,
     height: 200,
     borderRadius: 100,
-    backgroundColor: '#a68cff',
+    backgroundColor: '#00daf3',
   },
   searchRings: {
     position: 'absolute',
@@ -2293,7 +3870,7 @@ refreshText: { color: "rgba(255,255,255,0.92)", fontWeight: "900", fontSize: 12 
     backgroundColor: 'rgba(4,4,12,0.6)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.05)',
-    shadowColor: '#a68cff',
+    shadowColor: '#00daf3',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.1,
     shadowRadius: 20,
@@ -2324,19 +3901,19 @@ refreshText: { color: "rgba(255,255,255,0.92)", fontWeight: "900", fontSize: 12 
     fontWeight: '900',
   },
   neonOText: {
-    color: '#00daf3',
-    textShadowColor: 'rgba(0, 218, 243, 0.8)',
+    color: '#00f0ff',
+    textShadowColor: 'rgba(0, 240, 255, 0.85)',
     textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 10,
+    textShadowRadius: 18,
   },
   neonXText: {
-    color: '#fd6f85',
-    textShadowColor: 'rgba(253, 111, 133, 0.8)',
+    color: '#ff2d55',
+    textShadowColor: 'rgba(255, 45, 85, 0.85)',
     textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 10,
+    textShadowRadius: 18,
   },
   neonCtaOuter: {
-    shadowColor: '#a68cff',
+    shadowColor: '#00daf3',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.4,
     shadowRadius: 16,
@@ -2362,9 +3939,9 @@ refreshText: { color: "rgba(255,255,255,0.92)", fontWeight: "900", fontSize: 12 
   exitSheet: {
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    backgroundColor: "rgba(10,12,24,0.98)",
+    backgroundColor: "#18181b",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
+    borderColor: "#27272a",
     padding: 16,
     paddingBottom: 18,
   },
@@ -2399,7 +3976,7 @@ refreshText: { color: "rgba(255,255,255,0.92)", fontWeight: "900", fontSize: 12 
   exitDangerText: { color: "#fff", fontWeight: "900" },
 
   // Sheets & Modals
-  sheetBackdrop: { 
+  sheetBackdrop: {
     position: 'absolute',
     top: 0, left: 0, right: 0, bottom: 0,
     backgroundColor: "rgba(10,12,24,0.6)",
@@ -2408,14 +3985,14 @@ refreshText: { color: "rgba(255,255,255,0.92)", fontWeight: "900", fontSize: 12 
   desktopModal: {
     width: '92%',
     maxWidth: 420,
-    backgroundColor: '#171728',
+    backgroundColor: '#18181b',
     borderRadius: 32,
     borderWidth: 1,
-    borderColor: 'rgba(166,139,255,0.2)',
+    borderColor: '#27272a',
     overflow: 'hidden',
-    shadowColor: '#a68cff',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.45,
     shadowRadius: 40,
     elevation: 20,
     alignSelf: 'center',
@@ -2427,7 +4004,7 @@ refreshText: { color: "rgba(255,255,255,0.92)", fontWeight: "900", fontSize: 12 
     position: "absolute",
     bottom: 0,
     width: "100%",
-    backgroundColor: "#171725",
+    backgroundColor: "#18181b",
     borderTopLeftRadius: 40,
     borderTopRightRadius: 40,
     minHeight: 420,
@@ -2438,7 +4015,7 @@ refreshText: { color: "rgba(255,255,255,0.92)", fontWeight: "900", fontSize: 12 
     shadowRadius: 30,
     elevation: 24,
     borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.12)",
+    borderTopColor: "#27272a",
     zIndex: 10001,
   },
   sheetCloseBtn: {
@@ -2458,62 +4035,62 @@ refreshText: { color: "rgba(255,255,255,0.92)", fontWeight: "900", fontSize: 12 
     marginTop: 24,
     marginBottom: 28,
   },
-  sheetTitle: { 
-    color: "#fff", 
-    fontSize: 26, 
-    fontWeight: "900", 
-    letterSpacing: 0.4 
+  sheetTitle: {
+    color: "#fff",
+    fontSize: 26,
+    fontWeight: "900",
+    letterSpacing: 0.4
   },
-  sheetSubTitle: { 
-    color: "rgba(255,255,255,0.5)", 
-    fontSize: 14, 
-    marginTop: 4, 
-    fontWeight: "600" 
+  sheetSubTitle: {
+    color: "rgba(255,255,255,0.5)",
+    fontSize: 14,
+    marginTop: 4,
+    fontWeight: "600"
   },
-  sheetContent: { 
-    paddingBottom: 100 
+  sheetContent: {
+    paddingBottom: 100
   },
 
-  roomList: { 
-    paddingHorizontal: 24, 
-    gap: 12 
+  roomList: {
+    paddingHorizontal: 24,
+    gap: 12
   },
-  roomBtn: { 
-    borderRadius: 18, 
+  roomBtn: {
+    borderRadius: 18,
     overflow: "hidden",
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
   },
-  roomInner: { 
-    paddingVertical: 22, 
-    paddingHorizontal: 22, 
-    flexDirection: "row", 
-    alignItems: "center", 
-    gap: 16 
+  roomInner: {
+    paddingVertical: 22,
+    paddingHorizontal: 22,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16
   },
-  roomName: { 
-    color: "#fff", 
-    fontSize: 18, 
-    fontWeight: "900", 
-    letterSpacing: 0.3 
+  roomName: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "900",
+    letterSpacing: 0.3
   },
-  roomDetail: { 
-    color: "rgba(255,255,255,0.85)", 
-    fontSize: 13, 
-    marginTop: 3, 
-    fontWeight: "700" 
+  roomDetail: {
+    color: "rgba(255,255,255,0.85)",
+    fontSize: 13,
+    marginTop: 3,
+    fontWeight: "700"
   },
-  roomAction: { 
-    flexDirection: "row", 
-    alignItems: "center", 
-    gap: 6 
+  roomAction: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6
   },
-  viewText: { 
-    color: "#fff", 
-    fontSize: 13, 
-    fontWeight: "900" 
+  viewText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "900"
   },
 
   amountGrid: {
@@ -2542,10 +4119,10 @@ refreshText: { color: "rgba(255,255,255,0.92)", fontWeight: "900", fontSize: 12 
     lineHeight: 18,
   },
 
-  amountBox: { 
-    width: "47%", 
+  amountBox: {
+    width: "47%",
     aspectRatio: 1.4,
-    borderRadius: 20, 
+    borderRadius: 20,
     backgroundColor: "rgba(255,255,255,0.02)",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.08)",
@@ -2560,15 +4137,15 @@ refreshText: { color: "rgba(255,255,255,0.92)", fontWeight: "900", fontSize: 12 
     alignItems: 'center',
     gap: 6,
   },
-  amountVal: { 
-    color: "rgba(255,255,255,0.6)", 
-    fontWeight: "900", 
+  amountVal: {
+    color: "rgba(255,255,255,0.6)",
+    fontWeight: "900",
     fontSize: 18,
     letterSpacing: 0.5,
   },
-  amountCommission: { 
-    color: "rgba(255,255,255,0.3)", 
-    fontWeight: "800", 
+  amountCommission: {
+    color: "rgba(255,255,255,0.3)",
+    fontWeight: "800",
     fontSize: 10,
     textTransform: 'uppercase',
   },
@@ -2603,35 +4180,35 @@ refreshText: { color: "rgba(255,255,255,0.92)", fontWeight: "900", fontSize: 12 
   },
 
   // ─── Desktop Hub Styles ───
-  desktopHubRoot: { flex: 1, backgroundColor: '#0c0c1f' },
-  hubDesktopGrid: { flexDirection: 'row', gap: 40, maxWidth: 1400, alignSelf: 'center', width: '100%', paddingHorizontal: 40, marginTop: 40 },
-  desktopMainCol: { flex: 8, gap: 28 },
-  desktopSideCol: { flex: 4, gap: 28 },
+  desktopHubRoot: { flex: 1, backgroundColor: 'transparent' },
+  hubDesktopGrid: { flexDirection: 'row', gap: 24, maxWidth: 1240, alignSelf: 'center', width: '100%', paddingHorizontal: 24, marginTop: 24 },
+  desktopMainCol: { flex: 8, gap: 16 },
+  desktopSideCol: { flex: 4, gap: 16 },
 
   // Glass Panel
   glassCard: {
-    backgroundColor: 'rgba(23, 23, 50, 0.4)',
+    backgroundColor: 'rgba(24, 24, 27, 0.75)',
     borderRadius: 36,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: 'rgba(39, 39, 42, 0.6)',
     padding: 40,
     overflow: 'hidden',
   },
-  
+
   // Gameplay Hub Specifics
   hubTitle: { color: '#fff', fontSize: 42, fontWeight: '900', letterSpacing: -1, marginBottom: 10, textAlign: 'center' },
   hubSub: { color: 'rgba(229, 227, 255, 0.5)', fontSize: 16, fontWeight: '600', textAlign: 'center', marginBottom: 44 },
-  
+
   hubBoardContainer: { alignItems: 'center', justifyContent: 'center', marginVertical: 24 },
-  playNowBtn: { marginTop: 44, borderRadius: 22, overflow: 'hidden', shadowColor: '#a68cff', shadowOffset: { width: 0, height: 14 }, shadowOpacity: 0.3, shadowRadius: 28, alignSelf: 'center', width: 340 },
-  playNowInner: { paddingVertical: 26, alignItems: 'center', justifyContent: 'center' },
+  playNowBtn: { marginTop: 24, borderRadius: 22, overflow: 'hidden', shadowColor: '#00daf3', shadowOffset: { width: 0, height: 14 }, shadowOpacity: 0.3, shadowRadius: 28, alignSelf: 'center', width: 280 },
+  playNowInner: { paddingVertical: 20, alignItems: 'center', justifyContent: 'center' },
   playNowText: { color: '#fff', fontSize: 22, fontWeight: '900', letterSpacing: 1.5 },
 
   // Bento Stats
   statsBento: { flexDirection: 'row', gap: 24 },
-  bentoCard: { flex: 1, backgroundColor: 'rgba(23,23,50,0.4)', borderRadius: 28, padding: 28, flexDirection: 'row', alignItems: 'center', gap: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  bentoCard: { flex: 1, backgroundColor: 'rgba(24, 24, 27, 0.5)', borderRadius: 28, padding: 28, flexDirection: 'row', alignItems: 'center', gap: 24, borderWidth: 1, borderColor: '#27272a' },
   bentoIcon: { width: 64, height: 64, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
-  bentoLabel: { color: 'rgba(167,139,250,0.5)', fontSize: 12, fontWeight: '800', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 6 },
+  bentoLabel: { color: 'rgba(0, 218, 243, 0.5)', fontSize: 12, fontWeight: '800', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 6 },
   bentoValue: { color: '#fff', fontSize: 28, fontWeight: '900' },
 
   // Account Card
@@ -2641,12 +4218,12 @@ refreshText: { color: "rgba(255,255,255,0.92)", fontWeight: "900", fontSize: 12 
   accountRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22 },
   accountLabel: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   accountValue: { color: '#fff', fontWeight: '800', fontSize: 15 },
-  verifiedPill: { backgroundColor: 'rgba(166,140,255,0.15)', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(166,140,255,0.3)' },
-  verifiedText: { color: '#a68cff', fontSize: 12, fontWeight: '900', textTransform: 'uppercase' },
+  verifiedPill: { backgroundColor: 'rgba(0,218,243,0.15)', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(0,218,243,0.3)' },
+  verifiedText: { color: '#00daf3', fontSize: 12, fontWeight: '900', textTransform: 'uppercase' },
 
   // Quick Actions
   actionGrid: { flexDirection: 'row', gap: 14, marginTop: 12 },
-  actionBtn: { flex: 1, height: 90, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  actionBtn: { flex: 1, height: 90, borderRadius: 22, backgroundColor: 'rgba(24, 24, 27, 0.5)', borderWidth: 1, borderColor: '#27272a', alignItems: 'center', justifyContent: 'center', gap: 10 },
   actionLabel: { color: '#fff', fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
 
   // Quick Stats
@@ -2661,7 +4238,7 @@ refreshText: { color: "rgba(255,255,255,0.92)", fontWeight: "900", fontSize: 12 
   txPanel: { padding: 32 },
   txHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
   txList: { gap: 18 },
-  txItem: { flexDirection: 'row', alignItems: 'center', gap: 16, backgroundColor: 'rgba(255,255,255,0.06)', padding: 14, borderRadius: 18, marginBottom: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  txItem: { flexDirection: 'row', alignItems: 'center', gap: 16, backgroundColor: 'rgba(24, 24, 27, 0.4)', padding: 14, borderRadius: 18, marginBottom: 10, borderWidth: 1, borderColor: '#27272a' },
   txIcon: { width: 50, height: 50, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   txMain: { flex: 1 },
   txLabel: { color: '#fff', fontSize: 15, fontWeight: '800' },
@@ -2718,10 +4295,10 @@ refreshText: { color: "rgba(255,255,255,0.92)", fontWeight: "900", fontSize: 12 
   promoInputBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    backgroundColor: 'rgba(24,24,27,0.7)',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(0,218,243,0.15)',
+    borderColor: '#27272a',
     paddingLeft: 16,
     paddingRight: 6,
     height: 54,

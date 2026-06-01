@@ -84,6 +84,15 @@ function AuthGate({ children }: PropsWithChildren) {
 }
 import { PwaInstallBanner } from "../components/PwaInstallBanner";
 
+// Capture PWA install prompt globally to prevent timing issues
+if (Platform.OS === 'web' && typeof window !== 'undefined') {
+  window.addEventListener('beforeinstallprompt', (e: any) => {
+    e.preventDefault();
+    (window as any).deferredPrompt = e;
+    window.dispatchEvent(new CustomEvent('pwa-prompt-ready'));
+  });
+}
+
 function RootLayout() {
   if (Platform.OS === 'web' && typeof document !== 'undefined') {
     const styleId = 'global-input-outline-fix';
@@ -94,8 +103,8 @@ function RootLayout() {
       style.innerHTML = `
         input:focus, textarea:focus {
           outline: none !important;
-          box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.4) !important;
-          border-color: #7C3AED !important;
+          box-shadow: 0 0 0 2px rgba(0, 218, 243, 0.4) !important;
+          border-color: #00daf3 !important;
         }
         
         /* Custom Scrollbars for Data Lists */
@@ -116,6 +125,53 @@ function RootLayout() {
         }
       `;
       document.head.appendChild(style);
+    }
+
+    // PWA meta tags injection
+    const pwaMetaId = 'pwa-meta-tags';
+    if (!document.getElementById(pwaMetaId)) {
+      const frag = document.createDocumentFragment();
+      const marker = document.createElement('meta');
+      marker.id = pwaMetaId;
+      marker.name = 'pwa-injected';
+      marker.content = 'true';
+      frag.appendChild(marker);
+
+      // Manifest link
+      if (!document.querySelector('link[rel="manifest"]')) {
+        const manifestLink = document.createElement('link');
+        manifestLink.rel = 'manifest';
+        manifestLink.href = '/manifest.json';
+        frag.appendChild(manifestLink);
+      }
+
+      // Theme color
+      if (!document.querySelector('meta[name="theme-color"]')) {
+        const themeColor = document.createElement('meta');
+        themeColor.name = 'theme-color';
+        themeColor.content = '#0a0a14';
+        frag.appendChild(themeColor);
+      }
+
+      // Apple mobile web app
+      if (!document.querySelector('meta[name="apple-mobile-web-app-capable"]')) {
+        const appleMeta = document.createElement('meta');
+        appleMeta.name = 'apple-mobile-web-app-capable';
+        appleMeta.content = 'yes';
+        frag.appendChild(appleMeta);
+
+        const appleStatusBar = document.createElement('meta');
+        appleStatusBar.name = 'apple-mobile-web-app-status-bar-style';
+        appleStatusBar.content = 'black-translucent';
+        frag.appendChild(appleStatusBar);
+
+        const appleTitle = document.createElement('meta');
+        appleTitle.name = 'apple-mobile-web-app-title';
+        appleTitle.content = 'XO ET';
+        frag.appendChild(appleTitle);
+      }
+
+      document.head.appendChild(frag);
     }
   }
 
@@ -238,7 +294,7 @@ const BootSplash = memo(function BootSplash({ status }: { status: string }) {
           <View style={styles.logoFrame}>
             <Image source={require("../assets/images/icon.jpg")} style={styles.logo} />
             <LinearGradient
-              colors={["rgba(124,58,237,0.25)", "transparent"]}
+              colors={["rgba(0,218,243,0.25)", "transparent"]}
               style={StyleSheet.absoluteFill}
             />
           </View>
@@ -256,7 +312,7 @@ const BootSplash = memo(function BootSplash({ status }: { status: string }) {
             {status}
           </Text>
 
-          <ActivityIndicator color="#7C3AED" />
+          <ActivityIndicator color="#00daf3" />
         </View>
 
         {/* tiny progress bar shimmer (very cheap) */}
@@ -286,7 +342,7 @@ const styles = StyleSheet.create({
     height: 320,
     borderRadius: 999,
     opacity: 0.06,
-    backgroundColor: "#a78bfa",
+    backgroundColor: "#00daf3",
   },
   blob1: { top: -140, left: -140 },
   blob2: { bottom: -170, right: -160, backgroundColor: "#00daf3", opacity: 0.04 },
@@ -311,7 +367,7 @@ const styles = StyleSheet.create({
     height: 92,
     borderRadius: 46,
     borderWidth: 2,
-    borderColor: "rgba(167,139,250,0.4)",
+    borderColor: "rgba(0,218,243,0.4)",
   },
   logoFrame: {
     width: 76,
@@ -356,9 +412,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(167,139,250,0.15)",
+    backgroundColor: "rgba(0,218,243,0.15)",
     borderWidth: 1,
-    borderColor: "rgba(167,139,250,0.2)",
+    borderColor: "rgba(0,218,243,0.2)",
   },
   statusText: { flex: 1, color: "rgba(255,255,255,0.85)", fontWeight: "800", fontSize: 12 },
 
@@ -375,6 +431,6 @@ const styles = StyleSheet.create({
   barInner: {
     height: "100%",
     borderRadius: 999,
-    backgroundColor: "rgba(167,139,250,0.4)",
+    backgroundColor: "rgba(0,218,243,0.4)",
   },
 });

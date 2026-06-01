@@ -292,12 +292,12 @@ const s = StyleSheet.create({
   pageSubtitle: { fontSize: 14, color: C.onSurfaceVariant },
   
   card: {
-    backgroundColor: 'rgba(23,23,50,0.6)',
+    backgroundColor: 'rgba(24, 24, 27, 0.65)',
     borderRadius: 24,
     padding: 24,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: 'rgba(166,140,255,0.2)',
+    borderColor: 'rgba(39, 39, 42, 0.6)',
     shadowColor: C.primary,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15,

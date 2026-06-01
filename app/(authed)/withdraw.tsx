@@ -92,7 +92,7 @@ const OneToast = memo(function OneToast({ item, onDone }: { item: ToastItem; onD
 });
 
 // ---------------- Components ----------------
-const Notice = memo(function Notice({ type, text, onClose }: { type: "error" | "info"; text: string; onClose?: () => void; }) {
+const Notice = memo(function Notice({ type, text, onClose }: { type: "error" | "info" | "warning"; text: string; onClose?: () => void; }) {
   const isErr = type === "error";
   return (
     <View style={[styles.notice, isErr ? styles.noticeErr : styles.noticeInfo]}>
@@ -178,6 +178,7 @@ export default function WithdrawScreen() {
   const [showGameWarning, setShowGameWarning] = useState(false);
   const [notice, setNotice] = useState<{ type: "info" | "warning" | "error"; text: string } | null>(null);
   const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const webRef = useRef<WebView>(null);
 
   const amountNumber = useMemo(() => Number(String(amount).replace(/[^\d.]/g, "")) || 0, [amount]);
@@ -298,7 +299,7 @@ export default function WithdrawScreen() {
             
             {isDesktop && (
               <>
-                <View style={[styles.glowBg, { top: -200, right: -200, backgroundColor: 'rgba(167,139,250,0.05)' }]} />
+                <View style={[styles.glowBg, { top: -200, right: -200, backgroundColor: 'rgba(0,218,243,0.05)' }]} />
                 <View style={[styles.glowBg, { bottom: -200, left: -200, backgroundColor: 'rgba(0,218,243,0.03)' }]} />
               </>
             )}
@@ -350,9 +351,9 @@ export default function WithdrawScreen() {
                       onChangeText={(t) => setAmount(t.replace(/[^0-9]/g, ''))}
                       keyboardType="numeric"
                       placeholder="0"
-                      placeholderTextColor="rgba(166,139,255,0.3)"
+                      placeholderTextColor="rgba(0,218,243,0.3)"
                       style={[styles.amountInput, isInvalidAmount && { color: "#f87171" }]}
-                      selectionColor="#a68cff"
+                      selectionColor="#00daf3"
                     />
                   </View>
                   <View style={styles.presetRow}>
@@ -385,9 +386,9 @@ export default function WithdrawScreen() {
                     onChangeText={setAccountNumber}
                     keyboardType="numeric"
                     placeholder="2519..."
-                    placeholderTextColor="rgba(166,139,255,0.4)"
+                    placeholderTextColor="rgba(0,218,243,0.4)"
                     style={[styles.amountInput, { fontSize: 22 }]}
-                    selectionColor="#a68cff"
+                    selectionColor="#00daf3"
                   />
                 </View>
               </View>
@@ -479,11 +480,11 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 16 },
   headerBtn: {
     width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center",
-    backgroundColor: "rgba(166,139,255,0.08)", borderWidth: 1, borderColor: "rgba(166,139,255,0.15)",
+    backgroundColor: "rgba(0,218,243,0.08)", borderWidth: 1, borderColor: "rgba(0,218,243,0.15)",
   },
   headerTitle: { color: "#e5e3ff", fontWeight: "900", fontSize: 20, letterSpacing: 0.5 },
   headerSub: { color: "rgba(168,167,212,0.6)", fontWeight: "700", fontSize: 13, marginTop: 4 },
-  hero: { marginTop: 12, borderRadius: 24, padding: 20, borderWidth: 1, borderColor: "rgba(166,139,255,0.2)", flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  hero: { marginTop: 12, borderRadius: 24, padding: 20, borderWidth: 1, borderColor: "rgba(0,218,243,0.2)", flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   heroLeft: { flex: 1 },
   heroKicker: { color: "rgba(168,167,212,0.8)", fontWeight: "800", fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 },
   heroText: { color: "#fff", fontWeight: "900", fontSize: 18, marginTop: 4 },
@@ -497,14 +498,14 @@ const styles = StyleSheet.create({
   noticeClose: { padding: 4 },
   block: { marginTop: 28 },
   blockTitle: { color: "rgba(229,227,255,0.5)", fontWeight: "900", fontSize: 12, marginBottom: 14, textTransform: 'uppercase', letterSpacing: 1.5 },
-  amountCard: { borderRadius: 24, padding: 20, backgroundColor: "rgba(166,139,255,0.05)", borderWidth: 1, borderColor: "rgba(166,139,255,0.1)" },
+  amountCard: { borderRadius: 24, padding: 20, backgroundColor: "rgba(0,218,243,0.05)", borderWidth: 1, borderColor: "rgba(0,218,243,0.1)" },
   amountCardError: { borderColor: "#f87171", borderWidth: 2, backgroundColor: "rgba(248,113,113,0.03)" },
-  amountTopRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: "rgba(166,139,255,0.1)" },
+  amountTopRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: "rgba(0,218,243,0.1)" },
   amountPrefix: { color: "rgba(168,167,212,0.5)", fontWeight: "900", fontSize: 18 },
   amountInput: { fontWeight: "900", fontSize: 32, padding: 0, flex: 1, color: '#fff' },
   presetRow: { flexDirection: "row", gap: 12, marginTop: 16 },
-  preset: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 14, backgroundColor: "rgba(166,139,255,0.1)", borderWidth: 1, borderColor: "rgba(166,139,255,0.2)" },
-  presetText: { color: "#a68cff", fontWeight: "900", fontSize: 14 },
+  preset: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 14, backgroundColor: "rgba(0,218,243,0.1)", borderWidth: 1, borderColor: "rgba(0,218,243,0.2)" },
+  presetText: { color: "#00daf3", fontWeight: "900", fontSize: 14 },
   limitHint: { color: 'rgba(168,167,212,0.4)', fontSize: 11, fontWeight: '700', marginTop: 10, paddingLeft: 4 },
   methodsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   methodGridItem: { minWidth: 160, flexGrow: 1, flexBasis: '46%' },
@@ -539,11 +540,11 @@ const styles = StyleSheet.create({
   webWrap: { flex: 1, backgroundColor: "#0c0c1f" },
   webHeader: {
     height: 64, paddingHorizontal: 16, flexDirection: "row", alignItems: "center",
-    justifyContent: "space-between", borderBottomWidth: 1, borderBottomColor: "rgba(166,139,255,0.1)",
+    justifyContent: "space-between", borderBottomWidth: 1, borderBottomColor: "rgba(0,218,243,0.1)",
   },
   webBtn: {
     width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center",
-    backgroundColor: "rgba(166,139,255,0.08)",
+    backgroundColor: "rgba(0,218,243,0.08)",
   },
   webTitle: { color: "#fff", fontWeight: "900", fontSize: 16 },
 });

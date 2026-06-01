@@ -12,27 +12,28 @@ import { useAuth } from '../../../context/authContext';
 import { API_URL } from '../../../config';
 import LogoutConfirmation from '../../../components/LogoutConfirmation';
 import { useBackgroundMusic } from '../../../context/BackgroundMusicProvider';
+import AdminGlobalSearch from '../../../components/AdminGlobalSearch';
 
 
 // ─── Design Tokens ────────────────────────────────────────────
 export const AdminTheme = {
-  primary: '#a68cff',
-  primaryContainer: '#7c4dff',
+  primary: '#00daf3',
+  primaryContainer: '#00a3ff',
   secondary: '#00daf3',
-  tertiaryDim: '#ff51fa',
-  tertiary: '#ffabf3',
-  background: '#0c0c1f',
-  surface: '#0B0B1E',
-  surfaceContainerLowest: '#000000',
-  surfaceContainerLow: '#111128',
-  surfaceContainer: '#171732',
-  surfaceContainerHigh: '#1c1c3c',
-  surfaceContainerHighest: '#222246',
-  onSurface: '#e5e3ff',
-  onSurfaceVariant: '#a8a7d4',
-  outlineVariant: 'rgba(68,68,107,0.3)',
-  error: '#fd6f85',
-  errorContainer: '#8a1632',
+  tertiaryDim: '#00daf3',
+  tertiary: '#00a3ff',
+  background: '#09090b',
+  surface: '#18181b',
+  surfaceContainerLowest: '#030303',
+  surfaceContainerLow: '#0f0f11',
+  surfaceContainer: '#1e1e24',
+  surfaceContainerHigh: '#27272a',
+  surfaceContainerHighest: '#3f3f46',
+  onSurface: '#f4f4f5',
+  onSurfaceVariant: '#a1a1aa',
+  outlineVariant: 'rgba(39, 39, 42, 0.6)',
+  error: '#ef4444',
+  errorContainer: '#7f1d1d',
 };
 
 const C = AdminTheme;
@@ -42,11 +43,14 @@ const TOPBAR_H = 60;
 
  const NAV_ITEMS = [
    { icon: 'grid',    label: 'Overview',        path: '/admin' },
+   { icon: 'wallet',  label: 'Financial',       path: '/admin/financial' },
+   { icon: 'options', label: 'Control Center', path: '/admin/controls' },
    { icon: 'people',  label: 'Users',           path: '/admin/users' },
    { icon: 'cash',    label: 'Transaction',     path: '/admin/ledger' },
    { icon: 'list',    label: 'Game Logs',       path: '/admin/logs' },
    { icon: 'link',    label: 'Promotions',      path: '/admin/promotion-links' },
    { icon: 'shield-checkmark', label: 'Audit Logs', path: '/admin/audit' },
+   { icon: 'podium',  label: 'Leaderboard',     path: '/admin/leaderboard' },
    { icon: 'settings', label: 'Settings',        path: '/admin/settings' },
    { icon: 'home',    label: 'Back To Home',    path: '/(authed)/home/gameplay' },
  ];
@@ -87,6 +91,42 @@ function SideNavItem({
       )}
       {isActive && !collapsed && <View style={s.activeIndicator} />}
     </TouchableOpacity>
+  );
+}
+
+// ─── NavGroup for sidebar ─────────────────────────────────────
+function NavGroup({
+  title, items, currentPath, collapsed,
+}: { title: string; items: any[]; currentPath: string; collapsed: boolean }) {
+  const { t } = useAuth();
+  const isActive = items.some(item => (currentPath || '').startsWith(item.path) && item.path !== '/admin');
+  const [open, setOpen] = useState(isActive);
+
+  useEffect(() => {
+    if (isActive) setOpen(true);
+  }, [isActive]);
+
+  return (
+    <View style={{ marginBottom: 8 }}>
+      {!collapsed && (
+        <TouchableOpacity 
+          onPress={() => setOpen(!open)} 
+          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 32, paddingVertical: 10 }}
+        >
+          <Text style={{ color: isActive ? C.primary : C.onSurfaceVariant, fontSize: 11, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase' }}>
+            {t(title as any) || title}
+          </Text>
+          <Ionicons name={open ? "chevron-up" : "chevron-down"} size={14} color={isActive ? C.primary : C.onSurfaceVariant} />
+        </TouchableOpacity>
+      )}
+      {(open || collapsed) && (
+        <View style={!collapsed ? { paddingLeft: 12, borderLeftWidth: 1, borderLeftColor: 'rgba(39, 39, 42, 0.6)', marginLeft: 30, marginTop: 4 } : {}}>
+          {items.map(item => (
+            <SideNavItem key={item.path} {...item} currentPath={currentPath} collapsed={collapsed} />
+          ))}
+        </View>
+      )}
+    </View>
   );
 }
 
@@ -223,11 +263,11 @@ export default function AdminLayout() {
       <View style={{ flex: 1, backgroundColor: C.background, alignItems: 'center', justifyContent: 'center' }}>
         <View style={StyleSheet.absoluteFill}>
           <Image source={require('../../../assets/images/login-bg-premium.png')} style={{ width: '100%', height: '100%', opacity: 0.1 }} />
-          <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(12,12,31,0.85)' }} />
+          <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(10,9,14,0.92)' }} />
         </View>
 
         <View style={{ width: 340, padding: 32, backgroundColor: C.surface, borderRadius: 24, borderWidth: 1, borderColor: C.outlineVariant, alignItems: 'center' }}>
-          <View style={{ width: 64, height: 64, borderRadius: 16, backgroundColor: 'rgba(166,140,255,0.1)', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+          <View style={{ width: 64, height: 64, borderRadius: 16, backgroundColor: 'rgba(0, 218, 243, 0.1)', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
             <Ionicons name="shield-checkmark" size={32} color={C.primary} />
           </View>
           <Text style={{ color: C.onSurface, fontSize: 20, fontWeight: '900', marginBottom: 8 }}>{isEN ? 'Admin Security' : 'የአድሚን ደህንነት'}</Text>
@@ -241,9 +281,9 @@ export default function AdminLayout() {
             <TouchableOpacity
               onPress={sendAdminOTP}
               disabled={otpLoading}
-              style={{ width: '100%', padding: 16, borderRadius: 12, backgroundColor: C.primaryContainer, alignItems: 'center', opacity: otpLoading ? 0.7 : 1 }}
+              style={{ width: '100%', padding: 16, borderRadius: 12, backgroundColor: C.primary, alignItems: 'center', opacity: otpLoading ? 0.7 : 1 }}
             >
-              {otpLoading ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontSize: 14, fontWeight: '800' }}>{isEN ? 'Send Security Code' : 'መለያ ኮድ ላክ'}</Text>}
+              {otpLoading ? <ActivityIndicator color="#0c0c1f" /> : <Text style={{ color: '#0c0c1f', fontSize: 14, fontWeight: '800' }}>{isEN ? 'Send Security Code' : 'መለያ ኮድ ላክ'}</Text>}
             </TouchableOpacity>
           ) : (
             <>
@@ -259,9 +299,9 @@ export default function AdminLayout() {
               <TouchableOpacity
                 onPress={verifyAdminOTP}
                 disabled={otpLoading || otpCode.length < 4}
-                style={{ width: '100%', padding: 16, borderRadius: 12, backgroundColor: (otpCode.length === 4) ? C.primaryContainer : 'rgba(255,255,255,0.1)', alignItems: 'center', opacity: otpLoading ? 0.7 : 1 }}
+                style={{ width: '100%', padding: 16, borderRadius: 12, backgroundColor: (otpCode.length === 4) ? C.primary : 'rgba(255,255,255,0.1)', alignItems: 'center', opacity: otpLoading ? 0.7 : 1 }}
               >
-                {otpLoading ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontSize: 14, fontWeight: '800' }}>{isEN ? 'Verify & Unlock' : 'አረጋግጥ እና ክፈት'}</Text>}
+                {otpLoading ? <ActivityIndicator color="#0c0c1f" /> : <Text style={{ color: (otpCode.length === 4) ? '#0c0c1f' : 'rgba(255,255,255,0.4)', fontSize: 14, fontWeight: '800' }}>{isEN ? 'Verify & Unlock' : 'አረጋግጥ እና ክፈት'}</Text>}
               </TouchableOpacity>
               
               <TouchableOpacity onPress={() => router.replace('/(authed)/home/gameplay' as any)} style={{ marginTop: 24 }}>
@@ -278,7 +318,7 @@ export default function AdminLayout() {
   if (isMobile) {
     return (
       <View style={{ flex: 1, backgroundColor: C.background }}>
-        <SafeAreaView style={{ backgroundColor: 'rgba(11,11,30,0.95)' }}>
+        <SafeAreaView style={{ backgroundColor: '#111115' }}>
           <View style={s.mobileTopbar}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
               <TouchableOpacity onPress={() => setMobileSidebarVisible(true)} style={s.iconBtn}>
@@ -371,7 +411,7 @@ export default function AdminLayout() {
   return (
     <View style={s.root}>
       <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-        <View style={[s.glow, { top: -200, left: -150, backgroundColor: 'rgba(124,77,255,0.12)' }]} />
+        <View style={[s.glow, { top: -200, left: -150, backgroundColor: 'rgba(0,218,243,0.12)' }]} />
         <View style={[s.glow, { bottom: -100, right: -100, backgroundColor: 'rgba(0,218,243,0.08)' }]} />
         <View style={[s.glow, { top: '30%', right: -200, backgroundColor: 'rgba(253,111,133,0.05)' }]} />
       </View>
@@ -395,11 +435,35 @@ export default function AdminLayout() {
           </Text>
         )}
 
-        <View style={s.navList}>
-          {dynamicNavItems.map(item => (
-            <SideNavItem key={item.path} {...item} currentPath={pathname || ''} collapsed={collapsed} />
-          ))}
-        </View>
+        <ScrollView style={s.navList} showsVerticalScrollIndicator={false}>
+          <SideNavItem icon="grid" label="Overview" path="/admin" currentPath={pathname || ''} collapsed={collapsed} />
+          <SideNavItem icon="wallet" label="Financial" path="/admin/financial" currentPath={pathname || ''} collapsed={collapsed} />
+          <SideNavItem icon="people" label="Users" path="/admin/users" currentPath={pathname || ''} collapsed={collapsed} />
+          
+          <NavGroup 
+            title="Operations"
+            items={[
+              { icon: 'cash', label: 'Transaction', path: '/admin/ledger' },
+              { icon: 'list', label: 'Game Logs', path: '/admin/logs' },
+              { icon: 'podium', label: 'Leaderboard', path: '/admin/leaderboard' },
+              { icon: 'options', label: 'Control Center', path: '/admin/controls' },
+            ]}
+            currentPath={pathname || ''}
+            collapsed={collapsed}
+          />
+
+          <NavGroup 
+            title="System"
+            items={[
+              ...(isMaintenanceAdmin ? [{ icon: 'construct', label: 'Maintenance', path: '/admin/maintenance' }] : []),
+              { icon: 'shield-checkmark', label: 'Audit Logs', path: '/admin/audit' },
+              { icon: 'link', label: 'Promotions', path: '/admin/promotion-links' },
+              { icon: 'home', label: 'Back To Home', path: '/(authed)/home/gameplay' },
+            ]}
+            currentPath={pathname || ''}
+            collapsed={collapsed}
+          />
+        </ScrollView>
 
         <View style={[s.sidebarFooter, collapsed && { paddingHorizontal: 8, alignItems: 'center' }]}>
           <TouchableOpacity
@@ -425,11 +489,7 @@ export default function AdminLayout() {
 
       <View style={[s.topbar, { left: sidebarW }]}>
         <View style={s.topbarLeft}>
-          <View style={s.searchWrap}>
-            <Ionicons name="search" size={16} color={C.onSurfaceVariant} />
-            <Text style={s.searchText}>{isEN ? 'Search...' : 'ፈልግ...'}</Text>
-            <View style={s.searchCmd}><Text style={{ color: C.onSurfaceVariant, fontSize: 8 }}>/</Text></View>
-          </View>
+          <AdminGlobalSearch />
         </View>
         <View style={s.topbarRight}>
           {isDesktop && (
@@ -461,7 +521,7 @@ export default function AdminLayout() {
             <Ionicons name={musicPlaying ? 'volume-high' : 'volume-mute'} size={16} color={musicPlaying ? C.secondary : C.error} />
           </TouchableOpacity>
           <TouchableOpacity style={[s.iconBtn]} onPress={() => switchLanguage()}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(23,23,50,0.6)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: C.outlineVariant }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(24, 24, 27, 0.65)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: C.outlineVariant }}>
               <Ionicons name="globe-outline" size={16} color={C.onSurfaceVariant} />
               <Text style={{ color: C.onSurfaceVariant, fontSize: 11, fontWeight: '800' }}>{language === 'am' ? 'AM' : 'EN'}</Text>
             </View>
@@ -510,7 +570,7 @@ const s = StyleSheet.create({
   glow: { position: 'absolute', width: 600, height: 600, borderRadius: 300 },
   sidebar: {
     position: 'absolute', left: 0, top: 0, bottom: 0, zIndex: 40,
-    backgroundColor: 'rgba(11,11,30,0.98)',
+    backgroundColor: '#111115',
     borderRightWidth: 1, borderRightColor: C.outlineVariant,
   },
   sidebarBrand: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 24, paddingTop: 24, paddingBottom: 8 },
@@ -520,7 +580,7 @@ const s = StyleSheet.create({
   navList: { flex: 1, marginTop: 12 },
   navItem: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 20, paddingVertical: 12, marginHorizontal: 12, borderRadius: 16, marginBottom: 6 },
   navItemCollapsed: { justifyContent: 'center', paddingHorizontal: 0, marginHorizontal: 8 },
-  navItemActive: { backgroundColor: 'rgba(166,140,255,0.12)', borderWidth: 1, borderColor: 'rgba(166,140,255,0.3)', shadowColor: C.primary, shadowOpacity: 0.3, shadowRadius: 12, elevation: 4 },
+  navItemActive: { backgroundColor: 'rgba(0, 218, 243, 0.08)', borderWidth: 1, borderColor: 'rgba(0, 218, 243, 0.3)', shadowColor: C.primary, shadowOpacity: 0.3, shadowRadius: 12, elevation: 4 },
   navIconWrap: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.03)' },
   navIconWrapActive: { backgroundColor: C.primary, shadowColor: C.primary, shadowOpacity: 0.6, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 6 },
   navLabel: { color: C.onSurfaceVariant, fontSize: 13, fontWeight: '600', flex: 1 },
@@ -531,14 +591,14 @@ const s = StyleSheet.create({
   emergencyText: { color: C.error, fontSize: 11, fontWeight: '900', letterSpacing: 1 },
   footerLink: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12 },
   footerLinkIcon: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.03)' },
-  footerLinkIconActive: { backgroundColor: 'rgba(166,140,255,0.1)' },
+  footerLinkIconActive: { backgroundColor: 'rgba(0,218,243,0.1)' },
   footerLinkText: { color: C.onSurfaceVariant, fontSize: 13, fontWeight: '600' },
   topbar: { 
     position: 'absolute', top: 0, right: 0, height: TOPBAR_H, zIndex: 30, 
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', 
     paddingHorizontal: 32, 
-    backgroundColor: 'rgba(11,11,30,0.95)', 
-    borderBottomWidth: 1, borderBottomColor: 'rgba(68,68,107,0.15)', 
+    backgroundColor: 'rgba(24,24,27,0.95)', 
+    borderBottomWidth: 1, borderBottomColor: 'rgba(39,39,42,0.4)', 
   },
   topbarLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   topbarTitle: { color: C.onSurface, fontSize: 18, fontWeight: '900' },
@@ -551,27 +611,27 @@ const s = StyleSheet.create({
   iconBtn: { padding: 6, alignItems: 'center' },
   searchWrap: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: 'rgba(23,23,50,0.4)',
+    backgroundColor: 'rgba(39,39,42,0.6)',
     paddingHorizontal: 12, paddingVertical: 8,
-    borderRadius: 8, borderWidth: 1, borderColor: 'rgba(68,68,107,0.15)',
+    borderRadius: 8, borderWidth: 1, borderColor: 'rgba(39,39,42,0.3)',
     width: 240,
   },
   searchText: { color: C.onSurfaceVariant, fontSize: 13, flex: 1 },
   searchCmd: { backgroundColor: 'rgba(255,255,255,0.05)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-  userChip: { flexDirection: 'row', alignItems: 'center', paddingLeft: 6, paddingRight: 16, paddingVertical: 6, borderRadius: 12, backgroundColor: 'rgba(23,23,50,0.4)', borderWidth: 1, borderColor: C.outlineVariant },
+  userChip: { flexDirection: 'row', alignItems: 'center', paddingLeft: 6, paddingRight: 16, paddingVertical: 6, borderRadius: 12, backgroundColor: 'rgba(39,39,42,0.6)', borderWidth: 1, borderColor: C.outlineVariant },
   avatarContainer: { position: 'relative' },
-  userAvatar: { width: 32, height: 32, borderRadius: 8, backgroundColor: 'rgba(166,140,255,0.1)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(166,140,255,0.2)' },
+  userAvatar: { width: 32, height: 32, borderRadius: 8, backgroundColor: 'rgba(0,218,243,0.1)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(0,218,243,0.2)' },
   statusIndicator: { position: 'absolute', bottom: -2, right: -2, width: 10, height: 10, borderRadius: 5, backgroundColor: C.secondary, borderWidth: 2, borderColor: C.background },
   userName: { color: C.onSurface, fontSize: 13, fontWeight: '800', lineHeight: 15 },
   userOnline: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '600' },
   mainCanvas: { flex: 1, marginTop: TOPBAR_H, padding: 32 },
 
-  mobileTopbar: { height: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(68,68,107,0.2)' },
+  mobileTopbar: { height: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(39,39,42,0.3)' },
   mobileLogo: { width: 24, height: 24, borderRadius: 6, borderWidth: 1, borderColor: C.primaryContainer },
   mobileTopbarTitle: { color: C.primaryContainer, fontSize: 15, fontWeight: '900', letterSpacing: -0.5 },
-  userChipSmall: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(23,23,50,0.6)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20, borderWidth: 1, borderColor: C.outlineVariant },
+  userChipSmall: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(39,39,42,0.6)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20, borderWidth: 1, borderColor: C.outlineVariant },
   userChipName: { color: C.onSurface, fontSize: 11, fontWeight: '700', maxWidth: 70 },
-  bottomBar: { flexDirection: 'row', backgroundColor: 'rgba(11,11,30,0.95)', borderTopWidth: 1, borderTopColor: 'rgba(166,140,255,0.15)', shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 20, elevation: 20 },
+  bottomBar: { flexDirection: 'row', backgroundColor: 'rgba(24,24,27,0.95)', borderTopWidth: 1, borderTopColor: 'rgba(0,218,243,0.15)', shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 20, elevation: 20 },
   bottomTabItem: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 10, gap: 4 },
   bottomTabLabel: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '700', textAlign: 'center' },
 });

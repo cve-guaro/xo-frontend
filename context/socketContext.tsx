@@ -19,7 +19,7 @@ type SocketApi = {
   ensureConnected: (token?: string) => Promise<boolean>;
   send: (event: string, payload?: any) => void;
   onMessage: (cb: (msg: Msg) => void) => Unsub;
-  findMatch: (betAmount: number) => Promise<{ ok: boolean; data?: any; error?: string }>;
+  findMatch: (betMin: number, betMax?: number) => Promise<{ ok: boolean; data?: any; error?: string }>;
   cancelFind: () => Promise<{ ok: boolean }>;
   isSearching: boolean;
   isGameActive: boolean;
@@ -60,6 +60,7 @@ const SERVER_EVENTS = [
   "friend_invite_received",
   "friend_invite_result",
   "friend_invite_declined",
+  "global_win",
 ] as const;
 
 type ServerEvent = (typeof SERVER_EVENTS)[number];
@@ -160,7 +161,7 @@ export function SocketProvider({
       listenersRef.current.forEach((fn) => {
         try {
           fn({ type, payload });
-        } catch {}
+        } catch { }
       });
     };
 
@@ -269,18 +270,18 @@ export function SocketProvider({
     if (!s || !s.connected) return;
     try {
       s.emit(event, payload);
-    } catch {}
+    } catch { }
   }, []);
 
   // ---------- find/cancel ----------
   const findMatch = useCallback(
-    async (betAmount: number) => {
+    async (betMin: number, betMax?: number) => {
       const s = sockRef.current;
       if (!s || !s.connected) return { ok: false, error: "DISCONNECTED" };
 
-      // Prefer reading token from ref to avoid stale closure
       const tk = tokenRef.current;
-      return emitAck("find_match", { token: tk, betAmount });
+      const finalMax = betMax !== undefined ? betMax : betMin;
+      return emitAck("find_match", { token: tk, betMin, betMax: finalMax, betAmount: finalMax });
     },
     [emitAck]
   );
@@ -311,7 +312,7 @@ export function SocketProvider({
   useEffect(() => {
     return () => {
       // best effort cancel
-      Promise.resolve(cancelFind()).catch(() => {});
+      Promise.resolve(cancelFind()).catch(() => { });
 
       const s = sockRef.current;
       if (s) {
@@ -328,11 +329,11 @@ export function SocketProvider({
 
         try {
           s.disconnect();
-        } catch {}
+        } catch { }
 
         try {
           s.removeAllListeners();
-        } catch {}
+        } catch { }
       }
 
       sockRef.current = null;

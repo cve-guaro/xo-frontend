@@ -75,17 +75,17 @@ export default function WelcomeBonusModal({ visible, onClose, amount = 10 }: Wel
           >
             {/* Decorative Sparkle Background */}
             <Animated.View style={[styles.pattern, { transform: [{ rotate: rotation }] }]}>
-              <Ionicons name="sparkles" size={300} color="rgba(166, 140, 255, 0.03)" />
+              <Ionicons name="sparkles" size={300} color="rgba(0, 218, 243, 0.03)" />
             </Animated.View>
 
             <View style={styles.header}>
               <LinearGradient
-                colors={['#7C3AED', '#22D3EE']}
+                colors={['#00daf3', '#00a3ff']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.iconWrap}
               >
-                <Ionicons name="gift" size={32} color="#fff" />
+                <Ionicons name="gift" size={32} color="#0B0B0F" />
               </LinearGradient>
               <Text style={styles.title}>Welcome Gift Drop!</Text>
               <Text style={styles.subtitle}>You've been selected for a special user acquisition drop.</Text>
@@ -105,18 +105,18 @@ export default function WelcomeBonusModal({ visible, onClose, amount = 10 }: Wel
                 <Text style={styles.detailText}>Instant Deployment to Bonus Balance</Text>
               </View>
               <View style={styles.detailRow}>
-                <Ionicons name="game-controller" size={16} color="#a68cff" />
+                <Ionicons name="game-controller" size={16} color="#00daf3" />
                 <Text style={styles.detailText}>Use it to win real matches & payouts</Text>
               </View>
             </View>
 
             <TouchableOpacity style={styles.button} onPress={onClose} activeOpacity={0.8}>
               <LinearGradient
-                colors={['#7C3AED', '#5B21B6']}
+                colors={['#00daf3', '#00a3ff']}
                 style={styles.buttonGradient}
               >
-                <Text style={styles.buttonText}>Claim Treasure & Start Playing</Text>
-                <Ionicons name="arrow-forward" size={18} color="#fff" style={{ marginLeft: 8 }} />
+                <Text style={[styles.buttonText, { color: '#0B0B0F' }]}>Claim Treasure & Start Playing</Text>
+                <Ionicons name="arrow-forward" size={18} color="#0B0B0F" style={{ marginLeft: 8 }} />
               </LinearGradient>
             </TouchableOpacity>
 
@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
     width: width * 1.5,
     height: width * 1.5,
     borderRadius: width * 0.75,
-    backgroundColor: 'rgba(124, 77, 255, 0.15)',
+    backgroundColor: 'rgba(0, 218, 243, 0.15)',
     filter: Platform.OS === 'web' ? 'blur(100px)' : undefined,
   },
   container: {
@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
-    shadowColor: '#7C3AED',
+    shadowColor: '#00daf3',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.3,
     shadowRadius: 20,
@@ -209,10 +209,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(166, 140, 255, 0.3)',
+    borderColor: 'rgba(0, 218, 243, 0.3)',
   },
   currency: {
-    color: '#a68cff',
+    color: '#00daf3',
     fontSize: 18,
     fontWeight: '800',
     marginRight: 6,
@@ -223,7 +223,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   bonusText: {
-    color: '#a68cff',
+    color: '#00daf3',
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 2,

@@ -37,8 +37,10 @@ type Transaction = {
 
 // ---------------- Helpers ----------------
 function formatDate(iso: string) {
+  if (!iso) return '—';
   try {
     const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
     return (
       d.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" }) +
       " · " +
@@ -71,14 +73,16 @@ const BonusTrackingLogModal = memo(function BonusTrackingLogModal({
   visible, 
   onClose, 
   bonusLogs,
-  token
+  token,
+  fetchTxs
 }: { 
   visible: boolean; 
   onClose: () => void;
   bonusLogs: any[];
-  token: string;
+  token: string | null;
+  fetchTxs?: () => void;
 }) {
-  const { language, t } = useAuth();
+  const { language, t, showAlert } = useAuth();
   const isEN = language === "en";
   const [code, setCode] = useState("");
   const [redeeming, setRedeeming] = useState(false);
@@ -97,16 +101,18 @@ const BonusTrackingLogModal = memo(function BonusTrackingLogModal({
       });
       if (res.ok) {
         const data = await res.json();
-        alert(isEN ? `Success! +${data.amount} ETB bonus added` : `ተሳክቷል! +${data.amount} ETB ቦነስ ተጨምሯል`);
+        showAlert(isEN ? "Success" : "ተሳክቷል", isEN ? `Success! +${data.amount} ETB bonus added` : `ተሳክቷል! +${data.amount} ETB ቦነስ ተጨምሯል`);
         setCode("");
         // Refresh transactions and bonus logs without full page reload
-        setTimeout(() => fetchTxs(), 500);
+        if (fetchTxs) {
+          setTimeout(() => fetchTxs(), 500);
+        }
       } else {
         const err = await res.json().catch(() => ({ error: "Invalid code" }));
-        alert(err.error || (isEN ? "Invalid or expired code" : "የተሳሳተ ወይም የጨረሰ ኮድ"));
+        showAlert(isEN ? "Redemption Failed" : "መቀበል አልተቻለም", err.error || (isEN ? "Invalid or expired code" : "የተሳሳተ ወይም የጨረሰ ኮድ"));
       }
     } catch {
-      alert(isEN ? "Network error" : "ኔትወርክ ስህተት");
+      showAlert(isEN ? "Error" : "ስህተት", isEN ? "Network error" : "ኔትወርክ ስህተት");
     } finally {
       setRedeeming(false);
     }
@@ -117,11 +123,11 @@ const BonusTrackingLogModal = memo(function BonusTrackingLogModal({
   return (
     <Modal visible={visible} transparent animationType="fade">
       <View style={styles.modalOverlay}>
-        <View style={[styles.bonusModal, { backgroundColor: 'rgba(23,23,50,0.95)', borderColor: 'rgba(167,139,250,0.3)' }]}>
+        <View style={[styles.bonusModal, { backgroundColor: 'rgba(10,10,20,0.98)', borderColor: 'rgba(0,242,255,0.3)' }]}>
           <View style={styles.modalHeader}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
               <View style={styles.bonusIconBox}>
-                <Ionicons name="gift" size={24} color="#a78bfa" />
+                <Ionicons name="gift" size={24} color="#00e5ff" />
               </View>
               <View>
                 <Text style={styles.modalTitle}>{isEN ? "Bonus Tracking Log" : "ቦነስ ታሪክ"}</Text>
@@ -138,7 +144,7 @@ const BonusTrackingLogModal = memo(function BonusTrackingLogModal({
             <TextInput
               style={styles.codeInput}
               placeholder={isEN ? "ENTER GIFT CODE" : "የስጦታ ኮድ ያስገቡ"}
-              placeholderTextColor="rgba(167,139,250,0.4)"
+              placeholderTextColor="rgba(0,242,255,0.4)"
               value={code}
               onChangeText={setCode}
               autoCapitalize="characters"
@@ -149,9 +155,9 @@ const BonusTrackingLogModal = memo(function BonusTrackingLogModal({
               disabled={redeeming || !code.trim()}
             >
               {redeeming ? (
-                <ActivityIndicator size="small" color="#000" />
+                <ActivityIndicator size="small" color="#0a0a0f" />
               ) : (
-                <Ionicons name="gift" size={18} color="#000" />
+                <Ionicons name="gift" size={18} color="#0a0a0f" />
               )}
             </TouchableOpacity>
           </View>
@@ -164,7 +170,7 @@ const BonusTrackingLogModal = memo(function BonusTrackingLogModal({
           <ScrollView style={styles.bonusLogList} showsVerticalScrollIndicator={false}>
             {bonusLogs.length === 0 ? (
               <View style={styles.emptyBonusLog}>
-                <Ionicons name="gift-outline" size={48} color="rgba(167,139,250,0.2)" />
+                <Ionicons name="gift-outline" size={48} color="rgba(0,242,255,0.2)" />
                 <Text style={styles.emptyBonusText}>{isEN ? "No bonus history yet" : "ምንም ቦነስ ታሪክ የለም"}</Text>
               </View>
             ) : (
@@ -207,12 +213,12 @@ const TransactionItem = memo(function TransactionItem({
   const isPending = status === "pending";
 
   const statusColor = isSuccess ? "#34d399" : isPending ? "#fbbf24" : "#f87171";
-  const typeColor = isDeposit ? "#34d399" : type === "prize" ? "#a78bfa" : "#f87171";
+  const typeColor = isDeposit ? "#34d399" : type === "prize" ? "#00e5ff" : "#f87171";
   const typeIcon = isDeposit ? "arrow-down-circle" : type === "prize" ? "gift" : "arrow-up-circle";
   const typeBg = isDeposit
     ? "rgba(16,185,129,0.12)"
     : type === "prize"
-    ? "rgba(167,139,250,0.12)"
+    ? "rgba(0,229,255,0.12)"
     : "rgba(239,68,68,0.12)";
 
   const txDate = tx?.createdAt || (tx as any)?.created_at || "";
@@ -296,7 +302,7 @@ export default function TransactionsScreen() {
             Authorization: `Bearer ${token}`,
             "x-platform": isWeb ? "web" : "mobile",
           },
-        }).catch(() => ({ ok: false, json: async () => ({ logs: [] }) }))
+        }).catch(() => ({ ok: false, status: 0, json: async () => ({ logs: [] }) } as any))
       ]);
       
       const data = await txRes.json();
@@ -308,7 +314,7 @@ export default function TransactionsScreen() {
         const bonusData = await bonusRes.json();
         setBonusLogs(Array.isArray(bonusData.logs) ? bonusData.logs : []);
       } else {
-        console.error('[transactions] Failed to fetch bonus logs:', bonusRes.status);
+        console.error('[transactions] Failed to fetch bonus logs:', (bonusRes as any).status);
       }
     } catch (e) {
       console.error("[transactions] fetch error:", e);
@@ -363,28 +369,29 @@ export default function TransactionsScreen() {
          }}
          bonusLogs={bonusLogs}
          token={token}
+         fetchTxs={fetchTxs}
        />
        <View style={[styles.container, isDesktop && styles.desktopContainer]}>
          {/* Header */}
          <View style={styles.header}>
-           <View style={{ flex: 1 }}>
-             <Text style={styles.headerTitle}>{isEN ? "Transactions" : "ግብይቶች"}</Text>
-             <Text style={styles.headerSub}>{isEN ? "Your deposit & withdrawal history" : "የክፍያ ታሪክዎ"}</Text>
-           </View>
-           <TouchableOpacity style={styles.refreshBtn} onPress={() => setBonusModalVisible(true)}>
-             <Ionicons name="gift-outline" size={18} color="#a78bfa" />
-           </TouchableOpacity>
-           <TouchableOpacity style={styles.refreshBtn} onPress={onRefresh} disabled={refreshing}>
-             {refreshing ? <ActivityIndicator size="small" color="#a78bfa" /> : <Ionicons name="refresh" size={18} color="#a78bfa" />}
-           </TouchableOpacity>
-         </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.headerTitle}>{isEN ? "Transactions" : "ግብይቶች"}</Text>
+              <Text style={styles.headerSub}>{isEN ? "Your deposit & withdrawal history" : "የክፍያ ታሪክዎ"}</Text>
+            </View>
+            <TouchableOpacity style={styles.refreshBtn} onPress={() => setBonusModalVisible(true)}>
+              <Ionicons name="gift-outline" size={18} color="#00e5ff" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.refreshBtn} onPress={onRefresh} disabled={refreshing}>
+              {refreshing ? <ActivityIndicator size="small" color="#00e5ff" /> : <Ionicons name="refresh" size={18} color="#00e5ff" />}
+            </TouchableOpacity>
+          </View>
 
         {/* Summary Cards */}
         <View style={styles.summaryRow}>
-          <LinearGradient colors={["rgba(16,185,129,0.18)", "rgba(16,185,129,0.06)"]} style={styles.summaryCard}>
-            <Ionicons name="arrow-down-circle-outline" size={22} color="#34d399" />
+          <LinearGradient colors={["rgba(0,229,255,0.18)", "rgba(0,229,255,0.06)"]} style={styles.summaryCard}>
+            <Ionicons name="arrow-down-circle-outline" size={22} color="#00e5ff" />
             <Text style={styles.summaryLabel}>{isEN ? "Total Deposits" : "ጠቅላላ ተቀማጭ"}</Text>
-            <Text style={[styles.summaryValue, { color: "#34d399" }]}>
+            <Text style={[styles.summaryValue, { color: "#00e5ff" }]}>
               ETB {stats.dep.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </Text>
           </LinearGradient>
@@ -414,15 +421,27 @@ export default function TransactionsScreen() {
 
         {/* Transaction List */}
         {loading ? (
-          <View style={styles.centered}>
-            <ActivityIndicator color="#a78bfa" size="large" />
-            <Text style={{ color: "rgba(168,167,212,0.5)", marginTop: 12, fontSize: 13 }}>
-              {isEN ? "Loading transactions..." : "ግብይቶችን በመጫን ላይ..."}
-            </Text>
+          <View style={{ gap: 10, paddingHorizontal: 16 }}>
+            {[1, 2, 3, 4, 5].map((_, i) => (
+              <View key={i} style={[styles.txCard, { opacity: 0.5, marginHorizontal: 0 }]}>
+                <View style={[styles.txIcon, { backgroundColor: 'rgba(255,255,255,0.05)' }]} />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <View style={styles.txTopRow}>
+                    <View style={{ width: 80, height: 16, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 4 }} />
+                    <View style={{ width: 60, height: 16, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 4 }} />
+                  </View>
+                  <View style={styles.txMidRow}>
+                    <View style={{ width: 50, height: 12, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 4 }} />
+                    <View style={{ width: 60, height: 20, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8 }} />
+                  </View>
+                  <View style={{ width: 100, height: 10, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 4, marginTop: 4 }} />
+                </View>
+              </View>
+            ))}
           </View>
         ) : filteredTxs.length === 0 ? (
           <View style={styles.centered}>
-            <Ionicons name="receipt-outline" size={52} color="rgba(167,139,250,0.25)" />
+            <Ionicons name="receipt-outline" size={52} color="rgba(0, 242, 255, 0.25)" />
             <Text style={styles.emptyText}>{isEN ? "No transactions yet" : "ምንም ግብይት የለም"}</Text>
             <Text style={styles.emptySubText}>
               {isEN ? "Your deposits and withdrawals will appear here" : "ተቀማጭ እና ወጪዎ እዚህ ይታያሉ"}
@@ -435,7 +454,7 @@ export default function TransactionsScreen() {
             </Text>
             <AnimatedList
               items={filteredTxs}
-              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#a78bfa" colors={["#a78bfa"]} />}
+              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#00e5ff" colors={["#00e5ff"]} />}
               renderItem={renderTx}
             />
           </View>
@@ -446,8 +465,8 @@ export default function TransactionsScreen() {
 }
 
  const styles = StyleSheet.create({
-   safe: { flex: 1, backgroundColor: "#060614" },
-   container: { flex: 1 },
+    safe: { flex: 1, backgroundColor: "#0a0a1a" },
+    container: { flex: 1 },
    desktopContainer: { maxWidth: 760, alignSelf: "center", width: "100%" },
    header: {
      flexDirection: "row",
@@ -479,14 +498,14 @@ export default function TransactionsScreen() {
      alignItems: 'center',
      marginBottom: 24,
    },
-   bonusIconBox: {
-     width: 48,
-     height: 48,
-     borderRadius: 16,
-     backgroundColor: 'rgba(167,139,250,0.15)',
-     alignItems: 'center',
-     justifyContent: 'center',
-   },
+    bonusIconBox: {
+      width: 48,
+      height: 48,
+      borderRadius: 16,
+      backgroundColor: 'rgba(0,242,255,0.15)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
    modalTitle: {
      color: '#e5e3ff',
      fontSize: 20,
@@ -510,38 +529,38 @@ export default function TransactionsScreen() {
      gap: 12,
      marginBottom: 12,
    },
-   codeInput: {
-     flex: 1,
-     height: 52,
-     backgroundColor: 'rgba(167,139,250,0.08)',
-     borderWidth: 1,
-     borderColor: 'rgba(167,139,250,0.3)',
-     borderRadius: 16,
-     paddingHorizontal: 16,
-     color: '#e5e3ff',
-     fontSize: 14,
-     fontWeight: '700',
-     letterSpacing: 1,
-   },
-   redeemBtn: {
-     width: 52,
-     height: 52,
-     borderRadius: 16,
-     backgroundColor: '#a78bfa',
-     alignItems: 'center',
-     justifyContent: 'center',
-   },
+    codeInput: {
+      flex: 1,
+      height: 52,
+      backgroundColor: 'rgba(0,242,255,0.08)',
+      borderWidth: 1,
+      borderColor: 'rgba(0,242,255,0.3)',
+      borderRadius: 16,
+      paddingHorizontal: 16,
+      color: '#e5e3ff',
+      fontSize: 14,
+      fontWeight: '700',
+      letterSpacing: 1,
+    },
+    redeemBtn: {
+      width: 52,
+      height: 52,
+      borderRadius: 16,
+      backgroundColor: '#00e5ff',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
    claimLink: {
      alignItems: 'center',
      marginBottom: 24,
    },
-   claimLinkText: {
-     color: '#a78bfa',
-     fontSize: 11,
-     fontWeight: '700',
-     textTransform: 'uppercase',
-     letterSpacing: 0.5,
-   },
+    claimLinkText: {
+      color: '#00e5ff',
+      fontSize: 11,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
    bonusLogList: {
      maxHeight: 200,
    },
@@ -579,32 +598,32 @@ export default function TransactionsScreen() {
      fontSize: 13,
      fontWeight: '600',
    },
-   closeModalBtn: {
-     width: '100%',
-     height: 52,
-     borderRadius: 16,
-     backgroundColor: '#00e3fd',
-     alignItems: 'center',
-     justifyContent: 'center',
-     marginTop: 20,
+    closeModalBtn: {
+      width: '100%',
+      height: 52,
+      borderRadius: 16,
+      backgroundColor: '#00e5ff',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 20,
+    },
+    closeModalBtnText: {
+      color: '#0a0a0f',
+      fontSize: 14,
+      fontWeight: '800',
+      textTransform: 'uppercase',
+      letterSpacing: 1,
+    },
+   refreshBtn: {
+     width: 38,
+     height: 38,
+     borderRadius: 12,
+     backgroundColor: "rgba(0,229,255,0.08)",
+     borderWidth: 1,
+     borderColor: "rgba(0,229,255,0.15)",
+     alignItems: "center",
+     justifyContent: "center",
    },
-   closeModalBtnText: {
-     color: '#004d57',
-     fontSize: 14,
-     fontWeight: '800',
-     textTransform: 'uppercase',
-     letterSpacing: 1,
-   },
-  refreshBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: "rgba(167,139,250,0.08)",
-    borderWidth: 1,
-    borderColor: "rgba(167,139,250,0.15)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
   headerTitle: { color: "#e5e3ff", fontSize: 22, fontWeight: "900", letterSpacing: 0.3 },
   headerSub: { color: "rgba(168,167,212,0.55)", fontSize: 12, fontWeight: "600", marginTop: 2 },
 
@@ -641,11 +660,11 @@ export default function TransactionsScreen() {
     borderColor: "rgba(255,255,255,0.06)",
   },
   filterTabActive: {
-    backgroundColor: "rgba(167,139,250,0.15)",
-    borderColor: "rgba(167,139,250,0.35)",
+    backgroundColor: "rgba(0,229,255,0.15)",
+    borderColor: "rgba(0,229,255,0.35)",
   },
   filterTabText: { color: "rgba(168,167,212,0.6)", fontSize: 12, fontWeight: "700" },
-  filterTabTextActive: { color: "#a78bfa" },
+  filterTabTextActive: { color: "#00e5ff" },
 
   sectionLabel: {
     color: "rgba(168,167,212,0.4)",
@@ -663,9 +682,9 @@ export default function TransactionsScreen() {
     alignItems: "center",
     gap: 14,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
+    borderColor: "rgba(255,255,255,0.08)",
     overflow: "hidden",
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "rgba(255,255,255,0.03)",
     marginBottom: 10,
     marginHorizontal: 16,
   },

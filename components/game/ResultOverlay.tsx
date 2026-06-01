@@ -1,5 +1,5 @@
 // components/game/ResultOverlay.tsx
-import EmojiBar from "./EmojiBar";
+import EmojiBar, { EMOJI_GIFS } from "./EmojiBar";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { memo, useEffect, useMemo, useRef, useState } from "react";
@@ -7,6 +7,7 @@ import {
   Animated,
   Dimensions,
   Easing,
+  Image,
   Modal,
   Platform,
   StyleSheet,
@@ -49,9 +50,9 @@ const UI_WIN = (amount: number): UiMeta => ({
   message: `You won ETB ${Number(amount || 0).toLocaleString()} 🎉`,
   badgeLabel: "WIN",
   emoji: "😄",
-  border: ["rgba(255,215,0,0.95)", "rgba(124,58,237,0.95)", "rgba(79,70,229,0.90)"],
-  glow: "rgba(255,215,0,0.38)",
-  primaryGrad: ["#00E5FF", "#3B82F6"],
+  border: ["rgba(255,215,0,0.95)", "rgba(0,218,243,0.95)", "rgba(0,163,255,0.90)"],
+  glow: "rgba(0,218,243,0.38)",
+  primaryGrad: ["#00daf3", "#00a3ff"],
   primaryText: "Back to Arena",
 });
 
@@ -60,9 +61,9 @@ const UI_LOSE = (amount: number): UiMeta => ({
   message: `You lost ETB ${Number(amount || 0).toLocaleString()}`,
   badgeLabel: "LOSE",
   emoji: "😔",
-  border: ["rgba(255,107,107,0.95)", "rgba(124,58,237,0.92)", "rgba(10,12,28,0.92)"],
+  border: ["rgba(255,107,107,0.95)", "rgba(0,218,243,0.92)", "rgba(10,12,28,0.92)"],
   glow: "rgba(255,107,107,0.32)",
-  primaryGrad: ["#7C3AED", "#4F46E5"],
+  primaryGrad: ["#00daf3", "#00a3ff"],
   primaryText: "Leave Arena",
 });
 
@@ -167,10 +168,10 @@ function ResultOverlay({ visible, outcome, amount, onHome, onPlayAgain, onSendEm
                 <View style={{ width: "100%", flexDirection: "column", gap: 10 }}>
                   <TouchableOpacity onPress={onHome} disabled={!canContinue} activeOpacity={0.92} style={[styles.btnWrap, !canContinue && { opacity: 0.5 }]}>
                     <LinearGradient colors={ui.primaryGrad} style={styles.btn}>
-                      <Ionicons name="home-outline" size={18} color="#fff" />
+                      <Ionicons name="home-outline" size={18} color="#0c0c1f" />
                       <Text style={styles.btnText}>{ui.primaryText}</Text>
-                      {!canContinue && <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, marginLeft: 'auto' }}>(2.5s)</Text>}
-                      {canContinue && <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.92)" style={{ marginLeft: 'auto' }} />}
+                      {!canContinue && <Text style={{ color: 'rgba(12,12,31,0.6)', fontSize: 11, marginLeft: 'auto' }}>(2.5s)</Text>}
+                      {canContinue && <Ionicons name="chevron-forward" size={16} color="#0c0c1f" style={{ marginLeft: 'auto' }} />}
                     </LinearGradient>
                   </TouchableOpacity>
 
@@ -180,7 +181,7 @@ function ResultOverlay({ visible, outcome, amount, onHome, onPlayAgain, onSendEm
                       <TouchableOpacity onPress={insufficientBalance ? undefined : onPlayAgain} disabled={!canContinue || insufficientBalance} activeOpacity={0.92} style={[styles.btnWrap, (!canContinue || insufficientBalance) && { opacity: 0.45 }]}>
                         <LinearGradient colors={["rgba(255,255,255,0.1)", "rgba(255,255,255,0.05)"]} style={[styles.btn, { borderWidth: 1, borderColor: insufficientBalance ? "rgba(255,75,75,0.3)" : "rgba(255,255,255,0.15)" }]}>
                           <Ionicons name="refresh-outline" size={18} color="#fff" />
-                          <Text style={styles.btnText}>Run It Back! 🔥</Text>
+                          <Text style={[styles.btnText, { color: '#fff' }]}>Run It Back! 🔥</Text>
                         </LinearGradient>
                       </TouchableOpacity>
                       {insufficientBalance && (
@@ -219,9 +220,17 @@ function ResultOverlay({ visible, outcome, amount, onHome, onPlayAgain, onSendEm
             alignItems: 'center',
             pointerEvents: 'none',
           }}>
-            <Text style={{ fontSize: 80, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 4 }, textShadowRadius: 12 }}>
-              {floatingEmoji}
-            </Text>
+            {EMOJI_GIFS[floatingEmoji] ? (
+              <Image 
+                source={{ uri: EMOJI_GIFS[floatingEmoji] }} 
+                style={{ width: 100, height: 100 }} 
+                resizeMode="contain" 
+              />
+            ) : (
+              <Text style={{ fontSize: 80, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 4 }, textShadowRadius: 12 }}>
+                {floatingEmoji}
+              </Text>
+            )}
           </View>
         )}
       </View>
@@ -383,7 +392,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 10,
   },
-  btnText: { color: "#fff", fontWeight: "900", fontSize: 15, flexShrink: 0 },
+  btnText: { color: "#0c0c1f", fontWeight: "900", fontSize: 15, flexShrink: 0 },
 
   decorTop: {
     position: "absolute",

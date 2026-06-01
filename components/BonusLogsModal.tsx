@@ -143,7 +143,7 @@ const BonusLogsModal = memo(function BonusLogsModal({
                   <View key={i} style={styles.bonusItem}>
                     <View style={styles.bonusItemLeft}>
                       <Text style={styles.bonusItemReason}>{log.reason}</Text>
-                      <Text style={styles.bonusItemDate}>{new Date(log.created_at).toLocaleString()}</Text>
+                      <Text style={styles.bonusItemDate}>{log.created_at && !isNaN(new Date(log.created_at).getTime()) ? new Date(log.created_at).toLocaleString() : '—'}</Text>
                     </View>
                     <View style={{ alignItems: 'flex-end' }}>
                       <Text style={styles.bonusItemAmount}>+ETB {Number(log.amount || 0).toFixed(2)}</Text>

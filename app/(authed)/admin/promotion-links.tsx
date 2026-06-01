@@ -1,6 +1,6 @@
 // app/(authed)/admin/promotion-links.tsx — Promotion Link Management
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, StyleSheet, Platform, Modal, Switch } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, StyleSheet, Platform, Modal, Switch, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../../context/authContext';
 import { API_URL, APP_URL } from '../../../config';
@@ -20,7 +20,7 @@ interface PromotionLink {
 }
 
 export default function PromotionLinks() {
-  const { token, t, isSuperAdmin } = useAuth();
+  const { token, t, isSuperAdmin, showAlert, fixUrl } = useAuth();
   const [links, setLinks] = useState<PromotionLink[]>([]);
   const [loading, setLoading] = useState(true);
   const [createModalVisible, setCreateModalVisible] = useState(false);
@@ -81,7 +81,7 @@ export default function PromotionLinks() {
         fetchLinks();
       } else {
         console.error('[admin/promotion/create] Server error:', data);
-        alert('Failed to create: ' + (data.error || 'Unknown error'));
+        showAlert('Error', 'Failed to create: ' + (data.error || 'Unknown error'));
       }
     } catch (e) {
       console.error('[admin/promotion/create]', e);
@@ -142,32 +142,88 @@ export default function PromotionLinks() {
 
   // Promotion Popup Tab State
   const [activeTab, setActiveTab] = useState<'links' | 'popup' | 'sms'>('links');
-  const [popupConfig, setPopupConfig] = useState({ image_url: '', display_duration: '5', expires_at: '', is_active: false });
+  const [popupHistory, setPopupHistory] = useState<any[]>([]);
+  const [popupConfig, setPopupConfig] = useState({ image_url: '', display_duration: '5', expires_at: '', starts_at: '', is_active: false });
   const [popupLoading, setPopupLoading] = useState(false);
   const [popupSaving, setPopupSaving] = useState(false);
+  const [showAddPopup, setShowAddPopup] = useState(false);
 
   const fetchPopupConfig = useCallback(async () => {
     try {
       setPopupLoading(true);
       const res = await fetch(`${API_URL}/admin/promo-popup`, { headers: { Authorization: `Bearer ${token}`, 'x-platform': 'web' } });
-      if (res.ok) { const d = await res.json(); if (d.config) setPopupConfig({ image_url: d.config.image_url || '', display_duration: String(d.config.display_duration || 5), expires_at: d.config.expires_at ? new Date(d.config.expires_at).toISOString().slice(0, 10) : '', is_active: d.config.is_active || false }); }
+      if (res.ok) { 
+        const d = await res.json(); 
+        setPopupHistory(d.popups || []);
+      }
     } catch (e) { console.error('[promo-popup] fetch error', e); }
     finally { setPopupLoading(false); }
   }, [token]);
 
-  useEffect(() => { if (activeTab === 'popup') fetchPopupConfig(); }, [activeTab]);
+  useEffect(() => { if (activeTab === 'popup') fetchPopupConfig(); }, [activeTab, fetchPopupConfig]);
 
   const savePopupConfig = async () => {
+    // If we're making this new one active, we should check if another one is active. (Backend handles this by turning others off)
     try {
       setPopupSaving(true);
       const res = await fetch(`${API_URL}/admin/promo-popup`, {
         method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'x-platform': 'web' },
-        body: JSON.stringify({ image_url: popupConfig.image_url, display_duration: Number(popupConfig.display_duration), expires_at: popupConfig.expires_at || null, is_active: popupConfig.is_active })
+        body: JSON.stringify({ image_url: popupConfig.image_url, display_duration: Number(popupConfig.display_duration), expires_at: popupConfig.expires_at || null, starts_at: popupConfig.starts_at || null, is_active: popupConfig.is_active })
       });
-      if (res.ok) alert('Popup configuration saved!');
-      else { const d = await res.json(); alert('Save failed: ' + (d.error || 'Unknown error')); }
+      if (res.ok) {
+        showAlert('Success', 'New popup created!');
+        setPopupConfig({ image_url: '', display_duration: '5', expires_at: '', starts_at: '', is_active: false });
+        setShowAddPopup(false);
+        fetchPopupConfig();
+      } else { const d = await res.json(); showAlert('Error', 'Save failed: ' + (d.error || 'Unknown error')); }
     } catch (e) { console.error('[promo-popup] save error', e); }
     finally { setPopupSaving(false); }
+  };
+
+  const togglePopupStatus = async (id: number, currentStatus: boolean) => {
+    try {
+      setPopupLoading(true);
+      const res = await fetch(`${API_URL}/admin/promo-popup/${id}`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'x-platform': 'web' },
+        body: JSON.stringify({ is_active: !currentStatus })
+      });
+      if (res.ok) {
+        fetchPopupConfig();
+      } else {
+        showAlert('Error', 'Failed to update popup status');
+      }
+    } catch (e) {
+      console.error(e);
+      showAlert('Error', 'Network error');
+    } finally {
+      setPopupLoading(false);
+    }
+  };
+
+  const [popupToDelete, setPopupToDelete] = useState<number | null>(null);
+
+  const deletePopup = async (id: number) => {
+    try {
+      setPopupLoading(true);
+      const res = await fetch(`${API_URL}/admin/promo-popup/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}`, 'x-platform': 'web' }
+      });
+      if (res.ok) {
+        showAlert('Success', 'Popup deleted successfully');
+        fetchPopupConfig();
+      } else {
+        const d = await res.json();
+        showAlert('Error', 'Failed to delete popup: ' + (d.error || 'Unknown error'));
+      }
+    } catch (e) {
+      console.error(e);
+      showAlert('Error', 'Network error');
+    } finally {
+      setPopupLoading(false);
+      setPopupToDelete(null);
+    }
   };
 
   const handleImageUpload = async (e: any) => {
@@ -186,11 +242,11 @@ export default function PromotionLinks() {
       if (res.ok && data.url) {
         setPopupConfig({ ...popupConfig, image_url: data.url });
       } else {
-        alert('Upload failed: ' + (data.error || 'Unknown error'));
+        showAlert('Error', 'Upload failed: ' + (data.error || 'Unknown error'));
       }
     } catch (err) {
       console.error(err);
-      alert('Upload failed');
+      showAlert('Error', 'Upload failed');
     } finally {
       setPopupSaving(false);
     }
@@ -232,7 +288,7 @@ export default function PromotionLinks() {
 
   const sendBulkSms = async () => {
     if (!smsForm.message.trim()) {
-      alert('Message cannot be empty');
+      showAlert('Validation', 'Message cannot be empty');
       setConfirmSms(false);
       return;
     }
@@ -261,16 +317,16 @@ export default function PromotionLinks() {
       });
       const data = await res.json();
       if (res.ok) {
-        alert(`Successfully queued ${data.queuedCount || 0} messages.`);
+        showAlert('Success', `Successfully queued ${data.queuedCount || 0} messages.`);
         setSmsForm({ ...smsForm, message: '', specificPhone: '' });
         setConfirmSms(false);
         fetchSmsHistory();
       } else {
-        alert('Failed: ' + (data.error || 'Unknown error'));
+        showAlert('Error', 'Failed: ' + (data.error || 'Unknown error'));
         setConfirmSms(false);
       }
     } catch (e) {
-      alert('Network error');
+      showAlert('Error', 'Network error');
       setConfirmSms(false);
     } finally {
       setSmsSending(false);
@@ -299,67 +355,186 @@ export default function PromotionLinks() {
         /* ═══ Promotion Popup Config ═══ */
         <ScrollView style={{ flex: 1 }}>
           <View style={styles.popupCard}>
-            <Text style={{ color: '#e5e3ff', fontSize: 20, fontWeight: '800', marginBottom: 4 }}>Game Entry Popup Settings</Text>
-            <Text style={{ color: 'rgba(168,167,212,0.5)', fontSize: 12, marginBottom: 24 }}>Configure the graphic shown to all users when they first enter the game.</Text>
-
-            {popupLoading ? <ActivityIndicator color={C.primary} style={{ padding: 40 }} /> : (
-              <View style={{ gap: 20 }}>
-                {/* Image Preview / Upload */}
-                <View>
-                  <Text style={styles.formLabel}>Promotion Image</Text>
-                  {popupConfig.image_url ? (
-                    <View style={styles.imagePreview}>
-                      {Platform.OS === 'web' && <img src={popupConfig.image_url} style={{ width: '100%', height: 200, objectFit: 'contain', borderRadius: 12 } as any} />}
-                      <TouchableOpacity style={styles.replaceBtn} onPress={() => setPopupConfig({ ...popupConfig, image_url: '' })}>
-                        <Ionicons name="swap-horizontal" size={14} color="#fff" /><Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>Replace Image</Text>
-                      </TouchableOpacity>
-                    </View>
-                  ) : (
-                    <TouchableOpacity style={styles.dropZone} onPress={() => Platform.OS === 'web' && document.getElementById('promo-image-upload')?.click()}>
-                      <Ionicons name="cloud-upload-outline" size={40} color="rgba(167,139,250,0.3)" />
-                      <Text style={{ color: '#a78bfa', fontSize: 12, marginTop: 8 }}>Click to upload image (Web only)</Text>
-                      <Text style={{ color: 'rgba(168,167,212,0.4)', fontSize: 10, marginTop: 4 }}>or enter URL below</Text>
-                    </TouchableOpacity>
-                  )}
-                  {Platform.OS === 'web' && (
-                    <input 
-                      type="file" 
-                      id="promo-image-upload" 
-                      style={{ display: 'none' }} 
-                      accept="image/*" 
-                      onChange={handleImageUpload} 
-                    />
-                  )}
-                  <TextInput style={[styles.input, { marginTop: 10 }]} placeholder="https://your-supabase-url.com/storage/promo.png" placeholderTextColor="rgba(168,167,212,0.3)" value={popupConfig.image_url} onChangeText={t => setPopupConfig({ ...popupConfig, image_url: t })} />
-                </View>
-
-                {/* Config Grid */}
-                <View style={{ flexDirection: 'row', gap: 16 }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.formLabel}>Display Duration (seconds)</Text>
-                    <TextInput style={styles.input} keyboardType="numeric" value={popupConfig.display_duration} onChangeText={t => setPopupConfig({ ...popupConfig, display_duration: t })} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.formLabel}>Expiration Date</Text>
-                    <TextInput style={styles.input} placeholder="YYYY-MM-DD" placeholderTextColor="rgba(168,167,212,0.3)" value={popupConfig.expires_at} onChangeText={t => setPopupConfig({ ...popupConfig, expires_at: t })} />
-                  </View>
-                </View>
-
-                {/* Active Toggle */}
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(167,139,250,0.06)', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: 'rgba(167,139,250,0.15)' }}>
-                  <View>
-                    <Text style={{ color: '#e5e3ff', fontSize: 14, fontWeight: '700' }}>Popup Status</Text>
-                    <Text style={{ color: 'rgba(168,167,212,0.5)', fontSize: 11 }}>{popupConfig.is_active ? 'Active — users will see popup' : 'Inactive — popup hidden'}</Text>
-                  </View>
-                  <Switch value={popupConfig.is_active} onValueChange={v => setPopupConfig({ ...popupConfig, is_active: v })} trackColor={{ false: '#333', true: 'rgba(0,227,253,0.3)' }} thumbColor={popupConfig.is_active ? '#00e3fd' : '#666'} />
-                </View>
-
-                {/* Save Button */}
-                <TouchableOpacity style={[styles.saveBtn, popupSaving && { opacity: 0.5 }]} onPress={savePopupConfig} disabled={popupSaving}>
-                  {popupSaving ? <ActivityIndicator color="#004d57" /> : <Text style={styles.saveBtnText}>Save Configuration</Text>}
-                </TouchableOpacity>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+              <View>
+                <Text style={{ color: '#e5e3ff', fontSize: 20, fontWeight: '800', marginBottom: 4 }}>Game Entry Popups</Text>
+                <Text style={{ color: 'rgba(168,167,212,0.5)', fontSize: 12 }}>Manage popups shown to users. Only one can be active at a time.</Text>
               </View>
-            )}
+              <TouchableOpacity 
+                style={[styles.addBtn, (popupHistory.some(p => p.is_active) && !showAddPopup) && { opacity: 0.5 }]} 
+                onPress={() => {
+                  if (popupHistory.some(p => p.is_active)) {
+                    showAlert('Cannot Add', 'Please turn off the active popup first.');
+                  } else {
+                    setShowAddPopup(true);
+                  }
+                }}
+                disabled={popupHistory.some(p => p.is_active) || showAddPopup}
+              >
+                <Ionicons name="add" size={16} color="#0c0c1f" />
+                <Text style={styles.addBtnText}>New Popup</Text>
+              </TouchableOpacity>
+            </View>
+
+            {popupLoading && !popupHistory.length ? <ActivityIndicator color={C.primary} style={{ padding: 40 }} /> : null}
+
+            {showAddPopup ? (
+              <View style={[styles.popupCard, { marginBottom: 24, padding: 20, backgroundColor: 'rgba(0,0,0,0.2)', borderWidth: 1, borderColor: 'rgba(167,139,250,0.2)' }]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}>
+                  <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>Create New Popup</Text>
+                  <TouchableOpacity onPress={() => setShowAddPopup(false)}>
+                    <Ionicons name="close" size={20} color="rgba(255,255,255,0.5)" />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={{ gap: 20 }}>
+                  <View>
+                    <Text style={styles.formLabel}>Promotion Image</Text>
+                    {popupConfig.image_url ? (
+                      <View style={styles.imagePreview}>
+                        <Image 
+                          source={{ uri: fixUrl(popupConfig.image_url) || undefined }} 
+                          style={{ width: '100%', height: 160, borderRadius: 12 }} 
+                          resizeMode="contain"
+                        />
+                        <TouchableOpacity style={styles.replaceBtn} onPress={() => setPopupConfig({ ...popupConfig, image_url: '' })}>
+                          <Ionicons name="swap-horizontal" size={14} color="#fff" /><Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>Replace Image</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      <TouchableOpacity style={[styles.dropZone, { padding: 30 }]} onPress={() => Platform.OS === 'web' && document.getElementById('promo-image-upload')?.click()}>
+                        <Ionicons name="cloud-upload-outline" size={32} color="rgba(167,139,250,0.3)" />
+                        <Text style={{ color: '#a78bfa', fontSize: 12, marginTop: 8 }}>Click to upload image</Text>
+                      </TouchableOpacity>
+                    )}
+                    {Platform.OS === 'web' && (
+                      <input 
+                        type="file" id="promo-image-upload" style={{ display: 'none' }} accept="image/*" 
+                        onChange={handleImageUpload} 
+                      />
+                    )}
+                    <TextInput style={[styles.input, { marginTop: 10 }]} placeholder="Or enter URL here..." placeholderTextColor="rgba(168,167,212,0.3)" value={popupConfig.image_url} onChangeText={t => setPopupConfig({ ...popupConfig, image_url: t })} />
+                  </View>
+
+                  <View style={{ flexDirection: 'row', gap: 16 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.formLabel}>Duration (seconds)</Text>
+                      <TextInput style={styles.input} keyboardType="numeric" value={popupConfig.display_duration} onChangeText={t => setPopupConfig({ ...popupConfig, display_duration: t })} />
+                    </View>
+                  </View>
+
+                  <View style={{ flexDirection: 'row', gap: 16 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.formLabel}>Start Date & Time (optional)</Text>
+                      {Platform.OS === 'web' ? (
+                        <input
+                          type="datetime-local"
+                          value={popupConfig.starts_at || ''}
+                          onChange={(e: any) => setPopupConfig({ ...popupConfig, starts_at: e.target.value })}
+                          style={{
+                            height: 52,
+                            backgroundColor: 'rgba(167,139,250,0.08)',
+                            border: '1px solid rgba(167,139,250,0.3)',
+                            borderRadius: 16,
+                            paddingLeft: 16,
+                            paddingRight: 16,
+                            color: '#e5e3ff',
+                            fontSize: 14,
+                            fontWeight: '700',
+                            outline: 'none',
+                            width: '100%',
+                            boxSizing: 'border-box' as any,
+                          }}
+                        />
+                      ) : (
+                        <TextInput style={styles.input} placeholder="YYYY-MM-DDTHH:MM" placeholderTextColor="rgba(168,167,212,0.3)" value={popupConfig.starts_at} onChangeText={t => setPopupConfig({ ...popupConfig, starts_at: t })} />
+                      )}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.formLabel}>Expiry Date & Time (optional)</Text>
+                      {Platform.OS === 'web' ? (
+                        <input
+                          type="datetime-local"
+                          value={popupConfig.expires_at || ''}
+                          onChange={(e: any) => setPopupConfig({ ...popupConfig, expires_at: e.target.value })}
+                          style={{
+                            height: 52,
+                            backgroundColor: 'rgba(167,139,250,0.08)',
+                            border: '1px solid rgba(167,139,250,0.3)',
+                            borderRadius: 16,
+                            paddingLeft: 16,
+                            paddingRight: 16,
+                            color: '#e5e3ff',
+                            fontSize: 14,
+                            fontWeight: '700',
+                            outline: 'none',
+                            width: '100%',
+                            boxSizing: 'border-box' as any,
+                          }}
+                        />
+                      ) : (
+                        <TextInput style={styles.input} placeholder="YYYY-MM-DDTHH:MM" placeholderTextColor="rgba(168,167,212,0.3)" value={popupConfig.expires_at} onChangeText={t => setPopupConfig({ ...popupConfig, expires_at: t })} />
+                      )}
+                    </View>
+                  </View>
+
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(167,139,250,0.06)', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: 'rgba(167,139,250,0.15)' }}>
+                    <View>
+                      <Text style={{ color: '#e5e3ff', fontSize: 14, fontWeight: '700' }}>Activate Immediately</Text>
+                      <Text style={{ color: 'rgba(168,167,212,0.5)', fontSize: 11 }}>This will be shown to users upon entry</Text>
+                    </View>
+                    <Switch value={popupConfig.is_active} onValueChange={v => setPopupConfig({ ...popupConfig, is_active: v })} trackColor={{ false: '#333', true: 'rgba(0,227,253,0.3)' }} thumbColor={popupConfig.is_active ? '#00e3fd' : '#666'} />
+                  </View>
+
+                  <TouchableOpacity style={[styles.saveBtn, popupSaving && { opacity: 0.5 }]} onPress={savePopupConfig} disabled={popupSaving}>
+                    {popupSaving ? <ActivityIndicator color="#004d57" /> : <Text style={styles.saveBtnText}>Save Popup</Text>}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : null}
+
+            <View style={{ gap: 12 }}>
+              {popupHistory.length === 0 && !popupLoading && (
+                <View style={[styles.emptyState, { backgroundColor: 'rgba(0,0,0,0.1)', borderRadius: 16 }]}>
+                  <Ionicons name="images-outline" size={40} color="rgba(168,167,212,0.2)" />
+                  <Text style={styles.emptyText}>No Popups Yet</Text>
+                  <Text style={styles.emptySubtext}>Create your first promotion popup.</Text>
+                </View>
+              )}
+              {popupHistory.map((popup) => (
+                <View key={popup.id} style={{ flexDirection: 'row', backgroundColor: 'rgba(24, 24, 27, 0.65)', borderRadius: 16, padding: 12, borderWidth: 1, borderColor: popup.is_active ? '#00e3fd' : 'rgba(167,139,250,0.1)', alignItems: 'center' }}>
+                  <Image source={{ uri: fixUrl(popup.image_url) || "" }} style={{ width: 60, height: 60, borderRadius: 10, marginRight: 16, backgroundColor: '#000' }} resizeMode="cover" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14, marginBottom: 4 }}>Popup #{popup.id}</Text>
+                    <View style={{ flexDirection: 'row', gap: 12 }}>
+                      <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}><Ionicons name="time-outline" size={10} /> {popup.display_duration}s</Text>
+                      <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}><Ionicons name="calendar-outline" size={10} /> {formatDate(popup.created_at)}</Text>
+                    </View>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Switch 
+                        value={popup.is_active} 
+                        onValueChange={() => togglePopupStatus(popup.id, popup.is_active)} 
+                        trackColor={{ false: '#333', true: 'rgba(0,227,253,0.3)' }} 
+                        thumbColor={popup.is_active ? '#00e3fd' : '#666'} 
+                        disabled={!popup.is_active && popupHistory.some(p => p.is_active && p.id !== popup.id)}
+                      />
+                      <Text style={{ color: popup.is_active ? '#00e3fd' : 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: '800', marginTop: 4 }}>
+                        {popup.is_active ? 'ACTIVE' : 'INACTIVE'}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => setPopupToDelete(popup.id)}
+                      style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(253,111,133,0.1)', borderWidth: 1, borderColor: 'rgba(253,111,133,0.2)', alignItems: 'center', justifyContent: 'center' }}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="trash-outline" size={16} color="#fd6f85" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))}
+            </View>
           </View>
         </ScrollView>
       ) : activeTab === 'sms' ? (
@@ -387,7 +562,7 @@ export default function PromotionLinks() {
                   <Text style={{ color: '#e5e3ff', fontSize: 14, fontWeight: '700' }}>Target Audience</Text>
                   <Text style={{ color: 'rgba(168,167,212,0.5)', fontSize: 11 }}>{smsForm.targetMode === 'all' ? 'Sending to ALL users' : 'Using specific filters'}</Text>
                 </View>
-                <View style={{ flexDirection: 'row', backgroundColor: '#0c0c1f', borderRadius: 8, padding: 4 }}>
+                <View style={{ flexDirection: 'row', backgroundColor: '#09090b', borderRadius: 8, padding: 4 }}>
                   <TouchableOpacity 
                     style={[styles.modeBtn, smsForm.targetMode === 'all' && styles.modeBtnActive]} 
                     onPress={() => setSmsForm({ ...smsForm, targetMode: 'all' })}
@@ -404,7 +579,7 @@ export default function PromotionLinks() {
               </View>
 
               {smsForm.targetMode === 'specific' && (
-                <View style={{ gap: 16, padding: 16, backgroundColor: 'rgba(23,23,50,0.4)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(68,68,107,0.2)' }}>
+                <View style={{ gap: 16, padding: 16, backgroundColor: 'rgba(24, 24, 27, 0.65)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(39, 39, 42, 0.4)' }}>
                   <Text style={[styles.formLabel, { color: C.secondary }]}>Targeting Filters</Text>
                   
                   <View style={{ flexDirection: 'row', gap: 16, zIndex: 10 }}>
@@ -417,11 +592,11 @@ export default function PromotionLinks() {
                           onChange={(e) => setSmsForm({ ...smsForm, role: e.target.value })}
                           disabled={!!smsForm.specificPhone}
                         >
-                          <option value="all" style={{ backgroundColor: '#0c0c1f', color: '#e5e3ff' }}>Any Role</option>
-                          <option value="user" style={{ backgroundColor: '#0c0c1f', color: '#e5e3ff' }}>User</option>
-                          <option value="admin" style={{ backgroundColor: '#0c0c1f', color: '#e5e3ff' }}>Admin</option>
-                          <option value="maintenance" style={{ backgroundColor: '#0c0c1f', color: '#e5e3ff' }}>Maintenance Admin</option>
-                          <option value="superadmin" style={{ backgroundColor: '#0c0c1f', color: '#e5e3ff' }}>Superadmin</option>
+                          <option value="all" style={{ backgroundColor: '#09090b', color: '#e5e3ff' }}>Any Role</option>
+                          <option value="user" style={{ backgroundColor: '#09090b', color: '#e5e3ff' }}>User</option>
+                          <option value="admin" style={{ backgroundColor: '#09090b', color: '#e5e3ff' }}>Admin</option>
+                          <option value="maintenance" style={{ backgroundColor: '#09090b', color: '#e5e3ff' }}>Maintenance Admin</option>
+                          <option value="superadmin" style={{ backgroundColor: '#09090b', color: '#e5e3ff' }}>Superadmin</option>
                         </select>
                       ) : (
                         <TextInput style={[styles.input, !!smsForm.specificPhone && { opacity: 0.5 }]} placeholder="Role..." value={smsForm.role} editable={!smsForm.specificPhone} />
@@ -436,11 +611,11 @@ export default function PromotionLinks() {
                           onChange={(e) => setSmsForm({ ...smsForm, balanceRange: e.target.value })}
                           disabled={!!smsForm.specificPhone}
                         >
-                          <option value="all" style={{ backgroundColor: '#0c0c1f', color: '#e5e3ff' }}>Any Balance</option>
-                          <option value="0-100" style={{ backgroundColor: '#0c0c1f', color: '#e5e3ff' }}>0 - 100 ETB</option>
-                          <option value="100-1000" style={{ backgroundColor: '#0c0c1f', color: '#e5e3ff' }}>100 - 1,000 ETB</option>
-                          <option value="1000-10000" style={{ backgroundColor: '#0c0c1f', color: '#e5e3ff' }}>1,000 - 10,000 ETB</option>
-                          <option value="10000-100000" style={{ backgroundColor: '#0c0c1f', color: '#e5e3ff' }}>10,000 - 100,000 ETB</option>
+                          <option value="all" style={{ backgroundColor: '#09090b', color: '#e5e3ff' }}>Any Balance</option>
+                          <option value="0-100" style={{ backgroundColor: '#09090b', color: '#e5e3ff' }}>0 - 100 ETB</option>
+                          <option value="100-1000" style={{ backgroundColor: '#09090b', color: '#e5e3ff' }}>100 - 1,000 ETB</option>
+                          <option value="1000-10000" style={{ backgroundColor: '#09090b', color: '#e5e3ff' }}>1,000 - 10,000 ETB</option>
+                          <option value="10000-100000" style={{ backgroundColor: '#09090b', color: '#e5e3ff' }}>10,000 - 100,000 ETB</option>
                         </select>
                       ) : (
                         <TextInput style={[styles.input, !!smsForm.specificPhone && { opacity: 0.5 }]} placeholder="Range..." value={smsForm.balanceRange} editable={!smsForm.specificPhone} />
@@ -499,7 +674,7 @@ export default function PromotionLinks() {
                     else if (filters.role || filters.min_balance) targetDesc = `Role: ${filters.role || 'Any'}, Balance: ${filters.min_balance || 0}-${filters.max_balance || '∞'}`;
                     
                     return (
-                     <View key={item.id || idx} style={{ padding: 12, backgroundColor: 'rgba(23,23,50,0.4)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(68,68,107,0.1)' }}>
+                     <View key={item.id || idx} style={{ padding: 12, backgroundColor: 'rgba(24, 24, 27, 0.65)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(39, 39, 42, 0.2)' }}>
                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
                          <Text style={{ color: '#e5e3ff', fontWeight: '700', fontSize: 13 }} numberOfLines={1}>{item.message}</Text>
                        </View>
@@ -744,6 +919,22 @@ export default function PromotionLinks() {
       />
       </View>
       )}
+
+      {/* Popup Delete Confirm — rendered outside tab conditional so it works on popup tab */}
+      <ActionConfirmModal
+        visible={popupToDelete !== null}
+        title="Delete Promotion Popup"
+        message="Are you sure you want to permanently delete this promotion popup? This cannot be undone."
+        confirmText="Delete Popup"
+        confirmColor="red"
+        iconName="trash-outline"
+        onCancel={() => setPopupToDelete(null)}
+        onConfirm={() => {
+          if (popupToDelete !== null) {
+            deletePopup(popupToDelete);
+          }
+        }}
+      />
     </View>
   );
 }
@@ -791,18 +982,18 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: 'rgba(23,23,50,0.4)',
+    backgroundColor: 'rgba(24, 24, 27, 0.65)',
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(68,68,107,0.1)',
+    borderColor: 'rgba(39, 39, 42, 0.2)',
   },
   popupCard: {
-    backgroundColor: 'rgba(23,23,50,0.4)',
+    backgroundColor: 'rgba(24, 24, 27, 0.65)',
     borderRadius: 24,
     padding: 24,
     borderWidth: 1,
-    borderColor: 'rgba(68,68,107,0.1)',
+    borderColor: 'rgba(39, 39, 42, 0.2)',
   },
   modeBtn: {
     paddingHorizontal: 12,
@@ -848,10 +1039,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   linkCard: {
-    backgroundColor: 'rgba(23,23,50,0.4)',
+    backgroundColor: 'rgba(24, 24, 27, 0.65)',
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: 'rgba(68,68,107,0.1)',
+    borderColor: 'rgba(39, 39, 42, 0.2)',
     padding: 20,
     marginBottom: 12,
   },
@@ -925,7 +1116,7 @@ const styles = StyleSheet.create({
   modalBox: {
     width: '100%',
     maxWidth: 480,
-    backgroundColor: '#171732',
+    backgroundColor: '#18181b',
     borderRadius: 24,
     padding: 24,
     borderWidth: 1,
@@ -1049,13 +1240,6 @@ const styles = StyleSheet.create({
     color: '#0c0c1f',
   },
   // Popup config styles
-  popupCard: {
-    backgroundColor: 'rgba(23,23,50,0.4)',
-    borderRadius: 24,
-    padding: 28,
-    borderWidth: 1,
-    borderColor: 'rgba(68,68,107,0.1)',
-  },
   imagePreview: {
     borderRadius: 16,
     overflow: 'hidden',
@@ -1083,4 +1267,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  addBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: '#00e3fd',
+  },
+  addBtnText: {
+    color: '#0c0c1f',
+    fontSize: 13,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  }
 });

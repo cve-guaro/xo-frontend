@@ -69,7 +69,7 @@ const EmergencyLockoutScreen = () => {
       {/* Background rotating glow */}
       <Animated.View style={[styles.glowRing, { transform: [{ rotate: spin }, { scale: pulseAnim }] }]}>
         <LinearGradient
-          colors={['rgba(167,139,250,0.2)', 'transparent', 'rgba(0,218,243,0.2)', 'transparent']}
+          colors={['rgba(0,218,243,0.2)', 'transparent', 'rgba(0,218,243,0.2)', 'transparent']}
           style={StyleSheet.absoluteFill}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
@@ -79,7 +79,7 @@ const EmergencyLockoutScreen = () => {
       <View style={styles.content}>
         <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
           <View style={styles.iconContainer}>
-            <Ionicons name="construct" size={60} color="#a78bfa" />
+            <Ionicons name="construct" size={60} color="#00daf3" />
           </View>
         </Animated.View>
 
@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
     height: Math.max(width, height),
     borderRadius: Math.max(width, height) / 2,
     borderWidth: 2,
-    borderColor: 'rgba(167,139,250,0.1)',
+    borderColor: 'rgba(0,218,243,0.1)',
   },
   content: {
     alignItems: 'center',
@@ -129,12 +129,12 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: 'rgba(167,139,250,0.1)',
+    backgroundColor: 'rgba(0,218,243,0.1)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: 'rgba(167,139,250,0.3)',
+    borderColor: 'rgba(0,218,243,0.3)',
   },
   title: {
     fontSize: 28,
@@ -154,12 +154,12 @@ const styles = StyleSheet.create({
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(167,139,250,0.1)',
+    backgroundColor: 'rgba(0,218,243,0.1)',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 99,
     borderWidth: 1,
-    borderColor: 'rgba(167,139,250,0.2)',
+    borderColor: 'rgba(0,218,243,0.2)',
   },
   dot: {
     width: 8,
@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
   },
   badgeText: {
-    color: '#a78bfa',
+    color: '#00daf3',
     fontSize: 14,
     fontWeight: '600',
   }

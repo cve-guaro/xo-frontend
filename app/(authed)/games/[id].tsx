@@ -35,21 +35,21 @@ type ParamPayload = {
 };
 
 const THEME = {
-  bgSurface: '#13132B',
+  bgSurface: '#0A090E',
   onSurface: '#ffffff',
-  surfaceContainerLow: '#1B1B3A',
-  surfaceContainer: '#24244A',
-  surfaceVariant: '#323261',
-  surfaceBright: '#40407A',
-  primary: '#B69AFF',
-  primaryDim: '#966DFF',
-  primaryContainer: '#8752FF',
-  onPrimaryContainer: '#ffffff',
-  secondary: '#25E5FA',
+  surfaceContainerLow: '#14131A',
+  surfaceContainer: '#1B1A24',
+  surfaceVariant: '#252535',
+  surfaceBright: '#323247',
+  primary: '#00daf3',
+  primaryDim: '#00daf3',
+  primaryContainer: '#00daf3',
+  onPrimaryContainer: '#0a0a0f',
+  secondary: '#00daf3',
   onSurfaceVariant: '#CDCCF3',
   outlineVariant: '#56568A',
-  error: '#FF7D92',
-  errorDim: '#D94963'
+  error: '#ff4766',
+  errorDim: '#ff4766'
 };
 
 const LINES: number[][] = [
@@ -208,15 +208,44 @@ export default function GameViewer() {
   if (!movesFromParams || !movesFromParams.length) {
     return (
       <ScreenWrapper>
-        <SafeAreaView style={{ flex: 1, backgroundColor: THEME.bgSurface }}>
-          <View style={styles.errorContainer}>
-            <Ionicons name="alert-circle" size={40} color={THEME.error} />
-            <Text style={styles.errorText}>No telemetry recorded for this instance.</Text>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backBtnError}>
-               <Text style={styles.analyzeText}>RETURN TO DASHBOARD</Text>
+        <View style={{ flex: 1, backgroundColor: THEME.bgSurface, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+          {/* Neon Background Blobs for Abyss vibe */}
+          <View style={styles.bgBlobPrimary} />
+          <View style={styles.bgBlobSecondary} />
+
+          <View style={[styles.glassPanelWrapper, { width: '100%', maxWidth: 450, paddingHorizontal: 24, paddingVertical: 40, alignItems: 'center' }]}>
+            <View style={styles.glassBackground} />
+            <LinearGradient
+              colors={['rgba(255, 255, 255, 0.05)', 'transparent']}
+              style={StyleSheet.absoluteFillObject}
+            />
+            
+            <View style={styles.errorIconContainer}>
+              <Ionicons name="eye-off-outline" size={40} color={THEME.primary} />
+            </View>
+
+            <Text style={styles.errorTitle}>MATCH ABORTED</Text>
+            <Text style={styles.errorDescription}>
+              No gameplay telemetry was recorded for this session. This typically occurs when a match is canceled, aborted, or terminated prematurely.
+            </Text>
+
+            <TouchableOpacity 
+              onPress={() => router.back()} 
+              style={styles.premiumBackBtn}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={[THEME.primaryContainer, THEME.primaryDim]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.gradientBtn}
+              >
+                <Ionicons name="arrow-back" size={16} color={THEME.onSurface} style={{ marginRight: 8 }} />
+                <Text style={styles.premiumBackText}>RETURN TO DASHBOARD</Text>
+              </LinearGradient>
             </TouchableOpacity>
           </View>
-        </SafeAreaView>
+        </View>
       </ScreenWrapper>
     );
   }
@@ -224,7 +253,8 @@ export default function GameViewer() {
   // Active View Render
   return (
     <ScreenWrapper>
-      <View style={{ flex: 1, backgroundColor: THEME.bgSurface }}>
+      <View style={{ flex: 1, backgroundColor: '#0A090E' }}>
+        <LinearGradient colors={["#0A090E", "#08070B", "#060508"]} style={StyleSheet.absoluteFillObject} />
         
         {/* Neon Background Blobs for Abyss vibe */}
         <View style={styles.bgBlobPrimary} />
@@ -292,7 +322,7 @@ export default function GameViewer() {
                            ]}>
                              {v === "X" && (
                                 <View style={styles.iconContainer}>
-                                  <Ionicons name="close" size={Math.floor(CELL * 0.7)} color={THEME.primary} style={styles.primaryShadow} />
+                                  <Ionicons name="close" size={Math.floor(CELL * 0.7)} color={THEME.error} style={styles.xShadow} />
                                 </View>
                              )}
                              {v === "O" && (
@@ -395,6 +425,56 @@ const styles = StyleSheet.create({
      borderWidth: 1,
      borderColor: 'rgba(68, 68, 107, 0.2)'
   },
+  errorIconContainer: {
+     width: 80,
+     height: 80,
+     borderRadius: 40,
+     backgroundColor: 'rgba(182, 154, 255, 0.1)',
+     alignItems: 'center',
+     justifyContent: 'center',
+     borderWidth: 1,
+     borderColor: 'rgba(182, 154, 255, 0.2)',
+     marginBottom: 24
+  },
+  errorTitle: {
+     color: THEME.onSurface,
+     fontSize: 20,
+     fontWeight: '900',
+     letterSpacing: 2,
+     marginBottom: 12,
+     textAlign: 'center'
+  },
+  errorDescription: {
+     color: THEME.onSurfaceVariant,
+     fontSize: 13,
+     lineHeight: 20,
+     textAlign: 'center',
+     marginBottom: 32,
+     paddingHorizontal: 16
+  },
+  premiumBackBtn: {
+     width: '100%',
+     borderRadius: 16,
+     overflow: 'hidden',
+     shadowColor: THEME.primary,
+     shadowOpacity: 0.3,
+     shadowRadius: 10,
+     shadowOffset: { width: 0, height: 4 },
+     elevation: 5
+  },
+  gradientBtn: {
+     flexDirection: 'row',
+     alignItems: 'center',
+     justifyContent: 'center',
+     paddingVertical: 16,
+     paddingHorizontal: 24
+  },
+  premiumBackText: {
+     color: THEME.onSurface,
+     fontSize: 12,
+     fontWeight: '900',
+     letterSpacing: 1
+  },
   
   // Blobs
   bgBlobPrimary: {
@@ -433,7 +513,7 @@ const styles = StyleSheet.create({
      right: -50,
      width: 300,
      height: 300,
-     backgroundColor: THEME.secondary,
+     backgroundColor: '#ff4766',
      opacity: 0.1,
      borderRadius: 999,
      transform: [{ scale: 1.5 }],
@@ -539,7 +619,7 @@ const styles = StyleSheet.create({
   },
   glassBackground: {
      ...StyleSheet.absoluteFillObject,
-     backgroundColor: 'rgba(24, 24, 48, 0.7)',
+     backgroundColor: 'rgba(20, 19, 26, 0.7)',
   },
   glassGradientTop: {
      position: 'absolute',
@@ -547,7 +627,7 @@ const styles = StyleSheet.create({
      left: 0,
      right: 0,
      height: '50%',
-     backgroundColor: 'rgba(182, 154, 255, 0.05)'
+     backgroundColor: 'rgba(0, 218, 243, 0.05)'
   },
   gridContainer: {
      gap: 16,
@@ -581,13 +661,13 @@ const styles = StyleSheet.create({
      justifyContent: 'center',
      ...StyleSheet.absoluteFillObject
   },
-  primaryShadow: {
-     textShadowColor: THEME.primary,
+  xShadow: {
+     textShadowColor: '#ff4766',
      textShadowOffset: { width: 0, height: 0 },
      textShadowRadius: 15
   },
   secondaryShadow: {
-     textShadowColor: THEME.secondary,
+     textShadowColor: '#00daf3',
      textShadowOffset: { width: 0, height: 0 },
      textShadowRadius: 15
   },

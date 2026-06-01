@@ -1,25 +1,101 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform, useWindowDimensions, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
 export function PwaInstallBanner() {
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-  const [showBanner, setShowBanner] = useState(false);
+  const { width } = useWindowDimensions();
+  const isDesktop = Platform.OS === 'web' && width >= 768;
+
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(
+    Platform.OS === 'web' && typeof window !== 'undefined' ? (window as any).deferredPrompt : null
+  );
+  const [showBanner, setShowBanner] = useState(
+    Platform.OS === 'web' && typeof window !== 'undefined' && !!(window as any).deferredPrompt
+  );
+  const [isPwaInstalled, setIsPwaInstalled] = useState(false);
 
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
 
-    const handler = (e: any) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
+    const checkPwaInstalled = async () => {
+      // 1. Check standalone display mode
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+        (navigator as any).standalone;
+      if (isStandalone) return true;
+
+      // 2. Check getInstalledRelatedApps (Chrome/Android)
+      if ((navigator as any).getInstalledRelatedApps) {
+        try {
+          const relatedApps = await (navigator as any).getInstalledRelatedApps();
+          if (relatedApps && relatedApps.length > 0) {
+            return true;
+          }
+        } catch (e) {
+          console.log('[PWA Banner] getInstalledRelatedApps error:', e);
+        }
+      }
+      return false;
+    };
+
+    const handleCheck = () => {
+      checkPwaInstalled().then(installed => {
+        setIsPwaInstalled(installed);
+      });
+    };
+
+    handleCheck();
+
+    // Listen for the appinstalled event
+    const handleAppInstalled = () => {
+      setIsPwaInstalled(true);
+    };
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    // Listen for matchMedia changes
+    const mediaQuery = window.matchMedia('(display-mode: standalone)');
+    const handleMediaChange = (e: MediaQueryListEvent) => {
+      setIsPwaInstalled(e.matches);
+    };
+
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', handleMediaChange);
+    } else {
+      mediaQuery.addListener(handleMediaChange);
+    }
+
+    // Periodically poll (every 3 seconds) to ensure state changes are detected
+    const interval = setInterval(handleCheck, 3000);
+
+    return () => {
+      window.removeEventListener('appinstalled', handleAppInstalled);
+      if (mediaQuery.removeEventListener) {
+        mediaQuery.removeEventListener('change', handleMediaChange);
+      } else {
+        mediaQuery.removeListener(handleMediaChange);
+      }
+      clearInterval(interval);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+
+    const handleReady = () => {
+      setDeferredPrompt((window as any).deferredPrompt);
       setShowBanner(true);
     };
 
-    window.addEventListener('beforeinstallprompt', handler);
+    window.addEventListener('pwa-prompt-ready', handleReady);
+
+    // If it's already available
+    if ((window as any).deferredPrompt) {
+      setDeferredPrompt((window as any).deferredPrompt);
+      setShowBanner(true);
+    }
 
     return () => {
-      window.removeEventListener('beforeinstallprompt', handler);
+      window.removeEventListener('pwa-prompt-ready', handleReady);
     };
   }, []);
 
@@ -29,6 +105,7 @@ export function PwaInstallBanner() {
     const { outcome } = await deferredPrompt.userChoice;
     if (outcome === 'accepted') {
       console.log('PWA installed successfully');
+      setIsPwaInstalled(true);
     }
     setDeferredPrompt(null);
     setShowBanner(false);
@@ -38,46 +115,69 @@ export function PwaInstallBanner() {
     setShowBanner(false);
   };
 
-  if (!showBanner) return null;
+  if (!showBanner || isPwaInstalled) return null;
 
   return (
-    <View style={styles.container}>
-      <LinearGradient colors={['#7c3aed', '#3b82f6']} style={styles.gradient} start={{x:0, y:0}} end={{x:1, y:0}}>
-        <View style={styles.content}>
-          <View style={styles.textContainer}>
-            <Text style={styles.title}>Install XO Ethiopia App</Text>
-            <Text style={styles.subtitle}>Play faster and offline directly from your home screen.</Text>
-          </View>
-          <View style={styles.actions}>
-            <TouchableOpacity onPress={handleDismiss} style={styles.dismissBtn}>
-              <Ionicons name="close" size={20} color="#fff" />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={handleInstall} style={styles.installBtn}>
-              <Text style={styles.installText}>Install</Text>
-            </TouchableOpacity>
-          </View>
+    <View style={isDesktop ? styles.desktopContainer : styles.mobileContainer}>
+      <View style={styles.content}>
+        <Image
+          source={require('../assets/images/adaptive-icon.png')}
+          style={{ width: 40, height: 40, borderRadius: 10, marginRight: 12 }}
+        />
+        <View style={styles.textContainer}>
+          <Text style={styles.title}>Install XO Ethiopia App</Text>
+          <Text style={styles.subtitle} numberOfLines={isDesktop ? 2 : 1}>
+            Play faster and offline directly from your home screen.
+          </Text>
         </View>
-      </LinearGradient>
+        <View style={styles.actions}>
+          <TouchableOpacity onPress={handleInstall} style={styles.installBtn}>
+            <Text style={styles.installText}>Install</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleDismiss} style={styles.dismissBtn}>
+            <Ionicons name="close" size={22} color="#ffffff" />
+          </TouchableOpacity>
+        </View>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  desktopContainer: {
     position: 'absolute',
-    bottom: 20,
-    left: 20,
-    right: 20,
+    bottom: 24,
+    right: 24,
+    width: 380,
+    zIndex: 9999,
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#00daf3',
+    shadowColor: '#00daf3',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 10,
+    backgroundColor: '#00daf3',
+    padding: 16,
+  },
+  mobileContainer: {
+    position: 'absolute',
+    bottom: 16,
+    left: 16,
+    right: 16,
     zIndex: 9999,
     borderRadius: 16,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#00daf3',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
-    shadowRadius: 10,
+    shadowRadius: 8,
     elevation: 8,
-  },
-  gradient: {
+    backgroundColor: '#00daf3',
     padding: 16,
   },
   content: {
@@ -90,32 +190,36 @@ const styles = StyleSheet.create({
     paddingRight: 10,
   },
   title: {
-    color: '#fff',
-    fontSize: 16,
+    color: '#ffffff',
+    fontSize: 14,
     fontWeight: 'bold',
   },
   subtitle: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 12,
-    marginTop: 4,
+    color: '#ffffff',
+    fontSize: 11,
+    marginTop: 2,
+    opacity: 0.9,
   },
   actions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
   },
   dismissBtn: {
     padding: 4,
   },
   installBtn: {
-    backgroundColor: '#fff',
+    backgroundColor: '#ffffff',
+    borderRadius: 9999,
     paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   installText: {
-    color: '#7c3aed',
-    fontWeight: 'bold',
-    fontSize: 14,
+    color: '#0b0b0f',
+    fontWeight: '900',
+    fontSize: 12,
+    letterSpacing: 0.5,
   },
 });

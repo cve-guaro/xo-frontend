@@ -125,7 +125,7 @@ export default function AdminAudit() {
 
           <ScrollView horizontal={isMobile} showsHorizontalScrollIndicator={isMobile}>
             <View style={isMobile ? { minWidth: 800 } : { flex: 1 }}>
-              <View style={[styles.colRow, { backgroundColor: 'rgba(23,23,50,0.5)' }]}>
+              <View style={[styles.colRow, { backgroundColor: 'rgba(24, 24, 27, 0.5)' }]}>
                 <Text style={[styles.colHead, { flex: 1.2 }]}>{t('admin_label')}</Text>
                 <Text style={[styles.colHead, { flex: 1 }]}>{t('action_label')}</Text>
                 <Text style={[styles.colHead, { flex: 1.2 }]}>{t('target_label')}</Text>
@@ -206,9 +206,9 @@ const styles = StyleSheet.create({
   tableWrap: { flex: 1, marginHorizontal: 24 },
   tableTopBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 24 },
   tableTitle: { color: '#e5e3ff', fontSize: 18, fontWeight: '800' },
-  searchBox: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#111128', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(68,68,107,0.2)', width: 300 },
+  searchBox: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#0f0f11', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(39, 39, 42, 0.4)', width: 300 },
   searchInput: { flex: 1, color: '#fff', fontSize: 13 },
-  colRow: { flexDirection: 'row', paddingHorizontal: 24, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(68,68,107,0.2)' },
+  colRow: { flexDirection: 'row', paddingHorizontal: 24, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(39, 39, 42, 0.4)' },
   colHead: { color: 'rgba(168,167,212,0.6)', fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1.5 },
   tableRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 18, borderBottomWidth: 1, borderBottomColor: 'rgba(68,68,107,0.08)' },
   adminName: { color: '#e5e3ff', fontSize: 13, fontWeight: '700' },
@@ -218,7 +218,7 @@ const styles = StyleSheet.create({
   details: { color: 'rgba(168,167,212,0.7)', fontSize: 11, fontStyle: 'italic' },
   timeAgo: { color: '#a8a7d4', fontSize: 11 },
   emptyText: { color: '#a8a7d4', textAlign: 'center', marginVertical: 60, fontSize: 14 },
-  pagination: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 24, padding: 24, borderTopWidth: 1, borderTopColor: 'rgba(68,68,107,0.1)' },
+  pagination: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 24, padding: 24, borderTopWidth: 1, borderTopColor: 'rgba(39, 39, 42, 0.2)' },
   pageBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
   pageInfo: { color: 'rgba(168,167,212,0.8)', fontSize: 13, fontWeight: '600' },
 });

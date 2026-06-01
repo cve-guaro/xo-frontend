@@ -242,22 +242,22 @@ export default function AdminLogs() {
         </View>
 
         <View style={[styles.statsRow, isMobile && { flexWrap: 'wrap' }]}>
-          <View style={[styles.statCard, isMobile && { minWidth: '47%' as any }, glass({ backgroundColor: '#111128', borderRadius: 20, padding: 24 })]}>
+          <View style={[styles.statCard, isMobile && { minWidth: '47%' as any }, glass({ backgroundColor: '#0f0f11', borderRadius: 20, padding: 24 })]}>
             <Text style={styles.statLabel}>{t('active_matches')}</Text>
             <Text style={[styles.statVal, { color: C.secondary }]}>{stats.activeGames.toLocaleString()}</Text>
             <Text style={styles.statSub}>+12% from last hour</Text>
           </View>
-          <View style={[styles.statCard, isMobile && { minWidth: '47%' as any }, glass({ backgroundColor: '#111128', borderRadius: 20, padding: 24 })]}>
+          <View style={[styles.statCard, isMobile && { minWidth: '47%' as any }, glass({ backgroundColor: '#0f0f11', borderRadius: 20, padding: 24 })]}>
             <Text style={styles.statLabel}>{t('total_stake_24h')}</Text>
             <Text style={[styles.statVal, { color: C.primary }]}>ETB {Number((stats.totalStake || 0).toFixed(0)).toLocaleString()}</Text>
             <Text style={styles.statSub}>Global pool volume</Text>
           </View>
-          <View style={[styles.statCard, isMobile && { minWidth: '47%' as any }, glass({ backgroundColor: '#111128', borderRadius: 20, padding: 24 })]}>
+          <View style={[styles.statCard, isMobile && { minWidth: '47%' as any }, glass({ backgroundColor: '#0f0f11', borderRadius: 20, padding: 24 })]}>
             <Text style={styles.statLabel}>{t('avg_game_time')}</Text>
             <Text style={[styles.statVal, { color: '#ffabf3' }]}>{stats.avgTime}s</Text>
             <Text style={styles.statSub}>Efficiency metrics</Text>
           </View>
-          <View style={[styles.statCard, isMobile && { minWidth: '47%' as any }, glass({ backgroundColor: '#111128', borderRadius: 20, padding: 24, borderLeftWidth: 4, borderLeftColor: 'rgba(0,218,243,0.3)' })]}>
+          <View style={[styles.statCard, isMobile && { minWidth: '47%' as any }, glass({ backgroundColor: '#0f0f11', borderRadius: 20, padding: 24, borderLeftWidth: 4, borderLeftColor: 'rgba(0,218,243,0.3)' })]}>
             <Text style={styles.statLabel}>{t('system_health')}</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 16 }}>
               <View style={[styles.healthDot, { backgroundColor: C.secondary, shadowColor: C.secondary, shadowRadius: 8, shadowOpacity: 1 }]} />
@@ -291,7 +291,7 @@ export default function AdminLogs() {
 
           <ScrollView horizontal={isMobile} showsHorizontalScrollIndicator={isMobile}>
             <View style={isMobile ? { minWidth: 800 } : { flex: 1 }}>
-              <View style={[styles.colRow, { backgroundColor: 'rgba(23,23,50,0.5)' }]}>
+              <View style={[styles.colRow, { backgroundColor: 'rgba(24, 24, 27, 0.5)' }]}>
                 <Text style={[styles.colHead, { flex: 1.5 }]}>{t('match_id')}</Text>
                 <Text style={[styles.colHead, { flex: 1.5 }]}>{t('participants')}</Text>
                 <Text style={[styles.colHead, { flex: 1 }]}>{t('stake')}</Text>
@@ -435,19 +435,19 @@ const styles = StyleSheet.create({
   healthDot: { width: 10, height: 10, borderRadius: 5 },
   tableWrap: { flex: 1, marginHorizontal: 24, backgroundColor: 'transparent' },
   tableTopBar: { 
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 24, backgroundColor: 'rgba(23,23,50,0.6)', borderTopLeftRadius: 20, borderTopRightRadius: 20, borderWidth: 1, borderBottomWidth: 0, borderColor: 'rgba(166,140,255,0.2)'
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 24, backgroundColor: 'rgba(24, 24, 27, 0.65)', borderTopLeftRadius: 20, borderTopRightRadius: 20, borderWidth: 1, borderBottomWidth: 0, borderColor: 'rgba(39, 39, 42, 0.6)'
   },
   tableTitle: { color: '#fff', fontSize: 20, fontWeight: '900', letterSpacing: 0.5 },
   liveIndicator: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.secondary },
   liveTxt: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1 },
-  searchBox: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: 'rgba(0,0,0,0.3)', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(166,140,255,0.3)', width: 260, shadowColor: C.primary, shadowOpacity: 0.2, shadowRadius: 10 },
+  searchBox: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: 'rgba(0,0,0,0.3)', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(0, 218, 243, 0.3)', width: 260, shadowColor: C.primary, shadowOpacity: 0.2, shadowRadius: 10 },
   searchInput: { flex: 1, color: '#fff', fontSize: 13, fontWeight: '600' },
   colRow: { 
     flexDirection: 'row', paddingHorizontal: 24, paddingVertical: 14, alignItems: 'center',
     backgroundColor: 'transparent'
   },
   colHead: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1.5 },
-  tableRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, backgroundColor: 'rgba(23,23,50,0.5)', borderRadius: 16, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(166,140,255,0.1)' },
+  tableRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, backgroundColor: 'rgba(24, 24, 27, 0.5)', borderRadius: 16, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(39, 39, 42, 0.4)' },
   matchId: { color: C.primary, fontSize: 11, fontWeight: '700' },
   playerName: { color: '#fff', fontSize: 13, fontWeight: '800', letterSpacing: 0.5 },
   avatarStack: { flexDirection: 'row' },
@@ -456,12 +456,12 @@ const styles = StyleSheet.create({
   stakeVal: { color: '#00daf3', fontSize: 15, fontWeight: '900' },
   resultPill: { fontSize: 10, fontWeight: '900', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 1 },
   timeAgo: { color: '#fff', fontSize: 12, fontWeight: '700' },
-  viewBtn: { padding: 8, backgroundColor: 'rgba(166,140,255,0.1)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(166,140,255,0.3)' },
+  viewBtn: { padding: 8, backgroundColor: 'rgba(166,140,255,0.1)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(0, 218, 243, 0.3)' },
   emptyText: { color: '#a8a7d4', textAlign: 'center', marginVertical: 40, fontSize: 14 },
-  pagination: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, marginTop: 8, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(166,140,255,0.2)', backgroundColor: 'rgba(23,23,50,0.6)' },
+  pagination: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, marginTop: 8, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(39, 39, 42, 0.6)', backgroundColor: 'rgba(24, 24, 27, 0.65)' },
   paginationText: { color: C.onSurfaceVariant, fontSize: 12, fontWeight: '700' },
   pageNav: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  pageNavBtn: { width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(166,140,255,0.1)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(166,140,255,0.3)' },
+  pageNavBtn: { width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(166,140,255,0.1)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(0, 218, 243, 0.3)' },
   pageIndicatorText: { color: '#fff', fontSize: 13, fontWeight: '800' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(12,12,31,0.9)', alignItems: 'center', justifyContent: 'center', padding: 16 },
   modalBox: { width: '100%', maxWidth: 600, height: 600, borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
@@ -474,7 +474,7 @@ const styles = StyleSheet.create({
   engineControls: { flexDirection: 'row', alignItems: 'center', gap: 20, marginBottom: 24 },
   engineBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
   board: { flexDirection: 'row', flexWrap: 'wrap', width: 282, height: 282, backgroundColor: 'rgba(0,0,0,0.2)', padding: 10, borderRadius: 20, gap: 10, alignSelf: 'center' },
-  boardCell: { width: 80, height: 80, borderRadius: 12, backgroundColor: '#171732', alignItems: 'center', justifyContent: 'center' },
+  boardCell: { width: 80, height: 80, borderRadius: 12, backgroundColor: '#18181b', alignItems: 'center', justifyContent: 'center' },
   boardMark: { fontSize: 36, fontWeight: '900' },
   modalStats: { flexDirection: 'row', justifyContent: 'center', gap: 40, marginTop: 32 },
   modalStatLabel: { color: 'rgba(168,167,212,0.6)', fontSize: 10, fontWeight: '800', textTransform: 'uppercase', marginBottom: 4 },
