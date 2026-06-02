@@ -26,7 +26,7 @@ import { useToast } from "../../context/ToastContext";
 export default function LoginScreen() {
   const router = useRouter();
   const { ref, promo } = useLocalSearchParams<{ref?: string, promo?: string}>();
-  const { requestOtp, verifyOtp, requestingOtp, verifyingOtp, pendingNumber, user, token, t } = useAuth();
+  const { requestOtp, verifyOtp, requestingOtp, verifyingOtp, pendingNumber, user, token, t, language } = useAuth();
   const { unlockAudio } = useBackgroundMusic();
   const { width } = useWindowDimensions();
   const isDesktop = width > 768 && Platform.OS === 'web';

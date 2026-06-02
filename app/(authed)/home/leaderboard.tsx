@@ -439,17 +439,21 @@ export default function LeaderboardScreen() {
 
   const top3 = leaderboard.slice(0, 3);
 
-  const listData = useMemo(() => {
+  const flatListData = useMemo(() => {
     const base = [...leaderboard];
     const myInList = leaderboard.find(u => u.isMe);
     if (!myInList && myRank && myRank.rank) {
       base.push(myRank);
     }
-    return base;
+    const list = [{ id: 'subheader', type: 'subheader' } as any, ...base];
+    if (base.length === 0) {
+      list.push({ id: 'empty', type: 'empty' } as any);
+    }
+    return list;
   }, [leaderboard, myRank]);
 
   const scrollToMe = () => {
-    const myIdx = listData.findIndex(u => u.isMe);
+    const myIdx = flatListData.findIndex(u => u.isMe);
     if (myIdx >= 0 && flatListRef.current) {
       flatListRef.current.scrollToIndex({ index: myIdx, animated: true, viewPosition: 0.5 });
     }
@@ -558,40 +562,9 @@ export default function LeaderboardScreen() {
       </View>
 
       <SafeAreaView style={s.safe} edges={['top', 'left', 'right']}>
-        {/* Unified ListHeaderComponent builder to render headers dynamically while allowing full scrolling on mobile */}
-        {!isDesktop && (
-          <View style={{ backgroundColor: 'transparent' }}>
-            {/* Header */}
-            <View style={s.header}>
-              <Text style={s.headerTitle}>{isEN ? "Weekly Top Winners" : "ሳምንታዊ ከፍተኛ አሸናፊዎች"}</Text>
-              <TouchableOpacity onPress={fetchData} style={s.refreshBtn}>
-                <Ionicons name="refresh" size={18} color="#00daf3" />
-              </TouchableOpacity>
-            </View>
-
-            {/* Podium */}
-            <View style={{ marginTop: 8, marginBottom: 12 }}>
-              <Podium top3={top3} prizes={prizes} />
-            </View>
-
-            {/* Mobile Unified Prize & Timer Card */}
-            <MobileUnifiedCard
-              secondsRemaining={secondsRemaining}
-              isEN={isEN}
-              prizes={prizes}
-            />
-
-            {/* Sub Header */}
-            <View style={[s.subHeader, { paddingBottom: 6, backgroundColor: 'transparent' }]}>
-              <Text style={s.subHeaderTitle}>{isEN ? "All Players" : "ሁሉም ተጫዋቾች"}</Text>
-              <Text style={s.subHeaderLabel}>{isEN ? "(Weekly)" : "(ሳምንታዊ)"}</Text>
-            </View>
-          </View>
-        )}
-
         <FlatList
           ref={flatListRef}
-          data={listData}
+          data={flatListData}
           keyExtractor={(item) => item.id}
           onScrollToIndexFailed={(info) => {
             const wait = new Promise(resolve => setTimeout(resolve, 50));
@@ -599,48 +572,93 @@ export default function LeaderboardScreen() {
               flatListRef.current?.scrollToIndex({ index: info.index, animated: true, viewPosition: 0.5 });
             });
           }}
-          renderItem={({ item }) => <LBItem item={item} />}
-          ListHeaderComponent={isDesktop ? (() => {
-            return (
-              <View>
-                <View style={{ flexDirection: 'row', gap: 24, paddingHorizontal: 20, marginBottom: 24 }}>
-                  {/* Left Box: Podium */}
-                  <View style={{ flex: 1.5, backgroundColor: '#111115', borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', padding: 24 }}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                      <Text style={{ fontSize: 18, fontWeight: '900', color: '#fff' }}>{isEN ? "Weekly Top Winners" : "ሳምንታዊ ከፍተኛ አሸናፊዎች"}</Text>
-                      <TouchableOpacity onPress={fetchData} style={s.refreshBtn}>
-                        <Ionicons name="refresh" size={18} color="#00daf3" />
-                      </TouchableOpacity>
-                    </View>
-                    <Podium top3={top3} prizes={prizes} />
-                  </View>
-
-                  {/* Right Box: Countdown + Prize Pool */}
-                  <View style={{ flex: 1, gap: 16 }}>
-                    {secondsRemaining > 0 && (
-                      <CountdownTimer secondsRemaining={secondsRemaining} isEN={isEN} />
-                    )}
-                    <PrizePoolCard isEN={isEN} topPrize={prizes.find(p => p.rank === 1)?.amount || 500} />
-                  </View>
-                </View>
-
-                {/* Sub Header */}
-                <View style={s.subHeader}>
+          renderItem={({ item }) => {
+            if (item.type === 'subheader') {
+              return (
+                <View style={{
+                  flexDirection: 'row',
+                  alignItems: 'baseline',
+                  gap: 8,
+                  marginHorizontal: -20,
+                  paddingHorizontal: 20,
+                  paddingTop: 12,
+                  paddingBottom: 12,
+                  backgroundColor: '#0A090E', // Opaque background
+                }}>
                   <Text style={s.subHeaderTitle}>{isEN ? "All Players" : "ሁሉም ተጫዋቾች"}</Text>
                   <Text style={s.subHeaderLabel}>{isEN ? "(Weekly)" : "(ሳምንታዊ)"}</Text>
                 </View>
+              );
+            }
+            if (item.type === 'empty') {
+              return (
+                <View style={s.emptyWrap}>
+                  <Ionicons name="trophy-outline" size={40} color="rgba(255,255,255,0.2)" />
+                  <Text style={s.emptyText}>{isEN ? "No players ranked yet this week" : "በዚህ ሳምንት ገና ምንም ተጫዋች አልተመዘገበም"}</Text>
+                </View>
+              );
+            }
+            return <LBItem item={item} />;
+          }}
+          ListHeaderComponent={() => {
+            if (isDesktop) {
+              return (
+                <View>
+                  <View style={{ flexDirection: 'row', gap: 24, paddingHorizontal: 20, marginBottom: 24 }}>
+                    {/* Left Box: Podium */}
+                    <View style={{ flex: 1.5, backgroundColor: '#111115', borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', padding: 24 }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                        <Text style={{ fontSize: 18, fontWeight: '900', color: '#fff' }}>{isEN ? "Weekly Top Winners" : "ሳምንታዊ ከፍተኛ አሸናፊዎች"}</Text>
+                        <TouchableOpacity onPress={fetchData} style={s.refreshBtn}>
+                          <Ionicons name="refresh" size={18} color="#00daf3" />
+                        </TouchableOpacity>
+                      </View>
+                      <Podium top3={top3} prizes={prizes} />
+                    </View>
+
+                    {/* Right Box: Countdown + Prize Pool */}
+                    <View style={{ flex: 1, gap: 16 }}>
+                      {secondsRemaining > 0 && (
+                        <CountdownTimer secondsRemaining={secondsRemaining} isEN={isEN} />
+                      )}
+                      <PrizePoolCard isEN={isEN} topPrize={prizes.find(p => p.rank === 1)?.amount || 500} />
+                    </View>
+                  </View>
+                </View>
+              );
+            }
+
+            // Mobile Header components
+            return (
+              <View style={{ backgroundColor: 'transparent', marginBottom: 12 }}>
+                {/* Header */}
+                <View style={[s.header, { paddingHorizontal: 0 }]}>
+                  <Text style={s.headerTitle}>{isEN ? "Weekly Top Winners" : "ሳምንታዊ ከፍተኛ አሸናፊዎች"}</Text>
+                  <TouchableOpacity onPress={fetchData} style={s.refreshBtn}>
+                    <Ionicons name="refresh" size={18} color="#00daf3" />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Podium */}
+                <View style={{ marginTop: 8, marginBottom: 12, marginHorizontal: -20 }}>
+                  <Podium top3={top3} prizes={prizes} />
+                </View>
+
+                {/* Mobile Unified Prize & Timer Card */}
+                <View style={{ marginHorizontal: -20 }}>
+                  <MobileUnifiedCard
+                    secondsRemaining={secondsRemaining}
+                    isEN={isEN}
+                    prizes={prizes}
+                  />
+                </View>
               </View>
             );
-          }) : undefined}
+          }}
+          stickyHeaderIndices={[0]}
           contentContainerStyle={s.listContent}
           style={{ flex: 1 }}
           showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <View style={s.emptyWrap}>
-              <Ionicons name="trophy-outline" size={40} color="rgba(255,255,255,0.2)" />
-              <Text style={s.emptyText}>{isEN ? "No players ranked yet this week" : "በዚህ ሳምንት ገና ምንም ተጫዋች አልተመዘገበም"}</Text>
-            </View>
-          }
         />
 
         {/* Find Me Button */}
