@@ -561,11 +561,12 @@ async function saveCachedMethods(methods: PaymentMethod[]) {
 }
 
 async function fetchMethodsFromApi(token?: string | null, opts?: { signal?: AbortSignal }): Promise<PaymentMethod[]> {
+  if (!token) return [];
   const res = await fetch(`${API_URL}/payments/methods`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      Authorization: `Bearer ${token}`,
       "x-platform": Platform.OS === "web" ? "web" : "mobile"
     },
     signal: opts?.signal,
@@ -908,8 +909,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           }
         } else {
-          // 3) Anonymous guest / login page route: pre-fetch fresh payment methods in background (Zero-blocking boot!)
-          void fetchPaymentMethods();
+          // 3) Anonymous guest / login page route: do not pre-fetch payment methods without authorization
         }
       } finally {
         setBooting(false);

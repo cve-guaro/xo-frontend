@@ -47,6 +47,9 @@ export default function LoginScreen() {
   const [step, setStep] = useState<"number" | "otp">(pendingNumber ? "otp" : "number");
   const [resendTimer, setResendTimer] = useState(0);
   const [maintenanceData, setMaintenanceData] = useState<{ error: string, message: string } | null>(null);
+  const [otpAttempts, setOtpAttempts] = useState(0);
+  const [attemptCooldown, setAttemptCooldown] = useState(0);
+  const MAX_ATTEMPTS = 5;
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
@@ -55,6 +58,18 @@ export default function LoginScreen() {
     }
     return () => clearTimeout(timer);
   }, [resendTimer]);
+
+  // Attempt cooldown timer (2 min)
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    if (attemptCooldown > 0) {
+      timer = setTimeout(() => setAttemptCooldown((c) => c - 1), 1000);
+    } else if (attemptCooldown === 0 && otpAttempts >= MAX_ATTEMPTS) {
+      // Reset attempts after cooldown expires
+      setOtpAttempts(0);
+    }
+    return () => clearTimeout(timer);
+  }, [attemptCooldown, otpAttempts]);
 
   const [national, setNational] = useState<string>(parseToNational(pendingNumber ?? undefined));
   // Raw digits the user typed (may be 9 or 10 chars: optional leading 0)
@@ -131,15 +146,34 @@ export default function LoginScreen() {
       toast.warning("Invalid Number", "Phone number must be exactly 9 digits and start with 9 or 7.");
       return;
     }
+    // Client-side rate limiting: only block after MAX_ATTEMPTS attempts
+    if (otpAttempts >= MAX_ATTEMPTS && attemptCooldown > 0) {
+      const mins = Math.ceil(attemptCooldown / 60);
+      toast.warning(t("rate_limited_title"), language === 'en' 
+        ? `Too many attempts. Please wait ${attemptCooldown > 60 ? mins + ' minute' + (mins > 1 ? 's' : '') : attemptCooldown + ' seconds'} before trying again.`
+        : `ብዙ ሙከራ ተደርጓል። እባክዎ ${attemptCooldown} ሰከንድ ይጠብቁ።`);
+      return;
+    }
     try {
       await unlockAudio();
+      setOtpAttempts(prev => prev + 1);
       await requestOtp(fullPhone);
       setStep("otp");
       // make sure first input focuses smoothly after transition
       requestAnimationFrame(() => inputsRef.current[0]?.focus());
     } catch (err: any) {
       if (err?.message === "RATE_LIMITED") {
-        toast.warning(t("rate_limited_title"), t("rate_limited_message"));
+        // Only show the rate limit message if client has exceeded MAX_ATTEMPTS
+        if (otpAttempts + 1 >= MAX_ATTEMPTS) {
+          setAttemptCooldown(120); // 2 minute cooldown
+          toast.warning(t("rate_limited_title"), language === 'en'
+            ? 'Too many attempts. Please wait 2 minutes before trying again.'
+            : 'ብዙ ሙከራ ተደርጓል። እባክዎ 2 ደቂቃ ይጠብቁ።');
+        } else {
+          toast.warning("Please Wait", language === 'en' 
+            ? 'Please wait a moment before requesting another code.'
+            : 'እባክዎ ሌላ ኮድ ከመጠየቅዎ በፊት ትንሽ ይጠብቁ።');
+        }
       } else {
         try {
           const parsed = JSON.parse(err.message);
@@ -151,7 +185,7 @@ export default function LoginScreen() {
         toast.error("OTP Failed", err?.message || "Could not send OTP.");
       }
     }
-  }, [nationalDigits.length, requestOtp, fullPhone, unlockAudio]);
+  }, [nationalDigits.length, requestOtp, fullPhone, unlockAudio, otpAttempts, attemptCooldown, language]);
 
   const onVerify = useCallback(async () => {
     const code = otpRef.current.join("");
@@ -178,18 +212,36 @@ export default function LoginScreen() {
 
   const resend = useCallback(async () => {
     if (resendTimer > 0) return;
+    // Client-side rate limiting: block after MAX_ATTEMPTS attempts
+    if (otpAttempts >= MAX_ATTEMPTS && attemptCooldown > 0) {
+      const mins = Math.ceil(attemptCooldown / 60);
+      toast.warning(t("rate_limited_title"), language === 'en'
+        ? `Too many attempts. Please wait ${attemptCooldown > 60 ? mins + ' minute' + (mins > 1 ? 's' : '') : attemptCooldown + ' seconds'} before trying again.`
+        : `ብዙ ሙከራ ተደርጓል። እባክዎ ${attemptCooldown} ሰከንድ ይጠብቁ።`);
+      return;
+    }
     try {
+      setOtpAttempts(prev => prev + 1);
       await requestOtp(fullPhone);
       clearOtp();
       setResendTimer(60);
     } catch (err: any) {
       if (err?.message === "RATE_LIMITED") {
-        toast.warning(t("rate_limited_title"), t("rate_limited_message"));
+        if (otpAttempts + 1 >= MAX_ATTEMPTS) {
+          setAttemptCooldown(120);
+          toast.warning(t("rate_limited_title"), language === 'en'
+            ? 'Too many attempts. Please wait 2 minutes before trying again.'
+            : 'ብዙ ሙከራ ተደርጓል። እባክዎ 2 ደቂቃ ይጠብቁ።');
+        } else {
+          toast.warning("Please Wait", language === 'en'
+            ? 'Please wait a moment before requesting another code.'
+            : 'እባክዎ ሌላ ኮድ ከመጠየቅዎ በፊት ትንሽ ይጠብቁ።');
+        }
       } else {
         toast.error("Resend Failed", err?.message || "Try again later.");
       }
     }
-  }, [requestOtp, fullPhone, clearOtp]);
+  }, [requestOtp, fullPhone, clearOtp, otpAttempts, attemptCooldown, language]);
 
   // Valid if exactly 9 digits and starting with 9 (Ethio Telecom) or 7 (Safaricom)
   const canSend = nationalDigits.length === 9 && (nationalDigits.startsWith('9') || nationalDigits.startsWith('7')) && !requestingOtp;

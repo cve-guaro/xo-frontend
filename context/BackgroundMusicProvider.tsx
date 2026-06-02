@@ -22,14 +22,6 @@ export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = 
   const hasInitialized = useRef(false);
   const [shouldLoadSound, setShouldLoadSound] = useState(false);
 
-  useEffect(() => {
-    // Delay audio loading by 2.5 seconds to give the initial page load full network bandwidth!
-    const timer = setTimeout(() => {
-      setShouldLoadSound(true);
-    }, 2500);
-    return () => clearTimeout(timer);
-  }, []);
-
   const player = useAudioPlayer(shouldLoadSound ? require('../assets/sounds/background.mp3') : null);
   
   if (player) {
@@ -84,7 +76,10 @@ export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = 
         console.log('[AUDIO] Syncing state from User DB:', dbShouldPlay ? 'Playing' : 'Muted');
         setIsPlaying(dbShouldPlay);
         isPlayingRef.current = dbShouldPlay;
-        if (dbShouldPlay && player && player.play) player.play();
+        if (dbShouldPlay) {
+          setShouldLoadSound(true);
+          if (player && player.play) player.play();
+        }
         else if (player && player.pause) player.pause();
       }
     }
@@ -98,7 +93,7 @@ export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = 
         } else if (next.match(/inactive|background/) && player && player.pause) {
           player.pause();
         }
-    });
+     });
 
     const handleWebInteraction = () => unlockAudio();
     if (Platform.OS === 'web') {
@@ -117,6 +112,7 @@ export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = 
   }, [player]);
 
   const unlockAudio = async () => {
+    setShouldLoadSound(true);
     if (isPlayingRef.current && player && !player.playing && player.play) {
       player.play();
     }
@@ -137,8 +133,12 @@ export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = 
       }).catch(() => {});
     }
     
-    if (nextState) player.play();
-    else player.pause();
+    setShouldLoadSound(true);
+    if (nextState) {
+      if (player && player.play) player.play();
+    } else {
+      if (player && player.pause) player.pause();
+    }
   };
 
   const setVolume = async (volume: number) => {

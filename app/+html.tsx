@@ -29,10 +29,26 @@ export default function HTML({ children }: { children: React.ReactNode }) {
         {/* Optimized Fonts Preconnect with swap display for LCP & FCP boost */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://xogpt-production.up.railway.app" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://o4511351046733824.ingest.us.sentry.io" crossOrigin="anonymous" />
         <link
+          rel="preload"
           href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
-          rel="stylesheet"
+          as="style"
         />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+          media="print"
+          // @ts-ignore
+          onLoad="this.media='all'"
+        />
+        <noscript>
+          <link
+            rel="stylesheet"
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+          />
+        </noscript>
 
         {/* Scroll View Style Reset for proper React Native Web behavior */}
         <ScrollViewStyleReset />
@@ -41,6 +57,11 @@ export default function HTML({ children }: { children: React.ReactNode }) {
         <style
           dangerouslySetInnerHTML={{
             __html: `
+              @font-face {
+                font-family: 'Ionicons';
+                font-display: swap;
+              }
+
               html, body {
                 background-color: #060614;
                 margin: 0;

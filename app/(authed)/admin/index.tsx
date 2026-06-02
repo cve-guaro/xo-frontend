@@ -133,6 +133,11 @@ function AdminSkeleton({ isMobile }: { isMobile: boolean }) {
 }
 
 export default function AdminOverview() {
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
   const { token, t } = useAuth();
@@ -358,7 +363,7 @@ export default function AdminOverview() {
             </View>
           </View>
           <View style={{ height: 240 }}>
-            {Platform.OS === 'web' && PrimeChart && Object.keys(chartData).length > 0 ? (
+            {isMounted && Platform.OS === 'web' && PrimeChart && Object.keys(chartData).length > 0 ? (
               <React.Suspense fallback={<View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator size="small" color="#00daf3" /></View>}>
                 <PrimeChart type="line" data={chartData} options={chartOptions} style={{ height: '100%' }} />
               </React.Suspense>
@@ -382,7 +387,7 @@ export default function AdminOverview() {
             <Text style={{ color: '#10b981', fontSize: 9, fontWeight: '700' }}>DAU today</Text>
           </View>
           <View style={{ height: 180 }}>
-            {Platform.OS === 'web' && PrimeChart && Object.keys(userChartData).length > 0 ? (
+            {isMounted && Platform.OS === 'web' && PrimeChart && Object.keys(userChartData).length > 0 ? (
               <React.Suspense fallback={<View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator size="small" color="#00daf3" /></View>}>
                 <PrimeChart type="bar" data={userChartData} options={userChartOptions} style={{ height: '100%' }} />
               </React.Suspense>

@@ -201,12 +201,8 @@ export const WebDepositModal = ({ visible, onClose, user, token, onSuccess, lang
                 toast.warning(isEN ? 'Invalid Amount' : 'የተሳሳተ መጠን', isEN ? 'Valid range is ETB 10 - 100,000' : 'በ 10 እና 100,000 መሃል ያስገቡ።');
                 return;
               }
-              // Check if user opted to skip the warning
-              if (typeof window !== 'undefined' && window.localStorage?.getItem('xoet_skip_deposit_warning') === '1') {
-                handleDeposit();
-              } else {
-                setShowWarning(true);
-              }
+              // Go directly to payment — no rules popup
+              handleDeposit();
             }}
             disabled={loading}
           >

@@ -35,6 +35,11 @@ type TimeRange = 'day' | 'week' | 'month' | 'all';
 type TabKey = 'deposits' | 'withdrawals' | 'bonuses' | 'giveaways' | 'refunds';
 
 export default function FinancialDashboard() {
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
   const { token } = useAuth();
@@ -284,7 +289,7 @@ export default function FinancialDashboard() {
             <Text style={[st.chartTotal, { color: '#34d399' }]}>{fmtK(d.totalDeposits || 0)} ETB</Text>
           </View>
           <View style={{ height: 220 }}>
-            {Platform.OS === 'web' && PrimeChart && Object.keys(depositChartData).length > 0 ? (
+            {isMounted && Platform.OS === 'web' && PrimeChart && Object.keys(depositChartData).length > 0 ? (
               <React.Suspense fallback={<View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator size="small" color="#00daf3" /></View>}>
                 <PrimeChart type="line" data={depositChartData} options={chartOpts} style={{ height: '100%' }} />
               </React.Suspense>
@@ -305,7 +310,7 @@ export default function FinancialDashboard() {
             <Text style={[st.chartTotal, { color: '#f87171' }]}>{fmtK(d.totalWithdrawals || 0)} ETB</Text>
           </View>
           <View style={{ height: 220 }}>
-            {Platform.OS === 'web' && PrimeChart && Object.keys(withdrawalChartData).length > 0 ? (
+            {isMounted && Platform.OS === 'web' && PrimeChart && Object.keys(withdrawalChartData).length > 0 ? (
               <React.Suspense fallback={<View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator size="small" color="#00daf3" /></View>}>
                 <PrimeChart type="line" data={withdrawalChartData} options={chartOpts} style={{ height: '100%' }} />
               </React.Suspense>

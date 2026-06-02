@@ -7,9 +7,12 @@ module.exports = function (api) {
   if (isProd) {
     plugins.push(['transform-remove-console', { exclude: ['error', 'warn'] }]);
   }
-
   return {
-    presets: ['babel-preset-expo'],
+    presets: [
+      ['babel-preset-expo', {
+        targets: { browsers: ['last 2 Chrome versions', 'last 2 Safari versions'] }
+      }]
+    ],
     plugins,
   };
 };

@@ -1,7 +1,6 @@
 // components/AnimatedList.web.tsx
 import React, { useRef, useState, useEffect, useCallback, ReactNode } from 'react';
 import { motion, useInView } from 'motion/react';
-import './AnimatedList.css';
 
 interface AnimatedItemProps {
   children: ReactNode;
@@ -67,6 +66,12 @@ export default function AnimatedList<T>({
   const [keyboardNav, setKeyboardNav] = useState(false);
   const [topGradientOpacity, setTopGradientOpacity] = useState(0);
   const [bottomGradientOpacity, setBottomGradientOpacity] = useState(1);
+
+  // Lazy load styling on mount
+  useEffect(() => {
+    // @ts-ignore
+    import('./AnimatedList.css');
+  }, []);
 
   const handleItemMouseEnter = useCallback((index: number) => {
     setSelectedIndex(index);

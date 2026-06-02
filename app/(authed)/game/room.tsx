@@ -35,28 +35,15 @@ import EmojiFloat from "../../../components/game/EmojiFloat";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useBackgroundMusic } from "../../../context/BackgroundMusicProvider";
 
-// Subcomponent for Animated Symbol
+// Subcomponent for Symbol (no animation for instant render)
 const CellSymbol = ({ symbol, size, isDesktop }: { symbol: string, size: number, isDesktop: boolean }) => {
-  const scale = React.useRef(new Animated.Value(0)).current;
-  
-  React.useEffect(() => {
-    Animated.spring(scale, {
-      toValue: 1,
-      tension: 300,
-      friction: 8,
-      useNativeDriver: Platform.OS !== 'web'
-    }).start();
-  }, [symbol]);
-
   return (
-    <Animated.View style={{ transform: [{ scale }] }}>
-      <Ionicons 
-        name={symbol === "X" ? "close" : "radio-button-off"} 
-        size={isDesktop ? size * 0.8 : size * 0.85} 
-        color={symbol === "X" ? "#fd6f85" : "#00daf3"} 
-        style={isDesktop ? (symbol === "X" ? styles.neonXShadow : styles.neonOShadow) : {}}
-      />
-    </Animated.View>
+    <Ionicons 
+      name={symbol === "X" ? "close" : "radio-button-off"} 
+      size={isDesktop ? size * 0.8 : size * 0.85} 
+      color={symbol === "X" ? "#fd6f85" : "#00daf3"} 
+      style={isDesktop ? (symbol === "X" ? styles.neonXShadow : styles.neonOShadow) : {}}
+    />
   );
 };
 
@@ -152,7 +139,7 @@ export default function GameRoom() {
   }, [language, t]);
 
   // ---------- sounds ----------
-  const { isPlaying: bgMusicOn, toggleMusic: toggleGlobalMusic } = useBackgroundMusic();
+  const { isPlaying: bgMusicOn, toggleMusic: toggleGlobalMusic, unlockAudio } = useBackgroundMusic();
   const soundOnRef = useRef(bgMusicOn);
 
   // Sync with global music state
@@ -338,6 +325,11 @@ export default function GameRoom() {
       startSyncGuard(1200);
       handledNavigateRef.current = false;
 
+      // Lazy load background music on focus/mount
+      try {
+        unlockAudio();
+      } catch (e) {}
+
       // Force state hydration for race conditions and reconnects
       if (token && matchId && matchId !== "undefined") {
         try {
@@ -392,19 +384,8 @@ export default function GameRoom() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matchId]);
 
-  // turn banner pulse
-  const pulse = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    const anim = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, { toValue: 1, duration: 1200, useNativeDriver: false }),
-        Animated.timing(pulse, { toValue: 0, duration: 1200, useNativeDriver: false }),
-      ])
-    );
-    anim.start();
-    return () => anim.stop();
-  }, [pulse]);
-  const bannerGlowOpacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.22, 0.42] });
+  // turn banner static opacity (animation removed for performance)
+  const bannerGlowOpacity = 0.32;
 
   const triggerDrawFlash = useCallback(() => {
     setDrawFlash(true);
@@ -1066,7 +1047,7 @@ export default function GameRoom() {
                 </View>
               )}
 
-              <Animated.View
+              <View
                 style={[
                   styles.turnBanner,
                   {
@@ -1083,7 +1064,7 @@ export default function GameRoom() {
                 <Text style={[styles.turnText, { color: isMyTurn ? "#00daf3" : "rgba(255,255,255,0.8)" }]}>
                   {isMyTurn ? t("your_turn") : t("opponent_turn")}
                 </Text>
-              </Animated.View>
+              </View>
 
               <View style={[styles.boardSection, { alignItems: 'center' }, isDesktop && { justifyContent: 'center' }]}>
                 <View style={[styles.boardContainer, { width: boardOuterSize, height: boardOuterSize, padding: 24, backgroundColor: 'rgba(17,17,40,0.6)' }]}>
@@ -1100,7 +1081,7 @@ export default function GameRoom() {
                               style={({ pressed }) => [
                                 styles.cell,
                                 isDesktop && { width: dynamicCellSize, height: dynamicCellSize, borderRadius: 28 },
-                                pressed && { opacity: 0.7, transform: [{ scale: 0.98 }] },
+                                pressed && { opacity: 0.85 },
                                 board[idx] === "_" && isMyTurn && styles.cellEmptyActive
                               ]}
                             >
