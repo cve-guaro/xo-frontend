@@ -1,10 +1,19 @@
 // app/_layout.tsx
-import * as Sentry from "@sentry/react";
+import { Platform } from "react-native";
 
-Sentry.init({
-  dsn: "https://0542c52f966517870c71abc882d89ca6@o4511351046733824.ingest.us.sentry.io/4511351146872832",
-  tracesSampleRate: 0.1,
-});
+// ✅ @sentry/react is browser-only — must NOT initialize on Android/iOS
+// or it will crash (references window/document/XMLHttpRequest which don't exist on Hermes).
+if (Platform.OS === "web") {
+  try {
+    const Sentry = require("@sentry/react");
+    Sentry.init({
+      dsn: "https://0542c52f966517870c71abc882d89ca6@o4511351046733824.ingest.us.sentry.io/4511351146872832",
+      tracesSampleRate: 0.1,
+    });
+  } catch (e) {
+    console.warn("[Sentry] Failed to initialize:", e);
+  }
+}
 
 import { Redirect, Slot, useRootNavigationState, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -18,7 +27,6 @@ import {
   StyleSheet,
   Text,
   View,
-  Platform,
   Pressable,
 } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
