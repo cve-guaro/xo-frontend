@@ -583,7 +583,7 @@ export default function LeaderboardScreen() {
                   paddingHorizontal: 20,
                   paddingTop: 12,
                   paddingBottom: 12,
-                  backgroundColor: '#0A090E', // Opaque background
+                  backgroundColor: 'transparent',
                   zIndex: 10,
                 }}>
                   <Text style={s.subHeaderTitle}>{isEN ? "All Players" : "ሁሉም ተጫዋቾች"}</Text>
