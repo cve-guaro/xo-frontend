@@ -584,6 +584,7 @@ export default function LeaderboardScreen() {
                   paddingTop: 12,
                   paddingBottom: 12,
                   backgroundColor: '#0A090E', // Opaque background
+                  zIndex: 10,
                 }}>
                   <Text style={s.subHeaderTitle}>{isEN ? "All Players" : "ሁሉም ተጫዋቾች"}</Text>
                   <Text style={s.subHeaderLabel}>{isEN ? "(Weekly)" : "(ሳምንታዊ)"}</Text>
@@ -610,7 +611,7 @@ export default function LeaderboardScreen() {
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
                         <Text style={{ fontSize: 18, fontWeight: '900', color: '#fff' }}>{isEN ? "Weekly Top Winners" : "ሳምንታዊ ከፍተኛ አሸናፊዎች"}</Text>
                         <TouchableOpacity onPress={fetchData} style={s.refreshBtn}>
-                          <Ionicons name="refresh" size={18} color="#00daf3" />
+                           <Ionicons name="refresh" size={18} color="#00daf3" />
                         </TouchableOpacity>
                       </View>
                       <Podium top3={top3} prizes={prizes} />
@@ -655,7 +656,7 @@ export default function LeaderboardScreen() {
               </View>
             );
           }}
-          stickyHeaderIndices={[0]}
+          stickyHeaderIndices={[1]}
           contentContainerStyle={s.listContent}
           style={{ flex: 1 }}
           showsVerticalScrollIndicator={false}
