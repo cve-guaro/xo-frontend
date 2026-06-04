@@ -859,7 +859,6 @@ export default function AuthedLayout() {
         <WelcomeBonusModal
           visible={welcomeBonusVisible}
           onClose={handleCloseWelcomeBonus}
-          amount={10}
         />
         <NotificationsPopover
           visible={notificationsVisible}

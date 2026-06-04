@@ -46,12 +46,12 @@ export default function WelcomePopup({ visible, onClose }: { visible: boolean; o
           <LinearGradient colors={["#1e3a8a", "#2563eb"]} style={styles.inner}>
             <Text style={styles.title}>Welcome to XO Ethiopia!</Text>
             <Text style={styles.body}>
-              You have received a 10 ETB welcome bonus. This bonus is not directly withdrawable, but any winnings you earn are fully withdrawable.
+              Step into the ultimate arena of Tic-Tac-Toe gameplay. Compete with real players, climb the leaderboard, and win matches!
             </Text>
-            <Text style={styles.body}>Play at least one game to unlock withdrawals.</Text>
+            <Text style={styles.body}>Play games to unlock payouts and climb the ranks.</Text>
             <TouchableOpacity style={styles.button} onPress={onClose}>
               <Ionicons name="checkmark" size={20} color="#fff" />
-              <Text style={styles.buttonText}>I Agree</Text>
+              <Text style={styles.buttonText}>Let's Play</Text>
             </TouchableOpacity>
           </LinearGradient>
         </Animated.View>

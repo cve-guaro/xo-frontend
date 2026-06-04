@@ -8,20 +8,18 @@ import {
   Animated,
   Dimensions,
   Platform,
-  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 interface WelcomeBonusModalProps {
   visible: boolean;
   onClose: () => void;
-  amount?: number;
 }
 
-export default function WelcomeBonusModal({ visible, onClose, amount = 10 }: WelcomeBonusModalProps) {
+export default function WelcomeBonusModal({ visible, onClose }: WelcomeBonusModalProps) {
   const scale = useRef(new Animated.Value(0.8)).current;
   const opacity = useRef(new Animated.Value(0)).current;
   const rotate = useRef(new Animated.Value(0)).current;
@@ -85,28 +83,20 @@ export default function WelcomeBonusModal({ visible, onClose, amount = 10 }: Wel
                 end={{ x: 1, y: 1 }}
                 style={styles.iconWrap}
               >
-                <Ionicons name="gift" size={32} color="#0B0B0F" />
+                <Ionicons name="game-controller" size={32} color="#0B0B0F" />
               </LinearGradient>
-              <Text style={styles.title}>Welcome Gift Drop!</Text>
-              <Text style={styles.subtitle}>You've been selected for a special user acquisition drop.</Text>
-            </View>
-
-            <View style={styles.amountSection}>
-              <View style={styles.amountBadge}>
-                <Text style={styles.currency}>ETB</Text>
-                <Text style={styles.amount}>{amount}</Text>
-              </View>
-              <Text style={styles.bonusText}>CASH BONUS LOADED</Text>
+              <Text style={styles.title}>Welcome to XO!</Text>
+              <Text style={styles.subtitle}>Step into the ultimate arena of Tic-Tac-Toe gameplay.</Text>
             </View>
 
             <View style={styles.detailsContainer}>
               <View style={styles.detailRow}>
-                <Ionicons name="flash" size={16} color="#34d399" />
-                <Text style={styles.detailText}>Instant Deployment to Bonus Balance</Text>
+                <Ionicons name="trophy" size={16} color="#00daf3" />
+                <Text style={styles.detailText}>Compete with real players in real-time</Text>
               </View>
               <View style={styles.detailRow}>
-                <Ionicons name="game-controller" size={16} color="#00daf3" />
-                <Text style={styles.detailText}>Use it to win real matches & payouts</Text>
+                <Ionicons name="ribbon" size={16} color="#34d399" />
+                <Text style={styles.detailText}>Climb the leaderboard for weekly prizes</Text>
               </View>
             </View>
 
@@ -115,12 +105,12 @@ export default function WelcomeBonusModal({ visible, onClose, amount = 10 }: Wel
                 colors={['#00daf3', '#00a3ff']}
                 style={styles.buttonGradient}
               >
-                <Text style={[styles.buttonText, { color: '#0B0B0F' }]}>Claim Treasure & Start Playing</Text>
+                <Text style={[styles.buttonText, { color: '#0B0B0F' }]}>Let's Play</Text>
                 <Ionicons name="arrow-forward" size={18} color="#0B0B0F" style={{ marginLeft: 8 }} />
               </LinearGradient>
             </TouchableOpacity>
 
-            <Text style={styles.footerNote}>Bonus funds are non-withdrawable but winnings are 100% yours.</Text>
+            <Text style={styles.footerNote}>Make sure to verify your profile under account settings to join matchmaking.</Text>
           </LinearGradient>
         </Animated.View>
       </View>
@@ -196,38 +186,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
     lineHeight: 20,
     paddingHorizontal: 12,
-  },
-  amountSection: {
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  amountBadge: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 218, 243, 0.3)',
-  },
-  currency: {
-    color: '#00daf3',
-    fontSize: 18,
-    fontWeight: '800',
-    marginRight: 6,
-  },
-  amount: {
-    color: '#fff',
-    fontSize: 48,
-    fontWeight: '900',
-  },
-  bonusText: {
-    color: '#00daf3',
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 2,
-    marginTop: 12,
   },
   detailsContainer: {
     width: '100%',
