@@ -1,39 +1,39 @@
 import React, { useEffect, useRef, memo } from 'react';
 import { View, Text, StyleSheet, Animated, Easing, TouchableOpacity, Platform } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { CheckmarkCircleIcon, AlertCircleIcon, InfoIcon, WarningIcon, CloseIcon } from './SvgIcons';
 import { useToast, ToastItem, ToastVariant } from '../context/ToastContext';
 
 // ─── Variant Configs ──────────────────────────────────────────
 const VARIANT_CONFIG: Record<ToastVariant, {
-  icon: React.ComponentProps<typeof Ionicons>['name'];
+  icon: React.ComponentType<{ size?: number; color?: string }>;
   color: string;
   bgColor: string;
   borderColor: string;
   glowColor: string;
 }> = {
   success: {
-    icon: 'checkmark-circle',
+    icon: CheckmarkCircleIcon,
     color: '#34d399',
     bgColor: 'rgba(16,185,129,0.08)',
     borderColor: 'rgba(16,185,129,0.25)',
     glowColor: 'rgba(16,185,129,0.15)',
   },
   error: {
-    icon: 'alert-circle',
+    icon: AlertCircleIcon,
     color: '#fb7185',
     bgColor: 'rgba(251,113,133,0.08)',
     borderColor: 'rgba(251,113,133,0.25)',
     glowColor: 'rgba(251,113,133,0.15)',
   },
   info: {
-    icon: 'information-circle',
+    icon: InfoIcon,
     color: '#60a5fa',
     bgColor: 'rgba(96,165,250,0.08)',
     borderColor: 'rgba(96,165,250,0.25)',
     glowColor: 'rgba(96,165,250,0.15)',
   },
   warning: {
-    icon: 'warning',
+    icon: WarningIcon,
     color: '#fbbf24',
     bgColor: 'rgba(251,191,36,0.08)',
     borderColor: 'rgba(251,191,36,0.25)',
@@ -121,7 +121,7 @@ const SingleToast = memo(function SingleToast({
         onPress={() => onDismiss(item.id)}
       >
         <View style={[styles.iconWrap, { backgroundColor: cfg.glowColor }]}>
-          <Ionicons name={cfg.icon} size={20} color={cfg.color} />
+          <cfg.icon size={20} color={cfg.color} />
         </View>
         <View style={styles.textWrap}>
           <Text style={[styles.toastTitle, { color: cfg.color }]} numberOfLines={1}>
@@ -133,7 +133,7 @@ const SingleToast = memo(function SingleToast({
             </Text>
           )}
         </View>
-        <Ionicons name="close" size={16} color="rgba(255,255,255,0.3)" />
+        <CloseIcon size={16} color="rgba(255,255,255,0.3)" />
       </TouchableOpacity>
     </Animated.View>
   );

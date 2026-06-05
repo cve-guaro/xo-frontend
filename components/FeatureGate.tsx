@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Animated, Easing, Platform, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import { ConstructIcon } from './SvgIcons';
 import { useFeatures } from '../context/FeatureContext';
 import { useAuth } from '../context/authContext';
 
@@ -79,7 +79,7 @@ const EmergencyLockoutScreen = () => {
       <View style={styles.content}>
         <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
           <View style={styles.iconContainer}>
-            <Ionicons name="construct" size={60} color="#00daf3" />
+            <ConstructIcon size={60} color="#00daf3" />
           </View>
         </Animated.View>
 

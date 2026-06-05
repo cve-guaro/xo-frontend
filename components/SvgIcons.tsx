@@ -78,3 +78,26 @@ export const AlertCircleIcon = ({ size = 24, color = "#fff" }: IconProps) => (
     <Line x1="12" y1="16" x2="12.01" y2="16" strokeWidth={3} />
   </Svg>
 );
+
+export const CloseIcon = ({ size = 24, color = "#fff" }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Line x1="18" y1="6" x2="6" y2="18" />
+    <Line x1="6" y1="6" x2="18" y2="18" />
+  </Svg>
+);
+
+export const InfoIcon = ({ size = 24, color = "#fff" }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Circle cx="12" cy="12" r="10" />
+    <Line x1="12" y1="16" x2="12" y2="12" />
+    <Line x1="12" y1="8" x2="12.01" y2="8" strokeWidth={3} />
+  </Svg>
+);
+
+export const WarningIcon = ({ size = 24, color = "#fff" }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+    <Line x1="12" y1="9" x2="12" y2="13" />
+    <Line x1="12" y1="17" x2="12.01" y2="17" strokeWidth={3} />
+  </Svg>
+);

@@ -37,7 +37,9 @@ import { LinearGradient } from "expo-linear-gradient";
 import { BackgroundMusicProvider, useBackgroundMusic } from "../context/BackgroundMusicProvider";
 import { SparklesIcon } from "../components/SvgIcons";
 import { ToastProvider } from "../context/ToastContext";
-import GlobalToastContainer from "../components/GlobalToast";
+const GlobalToastContainer = Platform.OS === 'web'
+  ? React.lazy(() => import("../components/GlobalToast"))
+  : require("../components/GlobalToast").default;
 import { FeatureProvider } from "../context/FeatureContext";
 import { FeatureGate } from "../components/FeatureGate";
 
@@ -93,7 +95,9 @@ function AuthGate({ children }: PropsWithChildren) {
 
   return <>{children}</>;
 }
-import { PwaInstallBanner } from "../components/PwaInstallBanner";
+const PwaInstallBanner = Platform.OS === 'web'
+  ? React.lazy(() => import("../components/PwaInstallBanner").then(m => ({ default: m.PwaInstallBanner })))
+  : require("../components/PwaInstallBanner").PwaInstallBanner;
 
 // Capture PWA install prompt globally to prevent timing issues
 if (Platform.OS === 'web' && typeof window !== 'undefined') {
@@ -130,8 +134,10 @@ function RootLayout() {
                 <FeatureGate>
                   <Slot />
                   <GlobalUIComponents />
-                  <GlobalToastContainer />
-                  {Platform.OS === 'web' && <PwaInstallBanner />}
+                  <React.Suspense fallback={null}>
+                    <GlobalToastContainer />
+                    {Platform.OS === 'web' && <PwaInstallBanner />}
+                  </React.Suspense>
                 </FeatureGate>
               </AuthGate>
             </SafeAreaProvider>

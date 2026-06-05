@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform, useWindowDimensions, Image } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { CloseIcon } from './SvgIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 
 export function PwaInstallBanner() {
@@ -135,7 +135,7 @@ export function PwaInstallBanner() {
             <Text style={styles.installText}>Install</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={handleDismiss} style={styles.dismissBtn}>
-            <Ionicons name="close" size={22} color="#ffffff" />
+            <CloseIcon size={22} color="#ffffff" />
           </TouchableOpacity>
         </View>
       </View>
