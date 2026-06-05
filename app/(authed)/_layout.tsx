@@ -1,6 +1,5 @@
 import { SocketProvider, useSocket } from "../../context/socketContext";
 import { Ionicons } from "@expo/vector-icons";
-import WelcomePopup from "../../components/WelcomePopup";
 import { Redirect, Slot, useRouter, usePathname } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View, Platform, useWindowDimensions, Text, TouchableOpacity, Animated, Easing, StyleSheet, Image, Linking, Modal } from "react-native";
@@ -8,17 +7,43 @@ import { useAudioPlayer } from "expo-audio";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "../../context/authContext";
 import { WebPressable } from "../../components/WebPressable";
-import { WebDepositModal, WebWithdrawModal } from "../../components/WebModals";
 import { haptics } from "../../lib/haptcs";
-import LogoutConfirmation from "../../components/LogoutConfirmation";
 import { useBackgroundMusic } from "../../context/BackgroundMusicProvider";
-import WelcomeBonusModal from "../../components/WelcomeBonusModal";
-import BonusLogsModal from "../../components/BonusLogsModal";
 import { API_URL } from "../../config";
 import { useToast } from "../../context/ToastContext";
-import RematchTopPopup from "../../components/game/RematchPopup";
-import IncomingInviteModal from "../../components/game/IncomingInviteModal";
-import NotificationsPopover from "../../components/NotificationsPopover";
+
+// Lazy load heavy components on web to optimize bundle size, evaluations, and TBT
+const WebDepositModal = Platform.OS === 'web'
+  ? React.lazy(() => import("../../components/WebModals").then(m => ({ default: m.WebDepositModal })))
+  : require("../../components/WebModals").WebDepositModal;
+
+const WebWithdrawModal = Platform.OS === 'web'
+  ? React.lazy(() => import("../../components/WebModals").then(m => ({ default: m.WebWithdrawModal })))
+  : require("../../components/WebModals").WebWithdrawModal;
+
+const BonusLogsModal = Platform.OS === 'web'
+  ? React.lazy(() => import("../../components/BonusLogsModal"))
+  : require("../../components/BonusLogsModal").default;
+
+const LogoutConfirmation = Platform.OS === 'web'
+  ? React.lazy(() => import("../../components/LogoutConfirmation"))
+  : require("../../components/LogoutConfirmation").default;
+
+const WelcomeBonusModal = Platform.OS === 'web'
+  ? React.lazy(() => import("../../components/WelcomeBonusModal"))
+  : require("../../components/WelcomeBonusModal").default;
+
+const NotificationsPopover = Platform.OS === 'web'
+  ? React.lazy(() => import("../../components/NotificationsPopover"))
+  : require("../../components/NotificationsPopover").default;
+
+const RematchTopPopup = Platform.OS === 'web'
+  ? React.lazy(() => import("../../components/game/RematchPopup"))
+  : require("../../components/game/RematchPopup").default;
+
+const IncomingInviteModal = Platform.OS === 'web'
+  ? React.lazy(() => import("../../components/game/IncomingInviteModal"))
+  : require("../../components/game/IncomingInviteModal").default;
 
 
 const SidebarItem = ({ icon, label, isActive, onPress, badge, collapsed, isDesktop }: { icon: any; label: string; isActive: boolean; onPress: () => void; badge?: string; collapsed?: boolean; isDesktop?: boolean }) => {
@@ -839,32 +864,34 @@ export default function AuthedLayout() {
         )}
 
         {/* Render gates after main views so zIndex works correctly on Web */}
-        <GlobalInvitesGate />
-        {/* Global Modals for Web — rendered for ALL web screen sizes to prevent route crash on mobile-width web */}
-        {Platform.OS === 'web' && (
-          <>
-            <WebDepositModal visible={depositVisible} onClose={() => setDepositVisible(false)} user={user} token={token || undefined} onSuccess={refreshProfile} />
-            <WebWithdrawModal visible={withdrawVisible} onClose={() => setWithdrawVisible(false)} user={user} token={token || undefined} onSuccess={refreshProfile} />
-            <BonusLogsModal visible={bonusModalVisible} onClose={() => setBonusModalVisible(false)} language={language} />
-          </>
-        )}
-        <LogoutConfirmation
-          visible={logoutVisible}
-          onCancel={() => setLogoutVisible(false)}
-          onConfirm={async () => {
-            setLogoutVisible(false);
-            await logout();
-          }}
-        />
-        <WelcomeBonusModal
-          visible={welcomeBonusVisible}
-          onClose={handleCloseWelcomeBonus}
-        />
-        <NotificationsPopover
-          visible={notificationsVisible}
-          onClose={() => setNotificationsVisible(false)}
-          onUnreadCountChange={setUnreadCount}
-        />
+        <React.Suspense fallback={null}>
+          <GlobalInvitesGate />
+          {/* Global Modals for Web — rendered for ALL web screen sizes to prevent route crash on mobile-width web */}
+          {Platform.OS === 'web' && (
+            <>
+              <WebDepositModal visible={depositVisible} onClose={() => setDepositVisible(false)} user={user} token={token || undefined} onSuccess={refreshProfile} />
+              <WebWithdrawModal visible={withdrawVisible} onClose={() => setWithdrawVisible(false)} user={user} token={token || undefined} onSuccess={refreshProfile} />
+              <BonusLogsModal visible={bonusModalVisible} onClose={() => setBonusModalVisible(false)} language={language} />
+            </>
+          )}
+          <LogoutConfirmation
+            visible={logoutVisible}
+            onCancel={() => setLogoutVisible(false)}
+            onConfirm={async () => {
+              setLogoutVisible(false);
+              await logout();
+            }}
+          />
+          <WelcomeBonusModal
+            visible={welcomeBonusVisible}
+            onClose={handleCloseWelcomeBonus}
+          />
+          <NotificationsPopover
+            visible={notificationsVisible}
+            onClose={() => setNotificationsVisible(false)}
+            onUnreadCountChange={setUnreadCount}
+          />
+        </React.Suspense>
 
         {/* PWA Install Instructions Modal */}
         <Modal

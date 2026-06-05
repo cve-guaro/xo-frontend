@@ -35,7 +35,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider, useAuth, GlobalUIComponents } from "../context/authContext";
 import { LinearGradient } from "expo-linear-gradient";
 import { BackgroundMusicProvider, useBackgroundMusic } from "../context/BackgroundMusicProvider";
-import { Ionicons } from "@expo/vector-icons";
+import { SparklesIcon } from "../components/SvgIcons";
 import { ToastProvider } from "../context/ToastContext";
 import GlobalToastContainer from "../components/GlobalToast";
 import { FeatureProvider } from "../context/FeatureContext";
@@ -106,6 +106,10 @@ if (Platform.OS === 'web' && typeof window !== 'undefined') {
 
 function RootLayout() {
   useEffect(() => {
+    if (Platform.OS === 'web') {
+      document.title = "XO Ethiopia - Play Tic-Tac-Toe for Real Money";
+    }
+
     if (Platform.OS === 'web' && 'serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/service-worker.js').catch((err) => {
@@ -235,7 +239,7 @@ const BootSplash = memo(function BootSplash({ status }: { status: string }) {
 
         <View style={styles.loadingRow}>
           <View style={styles.iconChip}>
-            <Ionicons name="sparkles-outline" size={16} color="rgba(255,255,255,0.85)" />
+            <SparklesIcon size={16} color="rgba(255,255,255,0.85)" />
           </View>
 
           <Text style={styles.statusText} numberOfLines={1}>

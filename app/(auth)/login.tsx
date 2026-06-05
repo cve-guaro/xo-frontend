@@ -1,7 +1,7 @@
-// app/(auth)/login.tsx
-import { Ionicons } from "@expo/vector-icons";
+import { ArrowForwardIcon, CheckmarkCircleIcon, ServerIcon, ConstructIcon } from "../../components/SvgIcons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, useLocalSearchParams } from "expo-router";
+import Head from "expo-router/head";
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import {
   ActivityIndicator,
@@ -249,6 +249,13 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.backgroundImage}>
+      {Platform.OS === 'web' && (
+        <Head>
+          <title>XO Ethiopia - Play Tic-Tac-Toe for Real Money</title>
+          <meta name="title" content="XO Ethiopia - Play Tic-Tac-Toe for Real Money" />
+          <meta name="description" content="Play Tic-Tac-Toe for real money on XO Ethiopia. Join tournaments, play with friends, and win cash prizes daily! Easy withdrawals via Telebirr." />
+        </Head>
+      )}
       <LinearGradient colors={["#060614", "#0c0c1f", "#060614"]} style={StyleSheet.absoluteFill} />
       {/* Subtle secondary glow overlay */}
       <LinearGradient 
@@ -317,7 +324,7 @@ export default function LoginScreen() {
                       ) : (
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                           <Text style={[styles.sendBtnText, { color: canSend ? '#0c0c1f' : 'rgba(255,255,255,0.4)' }]}>Send OTP</Text>
-                          <Ionicons name="arrow-forward" size={18} color={canSend ? '#0c0c1f' : 'rgba(255,255,255,0.4)'} />
+                          <ArrowForwardIcon size={18} color={canSend ? '#0c0c1f' : 'rgba(255,255,255,0.4)'} />
                         </View>
                       )}
                     </LinearGradient>
@@ -358,7 +365,7 @@ export default function LoginScreen() {
                       ) : (
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                           <Text style={[styles.sendBtnText, { color: canVerify ? '#0c0c1f' : 'rgba(255,255,255,0.4)' }]}>{t("verify_button")}</Text>
-                          <Ionicons name="checkmark-circle" size={18} color={canVerify ? '#0c0c1f' : 'rgba(255,255,255,0.4)'} />
+                          <CheckmarkCircleIcon size={18} color={canVerify ? '#0c0c1f' : 'rgba(255,255,255,0.4)'} />
                         </View>
                       )}
                     </LinearGradient>
@@ -429,9 +436,9 @@ export default function LoginScreen() {
                 marginBottom: 32,
                 shadowColor: '#00daf3', shadowOpacity: 0.5, shadowRadius: 20
               }}>
-                <Ionicons name="server-outline" size={54} color="#00daf3" />
+                <ServerIcon size={54} color="#00daf3" />
                 <View style={{ position: 'absolute', bottom: -5, right: -5, width: 44, height: 44, borderRadius: 22, backgroundColor: '#0c0c1f', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'rgba(0, 218, 243, 0.4)' }}>
-                   <Ionicons name="construct" size={20} color="#00daf3" />
+                   <ConstructIcon size={20} color="#00daf3" />
                 </View>
               </View>
 

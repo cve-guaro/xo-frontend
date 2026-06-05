@@ -1,7 +1,8 @@
 import OfflineNotice from "../components/OfflineNotice";
 import { Redirect, useLocalSearchParams } from "expo-router";
+import Head from "expo-router/head";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, View, Platform } from "react-native";
 import { useAuth } from "../context/authContext";
 
 export default function Index() {
@@ -22,13 +23,14 @@ export default function Index() {
     console.log("offline status: ",offline)
   },[offline])
 
-  if (booting && !user) {
-    return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#060614" }}>
-        <ActivityIndicator color="#00daf3" />
-      </View>
-    );
-  }
+  const renderContent = () => {
+    if (booting && !user) {
+      return (
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#060614" }}>
+          <ActivityIndicator color="#00daf3" />
+        </View>
+      );
+    }
 
     if (offline) {
        return <OfflineNotice
@@ -40,13 +42,28 @@ export default function Index() {
         tips={["Reconnect to Wi-Fi", "Disable airplane mode", "Try again in a moment"]}
       />
     }
-  if (!user) {
-    if (ref || promo) return <Redirect href={{ pathname: "/(auth)/login", params: { ref, promo } }} />;
-    return <Redirect href="/(auth)/login" />;
-  }
-  
-  if (user.role === 'admin') {
-    return <Redirect href="/(authed)/admin" />;
-  }
-  return <Redirect href="/(authed)/home/gameplay" />;
+
+    if (!user) {
+      if (ref || promo) return <Redirect href={{ pathname: "/(auth)/login", params: { ref, promo } }} />;
+      return <Redirect href="/(auth)/login" />;
+    }
+    
+    if (user.role === 'admin') {
+      return <Redirect href="/(authed)/admin" />;
+    }
+    return <Redirect href="/(authed)/home/gameplay" />;
+  };
+
+  return (
+    <>
+      {Platform.OS === 'web' && (
+        <Head>
+          <title>XO Ethiopia - Play Tic-Tac-Toe for Real Money</title>
+          <meta name="title" content="XO Ethiopia - Play Tic-Tac-Toe for Real Money" />
+          <meta name="description" content="Play Tic-Tac-Toe for real money on XO Ethiopia. Join tournaments, play with friends, and win cash prizes daily! Easy withdrawals via Telebirr." />
+        </Head>
+      )}
+      {renderContent()}
+    </>
+  );
 }

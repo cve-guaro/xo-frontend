@@ -29,8 +29,6 @@ export default function HTML({ children }: { children: React.ReactNode }) {
         {/* Optimized Fonts Preconnect with swap display for LCP & FCP boost */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link rel="preconnect" href="https://xogpt-production.up.railway.app" crossOrigin="anonymous" />
-        <link rel="preconnect" href="https://o4511351046733824.ingest.us.sentry.io" crossOrigin="anonymous" />
         <link
           rel="preload"
           href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"

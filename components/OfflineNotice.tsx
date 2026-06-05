@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { CloudOfflineIcon, WifiIcon, EllipseIcon, RefreshIcon } from "./SvgIcons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useRef } from "react";
 import { ActivityIndicator, Animated, Easing, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
@@ -58,10 +58,10 @@ export default function OfflineNotice({
         <LinearGradient colors={["#171923", "#121420"]} style={styles.card}>
           <View style={styles.iconWrap}>
             <Animated.View style={{ transform: [{ translateY }] }}>
-              <Ionicons name="cloud-offline" size={38} color="#e5e7eb" />
+              <CloudOfflineIcon size={38} color="#e5e7eb" />
             </Animated.View>
             <Animated.View style={[styles.wifiBadge, { transform: [{ scale }] }] }>
-              <Ionicons name="wifi" size={14} color="#ef4444" />
+              <WifiIcon size={14} color="#ef4444" />
             </Animated.View>
           </View>
 
@@ -72,7 +72,7 @@ export default function OfflineNotice({
             <View style={styles.tips}>
               {tips.slice(0, 3).map((t, i) => (
                 <View key={i} style={styles.tipRow}>
-                  <Ionicons name="ellipse" size={6} color="#64748b" />
+                  <EllipseIcon size={6} color="#64748b" />
                   <Text style={styles.tipText}>{t}</Text>
                 </View>
               ))}
@@ -89,7 +89,7 @@ export default function OfflineNotice({
                 <ActivityIndicator color="#0c0c1f" />
               ) : (
                 <>
-                  <Ionicons name="refresh" size={18} color="#0c0c1f" />
+                  <RefreshIcon size={18} color="#0c0c1f" />
                   <Text style={styles.ctaText}>{retryLabel}</Text>
                 </>
               )}
