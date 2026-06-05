@@ -2,12 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { Modal, View, Text, TouchableOpacity, StyleSheet, Animated, Easing, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { Audio } from 'expo-av';
+import { useAudioPlayer } from 'expo-audio';
 import { useAuth } from '../context/authContext';
 
 export default function WelcomePopup({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const [show, setShow] = useState(visible);
   const slide = new Animated.Value(0);
+  const chime = useAudioPlayer(require('../assets/sounds/success.mp3'));
 
   useEffect(() => {
     if (show) {
@@ -18,17 +19,11 @@ export default function WelcomePopup({ visible, onClose }: { visible: boolean; o
         useNativeDriver: true,
       }).start();
       // Play a subtle success chime
-      (async () => {
-        try {
-          const { sound } = await Audio.Sound.createAsync(
-            // Using a built‑in Expo sound; replace with a custom asset if desired
-            require('../assets/sounds/success.mp3')
-          );
-          await sound.playAsync();
-        } catch (e) {
-          console.warn('Welcome sound error', e);
-        }
-      })();
+      try {
+        if (chime && chime.play) chime.play();
+      } catch (e) {
+        console.warn('Welcome sound error', e);
+      }
     } else {
       slide.setValue(0);
     }

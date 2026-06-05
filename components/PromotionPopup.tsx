@@ -16,6 +16,7 @@ const CIRCLE_CIRCUMFERENCE = 2 * Math.PI * CIRCLE_RADIUS;
 export default function PromotionPopup({ config, visible, onClose }: { config: any; visible: boolean; onClose: () => void }) {
   const { fixUrl } = useAuth();
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const [countdown, setCountdown] = useState(10);
   const [imgAspect, setImgAspect] = useState(1); // default square, updated on load
   
@@ -42,6 +43,7 @@ export default function PromotionPopup({ config, visible, onClose }: { config: a
   useEffect(() => {
     if (visible && config) {
       setImageLoaded(false);
+      setImageError(false);
       
       // Animate entry: opacity from 0 -> 1, scale from 0.95 -> 1
       enterAnim.setValue(0);
@@ -133,6 +135,12 @@ export default function PromotionPopup({ config, visible, onClose }: { config: a
                 style={[styles.image, { opacity: imageLoaded ? 1 : 0, width: calculatedWidth, height: calculatedHeight }]}
                 resizeMode="contain"
                 onLoad={() => setImageLoaded(true)}
+                onError={() => {
+                  // Stale/broken image URL — auto-close after brief delay
+                  console.warn('[PromotionPopup] Image failed to load:', fullImageUrl);
+                  setImageError(true);
+                  setTimeout(() => onClose(), 1500);
+                }}
               />
             </View>
 

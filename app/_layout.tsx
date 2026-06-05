@@ -1,18 +1,20 @@
 // app/_layout.tsx
 import { Platform } from "react-native";
 
-// ✅ @sentry/react is browser-only — must NOT initialize on Android/iOS
-// or it will crash (references window/document/XMLHttpRequest which don't exist on Hermes).
+// ✅ @sentry/react is browser-only — deferred so it doesn't block initial render.
+// Using setTimeout(0) pushes initialization after the first paint.
 if (Platform.OS === "web") {
-  try {
-    const Sentry = require("@sentry/react");
-    Sentry.init({
-      dsn: "https://0542c52f966517870c71abc882d89ca6@o4511351046733824.ingest.us.sentry.io/4511351146872832",
-      tracesSampleRate: 0.1,
-    });
-  } catch (e) {
-    console.warn("[Sentry] Failed to initialize:", e);
-  }
+  setTimeout(() => {
+    try {
+      const Sentry = require("@sentry/react");
+      Sentry.init({
+        dsn: "https://0542c52f966517870c71abc882d89ca6@o4511351046733824.ingest.us.sentry.io/4511351146872832",
+        tracesSampleRate: 0.1,
+      });
+    } catch (e) {
+      console.warn("[Sentry] Failed to initialize:", e);
+    }
+  }, 0);
 }
 
 import { Redirect, Slot, useRootNavigationState, useSegments } from "expo-router";

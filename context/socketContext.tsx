@@ -115,9 +115,10 @@ export function SocketProvider({
       // IMPORTANT: do NOT forceNew (it can churn engines on remount)
       forceNew: false,
       reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
+      reconnectionAttempts: 8,        // Was 5 — more resilient for flaky Ethiopian mobile networks
+      reconnectionDelay: 1500,        // Base delay 1.5s
+      reconnectionDelayMax: 10000,    // Cap at 10s (was 5s)
+      randomizationFactor: 0.5,       // ±50% jitter to prevent thundering herd on server restart
       timeout: CONNECT_TIMEOUT_MS,
       extraHeaders: {
         "x-platform": Platform.OS === "web" ? "web" : "mobile"

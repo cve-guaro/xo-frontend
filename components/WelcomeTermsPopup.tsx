@@ -23,26 +23,26 @@ export default function WelcomeTermsPopup({ visible, onAgree, language }: Welcom
         <View style={[styles.sheet, isDesktop && styles.sheetDesktop]}>
           <LinearGradient colors={["#181B24", "#121420"]} style={styles.sheetInner}>
             <View style={styles.iconWrap}>
-              <Ionicons name="gift" size={32} color="#00daf3" />
+              <Ionicons name="game-controller" size={32} color="#00daf3" />
             </View>
-            <Text style={styles.title}>{isEN ? "Welcome Bonus Unlocked!" : "እንኳን ደስ አለዎት! የቦነስ ሽልማት ተገኝቷል"}</Text>
-            <Text style={styles.subtitle}>{isEN ? "You received 10 ETB in Bonus Funds" : "10 የብር ቦነስ ተሰጥቶዎታል"}</Text>
+            <Text style={styles.title}>{isEN ? "Welcome to XO Ethiopia!" : "እንኳን ወደ XO ኢትዮጵያ በደህና መጡ!"}</Text>
+            <Text style={styles.subtitle}>{isEN ? "Play, compete, and win real prizes!" : "ተጫወቱ፣ ተወዳደሩ፣ እውነተኛ ሽልማት ያሸንፉ!"}</Text>
 
 
             <View style={styles.rulesContainer}>
               <View style={styles.rule}>
                 <Ionicons name="checkmark-circle" size={16} color="#00daf3" />
-                <Text style={styles.ruleText}>{isEN ? "You can use this bonus to play ANY match." : "ይህንን ቦነስ በማንኛውም ጨዋታ ላይ ሊጠቀሙበት ይችላሉ።"}</Text>
+                <Text style={styles.ruleText}>{isEN ? "Compete with real players in real-time." : "ከእውነተኛ ተጫዋቾች ጋር በቅጽበት ተወዳደሩ።"}</Text>
               </View>
 
               <View style={styles.rule}>
-                <Ionicons name="alert-circle" size={16} color="#ef4444" />
-                <Text style={styles.ruleText}>{isEN ? "Bonus funds CANNOT be withdrawn directly." : "ቦነስ ሲሆን በቀጥታ ማውጣት አይቻልም።"}</Text>
+                <Ionicons name="ribbon" size={16} color="#34d399" />
+                <Text style={styles.ruleText}>{isEN ? "Climb the weekly leaderboard for prizes." : "ሳምንታዊ ሽልማት ለማግኘት ደረጃዎን ያሻሽሉ።"}</Text>
               </View>
 
               <View style={styles.rule}>
                 <Ionicons name="trophy" size={16} color="#34d399" />
-                <Text style={styles.ruleText}>{isEN ? "Winnings earned using bonus funds are added to your available balance and are fully withdrawable." : "በቦነስ ተጫውተው የሚያሸንፉት ገንዘብ ግን ወዲያውኑ ወደ ሚወጣው ሂሳብዎ ይገባል።"}</Text>
+                <Text style={styles.ruleText}>{isEN ? "Winnings are added to your balance and fully withdrawable." : "ያሸነፉት ገንዘብ ወዲያውኑ ወደ ሂሳብዎ ይገባል።"}</Text>
               </View>
 
             </View>

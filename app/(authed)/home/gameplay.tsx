@@ -23,609 +23,44 @@ import {
   ActivityIndicator,
   Animated,
   BackHandler,
-  Dimensions,
   Easing,
   Image,
-  Modal,
   Linking,
   Platform,
-  Pressable,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
   useWindowDimensions,
 } from "react-native";
 
-import { useAuth, PaymentMethod } from "../../../context/authContext";
+import { useAuth } from "../../../context/authContext";
 import { useSocket } from "../../../context/socketContext";
 import { haptics } from "../../../lib/haptcs";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useBackgroundMusic } from "../../../context/BackgroundMusicProvider";
 import { useToast } from "../../../context/ToastContext";
-import Svg, { Circle } from 'react-native-svg';
+
+// Ã¢â€â‚¬Ã¢â€â‚¬ Extracted components (Stage 3 refactor) Ã¢â€â‚¬Ã¢â€â‚¬
+import { ROOMS, DEMO_BOARD, BOARD_SIZE } from "../../../components/game/gameplayConstants";
+import type { RoomConfig, SheetStep } from "../../../components/game/gameplayConstants";
+import { HeaderPill, InfoPill } from "../../../components/game/HeaderPill";
+import BoardDemo from "../../../components/game/BoardDemo";
+import ExitModal from "../../../components/game/ExitModal";
+import SearchingView from "../../../components/game/SearchingView";
+import RoomSheet from "../../../components/game/RoomSheet";
+import MobileQuickTile from "../../../components/game/MobileQuickTile";
+import DesktopLayout from "../../../components/game/DesktopLayout";
+import WinTicker from "../../../components/game/WinTicker";
+import FloatingActions from "../../../components/game/FloatingActions";
+import PwaInstallModal from "../../../components/game/PwaInstallModal";
 
 
 
 
-const BOARD_SIZE = 3;
 
-const DEMO_BOARD = ["O", "_", "X", "_", "O", "_", "X", "_", "_"] as const;
-
-type RoomConfig = {
-  id: "R1" | "R2" | "R3";
-  rangeLabel: string;
-  titleEn: string;
-  titleAm: string;
-  cut: number;
-  time: number;
-  colors: [string, string];
-  amountOptions: { amount: number; min: number; max: number; rangeLabel?: string; colors: [string, string] }[];
-};
-
-const ROOMS: RoomConfig[] = [
-  {
-    id: "R1",
-    rangeLabel: "10-100",
-    titleEn: "Room 1",
-    titleAm: "ክፍል 1",
-    cut: 10,
-    time: 30,
-    colors: ["#8b5cf6", "#6d28d9"], // Premium Purple matching HTML
-    amountOptions: [
-      { amount: 25, min: 10, max: 25, rangeLabel: "10 - 25", colors: ["#8b5cf6", "#6d28d9"] },
-      { amount: 50, min: 25, max: 50, rangeLabel: "25 - 50", colors: ["#8b5cf6", "#6d28d9"] },
-      { amount: 100, min: 50, max: 100, rangeLabel: "50 - 100", colors: ["#8b5cf6", "#6d28d9"] },
-    ],
-  },
-  {
-    id: "R2",
-    rangeLabel: "100-1000",
-    titleEn: "Room 2",
-    titleAm: "ክፍል 2",
-    cut: 10,
-    time: 30,
-    colors: ["#3b82f6", "#2563eb"], // Blue
-    amountOptions: [
-      { amount: 250, min: 100, max: 250, rangeLabel: "100 - 250", colors: ["#3b82f6", "#2563eb"] },
-      { amount: 500, min: 250, max: 500, rangeLabel: "250 - 500", colors: ["#3b82f6", "#2563eb"] },
-      { amount: 1000, min: 500, max: 1000, rangeLabel: "500 - 1000", colors: ["#3b82f6", "#2563eb"] },
-    ],
-  },
-  {
-    id: "R3",
-    rangeLabel: "1000-10000",
-    titleEn: "Room 3",
-    titleAm: "ክፍል 3",
-    cut: 10,
-    time: 30,
-    colors: ["#06b6d4", "#0891b2"], // Cyan
-    amountOptions: [
-      { amount: 2500, min: 1000, max: 2500, rangeLabel: "1000 - 2500", colors: ["#06b6d4", "#0891b2"] },
-      { amount: 5000, min: 2500, max: 5000, rangeLabel: "2500 - 5000", colors: ["#06b6d4", "#0891b2"] },
-      { amount: 7500, min: 5000, max: 7500, rangeLabel: "5000 - 7500", colors: ["#06b6d4", "#0891b2"] },
-      { amount: 10000, min: 10000, max: 10000, rangeLabel: "10000 (itself)", colors: ["#06b6d4", "#0891b2"] },
-    ],
-  },
-];
-
-
-type SheetStep = "ROOMS" | "AMOUNTS";
-
-
-
-const HeaderPill = memo(function HeaderPill({
-
-  onPress,
-  icon,
-  text,
-  gradient,
-}: {
-  onPress: () => void;
-  icon: React.ComponentProps<typeof Ionicons>["name"];
-  text?: string;
-  gradient: [string, string];
-}) {
-  return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.9} style={styles.pillOuter}>
-      <LinearGradient colors={gradient} style={styles.pillInner}>
-        <Ionicons name={icon} size={16} color="#fff" />
-        {!!text && <Text style={styles.pillText}>{text}</Text>}
-      </LinearGradient>
-    </TouchableOpacity>
-  );
-});
-
-const QuickTile = memo(function QuickTile({
-  icon,
-  title,
-  subtitle,
-  onPress,
-  colors = ["rgba(124,58,237,0.92)", "rgba(59,130,246,0.70)"],
-}: {
-  icon: React.ComponentProps<typeof Ionicons>["name"];
-  title: string;
-  subtitle: string;
-  onPress: () => void;
-  colors?: [string, string];
-}) {
-  return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.92} style={styles.tile}>
-      <LinearGradient
-        colors={["rgba(10,12,28,0.52)", "rgba(10,12,28,0.34)"]}
-        style={StyleSheet.absoluteFill}
-      />
-      <View style={styles.tileIcon}>
-        <LinearGradient
-          colors={colors}
-          style={styles.tileIconInner}
-        >
-          <Ionicons name={icon} size={16} color="#fff" />
-        </LinearGradient>
-      </View>
-      <View style={styles.tileTextWrap}>
-        <Text
-          style={styles.tileTitle}
-          numberOfLines={1}
-          adjustsFontSizeToFit
-          minimumFontScale={0.86}
-        >
-          {title}
-        </Text>
-        <Text
-          style={styles.tileSub}
-          numberOfLines={1}
-          adjustsFontSizeToFit
-          minimumFontScale={0.88}
-        >
-          {subtitle}
-        </Text>
-      </View>
-    </TouchableOpacity>
-  );
-});
-
-const InfoPill = memo(function InfoPill({
-  icon,
-  text,
-}: {
-  icon: React.ComponentProps<typeof Ionicons>["name"];
-  text: string;
-}) {
-  return (
-    <View style={styles.infoPill}>
-      <Ionicons name={icon} size={14} color="rgba(255,255,255,0.78)" />
-      <Text
-        style={styles.infoText}
-        numberOfLines={1}
-        adjustsFontSizeToFit
-        minimumFontScale={0.75}
-      >
-        {text}
-      </Text>
-    </View>
-  );
-});
-
-const BoardDemo = memo(function BoardDemo({ isDesktop }: { isDesktop: boolean }) {
-  const { width } = useWindowDimensions();
-  // Adjust sizing dynamically: max 260px on desktop, scaling down based on viewport on mobile/tablet
-  const BOARD_DIM = isDesktop ? 320 : Math.min(width - 90, 280);
-  const FONT_SIZE = BOARD_DIM * 0.22;
-
-  return (
-    <View style={[styles.neonBoard, { width: BOARD_DIM, height: BOARD_DIM }]}>
-      {[0, 1, 2].map((row) => (
-        <View key={row} style={styles.neonBoardRow}>
-          {[0, 1, 2].map((col) => {
-            const idx = row * 3 + col;
-            const cell = DEMO_BOARD[idx];
-            return (
-              <View key={col} style={styles.neonCell}>
-                {cell !== "_" && (
-                  <Text style={[
-                    styles.cellText,
-                    cell === "O" ? styles.neonOText : styles.neonXText,
-                    { fontSize: FONT_SIZE }
-                  ]}>{cell}</Text>
-                )}
-              </View>
-            );
-          })}
-        </View>
-      ))}
-    </View>
-  );
-});
-
-const ExitModal = memo(function ExitModal({
-  language,
-  onCancel,
-  onConfirm,
-}: {
-  language: string;
-  onCancel: () => void;
-  onConfirm: () => void;
-}) {
-  const isEN = language === "en";
-  return (
-    <View style={styles.modalOverlay}>
-      <Pressable style={StyleSheet.absoluteFill} onPress={onCancel} />
-      <View style={styles.exitSheet}>
-        <View style={styles.exitHeader}>
-          <View style={styles.exitIcon}>
-            <LinearGradient colors={["#7C3AED", "#4F46E5"]} style={StyleSheet.absoluteFill} />
-            <Ionicons name="alert-circle-outline" size={18} color="#fff" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.exitTitle}>{isEN ? "Exit app?" : "መተግበሪያውን አጥፋ?"}</Text>
-            <Text style={styles.exitSub}>{isEN ? "Are you sure you want to close the app?" : "መተግበሪያውን መዝጋት ይፈልጋሉ?"}</Text>
-          </View>
-        </View>
-        <View style={styles.exitActions}>
-          <TouchableOpacity onPress={onCancel} activeOpacity={0.9} style={styles.exitGhost}>
-            <Text style={styles.exitGhostText}>{isEN ? "Cancel" : "አይ"}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={onConfirm} activeOpacity={0.9} style={styles.exitDanger}>
-            <LinearGradient colors={["rgba(239,68,68,0.95)", "rgba(124,58,237,0.85)"]} style={styles.exitDangerInner}>
-              <Text style={styles.exitDangerText}>{isEN ? "Exit" : "አዎ"}</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </View>
-  );
-});
-
-const SearchingView = memo(function SearchingView({ onCancel, isMatched }: { onCancel: () => void, isMatched?: boolean }) {
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 768;
-
-  const [elapsed, setElapsed] = useState(0);
-  const pulse = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, { toValue: 1, duration: 2000, easing: Easing.inOut(Easing.ease), useNativeDriver: Platform.OS !== 'web' }),
-        Animated.timing(pulse, { toValue: 0, duration: 2000, easing: Easing.inOut(Easing.ease), useNativeDriver: Platform.OS !== 'web' }),
-      ])
-    );
-    loop.start();
-    const ti = setInterval(() => setElapsed(p => p + 1), 1000);
-    return () => { loop.stop(); clearInterval(ti); };
-  }, []);
-
-  const timeStr = `${Math.floor(elapsed / 60)}:${(elapsed % 60).toString().padStart(2, '0')}`;
-
-  return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-      <View style={{ width: 220, height: 220, alignItems: 'center', justifyContent: 'center' }}>
-        {/* Single simple pulse for visual Commissiondback without being heavy */}
-        <Animated.View style={{
-          position: 'absolute',
-          width: 200, height: 200, borderRadius: 100,
-          borderWidth: 2, borderColor: 'rgba(129,236,255,0.1)',
-          transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.95, 1.05] }) }],
-          opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.7] })
-        }} />
-
-        <LinearGradient colors={isMatched ? ['#10b981', '#059669'] : ['#81ecff', '#00daf3']} style={{
-          width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center',
-          shadowColor: '#00daf3', shadowOpacity: 0.5, shadowRadius: 15, elevation: 10,
-          borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)'
-        }}>
-          <Ionicons name={isMatched ? 'checkmark-circle' : 'search'} size={32} color="#000" />
-        </LinearGradient>
-      </View>
-
-      <Text style={{ color: '#fff', fontSize: 20, fontWeight: '900', marginTop: 24, letterSpacing: 1 }}>
-        {isMatched ? 'MATCH FOUND!' : 'FINDING OPPONENT...'}
-      </Text>
-
-      <View style={{ backgroundColor: 'rgba(255,255,255,0.05)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, marginTop: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
-        <Text style={{ color: '#81ecff', fontWeight: '900', fontSize: 14, fontFamily: Platform.OS === 'ios' ? 'Courier' : undefined }}>{timeStr}</Text>
-      </View>
-
-      <View style={{ flexDirection: 'row', gap: 10, marginTop: 32, width: '100%' }}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
-          <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 8, fontWeight: '800', letterSpacing: 0.5 }}>ONLINE</Text>
-          <Text style={{ color: '#fff', fontSize: 14, fontWeight: '900', marginTop: 2 }}>12,402</Text>
-        </View>
-        <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
-          <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 8, fontWeight: '800', letterSpacing: 0.5 }}>LATENCY</Text>
-          <Text style={{ color: '#10b981', fontSize: 14, fontWeight: '900', marginTop: 2 }}>24ms</Text>
-        </View>
-      </View>
-
-      <TouchableOpacity onPress={onCancel} disabled={isMatched} style={{ marginTop: 40, width: '100%', borderRadius: 18, overflow: 'hidden' }}>
-        <LinearGradient colors={["rgba(253,111,133,0.2)", "rgba(253,111,133,0.1)"]} style={{ paddingVertical: 16, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(253,111,133,0.2)', borderRadius: 18 }}>
-          <Text style={{ color: '#fd6f85', fontWeight: '900', letterSpacing: 1 }}>CANCEL</Text>
-        </LinearGradient>
-      </TouchableOpacity>
-    </View>
-  );
-});
-
-
-
-const RoomSheet = memo(function RoomSheet({
-  language,
-  balance,
-  step,
-  selectedRoom,
-  backdropOpacity,
-  sheetTranslateY,
-  onClose,
-  onBack,
-  onSelectRoom,
-  onSelectAmount,
-  isDesktop = false,
-  visible,
-  userCaps,
-}: {
-  language: string;
-  balance: number;
-  visible: boolean;
-  step: SheetStep;
-  selectedRoom: RoomConfig;
-  backdropOpacity: Animated.Value;
-  sheetTranslateY: Animated.Value;
-  onClose: () => void;
-  onBack: () => void;
-  onSelectRoom: (roomId: RoomConfig["id"]) => void;
-  onSelectAmount: (room: RoomConfig, min: number, max: number) => void;
-  isDesktop?: boolean;
-  userCaps?: any;
-}) {
-  const isEN = language === "en";
-  const [localAmount, setLocalAmount] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (visible) setLocalAmount(null);
-  }, [visible, step]);
-
-  const handleConfirmDesktop = () => {
-    if (localAmount !== null) {
-      const opt = selectedRoom.amountOptions.find(o => o.amount === localAmount);
-      if (opt) {
-        onSelectAmount(selectedRoom, opt.min, opt.max);
-      }
-    }
-  };
-
-  return (
-    <View style={[{ ...(Platform.OS === 'web' ? { position: 'fixed' } : { position: 'absolute' }), top: 0, left: 0, right: 0, bottom: 0, zIndex: 999999 }, isDesktop && { alignItems: 'center', justifyContent: 'center' }]} pointerEvents="box-none">
-      <Animated.View style={[styles.sheetBackdrop, { opacity: backdropOpacity }]} />
-      <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-
-      <Animated.View
-        style={[
-          isDesktop ? styles.desktopModal : styles.sheet,
-          !isDesktop && { transform: [{ translateY: sheetTranslateY }] },
-          isDesktop && {
-            transform: [{ scale: backdropOpacity.interpolate({ inputRange: [0, 1], outputRange: [0.95, 1] }) }],
-            opacity: backdropOpacity
-          }
-        ]}
-      >
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.sheetContent}>
-          {/* Header with back button for AMOUNTS step */}
-          {step === "AMOUNTS" ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, paddingHorizontal: 4 }}>
-              <TouchableOpacity onPress={onBack} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' }}>
-                <Ionicons name="chevron-back" size={20} color="rgba(255,255,255,0.8)" />
-              </TouchableOpacity>
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={styles.sheetTitle}>{isEN ? `${selectedRoom.titleEn} amount` : `${selectedRoom.titleAm} መጠን`}</Text>
-                <Text style={styles.sheetSubTitle}>Commission {selectedRoom.cut}% • {selectedRoom.time}s</Text>
-              </View>
-              <TouchableOpacity onPress={onClose} style={styles.sheetCloseBtn}>
-                <Ionicons name="close" size={20} color="rgba(255,255,255,0.7)" />
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <>
-              <TouchableOpacity onPress={onClose} style={styles.sheetCloseBtn}>
-                <Ionicons name="close" size={20} color="rgba(255,255,255,0.7)" />
-              </TouchableOpacity>
-              <View style={styles.sheetHeader}>
-                <Text style={styles.sheetTitle}>{isEN ? "Select room" : "ክፍል ይምረጡ"}</Text>
-                <Text style={styles.sheetSubTitle}>{isEN ? "Tap a room to see amounts." : "መጠኖችን ለማየት ክፍሉን ይጫኑ"}</Text>
-              </View>
-            </>
-          )}
-
-
-          {step === "ROOMS" ? (
-            <View style={styles.roomList}>
-              {/* Global rooms lock banner */}
-              {userCaps?.rooms_locked && (
-                <View style={{
-                  backgroundColor: 'rgba(253,111,133,0.08)',
-                  borderWidth: 1,
-                  borderColor: 'rgba(253,111,133,0.3)',
-                  borderRadius: 16,
-                  padding: 20,
-                  alignItems: 'center',
-                  marginBottom: 16,
-                  gap: 8,
-                }}>
-                  <Ionicons name="lock-closed" size={32} color="#fd6f85" />
-                  <Text style={{ color: '#fd6f85', fontWeight: '900', fontSize: 16, letterSpacing: 0.5 }}>
-                    {isEN ? 'Rooms Locked' : 'ክፍሎች ተዘግተዋል'}
-                  </Text>
-                  <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, textAlign: 'center', lineHeight: 18 }}>
-                    {isEN
-                      ? 'All game rooms are temporarily locked by the admin. Please check back later.'
-                      : 'ሁሉም የጨዋታ ክፍሎች በጊዜያዊነት ተዘግተዋል። ቆይተው ይሞክሩ።'}
-                  </Text>
-                </View>
-              )}
-              {ROOMS.map((room) => {
-                const isR1 = room.id === "R1";
-                const r1Locked = isR1 && ((userCaps?.r1_10||0)>=20 && (userCaps?.r1_25||0)>=20 && (userCaps?.r1_50||0)>=20 && (userCaps?.r1_99||0)>=20);
-                const globalLocked = !!userCaps?.rooms_locked;
-                return (
-                  <TouchableOpacity 
-                    key={room.id} 
-                    activeOpacity={0.88} 
-                    disabled={r1Locked || globalLocked} 
-                    onPress={() => onSelectRoom(room.id)} 
-                    style={[styles.roomBtn, (r1Locked || globalLocked) && { opacity: 0.4 }]}
-                  >
-                    <LinearGradient colors={r1Locked || globalLocked ? ['#444', '#222'] : room.colors} start={{x:0,y:0}} end={{x:1,y:0}} style={styles.roomInner}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.roomName}>{isEN ? room.titleEn : room.titleAm} {r1Locked && "(MAXED)"}{globalLocked && "🔐"}</Text>
-                        <Text style={styles.roomDetail}>
-                          {isEN ? `ETB ${room.rangeLabel} • ${room.cut}% Commission • ${room.time}s` : `ETB ${room.rangeLabel} • ${room.cut}% ክፍያ • ${room.time} ሰ`}
-                        </Text>
-                      </View>
-                      <View style={styles.roomAction}>
-                        <Text style={styles.viewText}>{isEN ? "View" : "ይሂዱ"}</Text>
-                        <Ionicons name="chevron-forward" size={14} color="#fff" />
-                      </View>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                )
-              })}
-
-              <View style={styles.fairPlayBanner}>
-                <Ionicons name="shield-checkmark" size={16} color="#8193f8ff" />
-                <Text style={styles.fairPlayText}>
-                  {isEN ? "Fair play is enforced. Any cheating results in a permanent ban." : "ትክክለኛ ጨዋታ ተፈጻሚ ይሆናል። ማንኛውም ማጭበርበር ለዘለቄታው እገዳ ያስከትላል።"}
-                </Text>
-              </View>
-            </View>
-          ) : (
-            <>
-              <View style={styles.amountGrid}>
-                {selectedRoom.amountOptions.map((opt) => {
-                  let capReached = false;
-                  let plays = 0;
-                  if (selectedRoom.id === "R1") {
-                    if (opt.min === 10) { plays = (userCaps?.r1_10 || 0); }
-                    if (opt.min === 25) { plays = (userCaps?.r1_25 || 0); }
-                    if (opt.min === 50) { plays = (userCaps?.r1_50 || 0); }
-                  }
-                  const disabled = (balance < opt.min) || capReached;
-                  const isSelected = localAmount === opt.amount;
-                  const pillColors = disabled
-                    ? ['rgba(60,60,80,0.6)', 'rgba(40,40,60,0.4)'] as [string, string]
-                    : opt.colors as [string, string];
-
-                  return (
-                    <Pressable
-                      key={opt.amount}
-                      disabled={disabled}
-                      onPress={() => isDesktop ? setLocalAmount(opt.amount) : onSelectAmount(selectedRoom, opt.min, opt.max)}
-                      style={({ pressed }) => [
-                        { width: '48%', marginBottom: 16, borderRadius: 16, overflow: 'hidden', opacity: disabled ? 0.45 : 1 },
-                        pressed && !disabled ? { transform: [{ scale: 0.98 }] } : null,
-                        isSelected && { transform: [{ scale: 1.01 }] },
-                      ]}
-                    >
-                      <LinearGradient
-                        colors={pillColors}
-                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                        style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          paddingVertical: 18,
-                          paddingHorizontal: 16,
-                          borderRadius: 16,
-                          borderWidth: isSelected ? 2 : 0,
-                          borderColor: isSelected ? '#fff' : 'transparent',
-                          height: '100%' // Fix gap usage by ensuring equal height
-                        }}
-                      >
-                        <View style={{ flex: 1 }}>
-                          <Text style={{ color: '#fff', fontWeight: '900', fontSize: 18, letterSpacing: 0.3 }}>
-                            ETB {opt.rangeLabel ? opt.rangeLabel : opt.amount.toLocaleString()}
-                          </Text>
-                          <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 11, fontWeight: '700', marginTop: 4 }}>
-                            Commission {selectedRoom.cut}% • {selectedRoom.time}s
-                            {capReached ? ' • LOCKED' : ''}
-                          </Text>
-                        </View>
-                        <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.9)" />
-
-
-                      </LinearGradient>
-                    </Pressable>
-                  );
-                })}
-              </View>
-
-
-              {/* Balance indicator — always shown at the bottom (matches img 5) */}
-              <View style={[styles.balanceNote, { marginTop: 16 }]}>
-                <Ionicons name="wallet-outline" size={14} color="rgba(255,255,255,0.5)" />
-                <Text style={styles.balanceNoteText}>
-                  {isEN ? `Balance: ETB ${balance.toLocaleString()}` : `ቀሪ ገንዘብ: ETB ${balance.toLocaleString()}`}
-                </Text>
-              </View>
-
-              {/* Desktop: Confirm button */}
-              {isDesktop && (
-                <View style={{ marginTop: 16 }}>
-                  <TouchableOpacity
-                    onPress={handleConfirmDesktop}
-                    disabled={localAmount === null}
-                    activeOpacity={0.8}
-                  >
-                    <LinearGradient
-                      colors={localAmount !== null ? ['#00daf3', '#00a3ff'] : ['rgba(255,255,255,0.05)', 'rgba(255,255,255,0.02)']}
-                      start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                      style={styles.confirmBtn}
-                    >
-                      <Text style={[styles.confirmText, localAmount === null && { color: 'rgba(255,255,255,0.2)' }]}>
-                        {isEN ? "CONFIRM AMOUNT" : "መጠኑን አረጋግጥ"}
-                      </Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={onBack} style={{ marginTop: 12, alignItems: 'center' }}>
-                    <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, fontWeight: 'bold' }}>{isEN ? "BACK TO ROOMS" : "ይመለሱ"}</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </>
-          )}
-
-        </ScrollView>
-      </Animated.View>
-    </View>
-  );
-});
-
-const MobileQuickTile = ({ icon, iconColor, title, subtitle, onPress }: { icon: string; iconColor: string; title: string; subtitle: string; onPress: () => void }) => (
-  <TouchableOpacity
-    onPress={onPress}
-    activeOpacity={0.9}
-    style={{
-      flex: 1,
-      backgroundColor: 'rgba(20, 19, 26, 0.6)',
-      borderRadius: 20,
-      borderWidth: 1,
-      borderColor: 'rgba(255, 255, 255, 0.05)',
-      paddingVertical: 18,
-      paddingHorizontal: 12,
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 12
-    }}
-  >
-    <Ionicons name={icon as any} size={28} color={iconColor} />
-    <View style={{ alignItems: 'center' }}>
-      <Text style={{ color: '#fff', fontSize: 14, fontWeight: '900', textAlign: 'center' }}>{title}</Text>
-      <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9, fontWeight: '800', textTransform: 'uppercase', marginTop: 4, letterSpacing: 0.5 }}>{subtitle}</Text>
-    </View>
-  </TouchableOpacity>
-);
 
 // Session tracker for promotion popup to prevent showing it on web page tab transitions
 let hasShownPromoThisSession = false;
@@ -669,10 +104,10 @@ export default function Landing() {
           setRawTickerList(data.ticker);
           const formatted = data.ticker.map((item: any) => {
             const amt = Number(item.amount) || 0;
-            let emoji = '⚡';
-            if (amt >= 500) emoji = '👑';
-            else if (amt >= 200) emoji = '🔥';
-            else if (amt >= 100) emoji = '🏆';
+            let emoji = 'Ã¢Å¡Â¡';
+            if (amt >= 500) emoji = 'Ã°Å¸â€˜â€˜';
+            else if (amt >= 200) emoji = 'Ã°Å¸â€Â¥';
+            else if (amt >= 100) emoji = 'Ã°Å¸Ââ€ ';
             return `${emoji} ${item.username.toUpperCase()} WON ${amt} Birr`;
           });
           setTickerList(formatted);
@@ -740,7 +175,8 @@ export default function Landing() {
       mediaQuery.addListener(handleMediaChange);
     }
 
-    const interval = setInterval(handleCheck, 3000);
+    // Event listeners (appinstalled + mediaQuery change) fully cover install detection.
+    // Removed: 3-second setInterval polling Ã¢â‚¬â€ was ~20 async calls/min for no benefit.
 
     return () => {
       window.removeEventListener('appinstalled', handleAppInstalled);
@@ -749,7 +185,6 @@ export default function Landing() {
       } else {
         mediaQuery.removeListener(handleMediaChange);
       }
-      clearInterval(interval);
     };
   }, []);
 
@@ -898,10 +333,10 @@ export default function Landing() {
   }, [tickerAnim, tickerList]);
 
 
-  // Global rematch state — shows popup even when on home page
+  // Global rematch state Ã¢â‚¬â€ shows popup even when on home page
   const [globalRematchOffer, setGlobalRematchOffer] = useState<{ visible: boolean; fromName?: string; amount?: number; fromUserId?: string } | null>(null);
 
-  // Friend Match — send invite via socket
+  // Friend Match Ã¢â‚¬â€ send invite via socket
   const handleSendInvite = useCallback(async (username: string, betAmount: number) => {
     if (!token) return;
     await ensureConnected(token);
@@ -930,10 +365,10 @@ export default function Landing() {
         const payload = msg.payload || {};
         const username = String(payload.username || "User").toUpperCase();
         const amt = Number(payload.amount) || 0;
-        let emoji = '⚡';
-        if (amt >= 500) emoji = '👑';
-        else if (amt >= 200) emoji = '🔥';
-        else if (amt >= 100) emoji = '🏆';
+        let emoji = 'Ã¢Å¡Â¡';
+        if (amt >= 500) emoji = 'Ã°Å¸â€˜â€˜';
+        else if (amt >= 200) emoji = 'Ã°Å¸â€Â¥';
+        else if (amt >= 100) emoji = 'Ã°Å¸Ââ€ ';
 
         setCurrentWinAnnouncement(`${emoji} ${username} WON ${amt} Birr`);
       }
@@ -1038,12 +473,7 @@ export default function Landing() {
 
   const params = useLocalSearchParams();
 
-  // Auto-connect socket on load so user appears "Online" to others
-  useEffect(() => {
-    if (token) {
-      ensureConnected(token).catch(() => { });
-    }
-  }, [token, ensureConnected]);
+  // ensureConnected is handled by the parent _layout.tsx (authed) Ã¢â‚¬â€ no need to duplicate here
 
   // Auto-open share modal from deep links
   useEffect(() => {
@@ -1079,12 +509,12 @@ export default function Landing() {
     fetchTickerFeed();
   }, [fetchActivePromo, fetchTickerFeed]);
 
-  // Periodic polling for ticker wins to keep it fully real-time
+  // Periodic polling for ticker wins (socket global_win events also feed the ticker live)
   useEffect(() => {
     if (!token) return;
     const interval = setInterval(() => {
       fetchTickerFeed();
-    }, 30000); // 30 seconds
+    }, 90_000); // 90 seconds (was 30s Ã¢â‚¬â€ socket real-time wins reduce need)
     return () => clearInterval(interval);
   }, [token, fetchTickerFeed]);
 
@@ -1152,14 +582,14 @@ export default function Landing() {
     };
   }, [isLargeScreen, onMessage, router]);
 
-  // Poll profile every 30s while banned so the UI auto-recovers when admin unbans
+  // Poll profile while banned so the UI auto-recovers when admin unbans
   useEffect(() => {
     if (!isBanned) return;
-    const timer = setInterval(() => { refreshProfile().catch(() => { }); }, 30_000);
+    const timer = setInterval(() => { refreshProfile().catch(() => { }); }, 60_000); // 60s (was 30s)
     return () => clearInterval(timer);
   }, [isBanned, refreshProfile]);
 
-  // ---------- sound (click only — background managed by BackgroundMusicProvider) ----------
+  // ---------- sound (click only Ã¢â‚¬â€ background managed by BackgroundMusicProvider) ----------
   const clickSound = useAudioPlayer(require("../../../assets/sounds/click.wav"));
 
   const playClick = useCallback(async () => {
@@ -1214,7 +644,7 @@ export default function Landing() {
 
   const renderPodiumSpot = useCallback((spot: { rank: number; prize: number; color: string; barH: number; label: string }) => {
     const userAtRank = weeklyLeaderboard.find(u => u.rank === spot.rank);
-    const username = userAtRank ? userAtRank.username : "—";
+    const username = userAtRank ? userAtRank.username : "Ã¢â‚¬â€";
     const isFirst = spot.rank === 1;
     const circleSize = isFirst ? 54 : 42;
 
@@ -1294,8 +724,8 @@ export default function Landing() {
   const renderUserRankCard = useCallback(() => {
     const rankVal = myWeeklyRank && myWeeklyRank.rank ? `#${myWeeklyRank.rank}` : "#1";
     const scoreVal = myWeeklyRank && myWeeklyRank.wins !== undefined 
-      ? `${myWeeklyRank.wins} ${isEN ? 'Wins' : 'ድሎች'}` 
-      : `2 ${isEN ? 'Wins' : 'ድሎች'}`;
+      ? `${myWeeklyRank.wins} ${isEN ? 'Wins' : 'Ã¡â€¹ÂµÃ¡Ë†Å½Ã¡â€°Â½'}` 
+      : `2 ${isEN ? 'Wins' : 'Ã¡â€¹ÂµÃ¡Ë†Å½Ã¡â€°Â½'}`;
 
     return (
       <View style={{
@@ -1324,10 +754,10 @@ export default function Landing() {
           </View>
           <View>
             <Text style={{ color: '#fff', fontSize: 13, fontWeight: '900' }}>
-              {isEN ? "You" : "እርስዎ"}
+              {isEN ? "You" : "Ã¡Å Â¥Ã¡Ë†Â­Ã¡Ë†ÂµÃ¡â€¹Å½"}
             </Text>
             <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: '600', marginTop: 2 }}>
-              {isEN ? "All players" : "ሁሉም ተጫዋቾች"}
+              {isEN ? "All players" : "Ã¡Ë†ÂÃ¡Ë†â€°Ã¡Ë†Â Ã¡â€°Â°Ã¡Å’Â«Ã¡â€¹â€¹Ã¡â€°Â¾Ã¡â€°Â½"}
             </Text>
           </View>
         </View>
@@ -1402,18 +832,18 @@ export default function Landing() {
   const winRate = useMemo(() => (gamesPlayed ? Math.round((wins / gamesPlayed) * 100) : 0), [wins, gamesPlayed]);
   const statsLabel = useMemo(() => {
     const wr = Math.min(Math.max(winRate, 0), 100);
-    return isEN ? `${wins} wins • ${wr}% win rate` : `${wins} ድሎች • ${wr}% የድል መጠን`;
+    return isEN ? `${wins} wins Ã¢â‚¬Â¢ ${wr}% win rate` : `${wins} Ã¡â€¹ÂµÃ¡Ë†Å½Ã¡â€°Â½ Ã¢â‚¬Â¢ ${wr}% Ã¡â€¹Â¨Ã¡â€¹ÂµÃ¡Ë†Â Ã¡Ë†ËœÃ¡Å’Â Ã¡Å â€¢`;
   }, [wins, winRate, isEN]);
 
   const rank = useMemo(() => {
-    if (winRate >= 70 || wins >= 200) return isEN ? "Platinum" : "ፕላቲኒም";
-    if (winRate >= 50 || wins >= 100) return isEN ? "Gold" : "ወርቅ";
-    return isEN ? "Silver" : "ብር";
+    if (winRate >= 70 || wins >= 200) return isEN ? "Platinum" : "Ã¡Ââ€¢Ã¡Ë†â€¹Ã¡â€°Â²Ã¡Å â€™Ã¡Ë†Â";
+    if (winRate >= 50 || wins >= 100) return isEN ? "Gold" : "Ã¡â€¹Ë†Ã¡Ë†Â­Ã¡â€°â€¦";
+    return isEN ? "Silver" : "Ã¡â€°Â¥Ã¡Ë†Â­";
   }, [winRate, wins, isEN]);
 
   const rankMeta = useMemo(() => {
-    const isPlat = rank.includes("Platinum") || rank.includes("ፕላቲኒም");
-    const isGold = rank.includes("Gold") || rank.includes("ወርቅ");
+    const isPlat = rank.includes("Platinum") || rank.includes("Ã¡Ââ€¢Ã¡Ë†â€¹Ã¡â€°Â²Ã¡Å â€™Ã¡Ë†Â");
+    const isGold = rank.includes("Gold") || rank.includes("Ã¡â€¹Ë†Ã¡Ë†Â­Ã¡â€°â€¦");
     if (isPlat) return { icon: "diamond-outline" as const, label: rank, tone: "platinum" as const };
     if (isGold) return { icon: "trophy-outline" as const, label: rank, tone: "gold" as const };
     return { icon: "medal-outline" as const, label: rank, tone: "silver" as const };
@@ -1427,9 +857,9 @@ export default function Landing() {
     await playClick();
     try {
       await refreshProfile();
-      toast.success(isEN ? "Balance Updated" : "ቀሪ ሂሳብ ተዘምኗል", undefined, 1500);
+      toast.success(isEN ? "Balance Updated" : "Ã¡â€°â‚¬Ã¡Ë†Âª Ã¡Ë†â€šÃ¡Ë†Â³Ã¡â€°Â¥ Ã¡â€°Â°Ã¡â€¹ËœÃ¡Ë†ÂÃ¡Å â€”Ã¡Ë†Â", undefined, 1500);
     } catch (e) {
-      toast.error(isEN ? "Refresh Failed" : "ማዘመን አልተቻለም", isEN ? "Could not update your balance." : "ቀሪ ሂሳብዎን ማዘመን አልተቻለም።");
+      toast.error(isEN ? "Refresh Failed" : "Ã¡Ë†â€ºÃ¡â€¹ËœÃ¡Ë†ËœÃ¡Å â€¢ Ã¡Å Â Ã¡Ë†ÂÃ¡â€°Â°Ã¡â€°Â»Ã¡Ë†Ë†Ã¡Ë†Â", isEN ? "Could not update your balance." : "Ã¡â€°â‚¬Ã¡Ë†Âª Ã¡Ë†â€šÃ¡Ë†Â³Ã¡â€°Â¥Ã¡â€¹Å½Ã¡Å â€¢ Ã¡Ë†â€ºÃ¡â€¹ËœÃ¡Ë†ËœÃ¡Å â€¢ Ã¡Å Â Ã¡Ë†ÂÃ¡â€°Â°Ã¡â€°Â»Ã¡Ë†Ë†Ã¡Ë†ÂÃ¡ÂÂ¢");
       console.log("Error refreshing profile:", e);
     }
   }, [playClick, refreshProfile]);
@@ -1532,8 +962,8 @@ export default function Landing() {
       if (Number.isFinite(balance) && balance < min) {
         haptics.warning();
         toast.warning(
-          isEN ? "Insufficient Balance" : "በቂ ሂሳብ የለም",
-          isEN ? `You need at least ETB ${min} to play. Deposit more funds.` : `ለመጫወት ቢያንስ ETB ${min} ያስፈልጋል። ተጨማሪ ገንዘብ ያስገቡ።`
+          isEN ? "Insufficient Balance" : "Ã¡â€°Â Ã¡â€°â€š Ã¡Ë†â€šÃ¡Ë†Â³Ã¡â€°Â¥ Ã¡â€¹Â¨Ã¡Ë†Ë†Ã¡Ë†Â",
+          isEN ? `You need at least ETB ${min} to play. Deposit more funds.` : `Ã¡Ë†Ë†Ã¡Ë†ËœÃ¡Å’Â«Ã¡â€¹Ë†Ã¡â€°Âµ Ã¡â€°Â¢Ã¡â€¹Â«Ã¡Å â€¢Ã¡Ë†Âµ ETB ${min} Ã¡â€¹Â«Ã¡Ë†ÂµÃ¡ÂË†Ã¡Ë†ÂÃ¡Å’â€¹Ã¡Ë†ÂÃ¡ÂÂ¢ Ã¡â€°Â°Ã¡Å’Â¨Ã¡Ë†â€ºÃ¡Ë†Âª Ã¡Å’Ë†Ã¡Å â€¢Ã¡â€¹ËœÃ¡â€°Â¥ Ã¡â€¹Â«Ã¡Ë†ÂµÃ¡Å’Ë†Ã¡â€°Â¡Ã¡ÂÂ¢`
         );
         return;
       }
@@ -1590,767 +1020,62 @@ export default function Landing() {
     );
   }
 
+
   if (isLargeScreen) {
-    const isDesktopRow = isDesktop && !isTablet;
-    const ContainerComponent = isDesktopRow ? View : ScrollView;
-    const containerProps = isDesktopRow
-      ? { style: { flex: 1, paddingTop: 24, paddingBottom: 24 } }
-      : { showsVerticalScrollIndicator: false, contentContainerStyle: { paddingTop: isDesktop ? 24 : 20, paddingBottom: 40 } };
-
-    const RightColumnWrapper = ({ children }: { children: React.ReactNode }) => {
-      if (isDesktopRow) {
-        return (
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 24, paddingBottom: 24 }}>
-            {children}
-          </ScrollView>
-        );
-      }
-      return <>{children}</>;
-    };
-
     return (
-      <View style={styles.desktopHubRoot}>
-        <LinearGradient colors={["#0A090E", "#08070B", "#060508"]} style={StyleSheet.absoluteFill} />
-
-        {/* Modals & Profile */}
-        <WebDepositModal visible={depositVisible} onClose={() => setDepositVisible(false)} user={user} token={token || undefined} onSuccess={refreshProfile} />
-        <WebWithdrawModal visible={withdrawVisible} onClose={() => setWithdrawVisible(false)} user={user} token={token || undefined} onSuccess={refreshProfile} />
-        <ProfileEditModal visible={!user?.username} onClose={() => { }} initialUsername={user?.username} initialDisplayName={(user as any)?.display_name} initialAvatar={(user as any)?.avatar} onSaved={refreshProfile} />
-
-        <ReferralModal visible={showReferralModal} onClose={() => setShowReferralModal(false)} token={token || null} isEN={isEN} toast={toast} />
-
-        {roomSheetVisible && (
-          <RoomSheet
-            language={language}
-            balance={balance}
-            visible={roomSheetVisible}
-            step={sheetStep}
-            selectedRoom={selectedRoom}
-            backdropOpacity={backdropOpacity}
-            sheetTranslateY={sheetTranslateY}
-            onClose={closeRoomSheet}
-            onBack={goBackToRooms}
-            onSelectRoom={onSelectRoom}
-            onSelectAmount={selectAmount}
-            isDesktop={isDesktop}
-            userCaps={{ r1_10: (user as any)?.r1_10_wins, r1_25: (user as any)?.r1_25_wins, r1_50: (user as any)?.r1_50_wins, r1_99: (user as any)?.r1_99_wins, rooms_locked: appConfig.rooms_locked }}
-          />
-        )}
-
-        {/* Ambient Glows & Watermarks */}
-        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-          <View pointerEvents="none" style={[styles.blob, styles.blob1, { width: 600, height: 600, borderRadius: 300, opacity: 0.14 }]} />
-          <View pointerEvents="none" style={[styles.blob, styles.blob2, { width: 600, height: 600, borderRadius: 300, opacity: 0.14 }]} />
-          <View pointerEvents="none" style={[styles.blob, styles.blob3, { width: 700, height: 700, borderRadius: 350, opacity: 0.10 }]} />
-
-          {/* Rotated soft blurry Tic-Tac-Toe graphic in desktop background */}
-          <View style={{
-            position: 'absolute',
-            top: '22%',
-            left: '6%',
-            width: 480,
-            height: 480,
-            transform: [{ rotate: '-18deg' }, { scale: 1.15 }],
-            opacity: 0.035,
-            ...Platform.select({
-              web: {
-                filter: "blur(2px)",
-              } as any,
-            }),
-          }} pointerEvents="none">
-            {/* Horizontal lines */}
-            <View style={{
-              position: 'absolute', top: 160, left: 0, right: 0, height: 3, backgroundColor: '#a855f7',
-              shadowColor: '#a855f7', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.45, shadowRadius: 8
-            }} />
-            <View style={{
-              position: 'absolute', top: 320, left: 0, right: 0, height: 3, backgroundColor: '#a855f7',
-              shadowColor: '#a855f7', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.45, shadowRadius: 8
-            }} />
-            {/* Vertical lines */}
-            <View style={{
-              position: 'absolute', left: 160, top: 0, bottom: 0, width: 3, backgroundColor: '#a855f7',
-              shadowColor: '#a855f7', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.45, shadowRadius: 8
-            }} />
-            <View style={{
-              position: 'absolute', left: 320, top: 0, bottom: 0, width: 3, backgroundColor: '#a855f7',
-              shadowColor: '#a855f7', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.45, shadowRadius: 8
-            }} />
-
-            {/* Illustrative faded board moves */}
-            <Text style={{
-              position: 'absolute', top: 25, left: 45, fontSize: 80, fontWeight: '900', color: '#8b5cf6',
-              textShadowColor: 'rgba(139, 92, 246, 0.4)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 8
-            }}>X</Text>
-            <Text style={{
-              position: 'absolute', top: 185, left: 205, fontSize: 80, fontWeight: '900', color: '#a855f7',
-              textShadowColor: 'rgba(168, 85, 247, 0.4)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 8
-            }}>O</Text>
-            <Text style={{
-              position: 'absolute', top: 345, left: 365, fontSize: 80, fontWeight: '900', color: '#8b5cf6',
-              textShadowColor: 'rgba(139, 92, 246, 0.4)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 8
-            }}>X</Text>
-          </View>
-        </View>
-
-        <ContainerComponent {...containerProps}>
-          <View style={[{
-            flexDirection: 'row',
-            alignItems: 'flex-start',
-            gap: 32,
-            maxWidth: 1600,
-            alignSelf: 'center',
-            paddingHorizontal: 32,
-            width: '100%',
-          }, isTablet && { flexDirection: 'column', gap: 40 }, isDesktopRow && { flex: 1, height: '100%' }]}>
-
-            {/* ── LEFT COLUMN (8/12) ── */}
-            <View style={{
-              flex: 2.5,
-              maxWidth: 1100,
-              gap: 24,
-            }}>
-
-              {/* The Arena Header (Mockup Target) */}
-              <View style={{ marginBottom: 12 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <Text style={{ color: '#fff', fontSize: 34, fontWeight: '900', letterSpacing: -0.5 }}>
-                    {isEN ? "THE ARENA" : "የጨዋታ ሜዳው"}
-                  </Text>
-                </View>
-                <Text style={{ color: 'rgba(229, 227, 255, 0.4)', fontSize: 12, fontWeight: '600', letterSpacing: 0.2 }}>
-                  {isEN ? "Global skill-based competitive matchmaking" : "አለምአቀፍ ክህሎትን መሰረት ያደረገ ተወዳዳሪ ግጥሚያ"}
-                </Text>
-              </View>
-
-              {/* Horizontal Quick Actions Row (Mockup Target) */}
-              <View style={{ flexDirection: 'row', gap: 16, marginTop: 12, marginBottom: 20 }}>
-                {/* Deposit */}
-                <TouchableOpacity
-                  onPress={() => setDepositVisible(true)}
-                  activeOpacity={0.85}
-                  style={{
-                    flex: 1,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 16,
-                    backgroundColor: '#151518',
-                    borderWidth: 1,
-                    borderColor: '#27272a',
-                    borderRadius: 24,
-                    paddingVertical: 22,
-                    paddingHorizontal: 24,
-                  }}
-                >
-                  <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(0, 218, 243, 0.1)', alignItems: 'center', justifyContent: 'center' }}>
-                    <Ionicons name="card-outline" size={24} color="#00daf3" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: '#fff', fontSize: 14, fontWeight: '900', letterSpacing: 0.5 }}>DEPOSIT</Text>
-                    <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 2, textTransform: 'uppercase' }}>Fast Local</Text>
-                  </View>
-                </TouchableOpacity>
-
-                {/* Withdraw */}
-                <TouchableOpacity
-                  onPress={() => setWithdrawVisible(true)}
-                  activeOpacity={0.85}
-                  style={{
-                    flex: 1,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 16,
-                    backgroundColor: '#151518',
-                    borderWidth: 1,
-                    borderColor: '#27272a',
-                    borderRadius: 24,
-                    paddingVertical: 22,
-                    paddingHorizontal: 24,
-                  }}
-                >
-                  <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(0, 218, 243, 0.1)', alignItems: 'center', justifyContent: 'center' }}>
-                    <Ionicons name="arrow-up-circle-outline" size={24} color="#00daf3" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: '#fff', fontSize: 14, fontWeight: '900', letterSpacing: 0.5 }}>WITHDRAW</Text>
-                    <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 2, textTransform: 'uppercase' }}>Instant</Text>
-                  </View>
-                </TouchableOpacity>
-
-                {/* Transaction/History */}
-                <TouchableOpacity
-                  onPress={() => router.push('/(authed)/games' as any)}
-                  activeOpacity={0.85}
-                  style={{
-                    flex: 1,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 16,
-                    backgroundColor: '#151518',
-                    borderWidth: 1,
-                    borderColor: '#27272a',
-                    borderRadius: 24,
-                    paddingVertical: 22,
-                    paddingHorizontal: 24,
-                  }}
-                >
-                  <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(0, 218, 243, 0.1)', alignItems: 'center', justifyContent: 'center' }}>
-                    <Ionicons name="time-outline" size={24} color="#00daf3" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: '#fff', fontSize: 14, fontWeight: '900', letterSpacing: 0.5 }}>TRANSACTION</Text>
-                    <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 2, textTransform: 'uppercase' }}>Recent Logs</Text>
-                  </View>
-                </TouchableOpacity>
-              </View>
-
-              {/* Main Game Card */}
-              <View style={{
-                backgroundColor: '#111115',
-                borderRadius: 36,
-                padding: isDesktop ? 32 : 40,
-                alignSelf: 'stretch',
-              }}>
-                <View style={{
-                  flexDirection: isDesktop ? 'row' : 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: isDesktop ? 40 : 20,
-                  width: '100%',
-                }}>
-                  {/* Left Column: Board Demo */}
-                  <View style={{
-                    flex: isDesktop ? 1.2 : undefined,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}>
-                    <View style={styles.hubBoardContainer}>
-                      <BoardDemo isDesktop={true} />
-                    </View>
-                  </View>
-
-                  {/* Right Column: Controls */}
-                  <View style={{
-                    flex: isDesktop ? 1 : undefined,
-                    alignSelf: isDesktop ? 'stretch' : 'center',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    width: isDesktop ? '100%' : 320,
-                  }}>
-                    {/* START MATCH Play Button */}
-                    <WebPressable
-                      onPress={isBanned || isSearching ? undefined : openRoomSheet}
-                      disabled={isBanned || isSearching}
-                      style={({ hovered }: { pressed: boolean; hovered: boolean }) => [
-                        {
-                          borderRadius: 30,
-                          overflow: 'hidden',
-                          shadowColor: '#00daf3',
-                          shadowOffset: { width: 0, height: 8 },
-                          shadowOpacity: hovered && !isBanned && !isSearching ? 0.8 : 0.5,
-                          shadowRadius: 24,
-                          alignSelf: 'stretch',
-                          transition: 'all 0.15s ease-in-out',
-                        },
-                        (isBanned || isSearching) && { opacity: 0.45 }
-                      ]}
-                    >
-                      <LinearGradient
-                        colors={isBanned ? ['#203a3a', '#152a2a'] : ['#00daf3', '#00e5ff']}
-                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                        style={{ paddingVertical: 20, alignItems: 'center', justifyContent: 'center' }}
-                      >
-                        {isBanned && <Ionicons name="lock-closed" size={16} color="#00daf3" style={{ marginRight: 6 }} />}
-                        {isSearching && <ActivityIndicator size="small" color="#000" style={{ marginRight: 6 }} />}
-                        <Text style={{ color: '#000', fontSize: 20, fontWeight: '900', letterSpacing: 1 }}>
-                          {isBanned
-                            ? (isEN ? 'SUSPENDED' : 'ታግዷል')
-                            : isSearching
-                              ? (isEN ? 'SEARCHING...' : 'እየፈለገ ነው...')
-                              : (isEN ? 'START MATCH' : 'ግጥሚያ ጀምር')}
-                        </Text>
-                      </LinearGradient>
-                    </WebPressable>
-
-                    {/* Muted Entry Fee label */}
-                    <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1, marginTop: 12 }}>
-                      ENTRY: ETB 10.00
-                    </Text>
-
-                    {/* Play with Friend Action Button */}
-                    <WebPressable
-                      onPress={() => setFriendModalVisible(true)}
-                      style={({ hovered }: { pressed: boolean; hovered: boolean }) => [
-                        {
-                          marginTop: 16,
-                          alignSelf: 'stretch',
-                          backgroundColor: 'transparent',
-                          borderWidth: 1.5,
-                          borderColor: '#3b82f6',
-                          borderRadius: 30,
-                          transition: 'all 0.15s ease-in-out',
-                        }
-                      ]}
-                    >
-                      <View style={{ paddingVertical: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-                        <Ionicons name="people-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
-                        <Text style={{ color: '#fff', fontSize: 14, fontWeight: '900', letterSpacing: 1 }}>
-                          {isEN ? 'PLAY WITH FRIEND' : 'ከጓደኛ ጋር ይጫወቱ'}
-                        </Text>
-                      </View>
-                    </WebPressable>
-
-                    {isBanned && (
-                      <Text style={{ color: 'rgba(0,218,243,0.6)', fontSize: 11, textAlign: 'center', marginTop: 10, fontWeight: '700', letterSpacing: 0.5 }}>
-                        {isEN ? 'Your account is suspended · Contact support' : 'መለያዎ ታግዷል · ድጋፍን ያነጋግሩ'}
-                      </Text>
-                    )}
-                  </View>
-                </View>
-              </View>
-
-            </View>
-
-            {/* ── RIGHT COLUMN (4/12) ── */}
-            <View style={{
-              flex: 1,
-              minWidth: 320,
-              maxWidth: 400,
-              gap: isDesktopRow ? undefined : 24,
-              alignSelf: isDesktopRow ? 'stretch' : undefined,
-              height: isDesktopRow ? '100%' : undefined,
-            }}>
-              <RightColumnWrapper>
-
-              {/* Support Widget */}
-              <View style={[styles.glassCard, { padding: 24, borderRadius: 24, borderColor: '#27272a', backgroundColor: '#18181b' }]}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#00daf3' }} />
-                    <Text style={{ color: '#fff', fontSize: 12, fontWeight: '900', letterSpacing: 0.8 }}>SUPPORT</Text>
-                  </View>
-                  {/* language toggle pill inside support card */}
-                  <TouchableOpacity onPress={handleLanguageToggle} style={{ flexDirection: 'row', height: 26, paddingHorizontal: 10, borderRadius: 13, backgroundColor: '#18181b', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: '#27272a' }}>
-                    <Ionicons name="globe-outline" size={12} color="#00daf3" />
-                    <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>{language === 'am' ? 'AM' : 'EN'}</Text>
-                  </TouchableOpacity>
-                </View>
-
-                <View style={{ gap: 14 }}>
-                  <TouchableOpacity onPress={() => Linking.openURL('https://t.me/xoet_support').catch(() => { })} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                    <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.03)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#27272a' }}>
-                      <Ionicons name="chatbubbles-outline" size={16} color="rgba(0,218,243,0.6)" />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ color: '#fff', fontSize: 12, fontWeight: '800' }}>{isEN ? "XO SUPPORT" : "ኤክስኦ ድጋፍ"}</Text>
-                      <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginTop: 2 }}>{isEN ? "AVAILABLE 24/7" : "ቀኑን ሙሉ ይገኛል"}</Text>
-                    </View>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => Linking.openURL('https://t.me/xoethiopia1').catch(() => { })} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                    <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.03)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#27272a' }}>
-                      <Ionicons name="paper-plane-outline" size={16} color="rgba(0,218,243,0.6)" />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ color: '#fff', fontSize: 12, fontWeight: '800' }}>{isEN ? "TELEGRAM" : "ቴሌግራም"}</Text>
-                      <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginTop: 2 }}>{isEN ? "OFFICIAL CHANNEL" : "ኦፊሴላዊ ቻናል"}</Text>
-                    </View>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* Leaderboard Widget (Real Data) */}
-              <View style={[styles.glassCard, { padding: 24, borderRadius: 24, borderColor: '#27272a', backgroundColor: '#18181b', marginTop: 16 }]}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#00daf3' }} />
-                    <Text style={{ color: '#fff', fontSize: 12, fontWeight: '900', letterSpacing: 0.8 }}>LEADERBOARD</Text>
-                  </View>
-                  {/* Timer Badge */}
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.05)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: '#27272a' }}>
-                    <Ionicons name="time-outline" size={12} color="#00daf3" />
-                    <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>{secondsRemaining > 0 ? `${Math.floor(secondsRemaining / 86400)}d ${Math.floor((secondsRemaining % 86400) / 3600)}h ${Math.floor((secondsRemaining % 3600) / 60)}m` : "00d 00h 00m"}</Text>
-                  </View>
-                </View>
-
-                {/* Top 3 Rankings */}
-                <View style={{ gap: 16, marginBottom: 20 }}>
-                  {loadingWeekly && weeklyLeaderboard.length === 0 ? (
-                    <ActivityIndicator size="small" color="#00daf3" />
-                  ) : weeklyLeaderboard.slice(0, 3).map((item, index) => {
-                    const rank = index + 1;
-                    const borderColor = rank === 1 ? '#ffb84d' : (rank === 2 ? '#b9cacb' : '#fb923c');
-                    const rankBgColor = rank === 1 ? 'rgba(255, 184, 77, 0.05)' : (rank === 2 ? 'rgba(185, 202, 203, 0.03)' : 'rgba(251, 146, 60, 0.03)');
-                    const prize = weeklyPrizes.find(p => p.rank === rank)?.amount || 0;
-                    
-                    return (
-                      <View key={item.id || rank} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                        <View style={{ width: 28, height: 28, borderRadius: 14, borderWidth: 1.5, borderColor: borderColor, backgroundColor: rankBgColor, alignItems: 'center', justifyContent: 'center' }}>
-                          <Text style={{ color: borderColor, fontSize: 11, fontWeight: '900' }}>{rank}</Text>
-                        </View>
-                        <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: '#27272a', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderWidth: item.isMe ? 1 : 0, borderColor: '#00daf3' }}>
-                          {item.avatar ? (
-                            <Image source={{ uri: fixUrl(item.avatar) || undefined }} style={{ width: '100%', height: '100%' }} />
-                          ) : (
-                            <Ionicons name="person" size={18} color={item.isMe ? '#00daf3' : 'rgba(255,255,255,0.6)'} />
-                          )}
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={{ color: item.isMe ? '#00daf3' : '#fff', fontSize: 12, fontWeight: '800' }} numberOfLines={1}>
-                            @{item.username || 'user'}{item.isMe ? ' (You)' : ''}
-                          </Text>
-                          <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9, fontWeight: '700', textTransform: 'uppercase', marginTop: 1 }}>
-                            {item.wins} Wins
-                          </Text>
-                        </View>
-                        <Text style={{ color: rank === 1 ? '#ffb84d' : '#fff', fontSize: 13, fontWeight: '900' }}>{prize} ETB</Text>
-                      </View>
-                    );
-                  })}
-                  {!loadingWeekly && weeklyLeaderboard.length === 0 && (
-                    <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, textAlign: 'center' }}>
-                      No rankings yet
-                    </Text>
-                  )}
-                </View>
-
-                {/* View Standings Button */}
-                <TouchableOpacity
-                  onPress={() => router.push('/(authed)/home/leaderboard' as any)}
-                  style={{
-                    backgroundColor: 'rgba(255,255,255,0.03)',
-                    borderWidth: 1,
-                    borderColor: '#27272a',
-                    borderRadius: 14,
-                    paddingVertical: 12,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Text style={{ color: '#fff', fontSize: 11, fontWeight: '900', letterSpacing: 0.8 }}>VIEW FULL STANDINGS</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Stats & Progress Layout */}
-              <View style={{ flexDirection: 'row', gap: 14, marginTop: 16 }}>
-                {/* Win Rate Card with Svg progress ring */}
-                <View style={{ flex: 1, backgroundColor: '#18181b', borderWidth: 1, borderColor: '#27272a', borderRadius: 20, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <View style={{ width: 44, height: 44, justifyContent: 'center', alignItems: 'center' }}>
-                    <Svg width={44} height={44} viewBox="0 0 44 44">
-                      <Circle cx="22" cy="22" r="18" stroke="#27272a" strokeWidth="3.5" fill="transparent" />
-                      <Circle
-                        cx="22"
-                        cy="22"
-                        r="18"
-                        stroke="#00daf3"
-                        strokeWidth="3.5"
-                        fill="transparent"
-                        strokeDasharray={`${2 * Math.PI * 18}`}
-                        strokeDashoffset={`${2 * Math.PI * 18 * (1 - winRate / 100)}`}
-                        strokeLinecap="round"
-                        transform="rotate(-90 22 22)"
-                      />
-                    </Svg>
-                    <View style={{ position: 'absolute' }}>
-                      <Text style={{ color: '#fff', fontSize: 10, fontWeight: '900' }}>{winRate}%</Text>
-                    </View>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: 9, fontWeight: '800', letterSpacing: 0.5 }}>WIN RATE</Text>
-                    <Text style={{ color: '#fff', fontSize: 11, fontWeight: '800', marginTop: 2 }}>{isEN ? "Active Stats" : "ንቁ አኃዝ"}</Text>
-                  </View>
-                </View>
-
-                {/* Rank Card */}
-                <View style={{ flex: 1, backgroundColor: '#18181b', borderWidth: 1, borderColor: '#27272a', borderRadius: 20, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(0, 218, 243, 0.1)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(0, 218, 243, 0.2)' }}>
-                    <Ionicons name="trophy-outline" size={16} color="#00daf3" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: 9, fontWeight: '800', letterSpacing: 0.5 }}>RANK</Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
-                      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: rankMeta.tone === 'platinum' ? '#00daf3' : (rankMeta.tone === 'gold' ? '#d4af37' : '#c0c0c0') }} />
-                      <Text style={{ color: '#fff', fontSize: 12, fontWeight: '900' }}>{rankMeta.label}</Text>
-                    </View>
-                  </View>
-                </View>
-              </View>
-
-              {/* Recently Winners Card */}
-              <View style={[styles.glassCard, { padding: 24, borderRadius: 24, borderColor: '#27272a', backgroundColor: '#18181b', marginTop: 16 }]}>
-                <View style={styles.txHeader}>
-                  <Text style={{ color: '#fff', fontSize: 16, fontWeight: '900' }}>{isEN ? "Recently Winners" : "የቅርብ ጊዜ አሸናፊዎች"}</Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(0, 218, 243, 0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 }}>
-                    <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#00daf3' }} />
-                    <Text style={{ color: '#00daf3', fontSize: 9, fontWeight: '900', letterSpacing: 0.5 }}>LIVE</Text>
-                  </View>
-                </View>
-
-                <ScrollView
-                  style={{ maxHeight: 280 }}
-                  showsVerticalScrollIndicator={false}
-                  contentContainerStyle={{ paddingBottom: 10, gap: 12, marginTop: 16 }}
-                >
-                  {rawTickerList.length === 0 ? (
-                    <Text style={{ color: 'rgba(255,255,255,0.4)', textAlign: 'center', marginTop: 20 }}>
-                      {isEN ? "Waiting for live wins..." : "የቀጥታ ድሎችን በመጠባበቅ ላይ..."}
-                    </Text>
-                  ) : rawTickerList.map((tx, i) => {
-                    const amount = Number(tx.amount || 0);
-                    let emoji = '⚡';
-                    let col = '#fd6f85';
-                    let bg = 'rgba(253,111,133,0.1)';
-                    if (amount >= 500) {
-                      emoji = '👑';
-                      col = '#ffb84d';
-                      bg = 'rgba(255,184,77,0.1)';
-                    } else if (amount >= 200) {
-                      emoji = '🔥';
-                      col = '#fb923c';
-                      bg = 'rgba(251,146,60,0.1)';
-                    } else if (amount >= 100) {
-                      emoji = '🏆';
-                      col = '#00daf3';
-                      bg = 'rgba(0,218,243,0.1)';
-                    }
-
-                    return (
-                      <View key={i} style={styles.txItem}>
-                        <View style={[styles.txIcon, { backgroundColor: bg }]}>
-                          <Text style={{ fontSize: 16 }}>{emoji}</Text>
-                        </View>
-                        <View style={styles.txMain}>
-                          <Text style={styles.txLabel}>@{tx.username.toUpperCase()}</Text>
-                          <Text style={styles.txTime}>{isEN ? 'Match Won' : 'አሸንፏል'}</Text>
-                        </View>
-                        <Text style={[styles.txAmount, { color: col }]}>ETB {amount}</Text>
-                      </View>
-                    );
-                  })}
-                </ScrollView>
-              </View>
-
-            </RightColumnWrapper>
-          </View>
-
-        </View>
-        {!isDesktopRow && <View style={{ height: 60 }} />}
-      </ContainerComponent>
-
-        <WebDepositModal
-          visible={depositVisible}
-          onClose={() => setDepositVisible(false)}
-          user={user}
-          token={token || ""}
-          onSuccess={refreshProfile}
-          language={language}
-        />
-        <WebWithdrawModal
-          visible={withdrawVisible}
-          onClose={() => setWithdrawVisible(false)}
-          user={user}
-          token={token || ""}
-          onSuccess={refreshProfile}
-          language={language}
-        />
-        <ProfileEditModal
-          visible={!user?.username}
-          onClose={() => { }}
-          initialUsername={user?.username}
-          initialDisplayName={(user as any)?.display_name}
-          initialAvatar={(user as any)?.avatar}
-          onSaved={refreshProfile}
-        />
-
-        {/* Friend Match Modals — must be in desktop layout too */}
-        <FriendMatchModal
-          visible={friendModalVisible}
-          onClose={() => { setFriendModalVisible(false); setInviteResult(null); }}
-          onSendInvite={handleSendInvite}
-          inviteResult={inviteResult}
-        />
-        <PromotionPopup config={promoConfig} visible={showPromo} onClose={() => setShowPromo(false)} />
-
-        {/* PWA Install Instructions Modal */}
-        <Modal
-          visible={pwaModalVisible}
-          animationType="fade"
-          transparent
-          onRequestClose={() => setPwaModalVisible(false)}
-        >
-          <View style={{
-            flex: 1,
-            backgroundColor: 'rgba(0,0,0,0.85)',
-            justifyContent: 'center',
-            alignItems: 'center',
-            padding: 20
-          }}>
-            <View style={{
-              backgroundColor: '#0c0c1f',
-              borderWidth: 1,
-              borderColor: 'rgba(0,218,243,0.2)',
-              borderRadius: 24,
-              padding: 24,
-              width: '100%',
-              maxWidth: 420,
-              shadowColor: '#000',
-              shadowOpacity: 0.5,
-              shadowRadius: 20,
-              elevation: 10
-            }}>
-              {/* Header */}
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                <Text style={{ color: '#fff', fontSize: 18, fontWeight: '900' }}>Install XOET Web App</Text>
-                <TouchableOpacity onPress={() => setPwaModalVisible(false)} style={{ padding: 4 }}>
-                  <Ionicons name="close" size={24} color="rgba(255,255,255,0.6)" />
-                </TouchableOpacity>
-              </View>
-
-              {/* Device specific instructions */}
-              <View style={{ marginBottom: 24 }}>
-                {Platform.OS === 'web' && typeof navigator !== 'undefined' && /telegram/i.test(navigator.userAgent) ? (
-                  // Telegram Browser Instructions
-                  <View style={{ gap: 12 }}>
-                    <Text style={{ color: '#00daf3', fontWeight: '800', fontSize: 14 }}>Telegram Browser Detected:</Text>
-                    <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, lineHeight: 18 }}>
-                      Telegram's in-app browser has sandbox restrictions that prevent installing web apps or downloading files directly.
-                    </Text>
-                    <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
-                      <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,218,243,0.15)', alignItems: 'center', justifyContent: 'center' }}>
-                        <Text style={{ color: '#00daf3', fontSize: 12, fontWeight: '800' }}>1</Text>
-                      </View>
-                      <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, flex: 1 }}>
-                        Tap the <Text style={{ color: '#00daf3', fontWeight: 'bold' }}>three dots</Text> at the top right of this screen.
-                      </Text>
-                    </View>
-                    <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
-                      <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,218,243,0.15)', alignItems: 'center', justifyContent: 'center' }}>
-                        <Text style={{ color: '#00daf3', fontSize: 12, fontWeight: '800' }}>2</Text>
-                      </View>
-                      <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, flex: 1 }}>
-                        Select <Text style={{ color: '#00daf3', fontWeight: 'bold' }}>"Open in Browser"</Text> or <Text style={{ color: '#00daf3', fontWeight: 'bold' }}>"Open in Chrome/Safari"</Text>.
-                      </Text>
-                    </View>
-                    <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
-                      <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,218,243,0.15)', alignItems: 'center', justifyContent: 'center' }}>
-                        <Text style={{ color: '#00daf3', fontSize: 12, fontWeight: '800' }}>3</Text>
-                      </View>
-                      <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, flex: 1 }}>
-                        Once opened in your system browser, click the download button again.
-                      </Text>
-                    </View>
-                  </View>
-                ) : Platform.OS === 'web' && typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent) ? (
-                  // iOS Safari Instructions
-                  <View style={{ gap: 12 }}>
-                    <Text style={{ color: '#00daf3', fontWeight: '800', fontSize: 14 }}>Instructions for iOS Safari:</Text>
-                    <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
-                      <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,218,243,0.15)', alignItems: 'center', justifyContent: 'center' }}>
-                        <Text style={{ color: '#00daf3', fontSize: 12, fontWeight: '800' }}>1</Text>
-                      </View>
-                      <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, flex: 1 }}>
-                        Tap the <Text style={{ color: '#00daf3', fontWeight: 'bold' }}>Share</Text> button in Safari (box with an arrow pointing up at the bottom).
-                      </Text>
-                    </View>
-                    <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
-                      <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,218,243,0.15)', alignItems: 'center', justifyContent: 'center' }}>
-                        <Text style={{ color: '#00daf3', fontSize: 12, fontWeight: '800' }}>2</Text>
-                      </View>
-                      <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, flex: 1 }}>
-                        Scroll down the share menu and select <Text style={{ color: '#00daf3', fontWeight: 'bold' }}>"Add to Home Screen"</Text>.
-                      </Text>
-                    </View>
-                    <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
-                      <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,218,243,0.15)', alignItems: 'center', justifyContent: 'center' }}>
-                        <Text style={{ color: '#00daf3', fontSize: 12, fontWeight: '800' }}>3</Text>
-                      </View>
-                      <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, flex: 1 }}>
-                        Tap <Text style={{ color: '#00daf3', fontWeight: 'bold' }}>"Add"</Text> in the top right corner to complete installation.
-                      </Text>
-                    </View>
-                  </View>
-                ) : (
-                  // Android / Desktop Instructions
-                  <View style={{ gap: 12 }}>
-                    <Text style={{ color: '#00daf3', fontWeight: '800', fontSize: 14 }}>How to Install:</Text>
-                    <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
-                      <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,218,243,0.15)', alignItems: 'center', justifyContent: 'center' }}>
-                        <Text style={{ color: '#00daf3', fontSize: 12, fontWeight: '800' }}>1</Text>
-                      </View>
-                      <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, flex: 1 }}>
-                        Open your browser's menu (three dots icon in Chrome) and select <Text style={{ color: '#00daf3', fontWeight: 'bold' }}>"Add to Home Screen"</Text> or <Text style={{ color: '#00daf3', fontWeight: 'bold' }}>"Install App"</Text>.
-                      </Text>
-                    </View>
-                    <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
-                      <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,218,243,0.15)', alignItems: 'center', justifyContent: 'center' }}>
-                        <Text style={{ color: '#00daf3', fontSize: 12, fontWeight: '800' }}>2</Text>
-                      </View>
-                      <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, flex: 1 }}>
-                        On desktop, look for the <Text style={{ color: '#00daf3', fontWeight: 'bold' }}>Install icon</Text> in the browser address bar next to the URL.
-                      </Text>
-                    </View>
-                  </View>
-                )}
-              </View>
-
-              {/* Fallback to Android APK */}
-              <View style={{ borderTopWidth: 1, borderColor: 'rgba(255,255,255,0.06)', paddingTop: 16 }}>
-                {Platform.OS === 'web' && typeof navigator !== 'undefined' && /telegram/i.test(navigator.userAgent) ? (
-                  <>
-                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '700', marginBottom: 12, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                      Android Users (Via Telegram Channel)
-                    </Text>
-                    <TouchableOpacity
-                      onPress={() => {
-                        Linking.openURL('https://t.me/xoethiopia1').catch(() => { });
-                      }}
-                      style={{
-                        backgroundColor: '#0088cc',
-                        borderRadius: 12,
-                        paddingVertical: 12,
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: 8
-                      }}
-                    >
-                      <Ionicons name="paper-plane-outline" size={18} color="#fff" />
-                      <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>Get APK from Channel</Text>
-                    </TouchableOpacity>
-                  </>
-                ) : (
-                  <>
-                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '700', marginBottom: 12, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                      Android Users (Direct APK)
-                    </Text>
-                    <TouchableOpacity
-                      onPress={() => {
-                        Linking.openURL('https://xoethiopia.com/xoet.apk').catch(() => { });
-                      }}
-                      style={{
-                        backgroundColor: '#ef4444',
-                        borderRadius: 12,
-                        paddingVertical: 12,
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: 8
-                      }}
-                    >
-                      <Ionicons name="cloud-download-outline" size={18} color="#fff" />
-                      <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>Download Android APK</Text>
-                    </TouchableOpacity>
-                  </>
-                )}
-              </View>
-            </View>
-          </View>
-        </Modal>
-      </View>
-
+      <DesktopLayout
+        user={user}
+        token={token}
+        balance={balance}
+        language={language}
+        isDesktop={isDesktop}
+        isTablet={isTablet}
+        isBanned={isBanned}
+        isSearching={isSearching}
+        isEN={isEN}
+        weeklyLeaderboard={weeklyLeaderboard}
+        weeklyPrizes={weeklyPrizes}
+        loadingWeekly={loadingWeekly}
+        secondsRemaining={secondsRemaining}
+        winRate={winRate}
+        rankMeta={rankMeta}
+        rawTickerList={rawTickerList}
+        roomSheetVisible={roomSheetVisible}
+        sheetStep={sheetStep}
+        selectedRoom={selectedRoom}
+        backdropOpacity={backdropOpacity}
+        sheetTranslateY={sheetTranslateY}
+        userCaps={user}
+        depositVisible={depositVisible}
+        withdrawVisible={withdrawVisible}
+        friendModalVisible={friendModalVisible}
+        pwaModalVisible={pwaModalVisible}
+        showReferralModal={showReferralModal}
+        showPromo={showPromo}
+        inviteResult={inviteResult}
+        promoConfig={promoConfig}
+        setDepositVisible={setDepositVisible}
+        setWithdrawVisible={setWithdrawVisible}
+        setFriendModalVisible={setFriendModalVisible}
+        setPwaModalVisible={setPwaModalVisible}
+        setShowReferralModal={setShowReferralModal}
+        setShowPromo={setShowPromo}
+        setInviteResult={setInviteResult}
+        openRoomSheet={openRoomSheet}
+        closeRoomSheet={closeRoomSheet}
+        goBackToRooms={goBackToRooms}
+        onSelectRoom={onSelectRoom}
+        selectAmount={selectAmount}
+        refreshProfile={refreshProfile}
+        handleLanguageToggle={handleLanguageToggle}
+        handleSendInvite={handleSendInvite}
+        router={router}
+        appConfig={appConfig}
+      />
     );
   }
 
-  // ── Mobile return ──
+  // Ã¢â€â‚¬Ã¢â€â‚¬ Mobile return Ã¢â€â‚¬Ã¢â€â‚¬
   return (
     <View style={styles.bg}>
       <LinearGradient colors={["#0A090E", "#08070B", "#060508"]} style={StyleSheet.absoluteFill} />
@@ -2435,7 +1160,7 @@ export default function Landing() {
                 </View>
                 <View>
                   <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                    {isEN ? "WELCOME BACK" : "እንኳን ደህና መጡ"}
+                    {isEN ? "WELCOME BACK" : "Ã¡Å Â¥Ã¡Å â€¢Ã¡Å Â³Ã¡Å â€¢ Ã¡â€¹Â°Ã¡Ë†â€¦Ã¡Å â€œ Ã¡Ë†ËœÃ¡Å’Â¡"}
                   </Text>
                   <Text style={{ color: '#fff', fontSize: 14, fontWeight: '900' }}>
                     {user?.username || 'bina'}
@@ -2536,7 +1261,7 @@ export default function Landing() {
               <Text style={{ position: 'absolute', right: 40, bottom: -45, fontSize: 140, fontWeight: '900', color: 'rgba(0,218,243,0.06)', transform: [{ rotate: '-12deg' }], zIndex: 0 }}>X</Text>
 
               <View style={[styles.balanceLeft, { zIndex: 1 }]}>
-                <Text style={styles.balanceLabel}>{isEN ? "AVAILABLE BALANCE" : "ቀሪ ሂሳብ"}</Text>
+                <Text style={styles.balanceLabel}>{isEN ? "AVAILABLE BALANCE" : "Ã¡â€°â‚¬Ã¡Ë†Âª Ã¡Ë†â€šÃ¡Ë†Â³Ã¡â€°Â¥"}</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
                   <Text style={[styles.balanceValue, { fontSize: 32 }]}>
                     ETB {Math.floor(balance).toLocaleString()}
@@ -2561,7 +1286,7 @@ export default function Landing() {
                 <View style={{ paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <Ionicons name="reload" size={12} color="#fff" />
                   <Text style={{ color: '#fff', fontWeight: '800', fontSize: 11 }}>
-                    {isEN ? "Refresh" : "አድስ"}
+                    {isEN ? "Refresh" : "Ã¡Å Â Ã¡â€¹ÂµÃ¡Ë†Âµ"}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -2574,7 +1299,7 @@ export default function Landing() {
             <MobileQuickTile
               icon="arrow-down"
               iconColor="#60a5fa"
-              title={isEN ? "Deposit" : "ማስገቢያ"}
+              title={isEN ? "Deposit" : "Ã¡Ë†â€ºÃ¡Ë†ÂµÃ¡Å’Ë†Ã¡â€°Â¢Ã¡â€¹Â«"}
               subtitle="TOP UP"
               onPress={() => Platform.OS === 'web' ? setDepositVisible(true) : router.push("/(authed)/deposit")}
             />
@@ -2582,7 +1307,7 @@ export default function Landing() {
             <MobileQuickTile
               icon="arrow-up"
               iconColor="#eab308"
-              title={isEN ? "Withdraw" : "ማውጫ"}
+              title={isEN ? "Withdraw" : "Ã¡Ë†â€ºÃ¡â€¹ÂÃ¡Å’Â«"}
               subtitle="CASH OUT"
               onPress={() => Platform.OS === 'web' ? setWithdrawVisible(true) : router.push("/(authed)/withdraw")}
             />
@@ -2590,7 +1315,7 @@ export default function Landing() {
             <MobileQuickTile
               icon="swap-horizontal"
               iconColor="#00daf3"
-              title={isEN ? "Transactions" : "ክፍያዎች"}
+              title={isEN ? "Transactions" : "Ã¡Å Â­Ã¡ÂÂÃ¡â€¹Â«Ã¡â€¹Å½Ã¡â€°Â½"}
               subtitle="TRANSFERS"
               onPress={() => router.push("/(authed)/home/transactions")}
             />
@@ -2623,10 +1348,10 @@ export default function Landing() {
                 </View>
                 <View>
                   <Text style={{ color: '#fff', fontSize: 15, fontWeight: '900', letterSpacing: 0.3 }}>
-                    {isEN ? "GAMEPLAY HUB" : "የጨዋታ ማዕከል"}
+                    {isEN ? "GAMEPLAY HUB" : "Ã¡â€¹Â¨Ã¡Å’Â¨Ã¡â€¹â€¹Ã¡â€°Â³ Ã¡Ë†â€ºÃ¡â€¹â€¢Ã¡Å Â¨Ã¡Ë†Â"}
                   </Text>
                   <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '600' }}>
-                    {isEN ? "OUTPACE. OUTSMART. WIN!" : "ፍጥነት። ብልሃት። ድል!"}
+                    {isEN ? "OUTPACE. OUTSMART. WIN!" : "Ã¡ÂÂÃ¡Å’Â¥Ã¡Å ÂÃ¡â€°ÂµÃ¡ÂÂ¢ Ã¡â€°Â¥Ã¡Ë†ÂÃ¡Ë†Æ’Ã¡â€°ÂµÃ¡ÂÂ¢ Ã¡â€¹ÂµÃ¡Ë†Â!"}
                   </Text>
                 </View>
               </View>
@@ -2645,7 +1370,7 @@ export default function Landing() {
               }}>
                 <Ionicons name="trophy-outline" size={10} color="rgba(255,255,255,0.8)" />
                 <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 10, fontWeight: '900', letterSpacing: 0.5 }}>
-                  {isEN ? "Weekly" : "ሳምንታዊ"}
+                  {isEN ? "Weekly" : "Ã¡Ë†Â³Ã¡Ë†ÂÃ¡Å â€¢Ã¡â€°Â³Ã¡â€¹Å "}
                 </Text>
               </View>
             </View>
@@ -2657,7 +1382,7 @@ export default function Landing() {
             </View>
             {renderUserRankCard()}
 
-            {/* Play Now — disabled when banned, visible always */}
+            {/* Play Now Ã¢â‚¬â€ disabled when banned, visible always */}
             <WebPressable
               onPress={isBanned ? undefined : openRoomSheet}
               disabled={isBanned}
@@ -2683,7 +1408,7 @@ export default function Landing() {
               >
                 <Ionicons name={isBanned ? "lock-closed" : "flash-outline"} size={20} color={isBanned ? "#fff" : "#000"} />
                 <Text style={[styles.playText, { color: isBanned ? '#fff' : '#000' }]}>
-                  {isBanned ? (isEN ? 'SUSPENDED' : 'ታግዷል') : t("play_now")}
+                  {isBanned ? (isEN ? 'SUSPENDED' : 'Ã¡â€°Â³Ã¡Å’ÂÃ¡â€¹Â·Ã¡Ë†Â') : t("play_now")}
                 </Text>
               </LinearGradient>
             </WebPressable>
@@ -2707,24 +1432,24 @@ export default function Landing() {
               <View style={styles.playInner}>
                 <Ionicons name="people-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
                 <Text style={[styles.playText, { color: '#fff' }]}>
-                  {isEN ? 'PLAY WITH FRIEND' : 'ከጓደኛ ጋር ይጫወቱ'}
+                  {isEN ? 'PLAY WITH FRIEND' : 'Ã¡Å Â¨Ã¡Å’â€œÃ¡â€¹Â°Ã¡Å â€º Ã¡Å’â€¹Ã¡Ë†Â­ Ã¡â€¹Â­Ã¡Å’Â«Ã¡â€¹Ë†Ã¡â€°Â±'}
                 </Text>
               </View>
             </WebPressable>
 
             {isBanned && (
               <Text style={{ color: 'rgba(253,111,133,0.6)', fontSize: 11, textAlign: 'center', marginTop: 6, fontWeight: '700', letterSpacing: 0.5 }}>
-                {isEN ? 'Your account is suspended · Contact support' : 'መለያዎ ታግዷል · ድጋፍን ያነጋግሩ'}
+                {isEN ? 'Your account is suspended Ã‚Â· Contact support' : 'Ã¡Ë†ËœÃ¡Ë†Ë†Ã¡â€¹Â«Ã¡â€¹Å½ Ã¡â€°Â³Ã¡Å’ÂÃ¡â€¹Â·Ã¡Ë†Â Ã‚Â· Ã¡â€¹ÂµÃ¡Å’â€¹Ã¡ÂÂÃ¡Å â€¢ Ã¡â€¹Â«Ã¡Å ÂÃ¡Å’â€¹Ã¡Å’ÂÃ¡Ë†Â©'}
               </Text>
             )}
 
             {/* Rules and info row */}
             <View style={styles.infoRow}>
-              <InfoPill icon="shield-checkmark-outline" text={isEN ? "Anti-cheat" : "ፀረ-ማታለል"} />
-              <InfoPill icon="timer-outline" text={isEN ? "Fast rounds" : "ፈጣን ዙር"} />
-              <InfoPill icon="cash-outline" text={isEN ? "Instant pay" : "ፈጣን ክፍያ"} />
+              <InfoPill icon="shield-checkmark-outline" text={isEN ? "Anti-cheat" : "Ã¡Ââ‚¬Ã¡Ë†Â¨-Ã¡Ë†â€ºÃ¡â€°Â³Ã¡Ë†Ë†Ã¡Ë†Â"} />
+              <InfoPill icon="timer-outline" text={isEN ? "Fast rounds" : "Ã¡ÂË†Ã¡Å’Â£Ã¡Å â€¢ Ã¡â€¹â„¢Ã¡Ë†Â­"} />
+              <InfoPill icon="cash-outline" text={isEN ? "Instant pay" : "Ã¡ÂË†Ã¡Å’Â£Ã¡Å â€¢ Ã¡Å Â­Ã¡ÂÂÃ¡â€¹Â«"} />
               <TouchableOpacity onPress={() => setRulesVisible(true)} style={{ flex: 1 }}>
-                <InfoPill icon="book-outline" text={isEN ? "Rules" : "ህጎች"} />
+                <InfoPill icon="book-outline" text={isEN ? "Rules" : "Ã¡Ë†â€¦Ã¡Å’Å½Ã¡â€°Â½"} />
               </TouchableOpacity>
             </View>
           </View>
@@ -2754,7 +1479,7 @@ export default function Landing() {
         onAccept={() => handleInviteResponse(true)}
         onDecline={() => handleInviteResponse(false)}
       />
-      {/* Global Rematch Popup — shows even when winner left game room */}
+      {/* Global Rematch Popup Ã¢â‚¬â€ shows even when winner left game room */}
       <RematchTopPopup
         visible={!!globalRematchOffer?.visible}
         fromName={globalRematchOffer?.fromName}
@@ -2790,354 +1515,25 @@ export default function Landing() {
 
       {/* Live Wins Real-time Ticker (Mobile) */}
       {!isLargeScreen && currentWinAnnouncement && (
-        <Animated.View style={{
-          position: 'absolute',
-          bottom: Platform.OS === 'ios' ? 76 : 64, // connect to nav top exactly
-          left: 0,
-          right: 0,
-          zIndex: 9998,
-          height: 36,
-          overflow: 'hidden',
-          opacity: winTickerAnim.interpolate({
-            inputRange: [0, 1, 2],
-            outputRange: [0, 1, 0],
-          }),
-          transform: [{
-            translateY: winTickerAnim.interpolate({
-              inputRange: [0, 1, 2],
-              outputRange: [24, 0, -24],
-            })
-          }],
-        }} pointerEvents="none">
-          {/* Real-time Ticker Item - Left Aligned */}
-          <View style={{ height: 36, justifyContent: 'center', alignItems: 'flex-start', paddingLeft: 24 }}>
-            <Text style={{
-              color: '#00daf3',
-              fontSize: 12,
-              fontWeight: '900',
-              letterSpacing: 0.5,
-              textShadowColor: 'rgba(0, 218, 243, 0.4)',
-              textShadowOffset: { width: 0, height: 1 },
-              textShadowRadius: 6,
-              textAlign: 'left',
-            }} numberOfLines={1}>
-              {currentWinAnnouncement}
-            </Text>
-          </View>
-        </Animated.View>
+        <WinTicker currentWinAnnouncement={currentWinAnnouncement} winTickerAnim={winTickerAnim} />
       )}
 
       {/* Collapsible Floating Action Toolbar (Mobile) */}
       {!isLargeScreen && (
-        <View style={{
-          position: 'absolute',
-          bottom: 95,
-          right: 24, // push to left parallel with headers
-          width: 50, // explicit width to center absolute children horizontally
-          zIndex: 9998,
-          alignItems: 'center',
-          justifyContent: 'flex-end',
-          height: 180,
-        }} pointerEvents="box-none">
-
-          {/* Expanded State Menu */}
-          <Animated.View
-            pointerEvents={floatingExpanded ? 'auto' : 'none'}
-            style={{
-              position: 'absolute',
-              bottom: 0,
-              alignSelf: 'center',
-              backgroundColor: 'rgba(12, 12, 31, 0.85)',
-              borderRadius: 24,
-              borderWidth: 1,
-              borderColor: 'rgba(255, 255, 255, 0.12)',
-              padding: 8,
-              gap: 10,
-              alignItems: 'center',
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 6 },
-              shadowOpacity: 0.3,
-              shadowRadius: 12,
-              elevation: 8,
-              opacity: floatingAnim,
-              transform: [
-                { scale: floatingAnim.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }) },
-                { translateY: floatingAnim.interpolate({ inputRange: [0, 1], outputRange: [60, 0] }) }
-              ]
-            }}
-          >
-            {/* Mute/Unmute */}
-            <TouchableOpacity
-              onPress={handleToggleSound}
-              activeOpacity={0.85}
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: 19,
-                backgroundColor: bgMusicPlaying ? 'rgba(16,185,129,0.92)' : 'rgba(255,255,255,0.06)',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderWidth: 1,
-                borderColor: bgMusicPlaying ? '#10b981' : 'rgba(255,255,255,0.15)',
-              }}
-            >
-              <Ionicons name={bgMusicPlaying ? "volume-high" : "volume-mute"} size={16} color="#fff" />
-            </TouchableOpacity>
-
-            {/* Gift/Bonus logs (Cohesive Brand Purple theme matching accent) */}
-            <TouchableOpacity
-              onPress={() => setBonusModalVisible(true)}
-              activeOpacity={0.85}
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: 19,
-                backgroundColor: 'rgba(0, 218, 243, 0.92)',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderWidth: 1,
-                borderColor: '#00daf3',
-              }}
-            >
-              <Ionicons name="gift" size={16} color="#0a0a0f" />
-            </TouchableOpacity>
-
-            {/* Close 'x' button to collapse */}
-            <TouchableOpacity
-              onPress={() => setFloatingExpanded(false)}
-              activeOpacity={0.85}
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: 19,
-                backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderWidth: 1,
-                borderColor: 'rgba(255, 255, 255, 0.2)',
-              }}
-            >
-              <Ionicons name="close" size={18} color="#fff" />
-            </TouchableOpacity>
-          </Animated.View>
-
-          {/* Collapsed '+' button */}
-          <Animated.View
-            pointerEvents={floatingExpanded ? 'none' : 'auto'}
-            style={{
-              position: 'absolute',
-              bottom: 0,
-              alignSelf: 'center',
-              opacity: floatingAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
-              transform: [
-                { scale: floatingAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 0.6] }) },
-                { translateY: floatingAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 40] }) }
-              ]
-            }}
-          >
-            <TouchableOpacity
-              onPress={() => setFloatingExpanded(true)}
-              activeOpacity={0.85}
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: 22,
-                overflow: 'hidden',
-                shadowColor: '#00daf3',
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.35,
-                shadowRadius: 8,
-                elevation: 6
-              }}
-            >
-              <LinearGradient
-                colors={["#00daf3", "#00daf3"]}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
-              >
-                <Ionicons name="add" size={24} color="#fff" />
-              </LinearGradient>
-            </TouchableOpacity>
-          </Animated.View>
-        </View>
+        <FloatingActions
+          floatingExpanded={floatingExpanded}
+          floatingAnim={floatingAnim}
+          bgMusicPlaying={bgMusicPlaying}
+          onToggleSound={handleToggleSound}
+          onBonusLogs={() => setBonusModalVisible(true)}
+          onExpand={() => setFloatingExpanded(true)}
+          onCollapse={() => setFloatingExpanded(false)}
+        />
       )}
       <PromotionPopup config={promoConfig} visible={showPromo} onClose={() => setShowPromo(false)} />
 
       {/* PWA Install Instructions Modal */}
-      <Modal
-        visible={pwaModalVisible}
-        animationType="fade"
-        transparent
-        onRequestClose={() => setPwaModalVisible(false)}
-      >
-        <View style={{
-          flex: 1,
-          backgroundColor: 'rgba(0,0,0,0.85)',
-          justifyContent: 'center',
-          alignItems: 'center',
-          padding: 20
-        }}>
-          <View style={{
-            backgroundColor: '#0c0c1f',
-            borderWidth: 1,
-            borderColor: 'rgba(0,218,243,0.2)',
-            borderRadius: 24,
-            padding: 24,
-            width: '100%',
-            maxWidth: 420,
-            shadowColor: '#000',
-            shadowOpacity: 0.5,
-            shadowRadius: 20,
-            elevation: 10
-          }}>
-            {/* Header */}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <Text style={{ color: '#fff', fontSize: 18, fontWeight: '900' }}>Install XOET Web App</Text>
-              <TouchableOpacity onPress={() => setPwaModalVisible(false)} style={{ padding: 4 }}>
-                <Ionicons name="close" size={24} color="rgba(255,255,255,0.6)" />
-              </TouchableOpacity>
-            </View>
-
-            {/* Device specific instructions */}
-            <View style={{ marginBottom: 24 }}>
-              {Platform.OS === 'web' && typeof navigator !== 'undefined' && /telegram/i.test(navigator.userAgent) ? (
-                // Telegram Browser Instructions
-                <View style={{ gap: 12 }}>
-                  <Text style={{ color: '#00daf3', fontWeight: '800', fontSize: 14 }}>Telegram Browser Detected:</Text>
-                  <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, lineHeight: 18 }}>
-                    Telegram's in-app browser has sandbox restrictions that prevent installing web apps or downloading files directly.
-                  </Text>
-                  <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
-                    <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,218,243,0.15)', alignItems: 'center', justifyContent: 'center' }}>
-                      <Text style={{ color: '#00daf3', fontSize: 12, fontWeight: '800' }}>1</Text>
-                    </View>
-                    <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, flex: 1 }}>
-                      Tap the <Text style={{ color: '#00daf3', fontWeight: 'bold' }}>three dots</Text> at the top right of this screen.
-                    </Text>
-                  </View>
-                  <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
-                    <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,218,243,0.15)', alignItems: 'center', justifyContent: 'center' }}>
-                      <Text style={{ color: '#00daf3', fontSize: 12, fontWeight: '800' }}>2</Text>
-                    </View>
-                    <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, flex: 1 }}>
-                      Select <Text style={{ color: '#00daf3', fontWeight: 'bold' }}>"Open in Browser"</Text> or <Text style={{ color: '#00daf3', fontWeight: 'bold' }}>"Open in Chrome/Safari"</Text>.
-                    </Text>
-                  </View>
-                  <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
-                    <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,218,243,0.15)', alignItems: 'center', justifyContent: 'center' }}>
-                      <Text style={{ color: '#00daf3', fontSize: 12, fontWeight: '800' }}>3</Text>
-                    </View>
-                    <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, flex: 1 }}>
-                      Once opened in your system browser, click the download button again.
-                    </Text>
-                  </View>
-                </View>
-              ) : Platform.OS === 'web' && typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent) ? (
-                // iOS Safari Instructions
-                <View style={{ gap: 12 }}>
-                  <Text style={{ color: '#00daf3', fontWeight: '800', fontSize: 14 }}>Instructions for iOS Safari:</Text>
-                  <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
-                    <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,218,243,0.15)', alignItems: 'center', justifyContent: 'center' }}>
-                      <Text style={{ color: '#00daf3', fontSize: 12, fontWeight: '800' }}>1</Text>
-                    </View>
-                    <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, flex: 1 }}>
-                      Tap the <Text style={{ color: '#00daf3', fontWeight: 'bold' }}>Share</Text> button in Safari (box with an arrow pointing up at the bottom).
-                    </Text>
-                  </View>
-                  <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
-                    <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,218,243,0.15)', alignItems: 'center', justifyContent: 'center' }}>
-                      <Text style={{ color: '#00daf3', fontSize: 12, fontWeight: '800' }}>2</Text>
-                    </View>
-                    <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, flex: 1 }}>
-                      Scroll down the share menu and select <Text style={{ color: '#00daf3', fontWeight: 'bold' }}>"Add to Home Screen"</Text>.
-                    </Text>
-                  </View>
-                  <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
-                    <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,218,243,0.15)', alignItems: 'center', justifyContent: 'center' }}>
-                      <Text style={{ color: '#00daf3', fontSize: 12, fontWeight: '800' }}>3</Text>
-                    </View>
-                    <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, flex: 1 }}>
-                      Tap <Text style={{ color: '#00daf3', fontWeight: 'bold' }}>"Add"</Text> in the top right corner to complete installation.
-                    </Text>
-                  </View>
-                </View>
-              ) : (
-                // Android / Desktop Instructions
-                <View style={{ gap: 12 }}>
-                  <Text style={{ color: '#00daf3', fontWeight: '800', fontSize: 14 }}>How to Install:</Text>
-                  <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
-                    <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,218,243,0.15)', alignItems: 'center', justifyContent: 'center' }}>
-                      <Text style={{ color: '#00daf3', fontSize: 12, fontWeight: '800' }}>1</Text>
-                    </View>
-                    <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, flex: 1 }}>
-                      Open your browser's menu (three dots icon in Chrome) and select <Text style={{ color: '#00daf3', fontWeight: 'bold' }}>"Add to Home Screen"</Text> or <Text style={{ color: '#00daf3', fontWeight: 'bold' }}>"Install App"</Text>.
-                    </Text>
-                  </View>
-                  <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
-                    <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,218,243,0.15)', alignItems: 'center', justifyContent: 'center' }}>
-                      <Text style={{ color: '#00daf3', fontSize: 12, fontWeight: '800' }}>2</Text>
-                    </View>
-                    <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, flex: 1 }}>
-                      On desktop, look for the <Text style={{ color: '#00daf3', fontWeight: 'bold' }}>Install icon</Text> in the browser address bar next to the URL.
-                    </Text>
-                  </View>
-                </View>
-              )}
-            </View>
-
-            {/* Fallback to Android APK */}
-            <View style={{ borderTopWidth: 1, borderColor: 'rgba(255,255,255,0.06)', paddingTop: 16 }}>
-              {Platform.OS === 'web' && typeof navigator !== 'undefined' && /telegram/i.test(navigator.userAgent) ? (
-                <>
-                  <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '700', marginBottom: 12, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                    Android Users (Via Telegram Channel)
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => {
-                      Linking.openURL('https://t.me/xoethiopia1').catch(() => { });
-                    }}
-                    style={{
-                      backgroundColor: '#0088cc',
-                      borderRadius: 12,
-                      paddingVertical: 12,
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 8
-                    }}
-                  >
-                    <Ionicons name="paper-plane-outline" size={18} color="#fff" />
-                    <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>Get APK from Channel</Text>
-                  </TouchableOpacity>
-                </>
-              ) : (
-                <>
-                  <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '700', marginBottom: 12, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                    Android Users (Direct APK)
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => {
-                      Linking.openURL('https://xoethiopia.com/xoet.apk').catch(() => { });
-                    }}
-                    style={{
-                      backgroundColor: '#ef4444',
-                      borderRadius: 12,
-                      paddingVertical: 12,
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 8
-                    }}
-                  >
-                    <Ionicons name="cloud-download-outline" size={18} color="#fff" />
-                    <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>Download Android APK</Text>
-                  </TouchableOpacity>
-                </>
-              )}
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <PwaInstallModal visible={pwaModalVisible} onClose={() => setPwaModalVisible(false)} />
     </View>
   );
 }
@@ -4181,7 +2577,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  // ─── Desktop Hub Styles ───
+  // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Desktop Hub Styles Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
   desktopHubRoot: { flex: 1, backgroundColor: 'transparent' },
   hubDesktopGrid: { flexDirection: 'row', gap: 24, maxWidth: 1240, alignSelf: 'center', width: '100%', paddingHorizontal: 24, marginTop: 24 },
   desktopMainCol: { flex: 8, gap: 16 },

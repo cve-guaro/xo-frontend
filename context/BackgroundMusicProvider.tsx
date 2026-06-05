@@ -3,7 +3,6 @@ import { AppState, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from './authContext';
 import { API_URL } from '../config';
-import { useAudioPlayer } from 'expo-audio';
 
 type BackgroundMusicContextType = {
   isPlaying: boolean;
@@ -14,7 +13,41 @@ type BackgroundMusicContextType = {
 
 const BackgroundMusicContext = createContext<BackgroundMusicContextType | undefined>(undefined);
 
-export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+// ─── WEB: lightweight no-op provider ────────────────────────────────────────
+// Background music was never audible on web (autoplay policy blocks it).
+// Skipping the entire expo-audio import eliminates ~500 KB decoded audio memory,
+// global click/keydown listeners, and AppState subscriptions that run for nothing.
+const WebMusicProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { token } = useAuth();
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  const toggleMusic = async () => {
+    const nextState = !isPlaying;
+    setIsPlaying(nextState);
+    // Still persist preference so native app respects it
+    AsyncStorage.setItem('xoet_music_muted', nextState ? 'false' : 'true').catch(() => {});
+    if (token) {
+      fetch(`${API_URL}/account/settings`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ soundMuted: !nextState })
+      }).catch(() => {});
+    }
+  };
+
+  const noopAsync = async () => {};
+
+  return (
+    <BackgroundMusicContext.Provider value={{ isPlaying, toggleMusic, setVolume: noopAsync, unlockAudio: noopAsync }}>
+      {children}
+    </BackgroundMusicContext.Provider>
+  );
+};
+
+// ─── NATIVE: full audio provider ────────────────────────────────────────────
+const NativeMusicProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Conditional require so the web bundle never pulls in expo-audio
+  const { useAudioPlayer } = require('expo-audio');
   const { user, token } = useAuth();
   
   const [isPlaying, setIsPlaying] = useState(true);
@@ -31,17 +64,14 @@ export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = 
   // Trigger playing when player becomes available (after SWR delay)
   useEffect(() => {
     if (shouldLoadSound && player && isPlayingRef.current && !player.playing) {
-      if (Platform.OS !== 'web') {
-        player.volume = 0.15;
-        player.play();
-      }
+      player.volume = 0.15;
+      player.play();
     }
   }, [shouldLoadSound, player]);
 
   // Initial load effect
   useEffect(() => {
     const init = async () => {
-      // Check local storage first for immediate decision
       const isMutedLocal = await AsyncStorage.getItem('xoet_music_muted');
       
       let shouldStartPlaying = true;
@@ -58,7 +88,7 @@ export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = 
         player.volume = 0.15;
       }
 
-      if (shouldStartPlaying && Platform.OS !== 'web' && player && player.play) {
+      if (shouldStartPlaying && player && player.play) {
         player.play();
       }
     };
@@ -85,7 +115,7 @@ export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = 
     }
   }, [user?.sound_muted, player]);
 
-  // App State listener for background pausing + Web Autoplay Unlocker
+  // App State listener for background pausing
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (next) => {
         if (next === 'active') {
@@ -95,19 +125,9 @@ export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = 
         }
      });
 
-    const handleWebInteraction = () => unlockAudio();
-    if (Platform.OS === 'web') {
-      window.addEventListener('click', handleWebInteraction);
-      window.addEventListener('keydown', handleWebInteraction);
-    }
-
     return () => {
       subscription.remove();
-      if (Platform.OS === 'web') {
-        window.removeEventListener('click', handleWebInteraction);
-        window.removeEventListener('keydown', handleWebInteraction);
-      }
-      if (player && player.pause) player.pause(); // Cleanup zombie player to prevent double playing
+      if (player && player.pause) player.pause();
     };
   }, [player]);
 
@@ -150,6 +170,14 @@ export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = 
       {children}
     </BackgroundMusicContext.Provider>
   );
+};
+
+// ─── Exported wrapper — picks the right provider per platform ───────────────
+export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  if (Platform.OS === 'web') {
+    return <WebMusicProvider>{children}</WebMusicProvider>;
+  }
+  return <NativeMusicProvider>{children}</NativeMusicProvider>;
 };
 
 export const useBackgroundMusic = () => {

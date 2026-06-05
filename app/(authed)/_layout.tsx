@@ -318,7 +318,8 @@ export default function AuthedLayout() {
       mediaQuery.addListener(handleMediaChange);
     }
 
-    const interval = setInterval(handleCheck, 3000);
+    // Event listeners (appinstalled + mediaQuery change) fully cover install detection.
+    // Removed: 3-second setInterval polling — was ~20 async calls/min for no benefit.
 
     return () => {
       window.removeEventListener('appinstalled', handleAppInstalled);
@@ -327,7 +328,6 @@ export default function AuthedLayout() {
       } else {
         mediaQuery.removeListener(handleMediaChange);
       }
-      clearInterval(interval);
     };
   }, []);
 

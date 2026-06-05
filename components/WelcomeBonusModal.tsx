@@ -85,7 +85,7 @@ export default function WelcomeBonusModal({ visible, onClose }: WelcomeBonusModa
               >
                 <Ionicons name="game-controller" size={32} color="#0B0B0F" />
               </LinearGradient>
-              <Text style={styles.title}>Welcome to XO!</Text>
+              <Text style={styles.title}>Welcome to XO Ethiopia!</Text>
               <Text style={styles.subtitle}>Step into the ultimate arena of Tic-Tac-Toe gameplay.</Text>
             </View>
 
