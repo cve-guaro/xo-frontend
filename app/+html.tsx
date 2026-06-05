@@ -55,11 +55,6 @@ export default function HTML({ children }: { children: React.ReactNode }) {
         <style
           dangerouslySetInnerHTML={{
             __html: `
-              @font-face {
-                font-family: 'Ionicons';
-                font-display: swap;
-              }
-
               html, body {
                 background-color: #060614;
                 margin: 0;

@@ -2735,6 +2735,3 @@ const styles = StyleSheet.create({
 async function sendGeezSMS({ userId, phone, message }: { userId: string; phone: string; message: string }) {
   // logic here
 }
-
-
-
