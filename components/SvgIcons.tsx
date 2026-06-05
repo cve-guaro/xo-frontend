@@ -1,6 +1,5 @@
 // components/SvgIcons.tsx
-import React from "react";
-import Svg, { Path, Rect, Circle } from "react-native-svg";
+import Svg, { Path, Rect, Circle, Line } from "react-native-svg";
 
 interface IconProps {
   size?: number;
@@ -69,5 +68,13 @@ export const RefreshIcon = ({ size = 24, color = "#fff" }: IconProps) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
     <Path d="M23 4v6h-6" />
     <Path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+  </Svg>
+);
+
+export const AlertCircleIcon = ({ size = 24, color = "#fff" }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Circle cx="12" cy="12" r="10" />
+    <Line x1="12" y1="8" x2="12" y2="12" />
+    <Line x1="12" y1="16" x2="12.01" y2="16" strokeWidth={3} />
   </Svg>
 );

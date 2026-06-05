@@ -4,6 +4,7 @@ import Head from "expo-router/head";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, View, Platform } from "react-native";
 import { useAuth } from "../context/authContext";
+import LoginScreen from "./(auth)/login";
 
 export default function Index() {
   const { user, booting, offline, retry } = useAuth();
@@ -44,8 +45,7 @@ export default function Index() {
     }
 
     if (!user) {
-      if (ref || promo) return <Redirect href={{ pathname: "/(auth)/login", params: { ref, promo } }} />;
-      return <Redirect href="/(auth)/login" />;
+      return <LoginScreen />;
     }
     
     if (user.role === 'admin') {

@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { AppState, Platform } from 'react-native';
+import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from './authContext';
 import { API_URL } from '../config';
+import { useAudioPlayer } from 'expo-audio';
 
 type BackgroundMusicContextType = {
   isPlaying: boolean;
@@ -13,41 +14,7 @@ type BackgroundMusicContextType = {
 
 const BackgroundMusicContext = createContext<BackgroundMusicContextType | undefined>(undefined);
 
-// ─── WEB: lightweight no-op provider ────────────────────────────────────────
-// Background music was never audible on web (autoplay policy blocks it).
-// Skipping the entire expo-audio import eliminates ~500 KB decoded audio memory,
-// global click/keydown listeners, and AppState subscriptions that run for nothing.
-const WebMusicProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { token } = useAuth();
-  const [isPlaying, setIsPlaying] = useState(false);
-
-  const toggleMusic = async () => {
-    const nextState = !isPlaying;
-    setIsPlaying(nextState);
-    // Still persist preference so native app respects it
-    AsyncStorage.setItem('xoet_music_muted', nextState ? 'false' : 'true').catch(() => {});
-    if (token) {
-      fetch(`${API_URL}/account/settings`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ soundMuted: !nextState })
-      }).catch(() => {});
-    }
-  };
-
-  const noopAsync = async () => {};
-
-  return (
-    <BackgroundMusicContext.Provider value={{ isPlaying, toggleMusic, setVolume: noopAsync, unlockAudio: noopAsync }}>
-      {children}
-    </BackgroundMusicContext.Provider>
-  );
-};
-
-// ─── NATIVE: full audio provider ────────────────────────────────────────────
-const NativeMusicProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Conditional require so the web bundle never pulls in expo-audio
-  const { useAudioPlayer } = require('expo-audio');
+export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, token } = useAuth();
   
   const [isPlaying, setIsPlaying] = useState(true);
@@ -162,7 +129,9 @@ const NativeMusicProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const setVolume = async (volume: number) => {
-    player.volume = volume;
+    if (player) {
+      player.volume = volume;
+    }
   };
 
   return (
@@ -170,14 +139,6 @@ const NativeMusicProvider: React.FC<{ children: React.ReactNode }> = ({ children
       {children}
     </BackgroundMusicContext.Provider>
   );
-};
-
-// ─── Exported wrapper — picks the right provider per platform ───────────────
-export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  if (Platform.OS === 'web') {
-    return <WebMusicProvider>{children}</WebMusicProvider>;
-  }
-  return <NativeMusicProvider>{children}</NativeMusicProvider>;
 };
 
 export const useBackgroundMusic = () => {

@@ -3,7 +3,7 @@ import * as SecureStore from "expo-secure-store";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 // Remove expo-av import completely as audio stubs exist below
 import { Platform, Alert, Modal, View, Text, TouchableOpacity, StyleSheet, Pressable } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { CheckmarkCircleIcon, AlertCircleIcon } from "../components/SvgIcons";
 import { API_URL } from "../config"; // e.g. https://api.yourapp.com
 
 /**
@@ -1280,11 +1280,11 @@ export const GlobalUIComponents = () => {
       <Pressable style={styles.alertOverlay} onPress={closeAlert}>
         <Pressable style={styles.alertContent}>
           <View style={[styles.alertIconBg, { backgroundColor: alertConfig.type === 'error' ? 'rgba(253,111,133,0.15)' : 'rgba(0,218,243,0.15)' }]}>
-            <Ionicons 
-              name={alertConfig.type === 'error' ? "alert-circle" : "checkmark-circle"} 
-              size={40} 
-              color={alertConfig.type === 'error' ? '#fd6f85' : '#00daf3'} 
-            />
+            {alertConfig.type === 'error' ? (
+              <AlertCircleIcon size={40} color="#fd6f85" />
+            ) : (
+              <CheckmarkCircleIcon size={40} color="#00daf3" />
+            )}
           </View>
           
           <Text style={styles.alertTitle}>{alertConfig.title}</Text>

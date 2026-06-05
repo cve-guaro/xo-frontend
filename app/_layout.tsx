@@ -1,19 +1,19 @@
 // app/_layout.tsx
 import { Platform } from "react-native";
 
-// ✅ @sentry/react is browser-only — deferred so it doesn't block initial render.
-// Using setTimeout(0) pushes initialization after the first paint.
+// ✅ @sentry/react is browser-only — deferred and code-split so it doesn't block initial render or inflate bundle sizes.
 if (Platform.OS === "web") {
   setTimeout(() => {
-    try {
-      const Sentry = require("@sentry/react");
-      Sentry.init({
-        dsn: "https://0542c52f966517870c71abc882d89ca6@o4511351046733824.ingest.us.sentry.io/4511351146872832",
-        tracesSampleRate: 0.1,
+    import("@sentry/react")
+      .then((Sentry) => {
+        Sentry.init({
+          dsn: "https://0542c52f966517870c71abc882d89ca6@o4511351046733824.ingest.us.sentry.io/4511351146872832",
+          tracesSampleRate: 0.1,
+        });
+      })
+      .catch((e) => {
+        console.warn("[Sentry] Failed to initialize dynamically:", e);
       });
-    } catch (e) {
-      console.warn("[Sentry] Failed to initialize:", e);
-    }
   }, 0);
 }
 
