@@ -5,11 +5,18 @@ import { Platform } from "react-native";
 if (Platform.OS === "web") {
   setTimeout(() => {
     import("@sentry/react")
-      .then((Sentry) => {
-        Sentry.init({
-          dsn: "https://0542c52f966517870c71abc882d89ca6@o4511351046733824.ingest.us.sentry.io/4511351146872832",
-          tracesSampleRate: 0.1,
-        });
+      .then((SentryModule) => {
+        const Sentry = typeof SentryModule.init === 'function'
+          ? SentryModule
+          : (SentryModule.default || SentryModule);
+        if (typeof Sentry.init === 'function') {
+          Sentry.init({
+            dsn: "https://0542c52f966517870c71abc882d89ca6@o4511351046733824.ingest.us.sentry.io/4511351146872832",
+            tracesSampleRate: 0.1,
+          });
+        } else {
+          console.warn("[Sentry] init function not found on imported module:", Object.keys(SentryModule));
+        }
       })
       .catch((e) => {
         console.warn("[Sentry] Failed to initialize dynamically:", e);
