@@ -4,14 +4,8 @@ import React, { useEffect, useState } from "react";
 import { ActivityIndicator, View, Platform } from "react-native";
 import { useAuth } from "../context/authContext";
 
-// Lazy-load LoginScreen & OfflineNotice on web to reduce initial bundle
-const LoginScreen = Platform.OS === 'web'
-  ? React.lazy(() => import("./(auth)/login"))
-  : require("./(auth)/login").default;
-
-const OfflineNotice = Platform.OS === 'web'
-  ? React.lazy(() => import("../components/OfflineNotice"))
-  : require("../components/OfflineNotice").default;
+import LoginScreen from "./(auth)/login";
+import OfflineNotice from "../components/OfflineNotice";
 
 export default function Index() {
   const { user, booting, offline, retry } = useAuth();
@@ -70,15 +64,7 @@ export default function Index() {
           <meta name="description" content="Play Tic-Tac-Toe for real money on XO Ethiopia. Join tournaments, play with friends, and win cash prizes daily! Easy withdrawals via Telebirr." />
         </Head>
       )}
-      <React.Suspense
-        fallback={
-          <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#060614" }}>
-            <ActivityIndicator color="#00daf3" />
-          </View>
-        }
-      >
         {renderContent()}
-      </React.Suspense>
     </>
   );
 }
