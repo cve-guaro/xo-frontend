@@ -37,9 +37,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { BackgroundMusicProvider, useBackgroundMusic } from "../context/BackgroundMusicProvider";
 import { SparklesIcon } from "../components/SvgIcons";
 import { ToastProvider } from "../context/ToastContext";
-const GlobalToastContainer = Platform.OS === 'web'
-  ? React.lazy(() => import("../components/GlobalToast"))
-  : require("../components/GlobalToast").default;
+import GlobalToastContainer from "../components/GlobalToast";
+import { PwaInstallBanner } from "../components/PwaInstallBanner";
 import { FeatureProvider } from "../context/FeatureContext";
 import { FeatureGate } from "../components/FeatureGate";
 
@@ -61,6 +60,52 @@ if (Platform.OS === 'web' && typeof console !== 'undefined') {
   const isSuppressed = (msg: string) => SUPPRESSED.some(s => String(msg).includes(s));
   console.warn = (...args: any[]) => { if (!isSuppressed(args[0])) _warn(...args); };
   console.error = (...args: any[]) => { if (!isSuppressed(args[0])) _error(...args); };
+}
+
+// ✅ Handle chunk loading / dynamic import errors gracefully (e.g. after new deployments)
+if (Platform.OS === 'web' && typeof window !== 'undefined') {
+  const isChunkError = (error: any) => {
+    if (!error) return false;
+    const msg = String(error.message || error);
+    const name = String(error.name || '');
+    return (
+      name === 'AsyncRequireError' ||
+      name === 'ChunkLoadError' ||
+      msg.includes('Loading module') ||
+      msg.includes('Loading chunk') ||
+      msg.includes('failed to fetch dynamically imported module') ||
+      msg.includes('Failed to load resource')
+    );
+  };
+
+  const reloadWithLock = () => {
+    try {
+      const now = Date.now();
+      const lastReload = sessionStorage.getItem('last_chunk_reload');
+      if (lastReload && now - Number(lastReload) < 10000) {
+        console.error('[RootLayout] Prevented infinite reload loop for dynamic import error.');
+        return;
+      }
+      sessionStorage.setItem('last_chunk_reload', String(now));
+      window.location.reload();
+    } catch {
+      window.location.reload();
+    }
+  };
+
+  window.addEventListener('error', (event) => {
+    if (isChunkError(event.error) || isChunkError(event.message)) {
+      console.warn('[RootLayout] Dynamic import error detected. Reloading page...');
+      reloadWithLock();
+    }
+  });
+
+  window.addEventListener('unhandledrejection', (event) => {
+    if (isChunkError(event.reason)) {
+      console.warn('[RootLayout] Promise rejection from dynamic import detected. Reloading page...');
+      reloadWithLock();
+    }
+  });
 }
 
 
@@ -95,9 +140,6 @@ function AuthGate({ children }: PropsWithChildren) {
 
   return <>{children}</>;
 }
-const PwaInstallBanner = Platform.OS === 'web'
-  ? React.lazy(() => import("../components/PwaInstallBanner").then(m => ({ default: m.PwaInstallBanner })))
-  : require("../components/PwaInstallBanner").PwaInstallBanner;
 
 // Capture PWA install prompt globally to prevent timing issues
 if (Platform.OS === 'web' && typeof window !== 'undefined') {
@@ -134,10 +176,8 @@ function RootLayout() {
                 <FeatureGate>
                   <Slot />
                   <GlobalUIComponents />
-                  <React.Suspense fallback={null}>
-                    <GlobalToastContainer />
-                    {Platform.OS === 'web' && <PwaInstallBanner />}
-                  </React.Suspense>
+                  <GlobalToastContainer />
+                  {Platform.OS === 'web' && <PwaInstallBanner />}
                 </FeatureGate>
               </AuthGate>
             </SafeAreaProvider>
