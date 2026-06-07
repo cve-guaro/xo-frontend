@@ -104,8 +104,8 @@ export default function Landing() {
           setRawTickerList(data.ticker);
           const formatted = data.ticker.map((item: any) => {
             const amt = Number(item.amount) || 0;
-            let emoji = 'Ã¢Å¡Â¡';
-            if (amt >= 500) emoji = 'Ã°Å¸â€˜â€˜';
+            let emoji = '⚡';
+            if (amt >= 500) emoji = '👑';
             else if (amt >= 200) emoji = 'Ã°Å¸â€Â¥';
             else if (amt >= 100) emoji = 'Ã°Å¸Ââ€ ';
             return `${emoji} ${item.username.toUpperCase()} WON ${amt} Birr`;
@@ -176,7 +176,7 @@ export default function Landing() {
     }
 
     // Event listeners (appinstalled + mediaQuery change) fully cover install detection.
-    // Removed: 3-second setInterval polling Ã¢â‚¬â€ was ~20 async calls/min for no benefit.
+    // Removed: 3-second setInterval polling — was ~20 async calls/min for no benefit.
 
     return () => {
       window.removeEventListener('appinstalled', handleAppInstalled);
@@ -333,10 +333,10 @@ export default function Landing() {
   }, [tickerAnim, tickerList]);
 
 
-  // Global rematch state Ã¢â‚¬â€ shows popup even when on home page
+  // Global rematch state — shows popup even when on home page
   const [globalRematchOffer, setGlobalRematchOffer] = useState<{ visible: boolean; fromName?: string; amount?: number; fromUserId?: string } | null>(null);
 
-  // Friend Match Ã¢â‚¬â€ send invite via socket
+  // Friend Match — send invite via socket
   const handleSendInvite = useCallback(async (username: string, betAmount: number) => {
     if (!token) return;
     await ensureConnected(token);
@@ -365,8 +365,8 @@ export default function Landing() {
         const payload = msg.payload || {};
         const username = String(payload.username || "User").toUpperCase();
         const amt = Number(payload.amount) || 0;
-        let emoji = 'Ã¢Å¡Â¡';
-        if (amt >= 500) emoji = 'Ã°Å¸â€˜â€˜';
+        let emoji = '⚡';
+        if (amt >= 500) emoji = '👑';
         else if (amt >= 200) emoji = 'Ã°Å¸â€Â¥';
         else if (amt >= 100) emoji = 'Ã°Å¸Ââ€ ';
 
@@ -473,7 +473,7 @@ export default function Landing() {
 
   const params = useLocalSearchParams();
 
-  // ensureConnected is handled by the parent _layout.tsx (authed) Ã¢â‚¬â€ no need to duplicate here
+  // ensureConnected is handled by the parent _layout.tsx (authed) — no need to duplicate here
 
   // Auto-open share modal from deep links
   useEffect(() => {
@@ -514,7 +514,7 @@ export default function Landing() {
     if (!token) return;
     const interval = setInterval(() => {
       fetchTickerFeed();
-    }, 90_000); // 90 seconds (was 30s Ã¢â‚¬â€ socket real-time wins reduce need)
+    }, 90_000); // 90 seconds (was 30s — socket real-time wins reduce need)
     return () => clearInterval(interval);
   }, [token, fetchTickerFeed]);
 
@@ -589,7 +589,7 @@ export default function Landing() {
     return () => clearInterval(timer);
   }, [isBanned, refreshProfile]);
 
-  // ---------- sound (click only Ã¢â‚¬â€ background managed by BackgroundMusicProvider) ----------
+  // ---------- sound (click only — background managed by BackgroundMusicProvider) ----------
   const clickSound = useAudioPlayer(require("../../../assets/sounds/click.wav"));
 
   const playClick = useCallback(async () => {
@@ -724,8 +724,8 @@ export default function Landing() {
   const renderUserRankCard = useCallback(() => {
     const rankVal = myWeeklyRank && myWeeklyRank.rank ? `#${myWeeklyRank.rank}` : "#1";
     const scoreVal = myWeeklyRank && myWeeklyRank.wins !== undefined 
-      ? `${myWeeklyRank.wins} ${isEN ? 'Wins' : 'Ã¡â€¹ÂµÃ¡Ë†Å½Ã¡â€°Â½'}` 
-      : `2 ${isEN ? 'Wins' : 'Ã¡â€¹ÂµÃ¡Ë†Å½Ã¡â€°Â½'}`;
+      ? `${myWeeklyRank.wins} ${isEN ? 'Wins' : 'ድሎች'}` 
+      : `2 ${isEN ? 'Wins' : 'ድሎች'}`;
 
     return (
       <View style={{
@@ -754,7 +754,7 @@ export default function Landing() {
           </View>
           <View>
             <Text style={{ color: '#fff', fontSize: 13, fontWeight: '900' }}>
-              {isEN ? "You" : "Ã¡Å Â¥Ã¡Ë†Â­Ã¡Ë†ÂµÃ¡â€¹Å½"}
+              {isEN ? "You" : "እርሶ"}
             </Text>
             <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: '600', marginTop: 2 }}>
               {isEN ? "All players" : "Ã¡Ë†ÂÃ¡Ë†â€°Ã¡Ë†Â Ã¡â€°Â°Ã¡Å’Â«Ã¡â€¹â€¹Ã¡â€°Â¾Ã¡â€°Â½"}
@@ -832,18 +832,18 @@ export default function Landing() {
   const winRate = useMemo(() => (gamesPlayed ? Math.round((wins / gamesPlayed) * 100) : 0), [wins, gamesPlayed]);
   const statsLabel = useMemo(() => {
     const wr = Math.min(Math.max(winRate, 0), 100);
-    return isEN ? `${wins} wins Ã¢â‚¬Â¢ ${wr}% win rate` : `${wins} Ã¡â€¹ÂµÃ¡Ë†Å½Ã¡â€°Â½ Ã¢â‚¬Â¢ ${wr}% Ã¡â€¹Â¨Ã¡â€¹ÂµÃ¡Ë†Â Ã¡Ë†ËœÃ¡Å’Â Ã¡Å â€¢`;
+    return isEN ? `${wins} wins • ${wr}% win rate` : `${wins} ድሎች Ã¢â‚¬Â¢ ${wr}% Ã¡â€¹Â¨Ã¡â€¹ÂµÃ¡Ë†Â Ã¡Ë†ËœÃ¡Å’Â Ã¡Å â€¢`;
   }, [wins, winRate, isEN]);
 
   const rank = useMemo(() => {
     if (winRate >= 70 || wins >= 200) return isEN ? "Platinum" : "Ã¡Ââ€¢Ã¡Ë†â€¹Ã¡â€°Â²Ã¡Å â€™Ã¡Ë†Â";
-    if (winRate >= 50 || wins >= 100) return isEN ? "Gold" : "Ã¡â€¹Ë†Ã¡Ë†Â­Ã¡â€°â€¦";
-    return isEN ? "Silver" : "Ã¡â€°Â¥Ã¡Ë†Â­";
+    if (winRate >= 50 || wins >= 100) return isEN ? "Gold" : "ወርቅ";
+    return isEN ? "Silver" : "ብር";
   }, [winRate, wins, isEN]);
 
   const rankMeta = useMemo(() => {
     const isPlat = rank.includes("Platinum") || rank.includes("Ã¡Ââ€¢Ã¡Ë†â€¹Ã¡â€°Â²Ã¡Å â€™Ã¡Ë†Â");
-    const isGold = rank.includes("Gold") || rank.includes("Ã¡â€¹Ë†Ã¡Ë†Â­Ã¡â€°â€¦");
+    const isGold = rank.includes("Gold") || rank.includes("ወርቅ");
     if (isPlat) return { icon: "diamond-outline" as const, label: rank, tone: "platinum" as const };
     if (isGold) return { icon: "trophy-outline" as const, label: rank, tone: "gold" as const };
     return { icon: "medal-outline" as const, label: rank, tone: "silver" as const };
@@ -963,7 +963,7 @@ export default function Landing() {
         haptics.warning();
         toast.warning(
           isEN ? "Insufficient Balance" : "Ã¡â€°Â Ã¡â€°â€š Ã¡Ë†â€šÃ¡Ë†Â³Ã¡â€°Â¥ Ã¡â€¹Â¨Ã¡Ë†Ë†Ã¡Ë†Â",
-          isEN ? `You need at least ETB ${min} to play. Deposit more funds.` : `Ã¡Ë†Ë†Ã¡Ë†ËœÃ¡Å’Â«Ã¡â€¹Ë†Ã¡â€°Âµ Ã¡â€°Â¢Ã¡â€¹Â«Ã¡Å â€¢Ã¡Ë†Âµ ETB ${min} Ã¡â€¹Â«Ã¡Ë†ÂµÃ¡ÂË†Ã¡Ë†ÂÃ¡Å’â€¹Ã¡Ë†ÂÃ¡ÂÂ¢ Ã¡â€°Â°Ã¡Å’Â¨Ã¡Ë†â€ºÃ¡Ë†Âª Ã¡Å’Ë†Ã¡Å â€¢Ã¡â€¹ËœÃ¡â€°Â¥ Ã¡â€¹Â«Ã¡Ë†ÂµÃ¡Å’Ë†Ã¡â€°Â¡Ã¡ÂÂ¢`
+          isEN ? `You need at least ETB ${min} to play. Deposit more funds.` : `ለመጫወት ቢያንስ ETB ${min} ያስፈልግዎታል ተጨማሪ ገንዘብ ያስገቡ`
         );
         return;
       }
@@ -1160,7 +1160,7 @@ export default function Landing() {
                 </View>
                 <View>
                   <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                    {isEN ? "WELCOME BACK" : "Ã¡Å Â¥Ã¡Å â€¢Ã¡Å Â³Ã¡Å â€¢ Ã¡â€¹Â°Ã¡Ë†â€¦Ã¡Å â€œ Ã¡Ë†ËœÃ¡Å’Â¡"}
+                    {isEN ? "WELCOME BACK" : "እንኳን ደህና መጡ"}
                   </Text>
                   <Text style={{ color: '#fff', fontSize: 14, fontWeight: '900' }}>
                     {user?.username || 'bina'}
@@ -1261,7 +1261,7 @@ export default function Landing() {
               <Text style={{ position: 'absolute', right: 40, bottom: -45, fontSize: 140, fontWeight: '900', color: 'rgba(0,218,243,0.06)', transform: [{ rotate: '-12deg' }], zIndex: 0 }}>X</Text>
 
               <View style={[styles.balanceLeft, { zIndex: 1 }]}>
-                <Text style={styles.balanceLabel}>{isEN ? "AVAILABLE BALANCE" : "Ã¡â€°â‚¬Ã¡Ë†Âª Ã¡Ë†â€šÃ¡Ë†Â³Ã¡â€°Â¥"}</Text>
+                <Text style={styles.balanceLabel}>{isEN ? "AVAILABLE BALANCE" : "ቀሪ ሂሳብ"}</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
                   <Text style={[styles.balanceValue, { fontSize: 32 }]}>
                     ETB {Math.floor(balance).toLocaleString()}
@@ -1286,7 +1286,7 @@ export default function Landing() {
                 <View style={{ paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <Ionicons name="reload" size={12} color="#fff" />
                   <Text style={{ color: '#fff', fontWeight: '800', fontSize: 11 }}>
-                    {isEN ? "Refresh" : "Ã¡Å Â Ã¡â€¹ÂµÃ¡Ë†Âµ"}
+                    {isEN ? "Refresh" : "አድስ"}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -1299,7 +1299,7 @@ export default function Landing() {
             <MobileQuickTile
               icon="arrow-down"
               iconColor="#60a5fa"
-              title={isEN ? "Deposit" : "Ã¡Ë†â€ºÃ¡Ë†ÂµÃ¡Å’Ë†Ã¡â€°Â¢Ã¡â€¹Â«"}
+              title={isEN ? "Deposit" : "ማስገቢያ"}
               subtitle="TOP UP"
               onPress={() => Platform.OS === 'web' ? setDepositVisible(true) : router.push("/(authed)/deposit")}
             />
@@ -1382,7 +1382,7 @@ export default function Landing() {
             </View>
             {renderUserRankCard()}
 
-            {/* Play Now Ã¢â‚¬â€ disabled when banned, visible always */}
+            {/* Play Now — disabled when banned, visible always */}
             <WebPressable
               onPress={isBanned ? undefined : openRoomSheet}
               disabled={isBanned}
@@ -1432,14 +1432,14 @@ export default function Landing() {
               <View style={styles.playInner}>
                 <Ionicons name="people-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
                 <Text style={[styles.playText, { color: '#fff' }]}>
-                  {isEN ? 'PLAY WITH FRIEND' : 'Ã¡Å Â¨Ã¡Å’â€œÃ¡â€¹Â°Ã¡Å â€º Ã¡Å’â€¹Ã¡Ë†Â­ Ã¡â€¹Â­Ã¡Å’Â«Ã¡â€¹Ë†Ã¡â€°Â±'}
+                  {isEN ? 'PLAY WITH FRIEND' : 'ከጓደኛ ጋር ይጫወቱ'}
                 </Text>
               </View>
             </WebPressable>
 
             {isBanned && (
               <Text style={{ color: 'rgba(253,111,133,0.6)', fontSize: 11, textAlign: 'center', marginTop: 6, fontWeight: '700', letterSpacing: 0.5 }}>
-                {isEN ? 'Your account is suspended Ã‚Â· Contact support' : 'Ã¡Ë†ËœÃ¡Ë†Ë†Ã¡â€¹Â«Ã¡â€¹Å½ Ã¡â€°Â³Ã¡Å’ÂÃ¡â€¹Â·Ã¡Ë†Â Ã‚Â· Ã¡â€¹ÂµÃ¡Å’â€¹Ã¡ÂÂÃ¡Å â€¢ Ã¡â€¹Â«Ã¡Å ÂÃ¡Å’â€¹Ã¡Å’ÂÃ¡Ë†Â©'}
+                {isEN ? 'Your account is suspended · Contact support' : 'መለያዎ ታግዷል · ድጋፍን ያነጋግሩ'}
               </Text>
             )}
 
@@ -1449,7 +1449,7 @@ export default function Landing() {
               <InfoPill icon="timer-outline" text={isEN ? "Fast rounds" : "Ã¡ÂË†Ã¡Å’Â£Ã¡Å â€¢ Ã¡â€¹â„¢Ã¡Ë†Â­"} />
               <InfoPill icon="cash-outline" text={isEN ? "Instant pay" : "Ã¡ÂË†Ã¡Å’Â£Ã¡Å â€¢ Ã¡Å Â­Ã¡ÂÂÃ¡â€¹Â«"} />
               <TouchableOpacity onPress={() => setRulesVisible(true)} style={{ flex: 1 }}>
-                <InfoPill icon="book-outline" text={isEN ? "Rules" : "Ã¡Ë†â€¦Ã¡Å’Å½Ã¡â€°Â½"} />
+                <InfoPill icon="book-outline" text={isEN ? "Rules" : "ደንቦች"} />
               </TouchableOpacity>
             </View>
           </View>
@@ -1479,7 +1479,7 @@ export default function Landing() {
         onAccept={() => handleInviteResponse(true)}
         onDecline={() => handleInviteResponse(false)}
       />
-      {/* Global Rematch Popup Ã¢â‚¬â€ shows even when winner left game room */}
+      {/* Global Rematch Popup — shows even when winner left game room */}
       <RematchTopPopup
         visible={!!globalRematchOffer?.visible}
         fromName={globalRematchOffer?.fromName}

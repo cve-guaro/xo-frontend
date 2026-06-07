@@ -18,6 +18,13 @@ export const fixAvatarUrl = (url?: string | null) => {
     resolvedUrl = `${API_URL}${url}`;
   }
 
+  // Swap localhost:9001 or backend domain:9001 port for API_URL
+  if (resolvedUrl.includes(':9001')) {
+    resolvedUrl = resolvedUrl.replace(/^https?:\/\/[^/]+:9001/, API_URL);
+  } else if (resolvedUrl.includes('localhost') || resolvedUrl.includes('127.0.0.1')) {
+    resolvedUrl = resolvedUrl.replace(/^https?:\/\/localhost[^/]*/, API_URL).replace(/^https?:\/\/127\.0\.0\.1[^/]*/, API_URL);
+  }
+
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
     const hostname = window.location.hostname;
     if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1') {
@@ -25,14 +32,11 @@ export const fixAvatarUrl = (url?: string | null) => {
     }
   }
 
-  // If it's a local development URL, swap it for the production API URL
-  if (resolvedUrl.includes('localhost:9001')) {
-    return resolvedUrl.replace('http://localhost:9001', API_URL);
+  // Ensure HTTPS for production API calls
+  if (resolvedUrl.startsWith('http://') && !resolvedUrl.includes('localhost') && !resolvedUrl.includes('127.0.0.1')) {
+    resolvedUrl = resolvedUrl.replace('http://', 'https://');
   }
-  // Ensure HTTPS for production if it's already using the production domain but with HTTP
-  if (resolvedUrl.startsWith('http://xo-et-backend-production')) {
-    return resolvedUrl.replace('http://', 'https://');
-  }
+
   return resolvedUrl;
 };
 
@@ -590,7 +594,16 @@ const AuthContext = createContext<Ctx | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [booting, setBooting] = useState(true);
+  const [booting, setBooting] = useState(() => {
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      try {
+        return !!localStorage.getItem("auth_v2_token");
+      } catch {
+        return true;
+      }
+    }
+    return true;
+  });
   const [retrying, setRetrying] = useState(false);
 
   // Custom Alert State

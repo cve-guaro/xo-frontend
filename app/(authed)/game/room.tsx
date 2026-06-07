@@ -24,6 +24,7 @@ import {
   Vibration,
   View,
   useWindowDimensions,
+  AppState,
 } from "react-native";
 import Toast from "../../../components/Toast";
 import { useAuth } from "../../../context/authContext";
@@ -84,7 +85,7 @@ export default function GameRoom() {
   }>();
 
   const { user, token, language, switchLanguage, t, refreshProfile, fixUrl } = useAuth();
-  const { onMessage, send, setIsGameActive } = useSocket();
+  const { onMessage, send, emitAck, setIsGameActive, ensureConnected } = useSocket();
 
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const isDesktop = windowWidth >= 768;
@@ -425,6 +426,75 @@ export default function GameRoom() {
     }, 500);
   }, [gameStartOpacity, gameStartScale, playXO]);
 
+  // ---------- Health check and Visibility auto-reconnect ----------
+  useEffect(() => {
+    if (!isFocused || !matchId) return;
+
+    const runHealthCheck = async () => {
+      try {
+        const connected = await ensureConnected();
+        if (!connected) return;
+
+        // Fetch fresh game state
+        const res = await emitAck("get_game_state", { token, matchId }, 4000);
+        if (res && res.ok && res.data) {
+          const p = res.data;
+          // Sync state
+          if (Array.isArray(p.board) && p.board.length === 9) {
+            setBoard(p.board as BoardCell[]);
+            boardRef.current = p.board as BoardCell[];
+          }
+          if (isXO(p.turn)) setTurn(p.turn);
+          if (p.timers) setTimers(p.timers);
+          if (isXO(p.symbol)) {
+            setMySymbol(p.symbol);
+            mySymbolRef.current = p.symbol;
+          }
+          if (p.opponentUsername) setOpponent(p.opponentUsername);
+          if (p.opponentId) setOpponentId(p.opponentId);
+          stopSyncGuard();
+        } else if (res && !res.ok) {
+          const err = String(res.error || "").toLowerCase();
+          if (err.includes("not found") || err.includes("expired") || err.includes("invalid")) {
+            console.log("[HEALTH_CHECK] Game invalid/expired. Redirecting.");
+            setToast({
+              msg: languageRef.current === "en" ? "Game expired or refunded." : "ጨዋታው አልቋል ወይም ተመላሽ ተደርጓል።",
+              color: "#ff6b6b",
+              icon: "alert-circle"
+            });
+            refreshProfile?.();
+            setTimeout(() => {
+              safeReplace("/home/gameplay");
+            }, 2000);
+          }
+        }
+      } catch (err) {
+        console.warn("[HEALTH_CHECK] Error running checks:", err);
+      }
+    };
+
+    // Run health check every 5 seconds
+    const interval = setInterval(runHealthCheck, 5000);
+
+    // Listen for visibility changes (App coming to foreground)
+    const handleAppState = (nextState: string) => {
+      if (nextState === "active") {
+        console.log("[AppState] Game Room active. Reconnecting socket and fetching state...");
+        send("reconnect_match", { token, matchId });
+        runHealthCheck();
+      }
+    };
+    const sub = AppState.addEventListener("change", handleAppState);
+
+    // Initial check
+    runHealthCheck();
+
+    return () => {
+      clearInterval(interval);
+      sub.remove();
+    };
+  }, [isFocused, matchId, token, ensureConnected, emitAck, send, refreshProfile, safeReplace, stopSyncGuard]);
+
   // ---------- socket subscription ----------
   useEffect(() => {
     if (!matchId) return;
@@ -736,6 +806,13 @@ export default function GameRoom() {
               color: "#ff6b6b",
               icon: "alert-circle",
             });
+
+            if (m.toLowerCase().includes("invalid game") || m.toLowerCase().includes("game expired")) {
+              refreshProfile?.();
+              setTimeout(() => {
+                safeReplace("/home/gameplay");
+              }, 2000);
+            }
             break;
           }
 

@@ -10,7 +10,7 @@ import React, {
   useState,
 } from "react";
 import io, { Socket } from "socket.io-client";
-import { Platform } from "react-native";
+import { Platform, AppState, AppStateStatus } from "react-native";
 
 type Msg = { type: string; payload?: any };
 type Unsub = () => void;
@@ -18,6 +18,7 @@ type Unsub = () => void;
 type SocketApi = {
   ensureConnected: (token?: string) => Promise<boolean>;
   send: (event: string, payload?: any) => void;
+  emitAck: (event: string, payload: any, timeoutMs?: number) => Promise<{ ok: boolean; data?: any; error?: string }>;
   onMessage: (cb: (msg: Msg) => void) => Unsub;
   findMatch: (betMin: number, betMax?: number) => Promise<{ ok: boolean; data?: any; error?: string }>;
   cancelFind: () => Promise<{ ok: boolean }>;
@@ -309,6 +310,21 @@ export function SocketProvider({
     };
   }, []);
 
+  // ---------- Auto-reconnect when app enters foreground ----------
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      if (nextAppState === "active") {
+        console.log("[AppState] App entered foreground. Reconnecting socket...");
+        ensureConnected().catch((err) => console.error("[AppState] reconnect failed:", err));
+      }
+    };
+
+    const sub = AppState.addEventListener("change", handleAppStateChange);
+    return () => {
+      sub.remove();
+    };
+  }, [ensureConnected]);
+
   // ---------- Cleanup (CRITICAL: detach listeners to prevent stacking) ----------
   useEffect(() => {
     return () => {
@@ -349,6 +365,7 @@ export function SocketProvider({
     () => ({
       ensureConnected,
       send,
+      emitAck,
       onMessage,
       findMatch,
       cancelFind,
@@ -357,7 +374,7 @@ export function SocketProvider({
       setIsGameActive,
       lastError,
     }),
-    [ensureConnected, send, onMessage, findMatch, cancelFind, isSearching, isGameActive, lastError]
+    [ensureConnected, send, emitAck, onMessage, findMatch, cancelFind, isSearching, isGameActive, lastError]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
