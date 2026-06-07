@@ -1,6 +1,27 @@
 # AI Development Tracker
 
-## Recent Updates (June 2 — Performance Emergency Fixes)
+## Recent Updates (June 7 — Emergency Black Screen & Reconnection Fixes)
+
+### 32. Emergency Black Screen & Reconnection Resiliency Fixes
+- **Date:** 2026-06-07
+- **Feature:** Resolved the emergency black screen issue affecting all web users by disabling async code splitting on web builds, re-ordered Vercel caching rules, and implemented complete game state recovery flows.
+- **Details:**
+  - **Disabled Web asyncRoutes**: Changed `"asyncRoutes".web` to `false` in `app.json`, disabling lazy chunk loading for web builds. This forces all routes (including `gameplay.tsx`) to compile into the main static bundle, completely eliminating dynamic import failures (`AsyncRequireError`) and browser MIME type mismatches from Vercel's fallback routing.
+  - **Vercel Cache Routing**: Organized `vercel.json` header rules so static folders (`_expo/static` and `assets`) are processed first and set as immutable. Configured the catch-all fallback rule `/(.*)` with a negative lookahead pattern (`/((?!_expo|assets).*)`) so it only applies to dynamic HTML pages.
+  - **Room Reconnection & Health checks**: Added an active AppState listener in `socketContext.tsx` and `room.tsx` to force socket connection and room re-joining when the app resumes. Integrated a periodic 5s validation check that requests the live game state using the new `"get_game_state"` socket event.
+  - **Graceful Invalid Game Handling**: Configured the room to automatically refresh the user's wallet balance, display a friendly Toast, and redirect to the gameplay hub when a game is found to be invalid or expired (e.g. refunded).
+  - **Stale Socket Race Protection**: Added checks to ignore socket disconnect events if they originate from an old/stale socket after a player has successfully reconnected.
+  - **Admin Details Fix**: Fixed the `/admin/users/:id/360` query in `admin.js` which failed with missing DB columns by providing proper fallback expressions (`NULL as end_reason, false as forfeit`).
+  - **Avatar URL Correction**: Modified `fixAvatarUrl` in `authContext.tsx` to process port `9001` and localhost string replacements first to prevent broken port bindings.
+- **Files Changed:**
+  - `xoet-3/app.json`
+  - `xoet-3/vercel.json`
+  - `xoet-3/context/socketContext.tsx`
+  - `xoet-3/app/(authed)/game/room.tsx`
+  - `xoet-3/context/authContext.tsx`
+  - `xoet_backend/src/socket/game.js`
+  - `xoet_backend/src/routes/admin.js`
+  - `xoet_backend/src/server.js`
 
 ### 31. Performance Emergency Fixes — PageSpeed & Loading Optimization
 - **Date:** 2026-06-02
