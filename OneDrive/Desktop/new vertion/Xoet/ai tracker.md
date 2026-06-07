@@ -1,6 +1,95 @@
 # AI Development Tracker
 
-## Recent Updates (May 13 — Chapa 404 Root Cause, Mobile Lock, Diagnostics)
+## Recent Updates (June 2 — Performance Emergency Fixes)
+
+### 31. Performance Emergency Fixes — PageSpeed & Loading Optimization
+- **Date:** 2026-06-02
+- **Feature:** Implemented 11 performance emergency optimizations to resolve page loading bottlenecks, slow startup, render blocking resources, image asset overhead, and hydration errors.
+- **Details:** 
+  - **Lazy Loaded Music:** Removed the 2.5s auto-preload timer on boot and deferred loading `background.mp3` until the user unmutes or enters the game room.
+  - **Resource Preconnecting:** Added `<link rel="preconnect">` tags for the Railway backend and Sentry in `+html.tsx`.
+  - **Google Fonts & Icons Speed:** Preloaded and dynamically swapped Google Fonts stylesheets, and added `font-display: swap` to Ionicons to eliminate render blocking.
+  - **Asset Optimization:** Resized `adaptive-icon.png` to 98x98px using .NET graphics tools, saving 71KB of bandwidth.
+  - **SEO Metadata:** Configured title, shortName, and description fields in `app.json`.
+  - **Hydration Crash Fix (React #419):** Added client-only mounting states (`isMounted`) to prevent SSR engines from trying to resolve heavy lazy-loaded chart routes.
+  - **Deferred Styles:** Dynamic-imported list stylesheet in `AnimatedList.web.tsx` on mount.
+  - **Target-Specific Polyfills:** Configured Babel to target modern browsers Chrome/Safari, shedding legacy polyfills.
+  - **Silenced Unauthorized API Calls:** Added token validation checks to prevent unauthenticated payments methods calls on page start.
+- **Files Changed:**
+  - `xoet-3/context/BackgroundMusicProvider.tsx`
+  - `xoet-3/app/(authed)/game/room.tsx`
+  - `xoet-3/app/+html.tsx`
+  - `xoet-3/app.json`
+  - `xoet-3/app/(authed)/admin/index.tsx`
+  - `xoet-3/app/(authed)/admin/financial.tsx`
+  - `xoet-3/components/AnimatedList.web.tsx`
+  - `xoet-3/babel.config.js`
+  - `xoet-3/context/authContext.tsx`
+  - `xoet-3/assets/images/adaptive-icon.png`
+
+### 30. Production Readiness Audit — Missing Endpoints, Admin UI, PWA Download
+- **Date:** 2026-05-27
+- **Feature:** System-wide production testing uncovering 2 critical missing backend endpoints, admin UI labeling fixes, and PWA download enhancement.
+- **Details:** 
+  - **Critical Backend Fix:** Discovered that `GET /admin/leaderboard/giveaway-status` and `POST /admin/leaderboard/send-giveaway` endpoints were completely missing from `admin.js`, causing the Manual Console to show "No current standings data" and the "Send & Snapshot" button to silently fail with 404. Created both endpoints: `giveaway-status` returns current week's top-3 winners with phone numbers for the prize configuration UI; `send-giveaway` handles the full prize distribution flow (snapshot creation → `available_balance` crediting → bonus_logs → in-app notifications → SMS) with dry-run preview support.
+  - **Admin Leaderboard Clarity:** Relabeled "Live Champion Ticker Entries" section to "Home Page Ticker Manager" with a clear description that these entries control the scrolling home page ticker feed and do NOT affect leaderboard standings. Changed icon from `people` to `megaphone-outline`.
+  - **PWA App Download Fix:** Added `beforeinstallprompt` event listener to `_layout.tsx` desktop layout so the red "APP" download button triggers the browser's native PWA install prompt instead of directly downloading an APK file. Falls back to APK URL only when PWA is unavailable.
+  - **Giveaway Payload Fix:** Added missing `wins` field to the frontend giveaway payload so backend can properly record win counts in snapshot entries.
+  - **Error Handling:** Added proper error response handling in `sendGiveawaySMS` with user-facing error alerts, and auto-refresh of standings/giveaway data after successful distribution.
+- **Files Changed:** 
+  - `xoet_backend/src/routes/admin.js`
+  - `xoet-3/app/(authed)/admin/leaderboard.tsx`
+  - `xoet-3/app/(authed)/_layout.tsx`
+
+### 29. Refined Promotion Popup Focus, Priority Live Ticker, and Redesigned Manual Console
+- **Date:** 2026-05-27
+- **Feature:** Restructured promo popups, wired real functional scrolling tickers, and professionalized the admin leaderboard manual console.
+- **Details:** 
+  - **Promo Popup Tuning:** Relocated `fetchActivePromo` from `useFocusEffect` to a mount-only `useEffect` in `gameplay.tsx` and created a module-level session variable `hasShownPromoThisSession` (which resets on `!token` logout) to guarantee the promotion popup is displayed strictly once per session on web platforms, fully resolving the issue where navigating back to the home page displayed it every time on web.
+  - **Priority Live Ticker & Real-time Update:** Refactored the `/leaderboard/ticker` backend route to prioritize real winner data first and order by `g.finished_at DESC` so the absolute most recently completed games are shown first in real-time. Configured `gameplay.tsx` to poll `/leaderboard/ticker` every 30 seconds and update on page focus so wins (e.g. Bini winning 18 Birr just now) are streamed instantly on the ticker rather than showing stale historical data.
+  - **Manual Console & Wallet Payout Integration:** Overhauled the "Manual Console & Week Snapshot" section in the admin panel to look highly professional. Added click-to-adjust suggestions (`+50`, `+100`, `Reset`) under prize inputs, and clickable text variable insertion badges (`{username}`, `{rank}`, `{prize}`) to append tags directly into the SMS template. Reworked the `/leaderboard/send-giveaway` backend route to dynamically disburse/credit winner wallets, create snapshot approved records, write logs, send GeezSMS texts, and trigger celebrations in-app notifications in production, fully resolving the manual console payout issue. Adjusted the "Send & Snapshot" action button to use a dark label text on the bright cyan background for premium readability.
+- **Files Changed:** 
+  - `xoet-3/app/(authed)/home/gameplay.tsx`
+  - `xoet-3/app/(authed)/admin/leaderboard.tsx`
+  - `xoet_backend/src/routes/leaderboard.js`
+  - `xoet_backend/src/routes/admin.js`
+
+### 28. Detailed Weekly Leaderboard Award Notifications & Styling
+- **Date:** 2026-05-25
+- **Feature:** Unified all leaderboard prize approval paths to generate consistent metadata and styled the UI.
+- **Details:** 
+  - Updated both individual and bulk manual admin approval routes in the backend (`admin.js`) to generate detailed `leaderboard_award` notifications containing weekly bounds, wins count, and prize amount in the message and meta object, matching the automated cron behavior.
+  - Implemented a custom celebratory card rendering in `NotificationsPopover.tsx` with a gold border, trophy icon, calendar period display, and distinct neon badge chips for wins and ETB prizes.
+- **Files Changed:** `xoet_backend/src/routes/admin.js`, `xoet-3/components/NotificationsPopover.tsx`
+
+### 27. Premium XO Illustration Background Grid Cards
+- **Date:** 2026-05-24
+- **Feature:** Added a modern, transparent geometric Tic-Tac-Toe grid with glowing borders and floating X/O elements behind the main mobile balance card (`m_balanceCard`). Moved the refresh button to the corner to look much cleaner.
+- **Files Changed:** `xoet-3/app/(authed)/home/gameplay.tsx`
+
+### 26. Room Betting Tiers Expansion
+- **Date:** 2026-05-24
+- **Feature:** Increased bet flexibility for higher-tier rooms.
+- **Details:** 
+  - Room 2 limits expanded to `100-1000`, adding a `500-1000` tier.
+  - Room 3 completely reworked as a High Roller room with tiers: `1000-2500`, `2500-5000`, `5000-7500`, and `10000`.
+- **Files Changed:** `xoet-3/app/(authed)/home/gameplay.tsx`
+
+### 25. Automated Weekly Leaderboard & Admin Checkmate Approvals
+- **Date:** 2026-05-24
+- **Feature:** Fully automated weekly leaderboard prize distribution and snapshot tracking.
+- **Details:** 
+  - Created a cron script (`weeklyLeaderboard.js`) that fires at midnight every Sunday. It grabs the top 3 users of the week, creates a snapshot (`leaderboard_snapshots`), and if `autoApprove` is enabled globally, automatically deposits the prize into their `available_balance`, logs a `bonus_logs` entry, and sends a custom congratulations SMS.
+  - Admin Panel updated with an "Approve All Pending" (Checkmate) button to handle payouts in manual mode. 
+  - Resolved bugs where the `verifyPendingPayouts` conflicted with SMS verification.
+  - Corrected semantic UI icons in notification and refund popups, and fixed animated unread dots.
+  - Fixed Admin summary dashboard showing blank stats for "Today/Week/Month" entries.
+- **Files Changed:** 
+  - `xoet_backend/src/cron/weeklyLeaderboard.js`, `xoet_backend/src/cron.js`
+  - `xoet_backend/src/routes/admin.js`, `xoet_backend/migration_001_admin.sql`
+  - `xoet-3/app/(authed)/admin/leaderboard.tsx`, `xoet-3/app/(authed)/home/gameplay.tsx`
+
+## Previous Updates (May 13 — Chapa 404 Root Cause, Mobile Lock, Diagnostics)
 
 ### 19. Fixed Chapa 404 Retry — Root Cause Bug (CRITICAL)
 - **Date:** 2026-05-13
@@ -190,3 +279,21 @@
   - Implemented a fullscreen glassmorphic overlay using `expo-linear-gradient` and neon styling.
   - The new UI features a glowing wrench icon, frosted glass background, and clear typography matching the provided modern UI references.
 - **Files Changed:** `xoet-3/app/(auth)/login.tsx`
+
+### 14. Weekly Leaderboard UI, Notifications Badge, and Glassmorphic Visual Polish
+- **Date:** 2026-05-24
+- **Issue:** 
+  - The notification bell had a static red dot instead of an active unread count badge.
+  - The company logo on mobile was text-based "XO" rather than the branding icon.
+  - The balance card Tic-Tac-Toe grid background was overlaid flatly on the glass effect rather than appearing diffused behind it.
+  - The live winner ticker combined real and fake data shuffles rather than prioritizing real data first.
+  - The Admin Leaderboard lacked a countdown timer to next Sunday midnight, did not group past snapshots by week, and showed manual override options even when `autoApprove` was enabled.
+- **Fix:**
+  - Exposed `unreadCount` via callback in `NotificationsPopover.tsx` by introducing a mount hook calling `/user/unread-count`. Wired this up in `_layout.tsx` and `gameplay.tsx` to display active count badges with glowing red styles.
+  - Replaced mobile "XO" text container with an `<Image>` referencing `adaptive-icon.png` in `gameplay.tsx`.
+  - Moved the Tic-Tac-Toe card illustration before `BlurView` in `gameplay.tsx` and enhanced grid lines with glowing purple/cyan color styles for glassmorphism depth.
+  - Corrected backend ticker logic in `xoet_backend/src/routes/leaderboard.js` to prioritize real winner data and only fall back to shuffled fake ticker entries when no real data is found.
+  - Integrated `timeLeft` countdown state and intervals in `admin/leaderboard.tsx` calculating time remaining until Sunday 23:59:59.
+  - Grouped past snapshots by week starting/ending range in `admin/leaderboard.tsx` using a typescript reducer, sorting rows by rank.
+  - Conditionally hid manual overrides (bulk approve, individual approve, snapshot create button) when `autoApprove` is toggled on, displaying an "Automatic Distribution Active" status card instead.
+- **Files Changed:** `xoet-3/components/NotificationsPopover.tsx`, `xoet-3/app/(authed)/_layout.tsx`, `xoet-3/app/(authed)/home/gameplay.tsx`, `xoet-3/app/(authed)/admin/leaderboard.tsx`, `xoet_backend/src/routes/leaderboard.js`
