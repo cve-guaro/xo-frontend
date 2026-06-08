@@ -165,9 +165,29 @@ function RootLayout() {
 
     if (Platform.OS === 'web' && 'serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/service-worker.js').catch((err) => {
-          console.error('ServiceWorker registration failed: ', err);
-        });
+        navigator.serviceWorker.register('/service-worker.js', { updateViaCache: 'none' })
+          .then((registration) => {
+            // Force check for updates immediately
+            registration.update().catch(() => {});
+            // When a new SW is waiting, activate it immediately
+            if (registration.waiting) {
+              registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+            }
+            registration.addEventListener('updatefound', () => {
+              const newWorker = registration.installing;
+              if (newWorker) {
+                newWorker.addEventListener('statechange', () => {
+                  if (newWorker.state === 'activated') {
+                    // New SW activated — reload to get fresh assets
+                    window.location.reload();
+                  }
+                });
+              }
+            });
+          })
+          .catch((err) => {
+            console.error('ServiceWorker registration failed: ', err);
+          });
       });
     }
   }, []);
