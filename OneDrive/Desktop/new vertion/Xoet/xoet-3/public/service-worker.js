@@ -1,6 +1,6 @@
 // XO ET — Service Worker (PWA offline support + caching)
-// v6: Network-first for JS/CSS bundles to prevent serving stale code.
-const CACHE_NAME = "xoet-v6";
+// v7: Prevent TypeError by ensuring catch handlers resolve to a valid Response.
+const CACHE_NAME = "xoet-v7";
 const STATIC_ASSETS = [
   "/",
   "/manifest.json",
@@ -81,7 +81,10 @@ self.addEventListener("fetch", (event) => {
           return response;
         })
         .catch(() => {
-          return caches.match(event.request);
+          return caches.match(event.request).then((cached) => {
+            if (cached) return cached;
+            return new Response("Asset not available offline", { status: 404, statusText: "Offline" });
+          });
         })
     );
     return;
@@ -98,7 +101,9 @@ self.addEventListener("fetch", (event) => {
               cache.put(event.request, response.clone());
             }
             return response;
-          }).catch(() => cached);
+          }).catch(() => {
+            return new Response("Asset not available offline", { status: 404, statusText: "Offline" });
+          });
         })
       )
     );
@@ -107,6 +112,11 @@ self.addEventListener("fetch", (event) => {
 
   // Default: network-first
   event.respondWith(
-    fetch(event.request).catch(() => caches.match(event.request))
+    fetch(event.request).catch(() => {
+      return caches.match(event.request).then((cached) => {
+        if (cached) return cached;
+        return new Response("Not found (offline)", { status: 404, statusText: "Offline" });
+      });
+    })
   );
 });

@@ -111,7 +111,7 @@ export function SocketProvider({
 
     s = io(URL, {
       autoConnect: false,
-      transports: ["websocket", "polling"], // Force both for stability across Railway proxies
+      transports: ["polling", "websocket"], // Start with polling and upgrade to websocket for robust connection upgrade without console warnings
       secure: !URL.includes('localhost'),
       // IMPORTANT: do NOT forceNew (it can churn engines on remount)
       forceNew: false,
