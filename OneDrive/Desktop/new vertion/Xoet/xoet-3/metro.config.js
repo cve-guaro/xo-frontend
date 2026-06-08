@@ -4,7 +4,7 @@ const { getDefaultConfig } = require('expo/metro-config');
 /** @type {import('expo/metro-config').MetroConfig} */
 const config = getDefaultConfig(__dirname);
 
-// Enforce UTF-8 serialization and prevent minifier from mangling multi-byte Unicode strings
+// Enforce ASCII-only serialization to prevent encoding mismatches in browsers (Mojibake)
 if (config.transformer) {
   config.transformer.minifierConfig = {
     ...config.transformer.minifierConfig,
@@ -14,7 +14,7 @@ if (config.transformer) {
     },
     output: {
       ...config.transformer.minifierConfig?.output,
-      ascii_only: false, // Ensure raw UTF-8 characters are preserved without ASCII-only escape constraints
+      ascii_only: true, // Escape all non-ASCII characters to \uXXXX sequences to avoid charset mismatch in browsers
     },
   };
 }
