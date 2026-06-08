@@ -1,0 +1,20 @@
+{
+  "worktrees": {
+    "wt-1776947192386-1": {
+      "branch": "fancy-lace",
+      "path": "c:\\Users\\ThinkPad 14\\OneDrive\\Desktop\\new vertion\\Xoet\\.kilo\\worktrees\\fancy-lace",
+      "parentBranch": "main",
+      "createdAt": "2026-04-23T12:26:32.386Z",
+      "remote": "origin"
+    }
+  },
+  "sessions": {
+    "ses_245b1982effeY3ktfqHaPHUtbD": {
+      "worktreeId": "wt-1776947192386-1",
+      "createdAt": "2026-04-23T12:26:45.804Z"
+    }
+  },
+  "worktreeOrder": [
+    "wt-1776947192386-1"
+  ]
+}

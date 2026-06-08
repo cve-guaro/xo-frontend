@@ -1,0 +1,14 @@
+room.tsx:72: const { user, token, language, switchLanguage, t, refreshProfile, fixUrl } = useAuth();
+room.tsx:107: const languageRef = useRef(language);
+room.tsx:123: languageRef.current = language;
+room.tsx:125: }, [language, t]);
+room.tsx:885: const meName = user?.username || (language === "en" ? "You" : "እርስዎ");
+room.tsx:887: const oppName = opponent || (language === "en" ? "Opponent" : "ተጫዋች");
+room.tsx:1049: <Text style={styles.languageText}>{language === "en" ? "EN" : "አማ"}</Text>
+room.tsx:1061: language={language}
+room.tsx:1078: {language === "en" ? "Draw — next round…" : "ተመሳሳይ — ቀጣዩ ሙከራ…"}
+room.tsx:1118: language,
+room.tsx:1124: language: string;
+room.tsx:1141: <Text style={styles.gameStartTitle}>{language === "en" ? "Game Started!" : "ጨዋታው ጀመር!"}</Text>
+room.tsx:1142: <Text style={styles.gameStartSubtitle}>{language === "en" ? "Good luck! 🎯" : "መልካም ዕድል! 🎯"}</Text>
+room.tsx:1282: {isMe ? `${language === 'en' ? 'YOU' : 'እርስዎ'} (${name})` : name}
