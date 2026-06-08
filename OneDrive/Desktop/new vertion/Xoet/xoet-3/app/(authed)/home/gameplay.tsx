@@ -43,7 +43,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useBackgroundMusic } from "../../../context/BackgroundMusicProvider";
 import { useToast } from "../../../context/ToastContext";
 
-// Ã¢â€â‚¬Ã¢â€â‚¬ Extracted components (Stage 3 refactor) Ã¢â€â‚¬Ã¢â€â‚¬
+// ── Extracted components (Stage 3 refactor) ──
 import { ROOMS, DEMO_BOARD, BOARD_SIZE } from "../../../components/game/gameplayConstants";
 import type { RoomConfig, SheetStep } from "../../../components/game/gameplayConstants";
 import { HeaderPill, InfoPill } from "../../../components/game/HeaderPill";
@@ -106,8 +106,8 @@ export default function Landing() {
             const amt = Number(item.amount) || 0;
             let emoji = '⚡';
             if (amt >= 500) emoji = '👑';
-            else if (amt >= 200) emoji = 'Ã°Å¸â€Â¥';
-            else if (amt >= 100) emoji = 'Ã°Å¸Ââ€ ';
+  else if (amt >= 200) emoji = '🔥';
+  else if (amt >= 100) emoji = '🏆';
             return `${emoji} ${item.username.toUpperCase()} WON ${amt} Birr`;
           });
           setTickerList(formatted);
@@ -367,8 +367,8 @@ export default function Landing() {
         const amt = Number(payload.amount) || 0;
         let emoji = '⚡';
         if (amt >= 500) emoji = '👑';
-        else if (amt >= 200) emoji = 'Ã°Å¸â€Â¥';
-        else if (amt >= 100) emoji = 'Ã°Å¸Ââ€ ';
+  else if (amt >= 200) emoji = '🔥';
+  else if (amt >= 100) emoji = '🏆';
 
         setCurrentWinAnnouncement(`${emoji} ${username} WON ${amt} Birr`);
       }
@@ -644,7 +644,7 @@ export default function Landing() {
 
   const renderPodiumSpot = useCallback((spot: { rank: number; prize: number; color: string; barH: number; label: string }) => {
     const userAtRank = weeklyLeaderboard.find(u => u.rank === spot.rank);
-    const username = userAtRank ? userAtRank.username : "Ã¢â‚¬â€";
+  const username = userAtRank ? userAtRank.username : "—";
     const isFirst = spot.rank === 1;
     const circleSize = isFirst ? 54 : 42;
 
@@ -757,7 +757,7 @@ export default function Landing() {
               {isEN ? "You" : "እርሶ"}
             </Text>
             <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: '600', marginTop: 2 }}>
-              {isEN ? "All players" : "Ã¡Ë†ÂÃ¡Ë†â€°Ã¡Ë†Â Ã¡â€°Â°Ã¡Å’Â«Ã¡â€¹â€¹Ã¡â€°Â¾Ã¡â€°Â½"}
+              {isEN ? "All players" : "ሁሉም ተጫዋቾች"}
             </Text>
           </View>
         </View>
@@ -832,17 +832,17 @@ export default function Landing() {
   const winRate = useMemo(() => (gamesPlayed ? Math.round((wins / gamesPlayed) * 100) : 0), [wins, gamesPlayed]);
   const statsLabel = useMemo(() => {
     const wr = Math.min(Math.max(winRate, 0), 100);
-    return isEN ? `${wins} wins • ${wr}% win rate` : `${wins} ድሎች Ã¢â‚¬Â¢ ${wr}% Ã¡â€¹Â¨Ã¡â€¹ÂµÃ¡Ë†Â Ã¡Ë†ËœÃ¡Å’Â Ã¡Å â€¢`;
+    return isEN ? `${wins} wins • ${wr}% win rate` : `${wins} ድሎች • ${wr}% የማሸነፍ መጠን`;
   }, [wins, winRate, isEN]);
 
   const rank = useMemo(() => {
-    if (winRate >= 70 || wins >= 200) return isEN ? "Platinum" : "Ã¡Ââ€¢Ã¡Ë†â€¹Ã¡â€°Â²Ã¡Å â€™Ã¡Ë†Â";
+    if (winRate >= 70 || wins >= 200) return isEN ? "Platinum" : "ፕላቲነም";
     if (winRate >= 50 || wins >= 100) return isEN ? "Gold" : "ወርቅ";
     return isEN ? "Silver" : "ብር";
   }, [winRate, wins, isEN]);
 
   const rankMeta = useMemo(() => {
-    const isPlat = rank.includes("Platinum") || rank.includes("Ã¡Ââ€¢Ã¡Ë†â€¹Ã¡â€°Â²Ã¡Å â€™Ã¡Ë†Â");
+  const isPlat = rank.includes("Platinum") || rank.includes("ፕላቲነም");
     const isGold = rank.includes("Gold") || rank.includes("ወርቅ");
     if (isPlat) return { icon: "diamond-outline" as const, label: rank, tone: "platinum" as const };
     if (isGold) return { icon: "trophy-outline" as const, label: rank, tone: "gold" as const };
@@ -857,9 +857,9 @@ export default function Landing() {
     await playClick();
     try {
       await refreshProfile();
-      toast.success(isEN ? "Balance Updated" : "Ã¡â€°â‚¬Ã¡Ë†Âª Ã¡Ë†â€šÃ¡Ë†Â³Ã¡â€°Â¥ Ã¡â€°Â°Ã¡â€¹ËœÃ¡Ë†ÂÃ¡Å â€”Ã¡Ë†Â", undefined, 1500);
+      toast.success(isEN ? "Balance Updated" : "ሂሳብዎ ታድሷል", undefined, 1500);
     } catch (e) {
-      toast.error(isEN ? "Refresh Failed" : "Ã¡Ë†â€ºÃ¡â€¹ËœÃ¡Ë†ËœÃ¡Å â€¢ Ã¡Å Â Ã¡Ë†ÂÃ¡â€°Â°Ã¡â€°Â»Ã¡Ë†Ë†Ã¡Ë†Â", isEN ? "Could not update your balance." : "Ã¡â€°â‚¬Ã¡Ë†Âª Ã¡Ë†â€šÃ¡Ë†Â³Ã¡â€°Â¥Ã¡â€¹Å½Ã¡Å â€¢ Ã¡Ë†â€ºÃ¡â€¹ËœÃ¡Ë†ËœÃ¡Å â€¢ Ã¡Å Â Ã¡Ë†ÂÃ¡â€°Â°Ã¡â€°Â»Ã¡Ë†Ë†Ã¡Ë†ÂÃ¡ÂÂ¢");
+      toast.error(isEN ? "Refresh Failed" : "ማደስ አልተቻለም", isEN ? "Could not update your balance." : "የመለያ ሂሳብዎን ማደስ አልተቻለም።");
       console.log("Error refreshing profile:", e);
     }
   }, [playClick, refreshProfile]);
@@ -962,7 +962,7 @@ export default function Landing() {
       if (Number.isFinite(balance) && balance < min) {
         haptics.warning();
         toast.warning(
-          isEN ? "Insufficient Balance" : "Ã¡â€°Â Ã¡â€°â€š Ã¡Ë†â€šÃ¡Ë†Â³Ã¡â€°Â¥ Ã¡â€¹Â¨Ã¡Ë†Ë†Ã¡Ë†Â",
+      isEN ? "Insufficient Balance" : "በቂ ሂሳብ የሎትም",
           isEN ? `You need at least ETB ${min} to play. Deposit more funds.` : `ለመጫወት ቢያንስ ETB ${min} ያስፈልግዎታል ተጨማሪ ገንዘብ ያስገቡ`
         );
         return;
@@ -1075,7 +1075,7 @@ export default function Landing() {
     );
   }
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬ Mobile return Ã¢â€â‚¬Ã¢â€â‚¬
+      // ── Mobile return ──
   return (
     <View style={styles.bg}>
       <LinearGradient colors={["#0A090E", "#08070B", "#060508"]} style={StyleSheet.absoluteFill} />
@@ -1307,7 +1307,7 @@ export default function Landing() {
             <MobileQuickTile
               icon="arrow-up"
               iconColor="#eab308"
-              title={isEN ? "Withdraw" : "Ã¡Ë†â€ºÃ¡â€¹ÂÃ¡Å’Â«"}
+              title={isEN ? "Withdraw" : "ወጪ ማውጫ"}
               subtitle="CASH OUT"
               onPress={() => Platform.OS === 'web' ? setWithdrawVisible(true) : router.push("/(authed)/withdraw")}
             />
@@ -1315,7 +1315,7 @@ export default function Landing() {
             <MobileQuickTile
               icon="swap-horizontal"
               iconColor="#00daf3"
-              title={isEN ? "Transactions" : "Ã¡Å Â­Ã¡ÂÂÃ¡â€¹Â«Ã¡â€¹Å½Ã¡â€°Â½"}
+              title={isEN ? "Transactions" : "ግብይቶች"}
               subtitle="TRANSFERS"
               onPress={() => router.push("/(authed)/home/transactions")}
             />
@@ -1348,10 +1348,10 @@ export default function Landing() {
                 </View>
                 <View>
                   <Text style={{ color: '#fff', fontSize: 15, fontWeight: '900', letterSpacing: 0.3 }}>
-                    {isEN ? "GAMEPLAY HUB" : "Ã¡â€¹Â¨Ã¡Å’Â¨Ã¡â€¹â€¹Ã¡â€°Â³ Ã¡Ë†â€ºÃ¡â€¹â€¢Ã¡Å Â¨Ã¡Ë†Â"}
+                    {isEN ? "GAMEPLAY HUB" : "የጨዋታ ማዕከል"}
                   </Text>
                   <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '600' }}>
-                    {isEN ? "OUTPACE. OUTSMART. WIN!" : "Ã¡ÂÂÃ¡Å’Â¥Ã¡Å ÂÃ¡â€°ÂµÃ¡ÂÂ¢ Ã¡â€°Â¥Ã¡Ë†ÂÃ¡Ë†Æ’Ã¡â€°ÂµÃ¡ÂÂ¢ Ã¡â€¹ÂµÃ¡Ë†Â!"}
+                    {isEN ? "OUTPACE. OUTSMART. WIN!" : "ይቅደሙ። ብልህ ይሁኑ። ያሸንፉ!"}
                   </Text>
                 </View>
               </View>
@@ -1370,7 +1370,7 @@ export default function Landing() {
               }}>
                 <Ionicons name="trophy-outline" size={10} color="rgba(255,255,255,0.8)" />
                 <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 10, fontWeight: '900', letterSpacing: 0.5 }}>
-                  {isEN ? "Weekly" : "Ã¡Ë†Â³Ã¡Ë†ÂÃ¡Å â€¢Ã¡â€°Â³Ã¡â€¹Å "}
+              {isEN ? "Weekly" : "ሳምንታዊ"}
                 </Text>
               </View>
             </View>
@@ -1408,7 +1408,7 @@ export default function Landing() {
               >
                 <Ionicons name={isBanned ? "lock-closed" : "flash-outline"} size={20} color={isBanned ? "#fff" : "#000"} />
                 <Text style={[styles.playText, { color: isBanned ? '#fff' : '#000' }]}>
-                  {isBanned ? (isEN ? 'SUSPENDED' : 'Ã¡â€°Â³Ã¡Å’ÂÃ¡â€¹Â·Ã¡Ë†Â') : t("play_now")}
+                {isBanned ? (isEN ? 'SUSPENDED' : 'ታግዷል') : t("play_now")}
                 </Text>
               </LinearGradient>
             </WebPressable>
@@ -1445,9 +1445,9 @@ export default function Landing() {
 
             {/* Rules and info row */}
             <View style={styles.infoRow}>
-              <InfoPill icon="shield-checkmark-outline" text={isEN ? "Anti-cheat" : "Ã¡Ââ‚¬Ã¡Ë†Â¨-Ã¡Ë†â€ºÃ¡â€°Â³Ã¡Ë†Ë†Ã¡Ë†Â"} />
-              <InfoPill icon="timer-outline" text={isEN ? "Fast rounds" : "Ã¡ÂË†Ã¡Å’Â£Ã¡Å â€¢ Ã¡â€¹â„¢Ã¡Ë†Â­"} />
-              <InfoPill icon="cash-outline" text={isEN ? "Instant pay" : "Ã¡ÂË†Ã¡Å’Â£Ã¡Å â€¢ Ã¡Å Â­Ã¡ÂÂÃ¡â€¹Â«"} />
+              <InfoPill icon="shield-checkmark-outline" text={isEN ? "Anti-cheat" : "ጸረ-ማጭበርበር"} />
+              <InfoPill icon="timer-outline" text={isEN ? "Fast rounds" : "ፈጣን ዙሮች"} />
+              <InfoPill icon="cash-outline" text={isEN ? "Instant pay" : "ፈጣን ክፍያ"} />
               <TouchableOpacity onPress={() => setRulesVisible(true)} style={{ flex: 1 }}>
                 <InfoPill icon="book-outline" text={isEN ? "Rules" : "ደንቦች"} />
               </TouchableOpacity>
@@ -2577,7 +2577,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Desktop Hub Styles Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+// ─── Desktop Hub Styles ───
   desktopHubRoot: { flex: 1, backgroundColor: 'transparent' },
   hubDesktopGrid: { flexDirection: 'row', gap: 24, maxWidth: 1240, alignSelf: 'center', width: '100%', paddingHorizontal: 24, marginTop: 24 },
   desktopMainCol: { flex: 8, gap: 16 },

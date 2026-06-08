@@ -22,9 +22,21 @@ const MobileQuickTile = ({ icon, iconColor, title, subtitle, onPress }: { icon: 
     }}
   >
     <Ionicons name={icon as any} size={28} color={iconColor} />
-    <View style={{ alignItems: 'center' }}>
-      <Text style={{ color: '#fff', fontSize: 14, fontWeight: '900', textAlign: 'center' }}>{title}</Text>
-      <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9, fontWeight: '800', textTransform: 'uppercase', marginTop: 4, letterSpacing: 0.5 }}>{subtitle}</Text>
+    <View style={{ alignItems: 'center', width: '100%' }}>
+      <Text
+        style={{ color: '#fff', fontSize: 13, fontWeight: '900', textAlign: 'center' }}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+      >
+        {title}
+      </Text>
+      <Text
+        style={{ color: 'rgba(255,255,255,0.4)', fontSize: 8.5, fontWeight: '800', textTransform: 'uppercase', marginTop: 4, letterSpacing: 0.5 }}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+      >
+        {subtitle}
+      </Text>
     </View>
   </TouchableOpacity>
 );
