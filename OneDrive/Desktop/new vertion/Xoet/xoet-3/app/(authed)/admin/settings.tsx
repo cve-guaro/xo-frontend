@@ -220,6 +220,49 @@ export default function AdminSettings() {
   useEffect(() => { fetchConfig(); }, [fetchConfig]);
 
   const handleSave = async () => {
+    // Client-side validations
+    if (bonusActive) {
+      const parsed = parseFloat(bonusAmount);
+      if (isNaN(parsed) || parsed < 0) {
+        showAlert('Validation Error', 'Welcome Bonus Amount must be a positive number or 0.');
+        return;
+      }
+    }
+    if (referralEnabled) {
+      const parsed = parseFloat(referralBonusAmount);
+      if (isNaN(parsed) || parsed < 0) {
+        showAlert('Validation Error', 'Referral Bonus Amount must be a positive number or 0.');
+        return;
+      }
+    }
+    const parsedMinWithdraw = parseFloat(minWithdrawal);
+    if (isNaN(parsedMinWithdraw) || parsedMinWithdraw <= 0) {
+      showAlert('Validation Error', 'Minimum Withdrawal must be a positive number.');
+      return;
+    }
+    const parsedMinDeposit = parseFloat(minDeposit);
+    if (isNaN(parsedMinDeposit) || parsedMinDeposit <= 0) {
+      showAlert('Validation Error', 'Minimum Deposit must be a positive number.');
+      return;
+    }
+    if (manualApproval) {
+      const parsedThreshold = parseFloat(autoPayoutThreshold);
+      if (isNaN(parsedThreshold) || parsedThreshold <= 0) {
+        showAlert('Validation Error', 'Auto-Payout Threshold must be a positive number.');
+        return;
+      }
+      const parsedMaxWithdrawAmount = parseFloat(maxWithdrawAmount);
+      if (isNaN(parsedMaxWithdrawAmount) || parsedMaxWithdrawAmount <= 0) {
+        showAlert('Validation Error', 'Maximum Withdrawal Hard Limit must be a positive number.');
+        return;
+      }
+      const parsedMaxWithdrawCount = parseInt(maxWithdrawCount, 10);
+      if (isNaN(parsedMaxWithdrawCount) || parsedMaxWithdrawCount <= 0) {
+        showAlert('Validation Error', 'Daily Transaction Count Limit must be a positive integer.');
+        return;
+      }
+    }
+
     try {
       setSaving(true);
       const updates = { 
@@ -376,6 +419,25 @@ export default function AdminSettings() {
               />
             </View>
           </View>
+
+          {bonusActive && (
+            <View style={[styles.actionRow, isMobile && { flexDirection: 'column', alignItems: 'flex-start', gap: 16 }, { borderTopWidth: 1, borderTopColor: 'rgba(39, 39, 42, 0.1)', paddingTop: 20 }]}>
+              <View style={[{ flex: isMobile ? 0 : 1, paddingRight: isMobile ? 0 : 20 }, isMobile && { paddingBottom: 8 }]}>
+                <Text style={styles.settingName}>Welcome Bonus Amount</Text>
+                <Text style={styles.settingDesc}>Welcome bonus amount in ETB credited to new users upon registration.</Text>
+              </View>
+              <View style={[styles.inputWrap, isMobile && { width: '100%' as any }]}>
+                <Text style={styles.currencyPrefix}>ETB</Text>
+                <TextInput
+                  style={styles.inputField}
+                  value={bonusAmount}
+                  onChangeText={setBonusAmount}
+                  keyboardType="numeric"
+                  returnKeyType="done"
+                />
+              </View>
+            </View>
+          )}
         </View>
 
         {/* Referral System Card */}

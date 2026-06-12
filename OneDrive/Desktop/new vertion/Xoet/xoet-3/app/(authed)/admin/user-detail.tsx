@@ -51,6 +51,8 @@ export default function UserDetail() {
   const [gameDetailModal, setGameDetailModal] = useState<any>(null);
   const [txDetailModal, setTxDetailModal] = useState<any>(null);
   const [boardStep, setBoardStep] = useState(0);
+  const [gameFilter, setGameFilter] = useState<'all'|'wins'|'losses'>('all');
+  const [fetchingMovesFor, setFetchingMovesFor] = useState<string | null>(null);
   const PAGE_SIZE = 20;
   const [confirmAction, setConfirmAction] = useState<'ban' | 'delete' | null>(null);
 
@@ -70,6 +72,25 @@ export default function UserDetail() {
     } catch (e) { console.error('[user-detail] fetch error:', e); }
     finally { setLoading(false); }
   }, [userId, token]);
+
+  const handleOpenGameReplay = async (g: any) => {
+    setFetchingMovesFor(g.id);
+    try {
+      const res = await fetch(`${API_URL}/admin/games/${g.id}/moves`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setGameDetailModal({ ...g, moves: json.moves || [] });
+      } else {
+        Alert.alert('Error', 'Failed to fetch moves');
+      }
+    } catch (e) {
+      Alert.alert('Error', 'Failed to fetch moves');
+    } finally {
+      setFetchingMovesFor(null);
+    }
+  };
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -449,12 +470,24 @@ export default function UserDetail() {
 
       {/* Game History Table */}
       {(() => {
-        const totalGP = Math.ceil((games || []).length / PAGE_SIZE);
-        const gPaginated = (games || []).slice(gamePage * PAGE_SIZE, (gamePage + 1) * PAGE_SIZE);
+        const fGames = (games || []).filter((g: any) => {
+          if (gameFilter === 'wins') return g.winner === userId;
+          if (gameFilter === 'losses') return g.winner !== userId;
+          return true;
+        });
+        const totalGP = Math.ceil(fGames.length / PAGE_SIZE);
+        const gPaginated = fGames.slice(gamePage * PAGE_SIZE, (gamePage + 1) * PAGE_SIZE);
         return (
       <View style={[s.tableCard, { marginTop: 16 }]}>
-        <View style={s.tableHeader}>
-          <Text style={s.tableTitle}>Game History ({(games || []).length})</Text>
+        <View style={[s.tableHeader, isMobile && { flexDirection: 'column', alignItems: 'flex-start', gap: 10 }]}>
+          <Text style={s.tableTitle}>Game History ({fGames.length})</Text>
+          <View style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: 4 }}>
+            {(['all', 'wins', 'losses'] as const).map(f => (
+              <TouchableOpacity key={f} onPress={() => { setGameFilter(f); setGamePage(0); }} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: gameFilter === f ? 'rgba(255,255,255,0.1)' : 'transparent' }}>
+                <Text style={{ color: gameFilter === f ? '#fff' : '#64748b', fontSize: 10, fontWeight: '800', textTransform: 'uppercase' }}>{f}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
         {!isMobile && (
         <View style={s.thead}>
@@ -475,7 +508,7 @@ export default function UserDetail() {
           const reason = g.end_reason || (g.forfeit ? 'Opponent Forfeited' : won ? 'Outplayed' : 'Time Out / Disconnected');
           if (isMobile) {
             return (
-              <TouchableOpacity key={g.id || i} onPress={() => setGameDetailModal(g)} style={{ padding: 14, borderBottomWidth: 1, borderColor: 'rgba(255,255,255,0.04)' }}>
+              <TouchableOpacity key={g.id || i} onPress={() => handleOpenGameReplay(g)} disabled={fetchingMovesFor === g.id} style={{ padding: 14, borderBottomWidth: 1, borderColor: 'rgba(255,255,255,0.04)' }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
                   <Text style={{ color: '#64748b', fontSize: 10 }}>{g.created_at ? new Date(g.created_at).toLocaleDateString('sv-SE') : '\u2014'}</Text>
                   <View style={[s.statusPill, { borderColor: won ? '#34d39940' : '#f8717140' }]}>
@@ -499,8 +532,8 @@ export default function UserDetail() {
                   <Text style={{ color: won ? '#34d399' : '#f87171', fontSize: 9, fontWeight: '800' }}>{won ? 'WON' : 'LOST'}</Text>
                 </View>
               </View>
-              <TouchableOpacity style={{ flex: 0.6, paddingVertical: 12 }} onPress={() => setGameDetailModal(g)}>
-                <Ionicons name="eye-outline" size={16} color="#00e5ff" />
+              <TouchableOpacity style={{ flex: 0.6, paddingVertical: 12 }} onPress={() => handleOpenGameReplay(g)} disabled={fetchingMovesFor === g.id}>
+                {fetchingMovesFor === g.id ? <ActivityIndicator size="small" color="#00e5ff" /> : <Ionicons name="eye-outline" size={16} color="#00e5ff" />}
               </TouchableOpacity>
             </View>
           );

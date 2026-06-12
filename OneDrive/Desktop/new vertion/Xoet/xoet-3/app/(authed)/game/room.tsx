@@ -28,7 +28,7 @@ import {
 } from "react-native";
 import Toast from "../../../components/Toast";
 import { useAuth } from "../../../context/authContext";
-import { useSocket } from "../../../context/socketContext";
+import { useSocketActions } from "../../../context/socketContext";
 import FlashToast, { MatchFoundToastHandle } from "../../../components/game/FlashToast";
 import RematchTopPopup from "../../../components/game/RematchPopup";
 import EmojiBar, { EMOJI_GIFS } from "../../../components/game/EmojiBar";
@@ -85,7 +85,7 @@ export default function GameRoom() {
   }>();
 
   const { user, token, language, switchLanguage, t, refreshProfile, fixUrl } = useAuth();
-  const { onMessage, send, emitAck, setIsGameActive, ensureConnected } = useSocket();
+  const { onMessage, send, emitAck, setIsGameActive, ensureConnected } = useSocketActions();
 
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const isDesktop = windowWidth >= 768;

@@ -71,6 +71,12 @@ export default function WaitingScreen() {
   const pulse = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    if (lastError) {
+      setInternalError(lastError);
+    }
+  }, [lastError]);
+
+  useEffect(() => {
     const t = setInterval(() => setElapsed(e => e + 1), 1000);
     return () => clearInterval(t);
   }, []);

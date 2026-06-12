@@ -299,7 +299,12 @@ const BootSplash = memo(function BootSplash({ status }: { status: string }) {
           />
 
           <View style={styles.logoFrame}>
-            <Image source={require("../assets/images/icon.jpg")} style={styles.logo} />
+            <Image 
+              source={require("../assets/images/icon.jpg")} 
+              style={styles.logo} 
+              // @ts-ignore
+              {...(Platform.OS === 'web' ? { fetchPriority: "high" } : {})}
+            />
             <LinearGradient
               colors={["rgba(0,218,243,0.25)", "transparent"]}
               style={StyleSheet.absoluteFill}

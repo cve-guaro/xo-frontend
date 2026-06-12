@@ -1,4 +1,4 @@
-import { SocketProvider, useSocket } from "../../context/socketContext";
+import { SocketProvider, useSocket, useSocketActions, useSocketState } from "../../context/socketContext";
 import { Ionicons } from "@expo/vector-icons";
 import { Redirect, Slot, useRouter, usePathname } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -111,7 +111,7 @@ const HeaderButton = ({ icon, onPress, isActive, activeColor }: { icon: any; onP
 );
 
 function MatchmakingGate() {
-  const { onMessage } = useSocket();
+  const { onMessage } = useSocketActions();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -145,7 +145,7 @@ function MatchmakingGate() {
 }
 
 function GlobalNotiGate() {
-  const { onMessage, ensureConnected } = useSocket();
+  const { onMessage, ensureConnected } = useSocketActions();
   const { success, info, warning, error: toastError } = useToast();
   const { refreshProfile, token } = useAuth();
 
@@ -181,7 +181,8 @@ function GlobalNotiGate() {
 }
 
 function GlobalInvitesGate() {
-  const { onMessage, send, isGameActive } = useSocket();
+  const { onMessage, send } = useSocketActions();
+  const { isGameActive } = useSocketState();
   const { token } = useAuth();
   const pathname = usePathname();
   const [rematchOffer, setRematchOffer] = useState<{ visible: boolean; fromName?: string; amount?: number; fromUserId?: string } | null>(null);

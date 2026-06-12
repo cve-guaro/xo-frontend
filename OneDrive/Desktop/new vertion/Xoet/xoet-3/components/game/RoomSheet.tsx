@@ -130,19 +130,23 @@ const RoomSheet = memo(function RoomSheet({
               )}
               {ROOMS.map((room) => {
                 const isR1 = room.id === "R1";
-                const r1Locked = isR1 && ((userCaps?.r1_10||0)>=20 && (userCaps?.r1_25||0)>=20 && (userCaps?.r1_50||0)>=20 && (userCaps?.r1_99||0)>=20);
+                const isR2 = room.id === "R2";
+                const isR3 = room.id === "R3";
+                
+                let roomLocked = false;
+
                 const globalLocked = !!userCaps?.rooms_locked;
                 return (
                   <TouchableOpacity 
                     key={room.id} 
                     activeOpacity={0.88} 
-                    disabled={r1Locked || globalLocked} 
+                    disabled={roomLocked || globalLocked} 
                     onPress={() => onSelectRoom(room.id)} 
-                    style={[styles.roomBtn, (r1Locked || globalLocked) && { opacity: 0.4 }]}
+                    style={[styles.roomBtn, (roomLocked || globalLocked) && { opacity: 0.4 }]}
                   >
-                    <LinearGradient colors={r1Locked || globalLocked ? ['#444', '#222'] : room.colors} start={{x:0,y:0}} end={{x:1,y:0}} style={styles.roomInner}>
+                    <LinearGradient colors={roomLocked || globalLocked ? ['#444', '#222'] : room.colors} start={{x:0,y:0}} end={{x:1,y:0}} style={styles.roomInner}>
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.roomName}>{isEN ? room.titleEn : room.titleAm} {r1Locked && "(MAXED)"}{globalLocked && "🔐"}</Text>
+                        <Text style={styles.roomName}>{isEN ? room.titleEn : room.titleAm} {roomLocked && "(MAXED)"}{globalLocked && "🔐"}</Text>
                         <Text style={styles.roomDetail}>
                           {isEN ? `ETB ${room.rangeLabel} • ${room.cut}% Commission • ${room.time}s` : `ETB ${room.rangeLabel} • ${room.cut}% ክፍያ • ${room.time} ሰ`}
                         </Text>
@@ -168,13 +172,9 @@ const RoomSheet = memo(function RoomSheet({
               <View style={styles.amountGrid}>
                 {selectedRoom.amountOptions.map((opt) => {
                   let capReached = false;
-                  let plays = 0;
-                  if (selectedRoom.id === "R1") {
-                    if (opt.min === 10) { plays = (userCaps?.r1_10 || 0); }
-                    if (opt.min === 25) { plays = (userCaps?.r1_25 || 0); }
-                    if (opt.min === 50) { plays = (userCaps?.r1_50 || 0); }
-                  }
-                  const disabled = (balance < opt.min) || capReached;
+                  if (selectedRoom.id === "R1" && opt.amount === 10 && (userCaps?.r1_10_wins || 0) >= 15) capReached = true;
+                  
+                  const disabled = (balance < opt.amount) || capReached;
                   const isSelected = localAmount === opt.amount;
                   const pillColors = disabled
                     ? ['rgba(60,60,80,0.6)', 'rgba(40,40,60,0.4)'] as [string, string]

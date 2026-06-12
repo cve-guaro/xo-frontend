@@ -55,6 +55,12 @@ export default function AdminLeaderboardPage() {
   const [weekEnd, setWeekEnd] = useState('');
   const [timeLeft, setTimeLeft] = useState('');
 
+  // Pagination and search
+  const [standingsSearch, setStandingsSearch] = useState('');
+  const [standingsPage, setStandingsPage] = useState(1);
+  const [standingsTotal, setStandingsTotal] = useState(0);
+  const STANDINGS_LIMIT = 15;
+
   // Fake ticker form
   const [newFakeName, setNewFakeName] = useState('');
   const [newFakeAmount, setNewFakeAmount] = useState('');
@@ -97,12 +103,36 @@ export default function AdminLeaderboardPage() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  const fetchStandings = useCallback(async () => {
+    if (!token) return;
+    try {
+      const offset = (standingsPage - 1) * STANDINGS_LIMIT;
+      const searchParams = new URLSearchParams({ limit: String(STANDINGS_LIMIT), offset: String(offset) });
+      if (standingsSearch) searchParams.append('search', standingsSearch);
+
+      const res = await fetch(`${API_URL}/admin/leaderboard/current?${searchParams.toString()}`, { headers });
+      const data = await res.json();
+      if (data.ok) {
+        setStandings(data.standings || []);
+        setStandingsTotal(data.total || 0);
+        setWeekStart(data.weekStart || '');
+        setWeekEnd(data.weekEnd || '');
+      }
+    } catch (e) {
+      console.error('Fetch standings error:', e);
+    }
+  }, [token, standingsPage, standingsSearch]);
+
   const fetchAll = useCallback(async () => {
     if (!token) return;
     setLoading(true);
     try {
+      const offset = (standingsPage - 1) * STANDINGS_LIMIT;
+      const searchParams = new URLSearchParams({ limit: String(STANDINGS_LIMIT), offset: String(offset) });
+      if (standingsSearch) searchParams.append('search', standingsSearch);
+
       const [standingsRes, snapshotsRes, fakeRes, settingsRes] = await Promise.all([
-        fetch(`${API_URL}/admin/leaderboard/current`, { headers }).then(r => r.json()),
+        fetch(`${API_URL}/admin/leaderboard/current?${searchParams.toString()}`, { headers }).then(r => r.json()),
         fetch(`${API_URL}/admin/leaderboard/snapshots`, { headers }).then(r => r.json()),
         fetch(`${API_URL}/admin/leaderboard/fake-ticker`, { headers }).then(r => r.json()),
         fetch(`${API_URL}/admin/settings`, { headers }).then(r => r.json()),
@@ -110,6 +140,7 @@ export default function AdminLeaderboardPage() {
 
       if (standingsRes.ok) {
         setStandings(standingsRes.standings || []);
+        setStandingsTotal(standingsRes.total || 0);
         setWeekStart(standingsRes.weekStart || '');
         setWeekEnd(standingsRes.weekEnd || '');
       }
@@ -124,9 +155,14 @@ export default function AdminLeaderboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token]); // removed standingsPage and standingsSearch from dep array to avoid full page reload loop, but added it to fetchStandings instead.
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
+
+  // Separate effect for pagination and search
+  useEffect(() => {
+    fetchStandings();
+  }, [standingsPage, standingsSearch, fetchStandings]);
 
   // Timer countdown to next Sunday midnight UTC (matches backend/user bounds)
   useEffect(() => {
@@ -395,7 +431,21 @@ export default function AdminLeaderboardPage() {
                     <Text style={s.cardTitle}>Current Week Standings</Text>
                   </View>
                   <View style={s.countBadge}>
-                    <Text style={s.countBadgeText}>{standings.length} Active</Text>
+                    <Text style={s.countBadgeText}>{standingsTotal} Active</Text>
+                  </View>
+                </View>
+
+                {/* Search Bar */}
+                <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
+                  <View style={s.searchWrap}>
+                    <Ionicons name="search" size={18} color={C.dim} style={{ marginLeft: 12 }} />
+                    <TextInput
+                      style={s.searchInput}
+                      placeholder={isEN ? "Search username or phone..." : "ስም ወይም ስልክ ይፈልጉ..."}
+                      placeholderTextColor={C.dim}
+                      value={standingsSearch}
+                      onChangeText={(t) => { setStandingsSearch(t); setStandingsPage(1); }}
+                    />
                   </View>
                 </View>
 
@@ -406,7 +456,7 @@ export default function AdminLeaderboardPage() {
                       <Text style={s.emptyText}>{isEN ? 'No winners yet this week' : 'በዚህ ሳምንት ገና ምንም አሸናፊ የለም'}</Text>
                     </View>
                   ) : (
-                    standings.slice(0, 15).map((u, index) => {
+                    standings.map((u, index) => {
                       const maxWins = standings[0]?.wins || 1;
                       const ratio = u.wins / maxWins;
                       return (
@@ -432,6 +482,29 @@ export default function AdminLeaderboardPage() {
                         </View>
                       );
                     })
+                  )}
+
+                  {/* Pagination Controls */}
+                  {standingsTotal > STANDINGS_LIMIT && (
+                    <View style={s.paginationRow}>
+                      <TouchableOpacity 
+                        style={[s.pageBtn, standingsPage === 1 && s.pageBtnDisabled]}
+                        disabled={standingsPage === 1}
+                        onPress={() => setStandingsPage(p => Math.max(1, p - 1))}
+                      >
+                        <Ionicons name="chevron-back" size={16} color={standingsPage === 1 ? C.dim : C.txt} />
+                      </TouchableOpacity>
+                      <Text style={s.pageText}>
+                        Page {standingsPage} of {Math.ceil(standingsTotal / STANDINGS_LIMIT)}
+                      </Text>
+                      <TouchableOpacity 
+                        style={[s.pageBtn, standingsPage >= Math.ceil(standingsTotal / STANDINGS_LIMIT) && s.pageBtnDisabled]}
+                        disabled={standingsPage >= Math.ceil(standingsTotal / STANDINGS_LIMIT)}
+                        onPress={() => setStandingsPage(p => p + 1)}
+                      >
+                        <Ionicons name="chevron-forward" size={16} color={standingsPage >= Math.ceil(standingsTotal / STANDINGS_LIMIT) ? C.dim : C.txt} />
+                      </TouchableOpacity>
+                    </View>
                   )}
                 </View>
               </View>

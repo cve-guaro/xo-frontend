@@ -265,6 +265,69 @@ export default function PromotionLinks() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [confirmSms, setConfirmSms] = useState(false);
 
+  // Live preview states
+  const [previewCount, setPreviewCount] = useState<number | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  // Helper to calculate character and segment metrics
+  const getSmsStats = (text: string, targetCount: number) => {
+    if (!text) return { chars: 0, segments: 0, cost: 0, isUnicode: false };
+    const chars = text.length;
+    const isUnicode = /[^\u0000-\u007F]/.test(text); 
+    let segments = 1;
+    if (isUnicode) {
+      segments = chars <= 70 ? 1 : Math.ceil(chars / 67);
+    } else {
+      segments = chars <= 160 ? 1 : Math.ceil(chars / 153);
+    }
+    // Estimated cost logic: 0.20 ETB per segment per message
+    const cost = targetCount * segments * 0.20;
+    return { chars, segments, cost, isUnicode };
+  };
+
+  const fetchPreviewCount = useCallback(async () => {
+    try {
+      setPreviewLoading(true);
+      const payload: any = {};
+      if (smsForm.targetMode === 'specific') {
+        if (smsForm.specificPhone) {
+          payload.specific_phone = smsForm.specificPhone;
+        } else {
+          if (smsForm.role !== 'all') payload.role = smsForm.role;
+          if (smsForm.balanceRange !== 'all') {
+            const [min, max] = smsForm.balanceRange.split('-');
+            if (min) payload.min_balance = Number(min);
+            if (max) payload.max_balance = Number(max);
+          }
+        }
+      }
+
+      const res = await fetch(`${API_URL}/admin/bulk-sms/preview`, {
+        method: 'POST',
+        headers: { 
+          Authorization: `Bearer ${token}`, 
+          'Content-Type': 'application/json',
+          'x-platform': 'web'
+        },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPreviewCount(data.count || 0);
+      }
+    } catch (e) {
+      console.error('[admin/sms-preview-count]', e);
+    } finally {
+      setPreviewLoading(false);
+    }
+  }, [token, smsForm.targetMode, smsForm.role, smsForm.balanceRange, smsForm.specificPhone]);
+
+  useEffect(() => {
+    if (activeTab === 'sms') {
+      fetchPreviewCount();
+    }
+  }, [activeTab, fetchPreviewCount]);
+
   const fetchSmsHistory = useCallback(async () => {
     try {
       setHistoryLoading(true);
@@ -541,8 +604,49 @@ export default function PromotionLinks() {
         /* ═══ Bulk SMS Tab ═══ */
         <ScrollView style={{ flex: 1 }}>
           <View style={styles.popupCard}>
-            <Text style={{ color: '#e5e3ff', fontSize: 20, fontWeight: '800', marginBottom: 4 }}>Targeted Bulk SMS</Text>
-            <Text style={{ color: 'rgba(168,167,212,0.5)', fontSize: 12, marginBottom: 24 }}>Send promotional messages directly to user phones using detailed filters.</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
+              <View style={{ flex: 1, minWidth: 200 }}>
+                <Text style={{ color: '#e5e3ff', fontSize: 20, fontWeight: '800', marginBottom: 4 }}>Targeted Bulk SMS</Text>
+                <Text style={{ color: 'rgba(168,167,212,0.5)', fontSize: 12 }}>Send promotional messages directly to user phones using detailed filters.</Text>
+              </View>
+              <TouchableOpacity 
+                style={[styles.addBtn, { backgroundColor: '#a78bfa', paddingHorizontal: 12, paddingVertical: 8, height: 'auto' }]} 
+                onPress={async () => {
+                  try {
+                    let url = `${API_URL}/admin/bulk-sms/preview?targetMode=${smsForm.targetMode}`;
+                    if (smsForm.targetMode === 'specific') {
+                      if (smsForm.specificPhone) url += `&specific_phone=${encodeURIComponent(smsForm.specificPhone)}`;
+                      else {
+                        if (smsForm.role !== 'all') url += `&role=${smsForm.role}`;
+                        if (smsForm.balanceRange !== 'all') {
+                          const [min, max] = smsForm.balanceRange.split('-');
+                          if (min) url += `&min_balance=${min}`;
+                          if (max) url += `&max_balance=${max}`;
+                        }
+                      }
+                    }
+                    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}`, 'x-platform': 'web' } });
+                    const json = await res.json();
+                    if (res.ok && json.users) {
+                      const csv = json.users.map((u: any) => `${u.username || ''}, ${u.name || ''}, ${u.phone || ''}`).join('\n');
+                      if (Platform.OS === 'web' && navigator?.clipboard) {
+                         navigator.clipboard.writeText(csv);
+                         showAlert('Copied', `Copied ${json.users.length} users' aggregated data to clipboard`);
+                      } else {
+                         showAlert('Copied', `Found ${json.users.length} users. Copy is only supported on Web.`);
+                      }
+                    } else {
+                      showAlert('Error', 'Failed to fetch audience list');
+                    }
+                  } catch (e) {
+                    showAlert('Error', 'Network error');
+                  }
+                }}
+              >
+                <Ionicons name="copy-outline" size={16} color="#0c0c1f" style={{ marginRight: 2 }} />
+                <Text style={[styles.addBtnText, { fontSize: 11 }]}>Copy / Export User Data</Text>
+              </TouchableOpacity>
+            </View>
 
             <View style={{ gap: 20 }}>
               <View>
@@ -640,10 +744,14 @@ export default function PromotionLinks() {
                   </View>
                 </View>
               )}
-              <TouchableOpacity style={[styles.saveBtn, !smsForm.message.trim() && { opacity: 0.5 }]} onPress={() => setConfirmSms(true)} disabled={!smsForm.message.trim() || smsSending}>
-                {smsSending ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Queue Bulk SMS</Text>}
-              </TouchableOpacity>
-              
+              <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
+                <TouchableOpacity style={[styles.saveBtn, { flex: 1 }, !smsForm.message.trim() && { opacity: 0.5 }]} onPress={() => setConfirmSms(true)} disabled={!smsForm.message.trim() || smsSending}>
+                  {smsSending ? <ActivityIndicator color="#004d57" /> : <Text style={styles.saveBtnText}>Send</Text>}
+                </TouchableOpacity>
+              </View>
+              <Text style={{ color: '#a78bfa', fontSize: 11, textAlign: 'center', marginTop: 8 }}>
+                 {previewLoading ? 'Calculating audience...' : `Estimated Audience: ${previewCount ?? 0} users`}
+              </Text>
               <ActionConfirmModal
                 visible={confirmSms}
                 title="Confirm Bulk SMS"

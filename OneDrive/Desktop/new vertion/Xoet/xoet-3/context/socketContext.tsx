@@ -15,21 +15,31 @@ import { Platform, AppState, AppStateStatus } from "react-native";
 type Msg = { type: string; payload?: any };
 type Unsub = () => void;
 
-type SocketApi = {
+export type SocketState = {
+  isSearching: boolean;
+  isGameActive: boolean;
+  lastError: string | null;
+};
+
+export type SocketActions = {
   ensureConnected: (token?: string) => Promise<boolean>;
   send: (event: string, payload?: any) => void;
   emitAck: (event: string, payload: any, timeoutMs?: number) => Promise<{ ok: boolean; data?: any; error?: string }>;
   onMessage: (cb: (msg: Msg) => void) => Unsub;
   findMatch: (betMin: number, betMax?: number) => Promise<{ ok: boolean; data?: any; error?: string }>;
   cancelFind: () => Promise<{ ok: boolean }>;
-  isSearching: boolean;
-  isGameActive: boolean;
   setIsGameActive: (active: boolean) => void;
-  lastError: string | null;
 };
 
-const Ctx = createContext<SocketApi>(null as any);
-export const useSocket = () => useContext(Ctx);
+export type SocketApi = SocketState & SocketActions;
+
+const StateCtx = createContext<SocketState>(null as any);
+const ActionCtx = createContext<SocketActions>(null as any);
+const CombinedCtx = createContext<SocketApi>(null as any);
+
+export const useSocketState = () => useContext(StateCtx);
+export const useSocketActions = () => useContext(ActionCtx);
+export const useSocket = () => useContext(CombinedCtx);
 
 // ---- CONFIG ----
 const URL = API_URL;
@@ -361,7 +371,16 @@ export function SocketProvider({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const value: SocketApi = useMemo(
+  const state: SocketState = useMemo(
+    () => ({
+      isSearching,
+      isGameActive,
+      lastError,
+    }),
+    [isSearching, isGameActive, lastError]
+  );
+
+  const actions: SocketActions = useMemo(
     () => ({
       ensureConnected,
       send,
@@ -369,13 +388,26 @@ export function SocketProvider({
       onMessage,
       findMatch,
       cancelFind,
-      isSearching,
-      isGameActive,
       setIsGameActive,
-      lastError,
     }),
-    [ensureConnected, send, emitAck, onMessage, findMatch, cancelFind, isSearching, isGameActive, lastError]
+    [ensureConnected, send, emitAck, onMessage, findMatch, cancelFind, setIsGameActive]
   );
 
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+  const combinedValue: SocketApi = useMemo(
+    () => ({
+      ...state,
+      ...actions,
+    }),
+    [state, actions]
+  );
+
+  return (
+    <ActionCtx.Provider value={actions}>
+      <StateCtx.Provider value={state}>
+        <CombinedCtx.Provider value={combinedValue}>
+          {children}
+        </CombinedCtx.Provider>
+      </StateCtx.Provider>
+    </ActionCtx.Provider>
+  );
 }

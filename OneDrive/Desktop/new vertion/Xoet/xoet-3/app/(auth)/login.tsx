@@ -274,7 +274,12 @@ export default function LoginScreen() {
             <View style={styles.glassCard}>
               <View style={styles.cardHeader}>
                 <View style={styles.logoCircle}>
-                  <Image source={require("../../assets/images/adaptive-icon.png")} style={{ width: 28, height: 28, borderRadius: 6 }} />
+                  <Image 
+                    source={require("../../assets/images/adaptive-icon.png")} 
+                    style={{ width: 28, height: 28, borderRadius: 6 }} 
+                    // @ts-ignore
+                    {...(Platform.OS === 'web' ? { fetchPriority: "high" } : {})}
+                  />
                 </View>
                 <Text style={styles.cardBrand}>XO ET</Text>
               </View>

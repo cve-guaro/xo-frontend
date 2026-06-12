@@ -6,7 +6,7 @@ export default function HTML({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <head>
-        <meta {...{ charset: "utf-8" }} />
+        <meta charSet="utf-8" />
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
 
@@ -33,6 +33,8 @@ export default function HTML({ children }: { children: React.ReactNode }) {
           rel="preload"
           href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
           as="style"
+          // @ts-ignore
+          fetchPriority="high"
         />
         <link
           rel="stylesheet"

@@ -49,6 +49,12 @@ type AuthUser = {
   display_name: string | null;
   role: 'user' | 'admin' | 'superadmin' | 'maintenance' | 'maintenance_admin';
   room_1_wins: number;
+  r1_10_wins: number;
+  r1_25_wins: number;
+  r1_50_wins: number;
+  r1_99_wins: number;
+  r2_100_wins: number;
+  r3_1000_wins: number;
   bonus_balance: number;
   banned: boolean;
   available_balance: number;
@@ -951,9 +957,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (res.status === 429) {
           throw new Error("RATE_LIMITED");
         }
-        const msg = await res.text().catch(() => "");
+        const raw = await res.text().catch(() => "");
         await playErrorSound();
-        throw new Error(msg || `OTP request failed (${res.status})`);
+        // Prefer the server's friendly message field over the raw JSON body
+        let friendly = raw;
+        try {
+          const parsed = JSON.parse(raw);
+          friendly = parsed.message || parsed.error || raw;
+        } catch {}
+        throw new Error(friendly || `OTP request failed (${res.status})`);
       }
       setPendingNumber(number);
       await playSuccessSound();
