@@ -1,0 +1,148 @@
+Contact: mailto:security@xoethiopia.com
+Expires: 2027-04-17T19:42:19Z
+Preferred-Languages: en, am
+
+# ============================================================
+# XOET Security Assessment Report
+# Last Updated: 2026-04-30
+# ============================================================
+
+# Executive Summary
+# This report provides a security assessment of xoethiopia.com.
+# The assessment includes technical scans of HTTP headers, SSL/TLS
+# configurations, DNS records, and technology stack analysis.
+# Overall, the site demonstrates a strong security posture by
+# leveraging modern cloud infrastructure and implementing
+# industry-standard security headers.
+
+# ============================================================
+# 1. Infrastructure & Technology Stack
+# ============================================================
+# Hosting Provider:     Vercel (Anycast Network)
+# Backend API:          Railway (xogpt-production.up.railway.app)
+# Frontend Framework:   React / Expo (Web)
+# Database:             Supabase PostgreSQL
+# Real-time:            Socket.IO with Redis Adapter
+# SMS Provider:         GeezSMS (api.geezsms.com)
+# Payment Gateway:      Chapa (api.chapa.co)
+# CDN:                  Vercel Edge Network
+# Primary IP:           216.198.79.1
+
+# ============================================================
+# 2. HTTP Security Headers Analysis
+# ============================================================
+# Strict-Transport-Security (HSTS):  IMPLEMENTED
+#   - Forces HTTPS for 2 years (max-age=63072000)
+#   - includeSubDomains enabled
+#   - preload enabled
+#
+# Content-Security-Policy (CSP):     IMPLEMENTED
+#   - Restricts script/connection sources
+#   - Reduces XSS and data exfiltration risks
+#   - Note: 'unsafe-inline' present for framework compatibility
+#
+# X-Frame-Options:                   IMPLEMENTED
+#   - Set to DENY (prevents Clickjacking)
+#
+# X-Content-Type-Options:            IMPLEMENTED
+#   - Set to nosniff (prevents MIME-type sniffing)
+#
+# Referrer-Policy:                   IMPLEMENTED
+#   - strict-origin-when-cross-origin
+#
+# Permissions-Policy:                IMPLEMENTED
+#   - Disables camera, microphone, geolocation by default
+#
+# X-XSS-Protection:                  IMPLEMENTED
+#   - Set to 1; mode=block
+#
+# Cross-Origin-Embedder-Policy:      CONFIGURED
+# Cross-Origin-Resource-Policy:      cross-origin
+# Cross-Origin-Opener-Policy:        same-origin
+
+# ============================================================
+# 3. SSL/TLS Configuration
+# ============================================================
+# Protocol:        TLS v1.3 (Modern and Secure)
+# Cipher Suite:    TLS_AES_128_GCM_SHA256 (Strong)
+# Certificate:     Let's Encrypt (Wildcard: *.xoethiopia.com)
+# Validity:        Until July 17, 2026
+# OCSP Stapling:   Enabled via Vercel
+
+# ============================================================
+# 4. DNS & Email Security
+# ============================================================
+# SPF:    CONFIGURED - v=spf1 -all (Strict)
+# DMARC:  CONFIGURED - p=reject (Strict)
+# MX:     Not configured (domain not used for email)
+
+# ============================================================
+# 5. Application Security Measures
+# ============================================================
+# Authentication:
+#   - Phone-based OTP via GeezSMS
+#   - JWT token-based session management
+#   - Token expiry and refresh mechanism
+#
+# Rate Limiting:
+#   - General API: 500 req / 15 min per IP
+#   - Payment endpoints: 5 req / 1 min per IP
+#   - Auth endpoints: 500 req / 15 min per IP
+#   - Profile polling: 60 req / 1 min per IP
+#
+# CORS Policy:
+#   - Hardcoded origin whitelist (no dynamic reflection)
+#   - Allowed: xoethiopia.com, www.xoethiopia.com, *.vercel.app
+#   - Credentials: enabled
+#
+# Financial Security:
+#   - Idempotency keys on all transactions
+#   - Two-step commit for withdrawals (DB reserve -> API call)
+#   - Automatic rollback on failed Chapa payouts
+#   - Admin manual review for withdrawals > 2,000 ETB
+#   - Webhook signature verification (HMAC-SHA256)
+#   - Balance-locked during pending transactions
+#
+# Anti-Cheat:
+#   - Server-side game state validation
+#   - Turn timer enforcement (30s)
+#   - Move validation against board state
+#   - Anomaly scoring for suspicious behavior
+#
+# Data Protection:
+#   - All data encrypted in transit (TLS 1.3)
+#   - Database hosted on Supabase with row-level security
+#   - No sensitive data in client-side storage
+#   - Phone numbers normalized and validated
+
+# ============================================================
+# 6. Potential Vulnerabilities & Recommendations
+# ============================================================
+# A. CSP Refinement
+#    Current: allows 'unsafe-inline' and 'unsafe-eval'
+#    Recommendation: Move to nonce-based CSP when framework supports it
+#
+# B. SMS Rate Limiting
+#    Status: Rate limiting implemented on auth endpoints
+#    Recommendation: Monitor for SMS bombing patterns
+#
+# C. Webhook Security
+#    Status: Signature verification with fallback processing
+#    Recommendation: Implement webhook replay protection (timestamp check)
+#
+# D. Session Security
+#    Recommendation: Implement token rotation on sensitive actions
+#
+# E. Port Scanning
+#    Note: Vercel edge network may show open ports (honeypot/firewall)
+#    No real services (FTP, Telnet) are exposed
+
+# ============================================================
+# 7. Compliance & Conclusion
+# ============================================================
+# The website xoethiopia.com follows modern security best practices.
+# Its reliance on Vercel provides a robust, hardened edge environment.
+# The implementation of strict DMARC/SPF policies and comprehensive
+# security headers puts it ahead of many standard web applications.
+# Financial transactions are protected by idempotency, rollback
+# mechanisms, and admin review thresholds.

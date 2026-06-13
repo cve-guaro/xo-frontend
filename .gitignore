@@ -1,0 +1,50 @@
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Environment — NEVER commit secrets
+.env
+.env.*
+.env.local
+.env*.local
+
+# Native
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+*.pem
+
+# typescript
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# Build output
+/ios
+/android
+
+# Temporary scripts
+fix_*.js
+patch_*.js
+*.tmp
+*.log
+# Stray nested home-folder copy (kilo worktrees) — never commit
+OneDrive/
