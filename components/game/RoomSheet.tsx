@@ -175,12 +175,14 @@ const RoomSheet = memo(function RoomSheet({
                   let currentWins: number | null = null;
                   const CAP_LIMIT = 15;
                   if (selectedRoom.id === "R1" && opt.amount === 10) {
-                    currentWins = userCaps?.r1_10_wins || 0;
-                    if (currentWins >= CAP_LIMIT) capReached = true;
+                    const wins = userCaps?.r1_10_wins || 0;
+                    currentWins = wins;
+                    if (wins >= CAP_LIMIT) capReached = true;
                   }
                   if (selectedRoom.id === "R1" && opt.amount === 15) {
-                    currentWins = userCaps?.r1_15_wins || 0;
-                    if (currentWins >= CAP_LIMIT) capReached = true;
+                    const wins = userCaps?.r1_15_wins || 0;
+                    currentWins = wins;
+                    if (wins >= CAP_LIMIT) capReached = true;
                   }
 
                   const disabled = (balance < opt.amount) || capReached;

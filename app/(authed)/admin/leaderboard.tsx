@@ -597,10 +597,10 @@ export default function AdminLeaderboardPage() {
                                 <Text style={s.approveBtnText}>Approve</Text>
                               </TouchableOpacity>
                             ) : (
-                              <View style={[s.statusBadge, { borderColor: snap.prize_status === 'paid' ? C.green + '40' : C.dim + '40', backgroundColor: snap.prize_status === 'paid' ? C.green + '10' : C.dim + '10' }]}>
-                                <Ionicons name={snap.prize_status === 'paid' ? "checkmark-circle" : "time-outline"} size={10} color={snap.prize_status === 'paid' ? C.green : C.dim} />
-                                <Text style={[s.statusBadgeText, { color: snap.prize_status === 'paid' ? C.green : C.dim }]}>
-                                  {snap.prize_status === 'paid' ? 'Paid' : 'Pending'}
+                              <View style={[s.statusBadge, { borderColor: (snap.prize_status === 'approved' || snap.prize_status === 'paid') ? C.green + '40' : C.dim + '40', backgroundColor: (snap.prize_status === 'approved' || snap.prize_status === 'paid') ? C.green + '10' : C.dim + '10' }]}>
+                                <Ionicons name={(snap.prize_status === 'approved' || snap.prize_status === 'paid') ? "checkmark-circle" : "time-outline"} size={10} color={(snap.prize_status === 'approved' || snap.prize_status === 'paid') ? C.green : C.dim} />
+                                <Text style={[s.statusBadgeText, { color: (snap.prize_status === 'approved' || snap.prize_status === 'paid') ? C.green : C.dim }]}>
+                                  {(snap.prize_status === 'approved' || snap.prize_status === 'paid') ? 'Paid' : 'Pending'}
                                 </Text>
                               </View>
                             )}
@@ -1682,5 +1682,49 @@ const s = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     textAlign: 'center',
+  },
+  searchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 10,
+    height: 38,
+    paddingHorizontal: 8,
+    marginBottom: 12,
+  },
+  searchInput: {
+    flex: 1,
+    color: '#fff',
+    fontSize: 12,
+    paddingVertical: 6,
+    paddingLeft: 8,
+  },
+  paginationRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 12,
+    paddingTop: 8,
+  },
+  pageBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pageBtnDisabled: {
+    opacity: 0.3,
+  },
+  pageText: {
+    color: C.dim,
+    fontSize: 11,
+    fontWeight: '600',
   },
 });

@@ -275,10 +275,10 @@ export default function UserDetail() {
       {(() => {
         const CAP = 15;
         const tiers = [
-          { label: '10 ETB', wins: Number(targetUser.r1_10_wins || 0), color: '#8b5cf6', icon: 'game-controller' as const },
-          { label: '15 ETB', wins: Number(targetUser.r1_15_wins || 0), color: '#a78bfa', icon: 'game-controller' as const },
-          { label: '25 ETB', wins: Number(targetUser.r1_25_wins || 0), color: '#6366f1', icon: 'trophy' as const },
-          { label: '50 ETB', wins: Number(targetUser.r1_50_wins || 0), color: '#818cf8', icon: 'trophy' as const },
+          { label: '10 ETB', wins: Number(targetUser.r1_10_wins || 0), color: '#8b5cf6', icon: 'game-controller' as const, hasCap: true },
+          { label: '15 ETB', wins: Number(targetUser.r1_15_wins || 0), color: '#a78bfa', icon: 'game-controller' as const, hasCap: true },
+          { label: '25 ETB', wins: Number(targetUser.r1_25_wins || 0), color: '#6366f1', icon: 'trophy' as const, hasCap: false },
+          { label: '50 ETB', wins: Number(targetUser.r1_50_wins || 0), color: '#818cf8', icon: 'trophy' as const, hasCap: false },
         ];
         return (
           <View style={[s.card, { marginBottom: 24 }]}>
@@ -288,13 +288,13 @@ export default function UserDetail() {
               </View>
               <View>
                 <Text style={{ color: '#fff', fontSize: 14, fontWeight: '900' }}>Room 1 Win Caps</Text>
-                <Text style={{ color: '#475569', fontSize: 10, fontWeight: '600' }}>Win limits per tier (locks at {CAP} wins)</Text>
+                <Text style={{ color: '#475569', fontSize: 10, fontWeight: '600' }}>Win limits (10 & 15 ETB lock at {CAP} wins)</Text>
               </View>
             </View>
             <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
               {tiers.map(tier => {
-                const pct = Math.min(tier.wins / CAP, 1);
-                const isLocked = tier.wins >= CAP;
+                const pct = tier.hasCap ? Math.min(tier.wins / CAP, 1) : 1;
+                const isLocked = tier.hasCap && tier.wins >= CAP;
                 return (
                   <View key={tier.label} style={{ flex: 1, minWidth: isMobile ? '44%' : 120, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: isLocked ? 'rgba(248,113,113,0.3)' : 'rgba(255,255,255,0.05)' }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -310,15 +310,31 @@ export default function UserDetail() {
                       )}
                     </View>
                     <Text style={{ color: isLocked ? '#f87171' : tier.color, fontSize: 22, fontWeight: '900', marginBottom: 6 }}>
-                      {tier.wins}<Text style={{ color: '#475569', fontSize: 13, fontWeight: '700' }}>/{CAP}</Text>
+                      {tier.wins}
+                      {tier.hasCap && (
+                        <Text style={{ color: '#475569', fontSize: 13, fontWeight: '700' }}>/{CAP}</Text>
+                      )}
                     </Text>
                     {/* Progress bar */}
-                    <View style={{ height: 4, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden' }}>
-                      <View style={{ height: 4, width: `${pct * 100}%`, backgroundColor: isLocked ? '#f87171' : tier.color, borderRadius: 2 }} />
-                    </View>
-                    <Text style={{ color: '#334155', fontSize: 9, fontWeight: '700', marginTop: 4 }}>
-                      {isLocked ? 'Cap reached' : `${CAP - tier.wins} wins left`}
-                    </Text>
+                    {tier.hasCap ? (
+                      <>
+                        <View style={{ height: 4, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden' }}>
+                          <View style={{ height: 4, width: `${pct * 100}%`, backgroundColor: isLocked ? '#f87171' : tier.color, borderRadius: 2 }} />
+                        </View>
+                        <Text style={{ color: '#334155', fontSize: 9, fontWeight: '700', marginTop: 4 }}>
+                          {isLocked ? 'Cap reached' : `${CAP - tier.wins} wins left`}
+                        </Text>
+                      </>
+                    ) : (
+                      <>
+                        <View style={{ height: 4, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden' }}>
+                          <View style={{ height: 4, width: '100%', backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 2 }} />
+                        </View>
+                        <Text style={{ color: '#334155', fontSize: 9, fontWeight: '700', marginTop: 4 }}>
+                          No win limit
+                        </Text>
+                      </>
+                    )}
                   </View>
                 );
               })}

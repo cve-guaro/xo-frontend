@@ -394,6 +394,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)',
   },
   methodCardActive: { backgroundColor: 'rgba(0,218,243,0.04)', borderColor: 'rgba(0,218,243,0.2)' },
+  methodNameSmall: { color: '#fff', fontWeight: '800' },
   ctaBtn: { borderRadius: 16, overflow: 'hidden' },
   ctaGradient: { paddingVertical: 16, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 10 },
   ctaText: { color: '#fff', fontSize: 15, fontWeight: '900', letterSpacing: 0.5 },
