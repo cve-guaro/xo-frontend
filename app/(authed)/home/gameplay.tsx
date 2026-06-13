@@ -1045,7 +1045,7 @@ export default function Landing() {
         selectedRoom={selectedRoom}
         backdropOpacity={backdropOpacity}
         sheetTranslateY={sheetTranslateY}
-        userCaps={user}
+        userCaps={{ r1_10_wins: (user as any)?.r1_10_wins, r1_15_wins: (user as any)?.r1_15_wins, r1_25_wins: (user as any)?.r1_25_wins, r1_50_wins: (user as any)?.r1_50_wins, r1_99_wins: (user as any)?.r1_99_wins, rooms_locked: appConfig.rooms_locked }}
         depositVisible={depositVisible}
         withdrawVisible={withdrawVisible}
         friendModalVisible={friendModalVisible}
@@ -1502,7 +1502,7 @@ export default function Landing() {
           onSelectRoom={onSelectRoom}
           onSelectAmount={selectAmount}
           isDesktop={false}
-          userCaps={{ r1_10: (user as any)?.r1_10_wins, r1_25: (user as any)?.r1_25_wins, r1_50: (user as any)?.r1_50_wins, r1_99: (user as any)?.r1_99_wins, rooms_locked: appConfig.rooms_locked }}
+          userCaps={{ r1_10_wins: (user as any)?.r1_10_wins, r1_15_wins: (user as any)?.r1_15_wins, r1_25_wins: (user as any)?.r1_25_wins, r1_50_wins: (user as any)?.r1_50_wins, r1_99_wins: (user as any)?.r1_99_wins, rooms_locked: appConfig.rooms_locked }}
         />
       )}
 

@@ -29,9 +29,9 @@ export const ROOMS: RoomConfig[] = [
     colors: ["#8b5cf6", "#6d28d9"], // Premium Purple matching HTML
     amountOptions: [
       { amount: 10, min: 10, max: 10, rangeLabel: "10 Birr", colors: ["#8b5cf6", "#6d28d9"] },
+      { amount: 15, min: 15, max: 15, rangeLabel: "15 Birr", colors: ["#8b5cf6", "#6d28d9"] },
       { amount: 25, min: 25, max: 25, rangeLabel: "25 Birr", colors: ["#8b5cf6", "#6d28d9"] },
       { amount: 50, min: 50, max: 50, rangeLabel: "50 Birr", colors: ["#8b5cf6", "#6d28d9"] },
-      { amount: 99, min: 99, max: 99, rangeLabel: "99 Birr", colors: ["#8b5cf6", "#6d28d9"] },
     ],
   },
   {
