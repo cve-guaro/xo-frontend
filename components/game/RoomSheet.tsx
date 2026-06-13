@@ -172,14 +172,24 @@ const RoomSheet = memo(function RoomSheet({
               <View style={styles.amountGrid}>
                 {selectedRoom.amountOptions.map((opt) => {
                   let capReached = false;
-                  if (selectedRoom.id === "R1" && opt.amount === 10 && (userCaps?.r1_10_wins || 0) >= 15) capReached = true;
-                  if (selectedRoom.id === "R1" && opt.amount === 15 && (userCaps?.r1_15_wins || 0) >= 15) capReached = true;
+                  let currentWins: number | null = null;
+                  const CAP_LIMIT = 15;
+                  if (selectedRoom.id === "R1" && opt.amount === 10) {
+                    currentWins = userCaps?.r1_10_wins || 0;
+                    if (currentWins >= CAP_LIMIT) capReached = true;
+                  }
+                  if (selectedRoom.id === "R1" && opt.amount === 15) {
+                    currentWins = userCaps?.r1_15_wins || 0;
+                    if (currentWins >= CAP_LIMIT) capReached = true;
+                  }
 
                   const disabled = (balance < opt.amount) || capReached;
                   const isSelected = localAmount === opt.amount;
                   const pillColors = disabled
                     ? ['rgba(60,60,80,0.6)', 'rgba(40,40,60,0.4)'] as [string, string]
                     : opt.colors as [string, string];
+
+                  const showCapBadge = currentWins !== null;
 
                   return (
                     <Pressable
@@ -204,10 +214,12 @@ const RoomSheet = memo(function RoomSheet({
                           justifyContent: 'space-between',
                           paddingVertical: 18,
                           paddingHorizontal: 16,
+                          paddingBottom: showCapBadge ? 28 : 18,
                           borderRadius: 16,
                           borderWidth: isSelected ? 2 : 0,
                           borderColor: isSelected ? '#fff' : 'transparent',
-                          height: '100%' // Fix gap usage by ensuring equal height
+                          height: '100%',
+                          position: 'relative',
                         }}
                       >
                         <View style={{ flex: 1 }}>
@@ -221,7 +233,35 @@ const RoomSheet = memo(function RoomSheet({
                         </View>
                         <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.9)" />
 
-
+                        {/* Win cap progress badge */}
+                        {showCapBadge && (
+                          <View style={{
+                            position: 'absolute',
+                            bottom: 6,
+                            right: 10,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 4,
+                            backgroundColor: capReached ? 'rgba(248,113,113,0.25)' : 'rgba(255,255,255,0.12)',
+                            paddingHorizontal: 8,
+                            paddingVertical: 3,
+                            borderRadius: 8,
+                          }}>
+                            <Ionicons
+                              name={capReached ? 'lock-closed' : 'trophy-outline'}
+                              size={10}
+                              color={capReached ? '#f87171' : 'rgba(255,255,255,0.7)'}
+                            />
+                            <Text style={{
+                              color: capReached ? '#f87171' : 'rgba(255,255,255,0.8)',
+                              fontSize: 10,
+                              fontWeight: '900',
+                              letterSpacing: 0.3,
+                            }}>
+                              {currentWins}/{CAP_LIMIT}
+                            </Text>
+                          </View>
+                        )}
                       </LinearGradient>
                     </Pressable>
                   );
