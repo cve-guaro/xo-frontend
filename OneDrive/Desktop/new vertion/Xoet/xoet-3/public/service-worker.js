@@ -1,6 +1,6 @@
 // XO ET — Service Worker (PWA offline support + caching)
-// v7: Prevent TypeError by ensuring catch handlers resolve to a valid Response.
-const CACHE_NAME = "xoet-v7";
+// v8: Force cache bust after June 2026 room amounts + UI updates deployment.
+const CACHE_NAME = "xoet-v8";
 const STATIC_ASSETS = [
   "/",
   "/manifest.json",
