@@ -681,13 +681,13 @@ export default function AdminUsers() {
                <View>
                   <Text style={{ fontSize: 12, color: '#a9abb3', textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: '600', marginBottom: 16, flexDirection: 'row', alignItems: 'center' }}><Ionicons name="trophy-outline" size={14} /> Room Prizes</Text>
                   <View style={{ flexDirection: 'row', gap: 16, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
-                     {[10, 25, 50, 99].map(amt => (
-                        <View key={amt} style={{ flex: 1, minWidth: isMobile ? '40%' : '20%', backgroundColor: amt === 99 ? '#22262f' : '#161a21', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: amt === 99 ? 'rgba(129,236,255,0.4)' : 'rgba(255,255,255,0.05)' }}>
-                           {amt === 99 && <View style={{ position: 'absolute', top: 0, right: 0, backgroundColor: '#81ecff', paddingHorizontal: 6, paddingVertical: 2, borderBottomLeftRadius: 8 }}><Text style={{ color: '#005762', fontSize: 8, fontWeight: '900', textTransform: 'uppercase' }}>HOT</Text></View>}
+                     {[10, 15, 25, 50].map(amt => (
+                        <View key={amt} style={{ flex: 1, minWidth: isMobile ? '40%' : '20%', backgroundColor: amt === 50 ? '#22262f' : '#161a21', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: amt === 50 ? 'rgba(129,236,255,0.4)' : 'rgba(255,255,255,0.05)' }}>
+                           {amt === 50 && <View style={{ position: 'absolute', top: 0, right: 0, backgroundColor: '#81ecff', paddingHorizontal: 6, paddingVertical: 2, borderBottomLeftRadius: 8 }}><Text style={{ color: '#005762', fontSize: 8, fontWeight: '900', textTransform: 'uppercase' }}>HOT</Text></View>}
                            <Text style={{ fontSize: 18, fontWeight: '800', color: '#81ecff', marginBottom: 4 }}>{amt} ETB</Text>
                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                               <Text style={{ fontSize: 10, color: '#a9abb3' }}>{(selected as any)?.[`r1_${amt}_wins`] || 0} / 25</Text>
-                              <Ionicons name={amt === 99 ? "flame" : "star"} size={14} color={amt === 99 ? "#81ecff" : "rgba(255,255,255,0.2)"} />
+                              <Ionicons name={amt === 50 ? "flame" : "star"} size={14} color={amt === 50 ? "#81ecff" : "rgba(255,255,255,0.2)"} />
                            </View>
                         </View>
                      ))}

@@ -173,7 +173,8 @@ const RoomSheet = memo(function RoomSheet({
                 {selectedRoom.amountOptions.map((opt) => {
                   let capReached = false;
                   if (selectedRoom.id === "R1" && opt.amount === 10 && (userCaps?.r1_10_wins || 0) >= 15) capReached = true;
-                  
+                  if (selectedRoom.id === "R1" && opt.amount === 15 && (userCaps?.r1_15_wins || 0) >= 15) capReached = true;
+
                   const disabled = (balance < opt.amount) || capReached;
                   const isSelected = localAmount === opt.amount;
                   const pillColors = disabled
@@ -183,8 +184,11 @@ const RoomSheet = memo(function RoomSheet({
                   return (
                     <Pressable
                       key={opt.amount}
-                      disabled={disabled}
-                      onPress={() => isDesktop ? setLocalAmount(opt.amount) : onSelectAmount(selectedRoom, opt.min, opt.max)}
+                      onPress={() => {
+                        if (disabled) return;
+                        if (isDesktop) setLocalAmount(opt.amount);
+                        else onSelectAmount(selectedRoom, opt.min, opt.max);
+                      }}
                       style={({ pressed }) => [
                         { width: '48%', marginBottom: 16, borderRadius: 16, overflow: 'hidden', opacity: disabled ? 0.45 : 1 },
                         pressed && !disabled ? { transform: [{ scale: 0.98 }] } : null,

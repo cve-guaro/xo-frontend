@@ -1,5 +1,28 @@
 # AI Development Tracker
 
+## Recent Updates (June 13 — Room 1 Tier Rework & Mobile Amount-Lock Fix)
+
+### 33. Room 1 Tiers Changed to 10/15/25/50 + Mobile Amount-Lock Tap-Through Bug Fix
+- **Date:** 2026-06-13
+- **Feature:** Reworked Room 1 bet tiers from `10, 25, 50, 99` to `10, 15, 25, 50` Birr, gave the new 15 Birr tier the same 15-win lock as the 10 Birr tier, and fixed a mobile bug where tapping a locked amount tile closed the entire room sheet and dropped the user back to the home screen.
+- **Details:**
+  - **Mobile Lock Tap-Through Bug:** In `RoomSheet.tsx`, the amount tiles used `<Pressable disabled={disabled}>`. On React Native Web, a `disabled` Pressable gets `pointer-events: none`, so taps on a locked/insufficient-balance tile fell through to the full-screen backdrop `Pressable` (`onPress={onClose}`) behind the sheet, instantly closing it — which looked like the lock was "broken" / sending users back home, and made the lock feel like it applied everywhere. Fixed by keeping the `Pressable` always interactive and making `onPress` a no-op when `disabled`, while keeping the existing visual lock styling (opacity, "LOCKED" label).
+  - **Room 1 Amounts:** `gameplayConstants.ts` `R1.amountOptions` changed from `[10, 25, 50, 99]` to `[10, 15, 25, 50]`.
+  - **New 15 Birr Win Lock:** Added a 15-win cap on the 15 Birr tier (mirroring 10 Birr) — tracked via a new `r1_15_wins` column. Updated `RoomSheet.tsx` cap check, `userCaps` in `gameplay.tsx`, the `User` type in `authContext.tsx`, the backend `ROOMS_CONFIG[1].betRange`, the win-lock check and tier-column mapping in `find_match`, friend-invite cap selects, the `/user` profile route, admin user queries, and `recalculate_stats.js`.
+  - **DB Migration:** Added `migration_005_r1_15_wins.sql` (`ALTER TABLE users ADD COLUMN IF NOT EXISTS r1_15_wins INTEGER NOT NULL DEFAULT 0`) — needs to be run against the production database.
+  - **Admin UI:** Updated the Room Prizes amounts grid in `admin/users.tsx` to show `10, 15, 25, 50` (highlight moved from 99 to 50).
+- **Files Changed:**
+  - `xoet-3/components/game/gameplayConstants.ts`
+  - `xoet-3/components/game/RoomSheet.tsx`
+  - `xoet-3/app/(authed)/home/gameplay.tsx`
+  - `xoet-3/context/authContext.tsx`
+  - `xoet-3/app/(authed)/admin/users.tsx`
+  - `xoet_backend/src/socket/game.js`
+  - `xoet_backend/src/routes/user.js`
+  - `xoet_backend/src/routes/admin.js`
+  - `xoet_backend/src/scripts/recalculate_stats.js`
+  - `xoet_backend/migration_005_r1_15_wins.sql` (new)
+
 ## Recent Updates (June 7 — Emergency Black Screen & Reconnection Fixes)
 
 ### 32. Emergency Black Screen & Reconnection Resiliency Fixes

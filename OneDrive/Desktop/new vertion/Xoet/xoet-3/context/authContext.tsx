@@ -50,6 +50,7 @@ type AuthUser = {
   role: 'user' | 'admin' | 'superadmin' | 'maintenance' | 'maintenance_admin';
   room_1_wins: number;
   r1_10_wins: number;
+  r1_15_wins: number;
   r1_25_wins: number;
   r1_50_wins: number;
   r1_99_wins: number;
