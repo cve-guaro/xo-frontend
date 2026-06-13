@@ -1,4 +1,5 @@
 {
+  "framework": null,
   "buildCommand": "cd xoet-3 && npx expo export --platform web",
   "outputDirectory": "xoet-3/dist",
   "installCommand": "cd xoet-3 && npm install --legacy-peer-deps",

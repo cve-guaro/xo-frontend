@@ -67,3 +67,4 @@ dump.sql
 *.sql
 !migration_*.sql
 !schema.sql
+.vercel
