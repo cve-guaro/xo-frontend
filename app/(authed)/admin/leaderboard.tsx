@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -91,6 +92,79 @@ export default function AdminLeaderboardPage() {
       const { [userId]: _, ...rest } = prev;
       return rest;
     });
+  };
+
+  // Winner audit / anti-cheat review modal states
+  const [selectedWinnerForReview, setSelectedWinnerForReview] = useState<any | null>(null);
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [reviewUserData, setReviewUserData] = useState<any | null>(null);
+  const [replacementTargetId, setReplacementTargetId] = useState<string>('');
+  const [showReplacementPicker, setShowReplacementPicker] = useState(false);
+  
+  // Replay sub-modal states
+  const [replayGame, setReplayGame] = useState<any | null>(null);
+  const [replayMoves, setReplayMoves] = useState<any[]>([]);
+  const [replayBoardStep, setReplayBoardStep] = useState(0);
+
+  const fetchReviewUser = async (userId: string) => {
+    setReviewLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/admin/users/${userId}/360`, { headers });
+      const data = await res.json();
+      if (data.user) {
+        setReviewUserData(data);
+      } else {
+        showAlert('Error', 'Failed to load user details');
+      }
+    } catch (e) {
+      console.error('Fetch review user error:', e);
+      showAlert('Error', 'Failed to load user details');
+    } finally {
+      setReviewLoading(false);
+    }
+  };
+
+  const confirmReplacement = () => {
+    if (!selectedWinnerForReview) return;
+    const rank = selectedWinnerForReview.rank;
+    
+    setGiveawayData((prev: any) => {
+      if (!prev || !prev.winners) return prev;
+      
+      const newWinners = prev.winners.map((w: any) => {
+        if (w.rank === rank) {
+          if (replacementTargetId === 'none') {
+            return {
+              id: 'none',
+              username: 'Disqualified',
+              number: 'N/A',
+              rank: rank,
+              wins: 0,
+              avatar: null
+            };
+          } else {
+            const repl = standings.find(s => s.id === replacementTargetId);
+            if (repl) {
+              return {
+                id: repl.id,
+                username: repl.username,
+                number: repl.number,
+                rank: rank,
+                wins: repl.wins,
+                avatar: null
+              };
+            }
+          }
+        }
+        return w;
+      });
+      
+      return { ...prev, winners: newWinners };
+    });
+    
+    setSelectedWinnerForReview(null);
+    setReviewUserData(null);
+    setReplacementTargetId('');
   };
 
   // Responsive state for dual column layout
@@ -713,13 +787,25 @@ export default function AdminLeaderboardPage() {
                         return (
                           <View key={w.id} style={{ marginBottom: 16 }}>
                             <View style={s.giveawayWinnerRow}>
-                              <View style={[s.prizeMedal, { backgroundColor: rankColor(w.rank) + '20', width: 26, height: 26 }]}>
-                                <Text style={{ color: rankColor(w.rank), fontWeight: '900', fontSize: 12 }}>#{w.rank}</Text>
-                              </View>
-                              <View style={{ flex: 1, marginLeft: 10 }}>
-                                <Text style={s.giveawayWinnerName}>{w.username}</Text>
-                                <Text style={s.giveawayWinnerWins}>{w.wins} wins · {w.number}</Text>
-                              </View>
+                              <TouchableOpacity
+                                style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}
+                                onPress={() => {
+                                  setSelectedWinnerForReview(w);
+                                  setReplacementTargetId(w.id);
+                                  if (w.id !== 'none' && w.id !== 'null' && w.id) {
+                                    fetchReviewUser(w.id);
+                                  }
+                                }}
+                                activeOpacity={0.7}
+                              >
+                                <View style={[s.prizeMedal, { backgroundColor: rankColor(w.rank) + '20', width: 26, height: 26 }]}>
+                                  <Text style={{ color: rankColor(w.rank), fontWeight: '900', fontSize: 12 }}>#{w.rank}</Text>
+                                </View>
+                                <View style={{ flex: 1, marginLeft: 10 }}>
+                                  <Text style={s.giveawayWinnerName}>{w.username}</Text>
+                                  <Text style={s.giveawayWinnerWins}>{w.wins} wins · {w.number}</Text>
+                                </View>
+                              </TouchableOpacity>
                               <View style={s.giveawayInputContainer}>
                                 <TextInput
                                   style={s.giveawayPrizeInput}
@@ -930,7 +1016,7 @@ export default function AdminLeaderboardPage() {
           title={isEN ? "Trigger Prize Disbursement" : "ለአሸናፊዎች ሽልማት ላክ"}
           message={isEN 
             ? "Are you sure you want to capture the standings snapshot, commit prize wallets, and distribute real SMS notifications to top winners?" 
-            : "ቅጽበታዊ መረጃዎችን ለመያዝ ፣ የኪስ ቦርሳዎችን ለመሙላት እና ለእውነተኛ አሸናፊዎች የኤስኤምኤስ ማሳወቂያዎችን ለመላክ እርግጠኛ ነዎት?"
+            : "ቅጽበታዊ መረጃዎችን ለመያዝ ፣ የኪስ ቦርሳዎችን ለመሙላት እና ለእውነተኛ አሸናፊዎች የኤስኤስኤምኤስ ማሳወቂያዎችን ለመላክ እርግጠኛ ነዎት?"
           }
           confirmText={isEN ? "Confirm & Settle" : "አዎ ፣ ፈቅድ"}
           confirmColor="yellow"
@@ -942,6 +1028,367 @@ export default function AdminLeaderboardPage() {
             setShowSMSConfirm(false);
           }}
         />
+
+        {/* ================= USER DETAIL / REVIEW / REPLACE MODAL ================= */}
+        {selectedWinnerForReview && (
+          <Modal visible transparent animationType="slide">
+            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center', padding: 16 }}>
+              <View style={{ backgroundColor: '#0f1423', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', width: '100%', maxWidth: 640, maxHeight: '90%', padding: 20 }}>
+                {/* Header */}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)', paddingBottom: 12 }}>
+                  <View>
+                    <Text style={{ color: '#fff', fontSize: 16, fontWeight: '900' }}>
+                      Review & Replace: Rank #{selectedWinnerForReview.rank}
+                    </Text>
+                    <Text style={{ color: C.dim, fontSize: 11 }}>
+                      Current Winner: {selectedWinnerForReview.username} ({selectedWinnerForReview.wins} wins)
+                    </Text>
+                  </View>
+                  <TouchableOpacity 
+                    onPress={() => {
+                      setSelectedWinnerForReview(null);
+                      setReviewUserData(null);
+                      setReplacementTargetId('');
+                    }}
+                    style={{ padding: 4 }}
+                  >
+                    <Ionicons name="close" size={24} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+
+                <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+                  {/* Replacement Selector */}
+                  <View style={{ backgroundColor: 'rgba(255,255,255,0.02)', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', marginBottom: 16 }}>
+                    <Text style={{ color: C.accent, fontSize: 11, fontWeight: '800', letterSpacing: 0.5, marginBottom: 8 }}>REPLACE WINNER</Text>
+                    <View style={{ gap: 8 }}>
+                      <Text style={{ color: C.dim, fontSize: 11 }}>
+                        Choose another active leaderboard player to swap into this rank, or disqualify this rank entirely:
+                      </Text>
+                      <View style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', height: 40, justifyContent: 'center', paddingHorizontal: 12 }}>
+                        {Platform.OS === 'web' ? (
+                          <select
+                            value={replacementTargetId}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setReplacementTargetId(val);
+                              if (val !== 'none' && val !== '') {
+                                fetchReviewUser(val);
+                              } else {
+                                setReviewUserData(null);
+                              }
+                            }}
+                            style={{
+                              background: 'transparent',
+                              color: '#fff',
+                              border: 'none',
+                              outline: 'none',
+                              width: '100%',
+                              fontSize: '13px',
+                              fontFamily: 'inherit',
+                            }}
+                          >
+                            <option value="" disabled style={{ backgroundColor: '#0f1423', color: '#fff' }}>Select player to swap...</option>
+                            <option value="none" style={{ backgroundColor: '#0f1423', color: C.red }}>None (Disqualify Rank)</option>
+                            {standings.map(st => (
+                              <option key={st.id} value={st.id} style={{ backgroundColor: '#0f1423', color: '#fff' }}>
+                                Rank #{st.rank}: {st.username} ({st.wins} wins)
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <TouchableOpacity 
+                            style={{ width: '100%', height: '100%', justifyContent: 'center' }}
+                            onPress={() => setShowReplacementPicker(true)}
+                          >
+                            <Text style={{ color: '#fff', fontSize: 13 }}>
+                              {replacementTargetId === 'none' ? 'None (Disqualify)' : 
+                               standings.find(s => s.id === replacementTargetId)?.username || 'Tap to select replacement...'}
+                            </Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Native Picker Overlay */}
+                  {Platform.OS !== 'web' && showReplacementPicker && (
+                    <Modal visible transparent animationType="fade">
+                      <TouchableOpacity 
+                        style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 24 }}
+                        onPress={() => setShowReplacementPicker(false)}
+                      >
+                        <View style={{ backgroundColor: '#161b2e', borderRadius: 12, padding: 16, maxHeight: '80%' }}>
+                          <Text style={{ color: '#fff', fontWeight: '800', fontSize: 14, marginBottom: 12 }}>Select Replacement</Text>
+                          <ScrollView>
+                            <TouchableOpacity 
+                              style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}
+                              onPress={() => {
+                                setReplacementTargetId('none');
+                                setReviewUserData(null);
+                                setShowReplacementPicker(false);
+                              }}
+                            >
+                              <Text style={{ color: C.red, fontWeight: '700' }}>None (Disqualify Rank)</Text>
+                            </TouchableOpacity>
+                            {standings.map(st => (
+                              <TouchableOpacity 
+                                key={st.id}
+                                style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}
+                                onPress={() => {
+                                  setReplacementTargetId(st.id);
+                                  fetchReviewUser(st.id);
+                                  setShowReplacementPicker(false);
+                                }}
+                              >
+                                <Text style={{ color: '#fff' }}>Rank #{st.rank}: {st.username} ({st.wins} wins)</Text>
+                              </TouchableOpacity>
+                            ))}
+                          </ScrollView>
+                        </View>
+                      </TouchableOpacity>
+                    </Modal>
+                  )}
+
+                  {/* Audited User Info */}
+                  {reviewLoading ? (
+                    <ActivityIndicator color={C.accent} style={{ marginVertical: 30 }} />
+                  ) : replacementTargetId === 'none' ? (
+                    <View style={{ padding: 16, alignItems: 'center', backgroundColor: 'rgba(239, 68, 68, 0.05)', borderRadius: 10, borderStyle: 'dashed', borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.2)' }}>
+                      <Ionicons name="trash-outline" size={32} color={C.red} style={{ marginBottom: 8 }} />
+                      <Text style={{ color: C.red, fontSize: 13, fontWeight: '700' }}>Marking Rank as Disqualified</Text>
+                      <Text style={{ color: C.dim, fontSize: 11, textAlign: 'center', marginTop: 4 }}>
+                        This rank's prize will be set to 0. No wallets will be credited, and the weekly standings slot will display "Disqualified" for users.
+                      </Text>
+                    </View>
+                  ) : reviewUserData ? (
+                    <View>
+                      {/* User Stats Card */}
+                      <View style={{ backgroundColor: 'rgba(255,255,255,0.02)', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', marginBottom: 16 }}>
+                        <Text style={{ color: C.secondary, fontSize: 11, fontWeight: '800', letterSpacing: 0.5, marginBottom: 8 }}>PLAYER METRICS & WALLET</Text>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+                          <View style={{ flex: 1, minWidth: 120, backgroundColor: 'rgba(255,255,255,0.02)', padding: 8, borderRadius: 8 }}>
+                            <Text style={{ color: C.dim, fontSize: 9 }}>Available Bal</Text>
+                            <Text style={{ color: '#fff', fontSize: 14, fontWeight: '900', marginTop: 2 }}>{reviewUserData.wallet?.available || 0} ETB</Text>
+                          </View>
+                          <View style={{ flex: 1, minWidth: 120, backgroundColor: 'rgba(255,255,255,0.02)', padding: 8, borderRadius: 8 }}>
+                            <Text style={{ color: C.dim, fontSize: 9 }}>Bonus Balance</Text>
+                            <Text style={{ color: C.gold, fontSize: 14, fontWeight: '900', marginTop: 2 }}>{reviewUserData.wallet?.bonus || 0} ETB</Text>
+                          </View>
+                          <View style={{ flex: 1, minWidth: 120, backgroundColor: 'rgba(255,255,255,0.02)', padding: 8, borderRadius: 8 }}>
+                            <Text style={{ color: C.dim, fontSize: 9 }}>Win Rate</Text>
+                            <Text style={{ color: C.green, fontSize: 14, fontWeight: '900', marginTop: 2 }}>
+                              {reviewUserData.stats?.totalGames > 0 ? `${Math.round((reviewUserData.stats.wins / reviewUserData.stats.totalGames) * 100)}%` : '0%'}
+                            </Text>
+                          </View>
+                          <View style={{ flex: 1, minWidth: 120, backgroundColor: 'rgba(255,255,255,0.02)', padding: 8, borderRadius: 8 }}>
+                            <Text style={{ color: C.dim, fontSize: 9 }}>Total Games</Text>
+                            <Text style={{ color: '#fff', fontSize: 14, fontWeight: '900', marginTop: 2 }}>{reviewUserData.stats?.totalGames || 0}</Text>
+                          </View>
+                        </View>
+                      </View>
+
+                      {/* Game History List */}
+                      <View>
+                        <Text style={{ color: '#fff', fontSize: 12, fontWeight: '800', marginBottom: 8, letterSpacing: 0.5 }}>RECENT GAMES (ANTI-CHEAT AUDIT)</Text>
+                        {(!reviewUserData.games || reviewUserData.games.length === 0) ? (
+                          <Text style={{ color: C.dim, fontSize: 12, paddingVertical: 10 }}>No games recorded for this player.</Text>
+                        ) : (
+                          reviewUserData.games.map((g: any) => {
+                            const isWon = g.winner === reviewUserData.user?.id;
+                            const isDraw = g.status === 'completed' && !g.winner;
+                            const oppName = g.player_x === reviewUserData.user?.id ? (g.player_o_name || 'Opponent') : (g.player_x_name || 'Opponent');
+                            const dateStr = new Date(g.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                            return (
+                              <View key={g.id} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.03)' }}>
+                                <View style={{ flex: 1 }}>
+                                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: isDraw ? C.dim : isWon ? C.green : C.red }} />
+                                    <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>vs {oppName}</Text>
+                                    <Text style={{ color: C.dim, fontSize: 10 }}>· {g.bet_amount} ETB</Text>
+                                  </View>
+                                  <Text style={{ color: C.dim, fontSize: 9, marginTop: 2 }}>{dateStr} · {g.status}</Text>
+                                </View>
+                                <TouchableOpacity 
+                                  onPress={async () => {
+                                    try {
+                                      const res = await fetch(`${API_URL}/admin/games/${g.id}/moves`, { headers });
+                                      const movesJson = await res.json();
+                                      setReplayGame(g);
+                                      setReplayMoves(movesJson.moves || []);
+                                      setReplayBoardStep(0);
+                                    } catch (e) {
+                                      showAlert('Error', 'Failed to load game moves');
+                                    }
+                                  }}
+                                  style={{ backgroundColor: 'rgba(0, 229, 255, 0.1)', borderWidth: 1, borderColor: 'rgba(0, 229, 255, 0.2)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 }}
+                                  activeOpacity={0.7}
+                                >
+                                  <Text style={{ color: C.accent, fontSize: 10, fontWeight: '700' }}>Replay</Text>
+                                </TouchableOpacity>
+                              </View>
+                            );
+                          })
+                        )}
+                      </View>
+                    </View>
+                  ) : (
+                    <Text style={{ color: C.dim, fontSize: 12, textAlign: 'center', marginVertical: 20 }}>Select a player to load details</Text>
+                  )}
+                </ScrollView>
+
+                {/* Footer buttons */}
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 16, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', paddingTop: 12 }}>
+                  <TouchableOpacity 
+                    onPress={() => {
+                      setSelectedWinnerForReview(null);
+                      setReviewUserData(null);
+                      setReplacementTargetId('');
+                    }}
+                    style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', height: 42, borderRadius: 10, alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>Cancel</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    onPress={confirmReplacement}
+                    disabled={replacementTargetId === '' || reviewLoading}
+                    style={{ flex: 1.2, backgroundColor: replacementTargetId === 'none' ? C.red : C.accent, height: 42, borderRadius: 10, alignItems: 'center', justifyContent: 'center', opacity: (replacementTargetId === '' || reviewLoading) ? 0.5 : 1 }}
+                  >
+                    <Text style={{ color: '#0a0a1a', fontSize: 13, fontWeight: '900' }}>
+                      {replacementTargetId === 'none' ? 'Disqualify Winner' : 'Confirm Replacement'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
+        )}
+
+        {/* ================= GAME REPLAY SUB-MODAL ================= */}
+        {replayGame && (
+          <Modal visible transparent animationType="fade">
+            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center', padding: 16 }}>
+              <View style={{ backgroundColor: '#0f1423', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', width: '100%', maxWidth: 440, padding: 20 }}>
+                
+                {/* Header */}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                  <View>
+                    <Text style={{ color: '#fff', fontSize: 16, fontWeight: '900' }}>Game Replay</Text>
+                    <Text style={{ color: C.dim, fontSize: 10 }}>ID: {replayGame.id?.slice(0, 8)} · Bet: {replayGame.bet_amount} ETB</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => setReplayGame(null)} style={{ padding: 4 }}>
+                    <Ionicons name="close" size={20} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+
+                {/* 3x3 Board rendering */}
+                {(() => {
+                  const board: (string | null)[] = Array(9).fill(null);
+                  const visibleMoves = replayMoves.slice(0, replayBoardStep);
+                  visibleMoves.forEach((m: any, idx: number) => {
+                    const cell = typeof m.cell === 'number' ? m.cell : (typeof m.index === 'number' ? m.index : idx);
+                    const symbol = m.symbol || m.player || (idx % 2 === 0 ? 'X' : 'O');
+                    if (cell >= 0 && cell < 9) board[cell] = symbol;
+                  });
+
+                  return (
+                    <View style={{ marginBottom: 14 }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                        <Text style={{ color: '#64748b', fontSize: 9, fontWeight: '800' }}>STEP {replayBoardStep}/{replayMoves.length}</Text>
+                        <Text style={{ color: C.secondary, fontSize: 10, fontWeight: '700' }}>
+                          {replayGame.winner ? `Winner: ${replayGame.winner === reviewUserData?.user?.id ? reviewUserData.user.username : 'Opponent'}` : 'Draw'}
+                        </Text>
+                      </View>
+
+                      {/* 3x3 Grid */}
+                      <View style={{ alignSelf: 'center', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 12, padding: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
+                        {[0, 1, 2].map(row => (
+                          <View key={row} style={{ flexDirection: 'row' }}>
+                            {[0, 1, 2].map(col => {
+                              const idx = row * 3 + col;
+                              const sym = board[idx];
+                              const isLatest = replayBoardStep > 0 && (() => {
+                                const lastMove = replayMoves[replayBoardStep - 1];
+                                const lastCell = typeof lastMove?.cell === 'number' ? lastMove.cell : (typeof lastMove?.index === 'number' ? lastMove.index : replayBoardStep - 1);
+                                return lastCell === idx;
+                              })();
+                              return (
+                                <View key={col} style={{
+                                  width: 56, height: 56, alignItems: 'center', justifyContent: 'center',
+                                  borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)',
+                                  backgroundColor: isLatest ? 'rgba(0,229,255,0.06)' : 'transparent',
+                                  borderRadius: row === 0 && col === 0 ? 10 : row === 0 && col === 2 ? 10 : row === 2 && col === 0 ? 10 : row === 2 && col === 2 ? 10 : 0,
+                                }}>
+                                  <Text style={{ fontSize: 26, fontWeight: '900', color: sym === 'X' ? '#00daf3' : sym === 'O' ? '#fd6f85' : 'transparent' }}>
+                                    {sym || '·'}
+                                  </Text>
+                                </View>
+                              );
+                            })}
+                          </View>
+                        ))}
+                      </View>
+
+                      {/* Control buttons */}
+                      <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 14, marginTop: 14 }}>
+                        <TouchableOpacity onPress={() => setReplayBoardStep(0)} style={{ padding: 6, opacity: replayBoardStep === 0 ? 0.3 : 1 }}>
+                          <Ionicons name="play-skip-back" size={16} color={C.accent} />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => setReplayBoardStep(p => Math.max(0, p - 1))} style={{ padding: 6, opacity: replayBoardStep === 0 ? 0.3 : 1 }}>
+                          <Ionicons name="caret-back" size={20} color={C.accent} />
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                          onPress={() => {
+                            setReplayBoardStep(0);
+                            let step = 0;
+                            const iv = setInterval(() => {
+                              step++;
+                              setReplayBoardStep(step);
+                              if (step >= replayMoves.length) clearInterval(iv);
+                            }, 500);
+                          }}
+                          style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0,229,255,0.15)', alignItems: 'center', justifyContent: 'center' }}
+                        >
+                          <Ionicons name="play" size={16} color={C.accent} />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => setReplayBoardStep(p => Math.min(replayMoves.length, p + 1))} style={{ padding: 6, opacity: replayBoardStep >= replayMoves.length ? 0.3 : 1 }}>
+                          <Ionicons name="caret-forward" size={20} color={C.accent} />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => setReplayBoardStep(replayMoves.length)} style={{ padding: 6, opacity: replayBoardStep >= replayMoves.length ? 0.3 : 1 }}>
+                          <Ionicons name="play-skip-forward" size={16} color={C.accent} />
+                        </TouchableOpacity>
+                      </View>
+
+                      {/* Move timeline scrollable */}
+                      <ScrollView style={{ maxHeight: 120, marginTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', paddingTop: 8 }} nestedScrollEnabled>
+                        {replayMoves.map((m: any, i: number) => {
+                          const sym = m.symbol || m.player || (i % 2 === 0 ? 'X' : 'O');
+                          const cell = typeof m.cell === 'number' ? m.cell : (typeof m.index === 'number' ? m.index : i);
+                          const isActive = i < replayBoardStep;
+                          return (
+                            <TouchableOpacity key={i} onPress={() => setReplayBoardStep(i + 1)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4, opacity: isActive ? 1 : 0.4 }}>
+                              <Text style={{ color: '#475569', fontSize: 10, width: 20, fontWeight: '700' }}>{i + 1}</Text>
+                              <Text style={{ color: sym === 'X' ? '#00daf3' : '#fd6f85', fontSize: 11, fontWeight: '900', width: 14 }}>{sym}</Text>
+                              <Text style={{ color: C.dim, fontSize: 10 }}>Cell {cell}</Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </ScrollView>
+                    </View>
+                  );
+                })()}
+
+                <TouchableOpacity 
+                  onPress={() => setReplayGame(null)}
+                  style={{ backgroundColor: 'rgba(255,255,255,0.05)', height: 38, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginTop: 6 }}
+                >
+                  <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>Close Replay</Text>
+                </TouchableOpacity>
+
+              </View>
+            </View>
+          </Modal>
+        )}
       </SafeAreaView>
     </View>
   );

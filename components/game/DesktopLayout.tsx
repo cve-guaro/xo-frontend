@@ -13,6 +13,7 @@ import {
   Image,
   Animated,
   Linking,
+  FlatList,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -424,19 +425,25 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
                   </View>
                 </View>
 
-                <ScrollView style={{ maxHeight: 280 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 10, gap: 12, marginTop: 16 }}>
-                  {rawTickerList.length === 0 ? (
+                <FlatList
+                  style={{ maxHeight: 280 }}
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={{ paddingBottom: 10, gap: 12, marginTop: 16 }}
+                  data={rawTickerList}
+                  keyExtractor={(item, index) => index.toString()}
+                  ListEmptyComponent={
                     <Text style={{ color: 'rgba(255,255,255,0.4)', textAlign: 'center', marginTop: 20 }}>
                       {isEN ? "Waiting for live wins..." : "የቀጥታ ድሎችን በመጠባበቅ ላይ..."}
                     </Text>
-                  ) : rawTickerList.map((tx, i) => {
+                  }
+                  renderItem={({ item: tx }) => {
                     const amount = Number(tx.amount || 0);
                     let emoji = '⚡', col = '#fd6f85', bg = 'rgba(253,111,133,0.1)';
                     if (amount >= 500) { emoji = '👑'; col = '#ffb84d'; bg = 'rgba(255,184,77,0.1)'; }
                     else if (amount >= 200) { emoji = '🔥'; col = '#fb923c'; bg = 'rgba(251,146,60,0.1)'; }
                     else if (amount >= 100) { emoji = '🏆'; col = '#00daf3'; bg = 'rgba(0,218,243,0.1)'; }
                     return (
-                      <View key={i} style={styles.txItem}>
+                      <View style={styles.txItem}>
                         <View style={[styles.txIcon, { backgroundColor: bg }]}><Text style={{ fontSize: 16 }}>{emoji}</Text></View>
                         <View style={styles.txMain}>
                           <Text style={styles.txLabel}>@{tx.username.toUpperCase()}</Text>
@@ -445,8 +452,8 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
                         <Text style={[styles.txAmount, { color: col }]}>ETB {amount}</Text>
                       </View>
                     );
-                  })}
-                </ScrollView>
+                  }}
+                />
               </View>
 
             </RightColumnWrapper>

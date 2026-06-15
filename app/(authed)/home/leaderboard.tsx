@@ -379,6 +379,7 @@ export default function LeaderboardScreen() {
   const [secondsRemaining, setSecondsRemaining] = useState(0);
   const [previousWeekWin, setPreviousWeekWin] = useState<PreviousWeekWin>(null);
   const [showCongrats, setShowCongrats] = useState(false);
+  const [payoutPending, setPayoutPending] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width >= 768;
@@ -396,6 +397,7 @@ export default function LeaderboardScreen() {
         setMyRank(data.myRank || null);
         setPrizes(data.prizes || []);
         setSecondsRemaining(data.secondsRemaining || 0);
+        setPayoutPending(data.payoutPending || false);
         if (data.previousWeekWin) {
           setPreviousWeekWin(data.previousWeekWin);
           setShowCongrats(true);
@@ -602,9 +604,32 @@ export default function LeaderboardScreen() {
             return <LBItem item={item} />;
           }}
           ListHeaderComponent={() => {
+            const warningBanner = payoutPending && (
+              <View style={{
+                marginHorizontal: isDesktop ? 20 : 0,
+                marginBottom: 16,
+                padding: 14,
+                backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                borderColor: 'rgba(245, 158, 11, 0.3)',
+                borderWidth: 1,
+                borderRadius: 12,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 10
+              }}>
+                <Ionicons name="time" size={18} color="#f59e0b" />
+                <Text style={{ color: '#f59e0b', fontSize: 12, fontWeight: '700', flex: 1, lineHeight: 16 }}>
+                  {isEN 
+                    ? "Results Under Review: The admin team is currently validating last week's matches to ensure fair play. Payouts will be ready once verification completes."
+                    : "ግምገማ ላይ ያለ ውጤት፡ ባለፈው ሳምንት የተጫወቱ ጨዋታዎች ትክክለኛነት በስተርዳዳሪው እየተጣራ ነው። ማረጋገጫው ሲጠናቀቅ ሽልማቶች ይከፈላሉ::"}
+                </Text>
+              </View>
+            );
+
             if (isDesktop) {
               return (
                 <View>
+                  {warningBanner}
                   <View style={{ flexDirection: 'row', gap: 24, paddingHorizontal: 20, marginBottom: 24 }}>
                     {/* Left Box: Podium */}
                     <View style={{ flex: 1.5, backgroundColor: '#111115', borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', padding: 24 }}>
@@ -632,6 +657,7 @@ export default function LeaderboardScreen() {
             // Mobile Header components
             return (
               <View style={{ backgroundColor: 'transparent', marginBottom: 12 }}>
+                {warningBanner}
                 {/* Header */}
                 <View style={[s.header, { paddingHorizontal: 0 }]}>
                   <Text style={s.headerTitle}>{isEN ? "Weekly Top Winners" : "ሳምንታዊ ከፍተኛ አሸናፊዎች"}</Text>

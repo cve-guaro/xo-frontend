@@ -56,6 +56,8 @@ import DesktopLayout from "../../../components/game/DesktopLayout";
 import WinTicker from "../../../components/game/WinTicker";
 import FloatingActions from "../../../components/game/FloatingActions";
 import PwaInstallModal from "../../../components/game/PwaInstallModal";
+import { LobbyHeader } from "../../../components/game/LobbyHeader";
+import { WeeklyPodium } from "../../../components/game/WeeklyPodium";
 
 
 
@@ -642,131 +644,7 @@ export default function Landing() {
     }
   }, [playClick, deferredPrompt]);
 
-  const renderPodiumSpot = useCallback((spot: { rank: number; prize: number; color: string; barH: number; label: string }) => {
-    const userAtRank = weeklyLeaderboard.find(u => u.rank === spot.rank);
-  const username = userAtRank ? userAtRank.username : "—";
-    const isFirst = spot.rank === 1;
-    const circleSize = isFirst ? 54 : 42;
 
-    return (
-      <View key={spot.rank} style={{ alignItems: 'center', flex: 1 }}>
-        {/* Prize */}
-        <Text style={{
-          color: spot.color,
-          fontSize: 12,
-          fontWeight: '900',
-          marginBottom: 8,
-          textShadowColor: 'rgba(0,0,0,0.5)',
-          textShadowOffset: { width: 0, height: 1 },
-          textShadowRadius: 2
-        }}>
-          {spot.prize} Birr
-        </Text>
-
-        {/* Rank Circle */}
-        <View style={{
-          width: circleSize,
-          height: circleSize,
-          borderRadius: circleSize / 2,
-          borderWidth: 2,
-          borderColor: spot.color,
-          backgroundColor: '#0c0c1d',
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginBottom: -10,
-          zIndex: 2,
-          position: 'relative'
-        }}>
-          <Text style={{ fontSize: isFirst ? 18 : 14, fontWeight: '900', color: '#fff' }}>{spot.rank}</Text>
-
-          {isFirst && (
-            <View style={{
-              position: 'absolute',
-              bottom: -2,
-              right: -2,
-              width: 16,
-              height: 16,
-              borderRadius: 8,
-              backgroundColor: spot.color,
-              alignItems: 'center',
-              justifyContent: 'center',
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 1 },
-              shadowOpacity: 0.3,
-              shadowRadius: 2
-            }}>
-              <Ionicons name="trophy" size={9} color="#000" />
-            </View>
-          )}
-        </View>
-
-        {/* Column Bar (fully rounded rectangle with border) */}
-        <View style={{
-          width: '100%',
-          maxWidth: isFirst ? 82 : 72,
-          height: spot.barH,
-          borderRadius: 16,
-          borderWidth: 1.5,
-          borderColor: spot.color,
-          backgroundColor: 'rgba(255,255,255,0.02)',
-          alignItems: 'center',
-          justifyContent: 'center',
-          paddingVertical: 10
-        }}>
-          <Text style={{ fontSize: 11, fontWeight: '800', color: '#fff', textAlign: 'center' }} numberOfLines={1}>
-            {username}
-          </Text>
-        </View>
-      </View>
-    );
-  }, [weeklyLeaderboard]);
-
-  const renderUserRankCard = useCallback(() => {
-    const rankVal = myWeeklyRank && myWeeklyRank.rank ? `#${myWeeklyRank.rank}` : "#1";
-    const scoreVal = myWeeklyRank && myWeeklyRank.wins !== undefined 
-      ? `${myWeeklyRank.wins} ${isEN ? 'Wins' : 'ድሎች'}` 
-      : `2 ${isEN ? 'Wins' : 'ድሎች'}`;
-
-    return (
-      <View style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        backgroundColor: 'rgba(255, 255, 255, 0.03)',
-        borderRadius: 16,
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.05)',
-        marginTop: 16,
-        width: '100%'
-      }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <View style={{
-            backgroundColor: 'rgba(255, 255, 255, 0.08)',
-            paddingHorizontal: 8,
-            paddingVertical: 4,
-            borderRadius: 8
-          }}>
-            <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11, fontWeight: '900' }}>
-              {rankVal}
-            </Text>
-          </View>
-          <View>
-            <Text style={{ color: '#fff', fontSize: 13, fontWeight: '900' }}>
-              {isEN ? "You" : "እርሶ"}
-            </Text>
-            <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: '600', marginTop: 2 }}>
-              {isEN ? "All players" : "ሁሉም ተጫዋቾች"}
-            </Text>
-          </View>
-        </View>
-        <Text style={{ color: '#fff', fontSize: 13, fontWeight: '900' }}>
-          {scoreVal}
-        </Text>
-      </View>
-    );
-  }, [myWeeklyRank, isEN]);
 
   // ---------- exit modal ----------
   const [exitModalVisible, setExitModalVisible] = useState(false);
@@ -1138,160 +1016,22 @@ export default function Landing() {
         <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
 
-          <Animated.View style={[styles.header, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-            <View style={styles.headerTop}>
-              {/* Left Side: Avatar + Welcome back */}
-              <TouchableOpacity
-                onPress={() => goReplace("/(authed)/home/account")}
-                activeOpacity={0.85}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}
-              >
-                <View style={{
-                  width: 42,
-                  height: 42,
-                  borderRadius: 21,
-                  backgroundColor: 'rgba(255,255,255,0.04)',
-                  borderWidth: 1,
-                  borderColor: 'rgba(255,255,255,0.1)',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <Ionicons name="person-outline" size={18} color="rgba(255,255,255,0.8)" />
-                </View>
-                <View>
-                  <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                    {isEN ? "WELCOME BACK" : "እንኳን ደህና መጡ"}
-                  </Text>
-                  <Text style={{ color: '#fff', fontSize: 14, fontWeight: '900' }}>
-                    {user?.username || 'bina'}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-
-              {/* Right Side: APP, Language, Bell */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                {/* APP Download Button (Bordered dark capsule) */}
-                {!isPwaInstalled && (
-                  <Animated.View style={{ transform: [{ scale: appPulseAnim }] }}>
-                    <TouchableOpacity
-                      onPress={handleAppDownload}
-                      activeOpacity={0.85}
-                      style={{
-                        borderWidth: 1,
-                        borderColor: deferredPrompt ? '#00daf3' : 'rgba(255, 255, 255, 0.1)',
-                        backgroundColor: deferredPrompt ? 'rgba(0, 218, 243, 0.15)' : 'rgba(255, 255, 255, 0.05)',
-                        paddingHorizontal: 12,
-                        paddingVertical: 6,
-                        borderRadius: 14,
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: 5,
-                        // Ambient glow shadow when installable
-                        shadowColor: deferredPrompt ? '#00daf3' : 'transparent',
-                        shadowOffset: { width: 0, height: 0 },
-                        shadowOpacity: deferredPrompt ? 0.6 : 0,
-                        shadowRadius: deferredPrompt ? 8 : 0,
-                      }}
-                    >
-                      <Ionicons name="cloud-download-outline" size={14} color={deferredPrompt ? "#00daf3" : "#fff"} />
-                      <Text style={{ color: deferredPrompt ? "#00daf3" : "#fff", fontSize: 11, fontWeight: '900', letterSpacing: 0.5 }}>APP</Text>
-                    </TouchableOpacity>
-                  </Animated.View>
-                )}
-
-                {/* Language button */}
-                <TouchableOpacity
-                  onPress={handleLanguageToggle}
-                  activeOpacity={0.85}
-                  style={{
-                    width: 38,
-                    height: 38,
-                    borderRadius: 14,
-                    backgroundColor: 'rgba(255,255,255,0.05)',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    borderWidth: 1,
-                    borderColor: 'rgba(255,255,255,0.1)'
-                  }}
-                >
-                  <Ionicons name="language" size={18} color="#fff" />
-                </TouchableOpacity>
-
-                {/* Notification Bell with Badge */}
-                <TouchableOpacity
-                  onPress={() => setNotificationsVisible(true)}
-                  activeOpacity={0.85}
-                  style={{
-                    width: 38,
-                    height: 38,
-                    borderRadius: 14,
-                    backgroundColor: 'rgba(255,255,255,0.05)',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    borderWidth: 1,
-                    borderColor: 'rgba(255,255,255,0.1)',
-                    position: 'relative'
-                  }}
-                >
-                  <Ionicons name="notifications-outline" size={18} color="#fff" />
-                  {unreadCount > 0 && (
-                    <View style={{
-                      position: 'absolute',
-                      top: 6,
-                      right: 6,
-                      width: 8,
-                      height: 8,
-                      borderRadius: 4,
-                      backgroundColor: '#ef4444',
-                      borderWidth: 1,
-                      borderColor: '#000'
-                    }} />
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Available Balance Card */}
-            <LinearGradient
-              colors={["rgba(20, 19, 26, 0.6)", "rgba(27, 26, 36, 0.6)"]}
-              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-              style={[styles.balanceCard, { borderColor: 'rgba(255,255,255,0.05)', overflow: 'hidden' }]}
-            >
-              {/* Huge X watermark in the background */}
-              <Text style={{ position: 'absolute', right: 40, bottom: -45, fontSize: 140, fontWeight: '900', color: 'rgba(0,218,243,0.06)', transform: [{ rotate: '-12deg' }], zIndex: 0 }}>X</Text>
-
-              <View style={[styles.balanceLeft, { zIndex: 1 }]}>
-                <Text style={styles.balanceLabel}>{isEN ? "AVAILABLE BALANCE" : "ቀሪ ሂሳብ"}</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                  <Text style={[styles.balanceValue, { fontSize: 32 }]}>
-                    ETB {Math.floor(balance).toLocaleString()}
-                  </Text>
-                  {/* Purple dot next to the number */}
-                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#00daf3', alignSelf: 'center', marginTop: 12 }} />
-                </View>
-              </View>
-
-              <TouchableOpacity
-                onPress={handleRefreshProfile}
-                activeOpacity={0.85}
-                style={{
-                  borderRadius: 16,
-                  borderWidth: 1,
-                  borderColor: 'rgba(255, 255, 255, 0.1)',
-                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                  overflow: 'hidden',
-                  zIndex: 1
-                }}
-              >
-                <View style={{ paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Ionicons name="reload" size={12} color="#fff" />
-                  <Text style={{ color: '#fff', fontWeight: '800', fontSize: 11 }}>
-                    {isEN ? "Refresh" : "አድስ"}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            </LinearGradient>
-          </Animated.View>
+                    <LobbyHeader
+            fadeAnim={fadeAnim}
+            slideAnim={slideAnim}
+            user={user}
+            isEN={isEN}
+            isPwaInstalled={isPwaInstalled}
+            appPulseAnim={appPulseAnim}
+            deferredPrompt={deferredPrompt}
+            handleAppDownload={handleAppDownload}
+            handleLanguageToggle={handleLanguageToggle}
+            setNotificationsVisible={setNotificationsVisible}
+            unreadCount={unreadCount}
+            balance={balance}
+            handleRefreshProfile={handleRefreshProfile}
+            goReplace={goReplace}
+          />
 
           {/* Quick Actions Grid (Mobile) */}
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
@@ -1321,138 +1061,17 @@ export default function Landing() {
             />
           </View>
 
-          {/* Gameplay Hub Card (Podium style) */}
-          <View style={styles.mainCard}>
-            <LinearGradient colors={["#14131A", "#1B1A24"]} style={StyleSheet.absoluteFill} />
+                    <WeeklyPodium
+            isEN={isEN}
+            weeklyLeaderboard={weeklyLeaderboard}
+            myWeeklyRank={myWeeklyRank}
+            isBanned={isBanned}
+            openRoomSheet={openRoomSheet}
+            setFriendModalVisible={setFriendModalVisible}
+            setRulesVisible={setRulesVisible}
+            t={t}
+          />
 
-            {/* Header: left brand circle icon, "GAMEPLAY HUB" title, "OUTPACE. OUTSMART. WIN!" subtitle, and a "Weekly" pill on the right. */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: 16 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                {/* Brand circle icon (XO matching actual brand logo) */}
-                <View style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 19,
-                  overflow: 'hidden',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  backgroundColor: '#000',
-                  borderWidth: 1,
-                  borderColor: 'rgba(255, 255, 255, 0.15)',
-                }}>
-                  <Image
-                    source={require("../../../assets/images/adaptive-icon.png")}
-                    style={{ width: '100%', height: '100%' }}
-                    resizeMode="cover"
-                  />
-                </View>
-                <View>
-                  <Text style={{ color: '#fff', fontSize: 15, fontWeight: '900', letterSpacing: 0.3 }}>
-                    {isEN ? "GAMEPLAY HUB" : "የጨዋታ ማዕከል"}
-                  </Text>
-                  <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '600' }}>
-                    {isEN ? "OUTPACE. OUTSMART. WIN!" : "ይቅደሙ። ብልህ ይሁኑ። ያሸንፉ!"}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Weekly Pill */}
-              <View style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 5,
-                backgroundColor: 'rgba(255,255,255,0.03)',
-                paddingHorizontal: 10,
-                paddingVertical: 5,
-                borderRadius: 12,
-                borderWidth: 1,
-                borderColor: 'rgba(255,255,255,0.08)'
-              }}>
-                <Ionicons name="trophy-outline" size={10} color="rgba(255,255,255,0.8)" />
-                <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 10, fontWeight: '900', letterSpacing: 0.5 }}>
-              {isEN ? "Weekly" : "ሳምንታዊ"}
-                </Text>
-              </View>
-            </View>
-
-            <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10, marginTop: 10, width: '100%', paddingHorizontal: 10 }}>
-              {renderPodiumSpot({ rank: 2, prize: 300, color: '#94a3b8', barH: 52, label: "2nd" })}
-              {renderPodiumSpot({ rank: 1, prize: 500, color: '#f59e0b', barH: 72, label: "1st" })}
-              {renderPodiumSpot({ rank: 3, prize: 200, color: '#c2410c', barH: 42, label: "3rd" })}
-            </View>
-            {renderUserRankCard()}
-
-            {/* Play Now — disabled when banned, visible always */}
-            <WebPressable
-              onPress={isBanned ? undefined : openRoomSheet}
-              disabled={isBanned}
-              style={({ hovered }: { pressed: boolean; hovered: boolean }) => [
-                styles.playBtn,
-                {
-                  marginTop: 20,
-                  borderRadius: 16,
-                  overflow: 'hidden',
-                  transform: [{ scale: hovered && !isBanned ? 1.02 : 1 }],
-                  shadowColor: '#00daf3',
-                  shadowOffset: { width: 0, height: 6 },
-                  shadowOpacity: hovered && !isBanned ? 0.5 : 0.35,
-                  shadowRadius: 12,
-                  transition: 'all 0.15s ease-in-out',
-                }
-              ]}
-            >
-              <LinearGradient
-                colors={isBanned ? ['#3a2020', '#2a1515'] : ['#00daf3', '#00daf3']}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                style={styles.playInner}
-              >
-                <Ionicons name={isBanned ? "lock-closed" : "flash-outline"} size={20} color={isBanned ? "#fff" : "#000"} />
-                <Text style={[styles.playText, { color: isBanned ? '#fff' : '#000' }]}>
-                {isBanned ? (isEN ? 'SUSPENDED' : 'ታግዷል') : t("play_now")}
-                </Text>
-              </LinearGradient>
-            </WebPressable>
- 
-            {/* Friend Match Button Mobile */}
-            <WebPressable
-              onPress={() => setFriendModalVisible(true)}
-              style={({ hovered }: { pressed: boolean; hovered: boolean }) => [
-                styles.playBtn,
-                {
-                  marginTop: 10,
-                  backgroundColor: 'transparent',
-                  borderWidth: 1.5,
-                  borderColor: '#3b82f6',
-                  borderRadius: 16,
-                  transform: [{ scale: hovered ? 1.02 : 1 }],
-                  transition: 'all 0.15s ease-in-out',
-                }
-              ]}
-            >
-              <View style={styles.playInner}>
-                <Ionicons name="people-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
-                <Text style={[styles.playText, { color: '#fff' }]}>
-                  {isEN ? 'PLAY WITH FRIEND' : 'ከጓደኛ ጋር ይጫወቱ'}
-                </Text>
-              </View>
-            </WebPressable>
-
-            {isBanned && (
-              <Text style={{ color: 'rgba(253,111,133,0.6)', fontSize: 11, textAlign: 'center', marginTop: 6, fontWeight: '700', letterSpacing: 0.5 }}>
-                {isEN ? 'Your account is suspended · Contact support' : 'መለያዎ ታግዷል · ድጋፍን ያነጋግሩ'}
-              </Text>
-            )}
-
-            {/* Rules and info row */}
-            <View style={styles.infoRow}>
-              <InfoPill icon="shield-checkmark-outline" text={isEN ? "Anti-cheat" : "ጸረ-ማጭበርበር"} />
-              <InfoPill icon="timer-outline" text={isEN ? "Fast rounds" : "ፈጣን ዙሮች"} />
-              <InfoPill icon="cash-outline" text={isEN ? "Instant pay" : "ፈጣን ክፍያ"} />
-              <TouchableOpacity onPress={() => setRulesVisible(true)} style={{ flex: 1 }}>
-                <InfoPill icon="book-outline" text={isEN ? "Rules" : "ደንቦች"} />
-              </TouchableOpacity>
-            </View>
-          </View>
           <View style={{ height: 40 }} />
         </ScrollView>
         {!!user?.username && <WelcomeTermsPopup visible={termsVisible} onAgree={handleAgreeTerms} language={language} />}
