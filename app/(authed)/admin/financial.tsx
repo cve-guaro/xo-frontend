@@ -228,7 +228,7 @@ export default function FinancialDashboard() {
           <Text style={st.kpiLabel}>PURE PLATFORM PROFIT</Text>
           <ACount value={d.purePlatformProfit || 0} style={[st.kpiValue, { color: '#34d399' }]} suffix=" ETB" />
           <Text style={{ color: '#64748b', fontSize: 10, marginTop: 4 }}>
-            10% commission × {fmt(d.totalGamesFinished || 0)} games
+            10-20% commission × {fmt(d.totalGamesFinished || 0)} games
           </Text>
         </View>
 
