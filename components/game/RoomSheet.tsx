@@ -84,7 +84,7 @@ const RoomSheet = memo(function RoomSheet({
               </TouchableOpacity>
               <View style={{ flex: 1, marginLeft: 12 }}>
                 <Text style={styles.sheetTitle}>{isEN ? `${selectedRoom.titleEn} amount` : `${selectedRoom.titleAm} መጠን`}</Text>
-                <Text style={styles.sheetSubTitle}>Commission {selectedRoom.cut}% • {selectedRoom.time}s</Text>
+                <Text style={styles.sheetSubTitle}>Commission {selectedRoom.id === "R1" ? "20% / 10%" : `${selectedRoom.cut}%`} • {selectedRoom.time}s</Text>
               </View>
               <TouchableOpacity onPress={onClose} style={styles.sheetCloseBtn}>
                 <Ionicons name="close" size={20} color="rgba(255,255,255,0.7)" />
@@ -148,7 +148,9 @@ const RoomSheet = memo(function RoomSheet({
                       <View style={{ flex: 1 }}>
                         <Text style={styles.roomName}>{isEN ? room.titleEn : room.titleAm} {roomLocked && "(MAXED)"}{globalLocked && "🔐"}</Text>
                         <Text style={styles.roomDetail}>
-                          {isEN ? `ETB ${room.rangeLabel} • ${room.cut}% Commission • ${room.time}s` : `ETB ${room.rangeLabel} • ${room.cut}% ክፍያ • ${room.time} ሰ`}
+                          {isEN 
+                            ? `ETB ${room.rangeLabel} • ${isR1 ? '20% / 10%' : `${room.cut}%`} Commission • ${room.time}s` 
+                            : `ETB ${room.rangeLabel} • ${isR1 ? '20% / 10%' : `${room.cut}%`} ክፍያ • ${room.time} ሰ`}
                         </Text>
                       </View>
                       <View style={styles.roomAction}>
@@ -229,7 +231,7 @@ const RoomSheet = memo(function RoomSheet({
                             ETB {opt.rangeLabel ? opt.rangeLabel : opt.amount.toLocaleString()}
                           </Text>
                           <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 11, fontWeight: '700', marginTop: 4 }}>
-                            Commission {selectedRoom.cut}% • {selectedRoom.time}s
+                            Commission {opt.amount === 10 ? 20 : selectedRoom.cut}% • {selectedRoom.time}s
                             {capReached ? ' • LOCKED' : ''}
                           </Text>
                         </View>
