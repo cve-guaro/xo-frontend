@@ -601,16 +601,7 @@ const AuthContext = createContext<Ctx | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [booting, setBooting] = useState(() => {
-    if (Platform.OS === "web" && typeof window !== "undefined") {
-      try {
-        return !!localStorage.getItem("auth_v2_token");
-      } catch {
-        return true;
-      }
-    }
-    return true;
-  });
+  const [booting, setBooting] = useState(true);
   const [retrying, setRetrying] = useState(false);
 
   // Custom Alert State
