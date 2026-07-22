@@ -95,10 +95,16 @@
       ]
     }
   ],
+  "buildCommand": "npx expo export --platform web",
+  "outputDirectory": "dist",
   "rewrites": [
     {
       "source": "/_expo/static/js/(.*).map",
       "destination": "/404"
+    },
+    {
+      "source": "/((?!_expo|assets|favicon.ico|manifest.json|serve-json.json).*)",
+      "destination": "/index.html"
     }
   ]
 }
