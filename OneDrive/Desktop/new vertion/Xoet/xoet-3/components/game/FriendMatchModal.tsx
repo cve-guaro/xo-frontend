@@ -4,7 +4,7 @@ import { View, Text, TextInput, TouchableOpacity, Modal, ActivityIndicator, Styl
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/authContext';
 
-const BET_OPTIONS = [10, 25, 50, 99, 100, 250, 500];
+const BET_OPTIONS = [10, 15, 25, 50, 99, 100, 250, 500];
 const CAP_LIMIT = 25;
 const SEND_COOLDOWN_MS = 45000;
 
@@ -98,12 +98,28 @@ export default function FriendMatchModal({ visible, onClose, onSendInvite, invit
   }, []);
 
   const getLockInfo = (amt: number): { locked: boolean; reason: string } => {
-    // Note: Room 1 win caps are disabled for Friend Matches per admin request.
+    // 1. Balance check (both players must afford)
     const senderCantAfford = senderBalance < amt;
     const targetCantAfford = targetBalance < amt;
 
     if (senderCantAfford) return { locked: true, reason: isEN ? 'Low balance' : 'ዝቅተኛ ሂሳብ' };
     if (targetCantAfford) return { locked: true, reason: isEN ? "They can't afford" : "የበቂ ሂሳብ የላቸውም" };
+
+    // 2. Win cap check (15-win cap for 10 & 15 Birr)
+    const CAP_LIMIT_VAL = 15;
+    if (amt === 10) {
+      const senderCapped = (senderCaps?.r1_10 || 0) >= CAP_LIMIT_VAL;
+      const targetCapped = (targetCaps?.r1_10 || 0) >= CAP_LIMIT_VAL;
+      if (senderCapped) return { locked: true, reason: isEN ? 'Win cap reached' : 'ገደብ ላይ ደርሰዋል' };
+      if (targetCapped) return { locked: true, reason: isEN ? 'Friend capped' : 'ተጋባዡ ገደብ ላይ ደርሷል' };
+    }
+    if (amt === 15) {
+      const senderCapped = (senderCaps?.r1_15 || 0) >= CAP_LIMIT_VAL;
+      const targetCapped = (targetCaps?.r1_15 || 0) >= CAP_LIMIT_VAL;
+      if (senderCapped) return { locked: true, reason: isEN ? 'Win cap reached' : 'ገደብ ላይ ደርሰዋል' };
+      if (targetCapped) return { locked: true, reason: isEN ? 'Friend capped' : 'ተጋባዡ ገደብ ላይ ደርሷል' };
+    }
+
     return { locked: false, reason: '' };
   };
 

@@ -72,6 +72,19 @@ const SERVER_EVENTS = [
   "friend_invite_result",
   "friend_invite_declined",
   "global_win",
+  // Spin game events
+  "spin:room_state",
+  "spin:player_joined",
+  "spin:player_left",
+  "spin:countdown",
+  "spin:locked",
+  "spin:start",
+  "spin:result",
+  "spin:cancelled",
+  "spin:stake_updated",
+  "spin:error",
+  "spin:voice_chunk",
+  "spin:player_muted",
 ] as const;
 
 type ServerEvent = (typeof SERVER_EVENTS)[number];
@@ -257,19 +270,22 @@ export function SocketProvider({
         }, timeoutMs);
 
         try {
-          s.timeout(timeoutMs).emit(event, payload, (resp: any) => {
+          s.emit(event, payload, (resp: any) => {
             if (done) return;
             done = true;
             clearTimeout(timer);
 
-            if (resp && resp.ok) resolve({ ok: true, data: resp.data });
-            else resolve({ ok: false, error: resp?.error || "NACK" });
+            if (resp && typeof resp === "object" && resp.ok) {
+              resolve({ ok: true, data: resp.data });
+            } else {
+              resolve({ ok: false, error: resp?.error || "NACK" });
+            }
           });
-        } catch {
+        } catch (err: any) {
           if (done) return;
           done = true;
           clearTimeout(timer);
-          resolve({ ok: false, error: "EMIT_ERROR" });
+          resolve({ ok: false, error: err?.message || "EMIT_ERROR" });
         }
       });
     },

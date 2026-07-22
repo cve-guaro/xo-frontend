@@ -34,6 +34,8 @@ export const AdminTheme = {
   outlineVariant: 'rgba(39, 39, 42, 0.6)',
   error: '#ef4444',
   errorContainer: '#7f1d1d',
+  lightPrimary: 'rgba(0, 218, 243, 0.15)',
+  success: '#22c55e',
 };
 
 const C = AdminTheme;
@@ -181,10 +183,37 @@ export default function AdminLayout() {
   const [stats, setStats] = useState<any>(null);
 
   const isMaintenanceAdmin = user?.role === 'superadmin' || user?.role === 'maintenance' || user?.role === 'maintenance_admin';
-  const dynamicNavItems = [...NAV_ITEMS];
-  if (isMaintenanceAdmin) {
-    dynamicNavItems.splice(6, 0, { icon: 'construct', label: 'Maintenance', path: '/admin/maintenance' });
-  }
+  const generalGroup = [
+    { icon: 'grid', label: 'Overview', path: '/admin' },
+    { icon: 'wallet', label: 'Financials', path: '/admin/financial' },
+    { icon: 'people', label: 'User Directory', path: '/admin/users' },
+    { icon: 'cash', label: 'Transaction Ledger', path: '/admin/ledger' },
+    { icon: 'options', label: 'Platform Controls', path: '/admin/controls' },
+    { icon: 'link', label: 'Promotions', path: '/admin/promotion-links' },
+    { icon: 'shield-checkmark', label: 'System Audits', path: '/admin/audit' },
+    ...(isMaintenanceAdmin ? [{ icon: 'construct', label: 'Maintenance', path: '/admin/maintenance' }] : []),
+  ];
+
+  const xoGroup = [
+    { icon: 'list', label: 'XO Game Logs', path: '/admin/logs' },
+    { icon: 'podium', label: 'XO Leaderboard', path: '/admin/leaderboard' },
+    { icon: 'construct', label: 'XO Control Center', path: '/admin/xo-controls' },
+  ];
+
+  const spinGroup = [
+    { icon: 'color-palette', label: 'Spin Dashboard', path: '/admin/spin' },
+    { icon: 'options', label: 'Spin Rooms', path: '/admin/spin-rooms' },
+    { icon: 'podium', label: 'Spin Leaderboard', path: '/admin/spin-leaderboard' },
+    { icon: 'time', label: 'Spin History', path: '/admin/spin-history' },
+    { icon: 'shield', label: 'Spin Moderation', path: '/admin/spin-moderation' },
+  ];
+
+  const bottomTabItems = [
+    { icon: 'grid', label: 'Overview', path: '/admin' },
+    { icon: 'wallet', label: 'Financial', path: '/admin/financial' },
+    { icon: 'people', label: 'Users', path: '/admin/users' },
+    { icon: 'podium', label: 'Leaderboard', path: '/admin/leaderboard' },
+  ];
 
   // ─── 2FA STATE ────────────────────────────────────────────────
   const [adminUnlocked, setAdminUnlocked] = useState(() => {
@@ -254,8 +283,7 @@ export default function AdminLayout() {
     if (token) fetchStats();
   }, [token, pathname]);
 
-  const primaryNav = dynamicNavItems.slice(0, 4);   // Overview, Users, Ledger, Logs
-  const secondaryNav = dynamicNavItems.slice(4); // Promos, Audit, Settings, [Maintenance], Home
+  // Grouped navigation layout mapping
 
   // ─── ADMIN 2FA GATE ───────────────────────────────────────────
   if (!adminUnlocked) {
@@ -364,13 +392,18 @@ export default function AdminLayout() {
                      </TouchableOpacity>
                   </View>
                   <ScrollView style={{ flex: 1, padding: 12 }}>
-                     <Text style={{ color: C.onSurfaceVariant, fontSize: 10, fontWeight: '800', margin: 12, textTransform: 'uppercase' }}>{isEN ? 'Primary' : 'ዋና'}</Text>
-                     {primaryNav.map(item => (
+                     <Text style={{ color: C.onSurfaceVariant, fontSize: 10, fontWeight: '800', margin: 12, textTransform: 'uppercase' }}>{isEN ? 'General Platform' : 'አጠቃላይ'}</Text>
+                     {generalGroup.map(item => (
                         <SideNavItem key={item.path} {...item} currentPath={pathname} collapsed={false} />
                      ))}
                      <View style={{ height: 1, backgroundColor: C.outlineVariant, marginVertical: 12 }} />
-                     <Text style={{ color: C.onSurfaceVariant, fontSize: 10, fontWeight: '800', margin: 12, textTransform: 'uppercase' }}>{isEN ? 'System & Support' : 'ሲስተም'}</Text>
-                     {secondaryNav.map(item => (
+                     <Text style={{ color: C.onSurfaceVariant, fontSize: 10, fontWeight: '800', margin: 12, textTransform: 'uppercase' }}>{isEN ? 'XO Game' : 'ኤክስኦ ጨዋታ'}</Text>
+                     {xoGroup.map(item => (
+                        <SideNavItem key={item.path} {...item} currentPath={pathname} collapsed={false} />
+                     ))}
+                     <View style={{ height: 1, backgroundColor: C.outlineVariant, marginVertical: 12 }} />
+                     <Text style={{ color: C.onSurfaceVariant, fontSize: 10, fontWeight: '800', margin: 12, textTransform: 'uppercase' }}>{isEN ? 'Spin Game' : 'ስፒን ጨዋታ'}</Text>
+                     {spinGroup.map(item => (
                         <SideNavItem key={item.path} {...item} currentPath={pathname} collapsed={false} />
                      ))}
                   </ScrollView>
@@ -389,7 +422,7 @@ export default function AdminLayout() {
         )}
 
         <SafeAreaView style={s.bottomBar}>
-          {primaryNav.map(item => (
+          {bottomTabItems.map(item => (
             <BottomTabItem key={item.path} {...item} currentPath={pathname} />
           ))}
         </SafeAreaView>
@@ -436,30 +469,23 @@ export default function AdminLayout() {
         )}
 
         <ScrollView style={s.navList} showsVerticalScrollIndicator={false}>
-          <SideNavItem icon="grid" label="Overview" path="/admin" currentPath={pathname || ''} collapsed={collapsed} />
-          <SideNavItem icon="wallet" label="Financial" path="/admin/financial" currentPath={pathname || ''} collapsed={collapsed} />
-          <SideNavItem icon="people" label="Users" path="/admin/users" currentPath={pathname || ''} collapsed={collapsed} />
-          
           <NavGroup 
-            title="Operations"
-            items={[
-              { icon: 'cash', label: 'Transaction', path: '/admin/ledger' },
-              { icon: 'list', label: 'Game Logs', path: '/admin/logs' },
-              { icon: 'podium', label: 'Leaderboard', path: '/admin/leaderboard' },
-              { icon: 'options', label: 'Control Center', path: '/admin/controls' },
-            ]}
+            title="General Platform"
+            items={generalGroup}
             currentPath={pathname || ''}
             collapsed={collapsed}
           />
 
           <NavGroup 
-            title="System"
-            items={[
-              ...(isMaintenanceAdmin ? [{ icon: 'construct', label: 'Maintenance', path: '/admin/maintenance' }] : []),
-              { icon: 'shield-checkmark', label: 'Audit Logs', path: '/admin/audit' },
-              { icon: 'link', label: 'Promotions', path: '/admin/promotion-links' },
-              { icon: 'home', label: 'Back To Home', path: '/(authed)/home/gameplay' },
-            ]}
+            title="XO Game"
+            items={xoGroup}
+            currentPath={pathname || ''}
+            collapsed={collapsed}
+          />
+
+          <NavGroup 
+            title="Spin Game"
+            items={spinGroup}
             currentPath={pathname || ''}
             collapsed={collapsed}
           />
@@ -520,6 +546,8 @@ export default function AdminLayout() {
           >
             <Ionicons name={musicPlaying ? 'volume-high' : 'volume-mute'} size={16} color={musicPlaying ? C.secondary : C.error} />
           </TouchableOpacity>
+          {/* Notification Bell */}
+
           <TouchableOpacity style={[s.iconBtn]} onPress={() => switchLanguage()}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(24, 24, 27, 0.65)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: C.outlineVariant }}>
               <Ionicons name="globe-outline" size={16} color={C.onSurfaceVariant} />

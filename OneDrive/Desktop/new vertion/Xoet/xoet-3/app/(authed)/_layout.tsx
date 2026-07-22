@@ -254,8 +254,8 @@ function GlobalInvitesGate() {
     return () => clearTimeout(timer);
   }, [incomingInvite, token, send]);
 
-  // If they are in the game room, let room.tsx handle the popups.
-  if (pathname.includes('/game/room')) return null;
+  // If they are on an active game page (room or gameplay), let the game view handle the popups.
+  if (pathname.includes('/game/room') || pathname.includes('/home/gameplay') || pathname.includes('/home/spin')) return null;
 
   return (
     <>
@@ -276,9 +276,15 @@ export default function AuthedLayout() {
   const isDesktop = Platform.OS === "web" && width >= 1024;
   const isTablet = Platform.OS === "web" && width >= 768 && width < 1024;
   const isGameplayRoute = pathname.includes("/home/gameplay") || pathname === "/home";
+  const isHistoryRoute = pathname.includes("/home/history") || pathname === "/games";
+  const isLeaderboardRoute = pathname.includes("/home/leaderboard");
+  const isAccountRoute = pathname.includes("/home/account");
+  const isSpinRoute = pathname.includes("/home/spin");
+  const isTransactionsRoute = pathname.includes("/home/transactions");
   const isAdminRoute = pathname.includes("/admin");
-  const showRightSidebar = isDesktop && !isGameplayRoute && !isAdminRoute;
-  const showLeftSidebar = (isDesktop || isTablet) && !isAdminRoute;
+  const isGameRoute = pathname.includes("/game/");
+  const showRightSidebar = isDesktop && !isGameplayRoute && !isHistoryRoute && !isLeaderboardRoute && !isAccountRoute && !isSpinRoute && !isAdminRoute && !isTransactionsRoute && !isGameRoute;
+  const showLeftSidebar = (isDesktop || isTablet) && !isHistoryRoute && !isLeaderboardRoute && !isAccountRoute && !isSpinRoute && !isAdminRoute && !isTransactionsRoute && !isGameRoute;
   const isAccountPage = pathname.includes("/home/account");
   const isMissingProfile = user ? (!user.username || !user.display_name) : false;
   const isMobile = width < 768;
@@ -539,8 +545,9 @@ export default function AuthedLayout() {
     <SocketProvider token={token || undefined}>
       <MatchmakingGate />
       <GlobalNotiGate />
-      <View style={{ flex: 1, backgroundColor: '#0a0a14', padding: showResponsiveLayout && !isAdminRoute ? 16 : 0 }}>
-        {isAdminRoute ? (
+      <NotificationsPopover visible={notificationsVisible} onClose={() => setNotificationsVisible(false)} onUnreadCountChange={setUnreadCount} />
+      <View style={{ flex: 1, backgroundColor: '#0a0a14', padding: showResponsiveLayout && !isAdminRoute && !isGameplayRoute && !isHistoryRoute && !isLeaderboardRoute && !isAccountRoute && !isSpinRoute && !isTransactionsRoute ? 16 : 0 }}>
+        {isAdminRoute || isGameplayRoute || isHistoryRoute || isLeaderboardRoute || isAccountRoute || isSpinRoute || isTransactionsRoute || isGameRoute ? (
           <Slot />
         ) : showResponsiveLayout ? (
           <View style={{ flex: 1, gap: 16 }}>
@@ -674,75 +681,6 @@ export default function AuthedLayout() {
                       </>
                     )}
                   </View>
-
-                  <View>
-                    {/* Bottom Profile Details */}
-                    {isDesktop && (
-                      <View style={{ paddingHorizontal: 16, marginBottom: 12, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                        {(user as any)?.avatar ? (
-                          <Image source={{ uri: fixUrl((user as any).avatar) || undefined }} style={{ width: 42, height: 42, borderRadius: 21, borderWidth: 1.5, borderColor: '#00daf3' }} />
-                        ) : (
-                          <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: '#09090b', borderWidth: 1.5, borderColor: '#00daf3', alignItems: 'center', justifyContent: 'center' }}>
-                            <Text style={{ color: '#00daf3', fontWeight: '900', fontSize: 18 }}>
-                              {(user?.username || user?.id || 'U').charAt(0).toUpperCase()}
-                            </Text>
-                          </View>
-                        )}
-                        <View>
-                          <Text style={{ color: '#e5e3ff', fontSize: 13, fontWeight: '800' }}>@{user?.username || 'user'}</Text>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4, backgroundColor: 'rgba(0, 218, 243, 0.1)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, alignSelf: 'flex-start', borderWidth: 1, borderColor: 'rgba(0, 218, 243, 0.2)' }}>
-                            <Text style={{ color: '#00daf3', fontSize: 9, fontWeight: '900', letterSpacing: 0.5 }}>+ VERIFIED</Text>
-                          </View>
-                        </View>
-                      </View>
-                    )}
-
-                    {/* Total Balance Card */}
-                    {isDesktop && (
-                      <View style={{ marginHorizontal: 16, marginBottom: 16, backgroundColor: '#151518', borderWidth: 1, borderColor: '#27272a', borderRadius: 20, padding: 18 }}>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: '800', letterSpacing: 0.8 }}>TOTAL BALANCE</Text>
-                          <TouchableOpacity onPress={() => refreshProfile?.()}>
-                            <Ionicons name="refresh" size={14} color="rgba(255,255,255,0.5)" />
-                          </TouchableOpacity>
-                        </View>
-                        <Text style={{ color: '#00daf3', fontSize: 22, fontWeight: '900', marginTop: 8 }}>ETB {Number(user?.available_balance ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</Text>
-
-                        <TouchableOpacity
-                          onPress={() => setDepositVisible(true)}
-                          style={{
-                            backgroundColor: '#fff',
-                            borderRadius: 12,
-                            paddingVertical: 12,
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            marginTop: 16,
-                          }}
-                        >
-                          <Ionicons name="add" size={16} color="#000" style={{ marginRight: 4 }} />
-                          <Text style={{ color: '#000', fontSize: 12, fontWeight: '900', letterSpacing: 0.8 }}>RECHARGE</Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
-
-                    {/* Centered Logout Button */}
-                    <View style={{ borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.03)', paddingVertical: 12 }}>
-                      <TouchableOpacity
-                        onPress={() => setLogoutVisible(true)}
-                        style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: 8,
-                          paddingVertical: 4
-                        }}
-                      >
-                        <Ionicons name="log-out-outline" size={16} color="rgba(255,255,255,0.4)" />
-                        {isDesktop && <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, fontWeight: '800', letterSpacing: 0.8 }}>LOGOUT</Text>}
-                      </TouchableOpacity>
-                    </View>
-                  </View>
                 </View>
               )}
 
@@ -787,73 +725,6 @@ export default function AuthedLayout() {
                       <SidebarItem isDesktop={isDesktop} collapsed={!isDesktop} icon="shield-half-outline" label="Admin Center" isActive={isAdminRoute} onPress={() => navigateTo('/(authed)/admin')} />
                     </>
                   )}
-                </View>
-
-                {/* Bottom Profile Details */}
-                {isDesktop && (
-                  <View style={{ paddingHorizontal: 16, marginBottom: 12, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                    {(user as any)?.avatar ? (
-                      <Image source={{ uri: fixUrl((user as any).avatar) || undefined }} style={{ width: 42, height: 42, borderRadius: 21, borderWidth: 1.5, borderColor: '#00daf3' }} />
-                    ) : (
-                      <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: '#09090b', borderWidth: 1.5, borderColor: '#00daf3', alignItems: 'center', justifyContent: 'center' }}>
-                        <Text style={{ color: '#00daf3', fontWeight: '900', fontSize: 18 }}>
-                          {(user?.username || user?.id || 'U').charAt(0).toUpperCase()}
-                        </Text>
-                      </View>
-                    )}
-                    <View>
-                      <Text style={{ color: '#e5e3ff', fontSize: 13, fontWeight: '800' }}>@{user?.username || 'user'}</Text>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4, backgroundColor: 'rgba(0, 218, 243, 0.1)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, alignSelf: 'flex-start', borderWidth: 1, borderColor: 'rgba(0, 218, 243, 0.2)' }}>
-                        <Text style={{ color: '#00daf3', fontSize: 9, fontWeight: '900', letterSpacing: 0.5 }}>+ VERIFIED</Text>
-                      </View>
-                    </View>
-                  </View>
-                )}
-
-                {/* Total Balance Card */}
-                {isDesktop && (
-                  <View style={{ marginHorizontal: 16, marginBottom: 16, backgroundColor: '#151518', borderWidth: 1, borderColor: '#27272a', borderRadius: 20, padding: 18 }}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: '800', letterSpacing: 0.8 }}>TOTAL BALANCE</Text>
-                      <TouchableOpacity onPress={() => refreshProfile?.()}>
-                        <Ionicons name="refresh" size={14} color="rgba(255,255,255,0.5)" />
-                      </TouchableOpacity>
-                    </View>
-                    <Text style={{ color: '#00daf3', fontSize: 22, fontWeight: '900', marginTop: 8 }}>ETB {Number(user?.available_balance ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</Text>
-
-                    <TouchableOpacity
-                      onPress={() => setDepositVisible(true)}
-                      style={{
-                        backgroundColor: '#fff',
-                        borderRadius: 12,
-                        paddingVertical: 12,
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        marginTop: 16,
-                      }}
-                    >
-                      <Ionicons name="add" size={16} color="#000" style={{ marginRight: 4 }} />
-                      <Text style={{ color: '#000', fontSize: 12, fontWeight: '900', letterSpacing: 0.8 }}>RECHARGE</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-
-                {/* Centered Logout Button */}
-                <View style={{ borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.03)', paddingVertical: 12 }}>
-                  <TouchableOpacity
-                    onPress={() => setLogoutVisible(true)}
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 8,
-                      paddingVertical: 4
-                    }}
-                  >
-                    <Ionicons name="log-out-outline" size={16} color="rgba(255,255,255,0.4)" />
-                    {isDesktop && <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, fontWeight: '800', letterSpacing: 0.8 }}>LOGOUT</Text>}
-                  </TouchableOpacity>
                 </View>
               </View>
             )}

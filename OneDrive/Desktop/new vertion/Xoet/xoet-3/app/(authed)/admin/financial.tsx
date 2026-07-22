@@ -49,6 +49,7 @@ export default function FinancialDashboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState<any>(null);
   const [range, setRange] = useState<TimeRange>('week');
+  const [gameFilter, setGameFilter] = useState<'all' | 'xo' | 'spin'>('all');
   const [activeTab, setActiveTab] = useState<TabKey>('deposits');
   const [drillData, setDrillData] = useState<any>(null);
   const [drillLoading, setDrillLoading] = useState(false);
@@ -167,7 +168,22 @@ export default function FinancialDashboard() {
           <Text style={st.title}>FINANCIAL DASHBOARD</Text>
           <Text style={st.subtitle}>Revenue, Deposits, Withdrawals & Profit Tracking</Text>
         </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          {/* Game Filter */}
+          <View style={st.tfSelector}>
+            {(['all', 'xo'] as const).map(gf => (
+              <TouchableOpacity key={gf} style={[st.tfOpt, gameFilter === gf && { backgroundColor: C.secondary }]} onPress={() => setGameFilter(gf)}>
+                <Text style={[st.tfText, gameFilter === gf && { color: '#0a0f1c', fontWeight: '900' as any }]}>
+                  {gf === 'all' ? 'ALL GAMES' : 'XO GAME'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+            <View style={[st.tfOpt, { opacity: 0.4 }]}>
+              <Text style={[st.tfText, { fontStyle: 'italic' }]}>SPIN (Soon)</Text>
+            </View>
+          </View>
+
+          {/* Time Range Selector */}
           <View style={st.tfSelector}>
             {(['day', 'week', 'month', 'all'] as TimeRange[]).map(tf => (
               <TouchableOpacity key={tf} style={[st.tfOpt, range === tf && { backgroundColor: C.primary }]} onPress={() => setRange(tf)}>
@@ -228,7 +244,7 @@ export default function FinancialDashboard() {
           <Text style={st.kpiLabel}>PURE PLATFORM PROFIT</Text>
           <ACount value={d.purePlatformProfit || 0} style={[st.kpiValue, { color: '#34d399' }]} suffix=" ETB" />
           <Text style={{ color: '#64748b', fontSize: 10, marginTop: 4 }}>
-            10% commission × {fmt(d.totalGamesFinished || 0)} games
+            10-20% commission × {fmt(d.totalGamesFinished || 0)} games
           </Text>
         </View>
 

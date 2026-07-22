@@ -46,3 +46,5 @@ fix_*.js
 patch_*.js
 *.tmp
 *.log
+# Stray nested home-folder copy (kilo worktrees) — never commit
+OneDrive/

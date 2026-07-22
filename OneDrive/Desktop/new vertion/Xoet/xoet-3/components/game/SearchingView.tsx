@@ -1,75 +1,434 @@
 // components/game/SearchingView.tsx
-// Full-screen "Finding Opponent..." view with pulse animation and elapsed timer.
+// Full-screen futuristic AAA esports Matchmaking Arena view with animated radar, floating neon X/O elements, player info card, and glowing status indicators.
 import React, { memo, useEffect, useRef, useState } from "react";
-import { View, Text, Animated, Easing, Platform, TouchableOpacity } from "react-native";
+import { View, Text, Animated, Easing, Platform, TouchableOpacity, StyleSheet, useWindowDimensions, ImageBackground } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useAuth } from "../../context/authContext";
 
-const SearchingView = memo(function SearchingView({ onCancel, isMatched }: { onCancel: () => void, isMatched?: boolean }) {
+interface SearchingViewProps {
+  onCancel: () => void;
+  isMatched?: boolean;
+  betMin?: number;
+  betMax?: number;
+}
+
+const SearchingView = memo(function SearchingView({ onCancel, isMatched, betMin = 10, betMax = 10 }: SearchingViewProps) {
+  const { user } = useAuth();
   const [elapsed, setElapsed] = useState(0);
   const pulse = useRef(new Animated.Value(0)).current;
+  const rotate = useRef(new Animated.Value(0)).current;
+  const floatAnim = useRef(new Animated.Value(0)).current;
+
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
 
   useEffect(() => {
-    const loop = Animated.loop(
+    const pulseLoop = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulse, { toValue: 1, duration: 2000, easing: Easing.inOut(Easing.ease), useNativeDriver: Platform.OS !== 'web' }),
-        Animated.timing(pulse, { toValue: 0, duration: 2000, easing: Easing.inOut(Easing.ease), useNativeDriver: Platform.OS !== 'web' }),
+        Animated.timing(pulse, { toValue: 1, duration: 1800, easing: Easing.inOut(Easing.ease), useNativeDriver: Platform.OS !== 'web' }),
+        Animated.timing(pulse, { toValue: 0, duration: 1800, easing: Easing.inOut(Easing.ease), useNativeDriver: Platform.OS !== 'web' }),
       ])
     );
-    loop.start();
+
+    const rotateLoop = Animated.loop(
+      Animated.timing(rotate, { toValue: 1, duration: 4000, easing: Easing.linear, useNativeDriver: Platform.OS !== 'web' })
+    );
+
+    const floatLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatAnim, { toValue: 1, duration: 3000, easing: Easing.inOut(Easing.quad), useNativeDriver: Platform.OS !== 'web' }),
+        Animated.timing(floatAnim, { toValue: 0, duration: 3000, easing: Easing.inOut(Easing.quad), useNativeDriver: Platform.OS !== 'web' }),
+      ])
+    );
+
+    pulseLoop.start();
+    rotateLoop.start();
+    floatLoop.start();
+
     const ti = setInterval(() => setElapsed(p => p + 1), 1000);
-    return () => { loop.stop(); clearInterval(ti); };
-  }, []);
+    return () => {
+      pulseLoop.stop();
+      rotateLoop.stop();
+      floatLoop.stop();
+      clearInterval(ti);
+    };
+  }, [pulse, rotate, floatAnim]);
 
   const timeStr = `${Math.floor(elapsed / 60)}:${(elapsed % 60).toString().padStart(2, '0')}`;
 
-  return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-      <View style={{ width: 220, height: 220, alignItems: 'center', justifyContent: 'center' }}>
-        {/* Single simple pulse for visual feedback without being heavy */}
-        <Animated.View style={{
-          position: 'absolute',
-          width: 200, height: 200, borderRadius: 100,
-          borderWidth: 2, borderColor: 'rgba(129,236,255,0.1)',
-          transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.95, 1.05] }) }],
-          opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.7] })
-        }} />
+  const spinDeg = rotate.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
 
-        <LinearGradient colors={isMatched ? ['#10b981', '#059669'] : ['#81ecff', '#00daf3']} style={{
-          width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center',
-          shadowColor: '#00daf3', shadowOpacity: 0.5, shadowRadius: 15, elevation: 10,
-          borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)'
-        }}>
-          <Ionicons name={isMatched ? 'checkmark-circle' : 'search'} size={32} color="#000" />
+  const scale1 = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.95, 1.15] });
+  const scale2 = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.88, 1.06] });
+  const fade1 = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.5, 0.15] });
+  const fade2 = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.7, 0.3] });
+
+  const floatY = floatAnim.interpolate({ inputRange: [0, 1], outputRange: [-6, 6] });
+
+  const usernameDisplay = user?.username || (user?.number ? `User ${user.number.slice(-4)}` : "Player");
+  const userInitials = usernameDisplay.slice(0, 2).toUpperCase();
+
+  const stakeDisplay = betMin === betMax ? `ETB ${betMin}` : `ETB ${betMin} - ${betMax}`;
+
+  return (
+    <View style={styles.container}>
+      {/* Clean Gradient Background & Ambient Floor Grid */}
+      <View style={StyleSheet.absoluteFillObject}>
+        <LinearGradient
+          colors={["#050814", "#090d20", "#110a28", "#050814"]}
+          locations={[0, 0.4, 0.8, 1]}
+          style={StyleSheet.absoluteFillObject}
+        />
+        <View style={styles.gridOverlay} />
+      </View>
+
+      {/* Floating Neon X & O Background Decors */}
+      <Animated.View style={[styles.floatingDeco, { top: '18%', left: '15%', transform: [{ translateY: floatY }] }]}>
+        <Text style={[styles.decoX, { color: 'rgba(0, 218, 243, 0.35)' }]}>✕</Text>
+      </Animated.View>
+      <Animated.View style={[styles.floatingDeco, { top: '22%', right: '18%', transform: [{ translateY: floatY }] }]}>
+        <Text style={[styles.decoO, { color: 'rgba(239, 68, 68, 0.35)' }]}>○</Text>
+      </Animated.View>
+      <Animated.View style={[styles.floatingDeco, { bottom: '25%', left: '12%', transform: [{ translateY: floatY }] }]}>
+        <Text style={[styles.decoO, { color: 'rgba(168, 85, 247, 0.35)' }]}>○</Text>
+      </Animated.View>
+      <Animated.View style={[styles.floatingDeco, { bottom: '28%', right: '14%', transform: [{ translateY: floatY }] }]}>
+        <Text style={[styles.decoX, { color: 'rgba(59, 130, 246, 0.35)' }]}>✕</Text>
+      </Animated.View>
+
+      {/* ── Player Status Card ── */}
+      <View style={[styles.playerCard, isDesktop && { maxWidth: 420 }]}>
+        <View style={styles.playerCardLeft}>
+          <View style={styles.avatarCircle}>
+            <Text style={styles.avatarText}>{userInitials}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.playerCardName} numberOfLines={1}>{usernameDisplay}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 }}>
+              <View style={styles.pulsingDot} />
+              <Text style={styles.playerCardStatus}>{isMatched ? 'MATCHED' : 'SEARCHING'}</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.playerCardDivider} />
+
+        <View style={styles.playerCardRight}>
+          <Text style={styles.stakeVal}>{stakeDisplay}</Text>
+          <Text style={styles.stakeLabel}>WAGER STAKE</Text>
+        </View>
+      </View>
+
+      {/* ── Center Glowing Radar Arena ── */}
+      <View style={styles.orbContainer}>
+        {/* Outer Radar Rings */}
+        <Animated.View style={[
+          styles.radarRing,
+          { width: 280, height: 280, borderRadius: 140, borderColor: isMatched ? 'rgba(16, 185, 129, 0.4)' : 'rgba(0, 218, 243, 0.25)', opacity: fade1, transform: [{ scale: scale1 }] }
+        ]} />
+        <Animated.View style={[
+          styles.radarRing,
+          { width: 220, height: 220, borderRadius: 110, borderColor: isMatched ? 'rgba(52, 211, 153, 0.5)' : 'rgba(168, 85, 247, 0.35)', opacity: fade2, transform: [{ scale: scale2 }] }
+        ]} />
+        <View style={[styles.radarRingStatic, { width: 160, height: 160, borderRadius: 80 }]} />
+
+        {/* Central Core Search Orb */}
+        <LinearGradient
+          colors={isMatched ? ['#10b981', '#059669'] : ['#00daf3', '#0099ff']}
+          start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+          style={styles.coreOrb}
+        >
+          <Ionicons name={isMatched ? 'checkmark' : 'search'} size={32} color={isMatched ? "#ffffff" : "#0c0e1a"} />
         </LinearGradient>
       </View>
 
-      <Text style={{ color: '#fff', fontSize: 20, fontWeight: '900', marginTop: 24, letterSpacing: 1 }}>
+      {/* ── Status Text ── */}
+      <Text style={styles.statusTitle}>
         {isMatched ? 'MATCH FOUND!' : 'FINDING OPPONENT...'}
       </Text>
 
-      <View style={{ backgroundColor: 'rgba(255,255,255,0.05)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, marginTop: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
-        <Text style={{ color: '#81ecff', fontWeight: '900', fontSize: 14, fontFamily: Platform.OS === 'ios' ? 'Courier' : undefined }}>{timeStr}</Text>
+      {/* ── Elapsed Timer Pill ── */}
+      <View style={styles.timerPill}>
+        <Ionicons name="time-outline" size={14} color="#00daf3" style={{ marginRight: 6 }} />
+        <Text style={styles.timerText}>{timeStr} elapsed</Text>
       </View>
 
-      <View style={{ flexDirection: 'row', gap: 10, marginTop: 32, width: '100%' }}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
-          <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 8, fontWeight: '800', letterSpacing: 0.5 }}>ONLINE</Text>
-          <Text style={{ color: '#fff', fontSize: 14, fontWeight: '900', marginTop: 2 }}>12,402</Text>
+      {/* ── Cancel Action Button ── */}
+      <TouchableOpacity 
+        onPress={onCancel} 
+        disabled={isMatched} 
+        style={[styles.cancelBtnWrap, isDesktop && { maxWidth: 360 }]} 
+        activeOpacity={0.8}
+      >
+        <View style={styles.cancelBtnInner}>
+          <Ionicons name="close-circle" size={18} color="#ef4444" style={{ marginRight: 8 }} />
+          <Text style={styles.cancelBtnText}>CANCEL SEARCH</Text>
         </View>
-        <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
-          <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 8, fontWeight: '800', letterSpacing: 0.5 }}>LATENCY</Text>
-          <Text style={{ color: '#10b981', fontSize: 14, fontWeight: '900', marginTop: 2 }}>24ms</Text>
-        </View>
-      </View>
-
-      <TouchableOpacity onPress={onCancel} disabled={isMatched} style={{ marginTop: 40, width: '100%', borderRadius: 18, overflow: 'hidden' }}>
-        <LinearGradient colors={["rgba(253,111,133,0.2)", "rgba(253,111,133,0.1)"]} style={{ paddingVertical: 16, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(253,111,133,0.2)', borderRadius: 18 }}>
-          <Text style={{ color: '#fd6f85', fontWeight: '900', letterSpacing: 1 }}>CANCEL</Text>
-        </LinearGradient>
       </TouchableOpacity>
+
+      {/* ── Bottom Tip ── */}
+      <View style={styles.tipRow}>
+        <Ionicons name="bulb-outline" size={14} color="#00daf3" style={{ marginRight: 6 }} />
+        <Text style={styles.tipText}>Tip: The more you play, the faster we find your perfect match!</Text>
+      </View>
     </View>
   );
 });
 
 export default SearchingView;
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    width: '100%',
+    minHeight: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    backgroundColor: '#050814',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  gridOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 140,
+    borderTopWidth: 1,
+    borderColor: 'rgba(0, 218, 243, 0.05)',
+    backgroundColor: 'rgba(0, 218, 243, 0.015)',
+  },
+  floatingDeco: {
+    position: 'absolute',
+    zIndex: 1,
+  },
+  decoX: {
+    fontSize: 26,
+    fontWeight: '900',
+  },
+  decoO: {
+    fontSize: 26,
+    fontWeight: '900',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    zIndex: 10,
+  },
+  headerCross: {
+    color: '#ef4444',
+    fontSize: 16,
+    fontWeight: '900',
+    marginRight: 8,
+  },
+  headerCircle: {
+    color: '#00daf3',
+    fontSize: 16,
+    fontWeight: '900',
+    marginLeft: 4,
+  },
+  headerTitleMain: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '900',
+    letterSpacing: 2,
+  },
+  headerTitleSub: {
+    color: '#a855f7',
+    fontSize: 18,
+    fontWeight: '900',
+    letterSpacing: 2,
+  },
+  playerCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(12, 18, 38, 0.75)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(0, 218, 243, 0.25)',
+    borderRadius: 22,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    width: '100%',
+    marginBottom: 30,
+    zIndex: 10,
+    shadowColor: '#00daf3',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+  },
+  playerCardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1.2,
+  },
+  avatarCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'rgba(0, 218, 243, 0.15)',
+    borderWidth: 1.5,
+    borderColor: '#00daf3',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    color: '#00daf3',
+    fontWeight: '900',
+    fontSize: 14,
+  },
+  playerCardName: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  pulsingDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#00daf3',
+  },
+  playerCardStatus: {
+    color: '#00daf3',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  playerCardDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    marginHorizontal: 12,
+  },
+  playerCardRight: {
+    alignItems: 'flex-end',
+    flex: 0.8,
+  },
+  stakeVal: {
+    color: '#00daf3',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  stakeLabel: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    marginTop: 2,
+  },
+  orbContainer: {
+    width: 280,
+    height: 280,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    marginVertical: 10,
+    zIndex: 10,
+  },
+  radarRing: {
+    position: 'absolute',
+    borderWidth: 1.5,
+  },
+  radarRingStatic: {
+    position: 'absolute',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 218, 243, 0.15)',
+  },
+  sweeperArc: {
+    position: 'absolute',
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  arcLine: {
+    width: 120,
+    height: 3,
+    backgroundColor: '#00daf3',
+    borderRadius: 2,
+    shadowColor: '#00daf3',
+    shadowOpacity: 0.9,
+    shadowRadius: 8,
+  },
+  coreOrb: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#00daf3',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 24,
+    elevation: 16,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+  },
+  statusTitle: {
+    color: '#ffffff',
+    fontSize: 20,
+    fontWeight: '900',
+    marginTop: 24,
+    letterSpacing: 2,
+    zIndex: 10,
+  },
+  timerPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 218, 243, 0.08)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 14,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 218, 243, 0.3)',
+    zIndex: 10,
+  },
+  timerText: {
+    color: '#00daf3',
+    fontWeight: '800',
+    fontSize: 14,
+    letterSpacing: 0.5,
+  },
+  cancelBtnWrap: {
+    marginTop: 32,
+    width: '100%',
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1.5,
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    zIndex: 10,
+  },
+  cancelBtnInner: {
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelBtnText: {
+    color: '#f87171',
+    fontWeight: '900',
+    letterSpacing: 1.5,
+    fontSize: 14,
+  },
+  tipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 24,
+    zIndex: 10,
+  },
+  tipText: {
+    color: 'rgba(0, 218, 243, 0.7)',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+});
+

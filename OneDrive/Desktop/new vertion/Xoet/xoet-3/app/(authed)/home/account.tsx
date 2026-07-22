@@ -1,865 +1,1290 @@
-// app/(authed)/profile.tsx
+import { API_URL } from "../../../config";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { memo, useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Image,
-  ImageBackground,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
-  useWindowDimensions,
   View,
-  Linking,
-  Modal
+  useWindowDimensions,
+  Image,
+  ScrollView,
+  TextInput,
+  Switch,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../../context/authContext";
-import { API_URL } from "../../../config";
-import LogoutConfirmation from "../../../components/LogoutConfirmation";
-import ReferralModal from "../../../components/ReferralModal";
-import RulesModal from "../../../components/RulesModal";
 import { useToast } from "../../../context/ToastContext";
+import { WebPressable } from "../../../components/WebPressable";
+import { WebDepositModal, WebWithdrawModal } from "../../../components/WebModals";
+import ReferralModal from "../../../components/ReferralModal";
+import PwaInstallModal from "../../../components/game/PwaInstallModal";
+import { useBackgroundMusic } from "../../../context/BackgroundMusicProvider";
+import LogoutConfirmation from "../../../components/LogoutConfirmation";
+import { SlidingNumber } from "../../../components/game/SlidingNumber";
+import NotificationsPopover from "../../../components/NotificationsPopover";
 
-const clamp = (n: number, a: number, b: number) => Math.max(a, Math.min(b, n));
+// Formats membership date (e.g. "July 2026")
+function formatMemberSince(iso: string) {
+  const d = new Date(iso);
+  try {
+    return d.toLocaleString(undefined, {
+      month: "long",
+      year: "numeric",
+    });
+  } catch {
+    return "July 2026";
+  }
+}
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user, token, refreshProfile, logout, language, t, fixUrl } = useAuth();
-  const isEN = language === "en";
   const toast = useToast();
   const { width } = useWindowDimensions();
-  const isDesktop = width > 768 && Platform.OS === 'web';
+  const isDesktop = Platform.OS === "web" && width >= 1024;
+  const isTablet = Platform.OS === "web" && width >= 768 && width < 1024;
+  const isLargeScreen = isDesktop || isTablet;
 
-  const [showReferralModal, setShowReferralModal] = useState(false);
-  const [rulesVisible, setRulesVisible] = useState(false);
+  const { user, token, language, refreshProfile, logout, switchLanguage } = useAuth();
+  const { isPlaying, toggleMusic } = useBackgroundMusic();
+  const [notificationsVisible, setNotificationsVisible] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const isEN = language === "en";
 
-  // mounted guard (prevents setState after unmount)
-  const mountedRef = useRef(true);
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
-
-  const safeSet = useCallback((
-    setter: React.Dispatch<React.SetStateAction<any>>,
-    value: any
-  ) => {
-    if (!mountedRef.current) return;
-    setter(value);
-  }, []);
-
-  // exit modal
-  const [exitModalVisible, setExitModalVisible] = useState<boolean>(false);
-  const openExitModal = useCallback(() => setExitModalVisible(true), []);
-  const cancelExit = useCallback(() => setExitModalVisible(false), []);
-
-  const confirmExit = useCallback(async () => {
-    safeSet(setExitModalVisible, false);
-    try {
-      await logout();
-    } catch (error) {
-      console.log("Logout error:", error);
+  // Sidebar navigation helpers
+  const handleNavClick = (screen: string) => {
+    if (screen === 'home') {
+      router.push('/(authed)/home/gameplay');
+    } else if (screen === 'history') {
+      router.push('/(authed)/home/history');
+    } else if (screen === 'leaderboard') {
+      router.push('/(authed)/home/leaderboard');
+    } else if (screen === 'profile') {
+      router.push('/(authed)/home/account');
+    } else if (screen === 'transactions') {
+      router.push('/(authed)/home/transactions');
+    } else if (screen === 'admin') {
+      router.push('/admin');
     }
-  }, [logout, safeSet]);
+  };
 
-  const [appConfig, setAppConfig] = useState<{ referral_enabled?: boolean }>({ referral_enabled: false });
+  const handleLanguageToggle = useCallback(() => {
+    switchLanguage?.();
+  }, [switchLanguage]);
+
+  // States
+  const [referralCode, setReferralCode] = useState("");
+  const [referralUrl, setReferralUrl] = useState("");
+  const [notisMuted, setNotisMuted] = useState(false);
+
+  // Edit Profile Modal states
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editUsername, setEditUsername] = useState("");
+  const [editDisplayName, setEditDisplayName] = useState("");
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  // Modals visibility
+  const [depositVisible, setDepositVisible] = useState(false);
+  const [withdrawVisible, setWithdrawVisible] = useState(false);
+  const [pwaModalVisible, setPwaModalVisible] = useState(false);
+  const [showReferralModal, setShowReferralModal] = useState(false);
+  const [exitModalVisible, setExitModalVisible] = useState(false);
+
+  // Fetch Referral Code
   useEffect(() => {
     if (token) {
-      fetch(`${API_URL}/account/config`, { headers: { Authorization: `Bearer ${token}` } })
+      fetch(`${API_URL}/user/referral-link`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
         .then(res => res.json())
-        .then(data => safeSet(setAppConfig, data))
+        .then(d => {
+          if (d.ok) {
+            setReferralCode(d.referralCode);
+            setReferralUrl(d.referralUrl);
+          }
+        })
         .catch(() => {});
     }
-  }, [token, safeSet]);
+  }, [token]);
 
-  // form state
-  const [username, setUsername] = useState<string>((user as any)?.username ?? "");
-  const [displayName, setDisplayName] = useState<string>((user as any)?.display_name ?? "");
-  const [avatar, setAvatar] = useState<string | null>((user as any)?.avatar ?? null);
+  // Handle Edit Profile Save
+  const handleSaveProfile = async () => {
+    if (!token) return;
+    const u = editUsername.trim();
+    const d = editDisplayName.trim();
 
-  const lastUserSigRef = useRef<string>("");
-  useEffect(() => {
-    const sig = JSON.stringify({
-      u: (user as any)?.username ?? "",
-      d: (user as any)?.display_name ?? "",
-      a: (user as any)?.avatar ?? null,
-    });
-    if (sig === lastUserSigRef.current) return;
-    lastUserSigRef.current = sig;
-
-    safeSet(setUsername, (user as any)?.username ?? "");
-    safeSet(setDisplayName, (user as any)?.display_name ?? "");
-    safeSet(setAvatar, (user as any)?.avatar ?? null);
-  }, [user, safeSet]);
-
-  const [saving, setSaving] = useState<boolean>(false);
-
-  // stats
-  const gamesPlayed = (user as any)?.total_games ?? 0;
-  const wins = (user as any)?.total_wins ?? 0;
-
-  const winRate = useMemo(() => (gamesPlayed ? Math.round((wins / gamesPlayed) * 100) : 0), [wins, gamesPlayed]);
-
-  const rank = useMemo(() => {
-    if (winRate >= 70 || wins >= 200) return isEN ? "Platinum" : "ፕላቲኒም";
-    if (winRate >= 50 || wins >= 100) return isEN ? "Gold" : "ወርቅ";
-    return isEN ? "Silver" : "ብር";
-  }, [winRate, wins, isEN]);
-
-  const rankMeta = useMemo(() => {
-    const isPlat = rank.includes("Platinum") || rank.includes("ፕላቲኒም");
-    const isGold = rank.includes("Gold") || rank.includes("ወርቅ");
-    if (isPlat) return { icon: "diamond-outline" as const, label: rank, tone: "platinum" as const };
-    if (isGold) return { icon: "trophy-outline" as const, label: rank, tone: "gold" as const };
-    return { icon: "medal-outline" as const, label: rank, tone: "silver" as const };
-  }, [rank]);
-
-  const rankBadgeColors = useMemo(() => {
-    if (rankMeta.tone === "platinum") return ["rgba(0, 229, 255, 0.95)", "rgba(0, 180, 220, 0.85)"] as const;
-    if (rankMeta.tone === "gold") return ["rgba(255, 184, 77, 0.95)", "rgba(217, 119, 6, 0.85)"] as const;
-    return ["rgba(148, 163, 184, 0.25)", "rgba(255, 255, 255, 0.1)"] as const;
-  }, [rankMeta.tone]);
-
-  const meNumber = useMemo(() => {
-    const raw = (user as any)?.number ?? "";
-    if (!raw) return "";
-    return String(raw).startsWith("+") ? String(raw) : `+${raw}`;
-  }, [user]);
-
-  const meName =
-    displayName?.trim() ||
-    (user as any)?.username ||
-    (isEN ? "New Player" : "አዲስ ተጫዋች");
-
-  const headerSubtitle = useMemo(() => {
-    if (!gamesPlayed) return isEN ? "Start your first match" : "መጀመሪያ ጨዋታዎን ጀምሩ";
-    const wr = clamp(winRate, 0, 100);
-    return isEN ? `${wins} wins • ${wr}% win rate` : `${wins} ድሎች • ${wr}% የድል መጠን`;
-  }, [gamesPlayed, wins, winRate, isEN]);
-
-  // save profile (kept minimal; avatar upload removed)
-  const saveProfile = useCallback(async () => {
-    if (!token) {
-      toast.error(
-        isEN ? "Not Logged In" : "ገብተው አይደለም",
-        isEN ? "Please log in to continue." : "እባክዎ ለመቀጠል ግቡ።"
-      );
-      return;
-    }
-    if (saving) return;
-
-    const u = username.trim();
-    const d = displayName.trim();
-
-    if (!u) {
-      toast.warning(
-        isEN ? "Missing Username" : "የተጠቃሚ ስም ይጎድላል",
-        isEN ? "Enter a username." : "የተጠቃሚ ስም ያስገቡ።"
-      );
+    if (!u || !d) {
+      toast.warning(isEN ? "Inputs required" : "እባክዎ ሁሉንም ያስገቡ", isEN ? "Username and Display Name cannot be empty." : "የተጠቃሚ ስም እና የሚታይ ስም ባዶ መሆን አይችሉም።");
       return;
     }
 
+    setSavingProfile(true);
     try {
-      safeSet(setSaving, true);
-
       const res = await fetch(`${API_URL}/account/profile`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        // avatar stays as current value; no picker/upload here
-        body: JSON.stringify({ username: u, display_name: d, avatar }),
+        body: JSON.stringify({ username: u, display_name: d }),
       });
-
-      const data = await res.json().catch(() => ({} as any));
-      if (!res.ok) throw new Error(data?.message || "Update failed");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.message || "Failed to update profile");
 
       await refreshProfile();
-      toast.success(isEN ? "Profile Saved" : "ተቀምጧል", isEN ? "Your profile has been updated." : "መገለጫዎ ተዘምኗል።");
-      
-      // If the user just completed their missing profile, redirect to gameplay
-      if (!user?.username || !user?.display_name) {
-        router.replace('/(authed)/home/gameplay' as any);
-      }
+      toast.success(isEN ? "Profile Saved" : "ተቀምጧል", isEN ? "Your profile has been updated successfully." : "መገለጫዎ በተሳካ ሁኔታ ተዘምኗል።");
+      setEditModalVisible(false);
     } catch (e: any) {
-      toast.error(
-        isEN ? "Save Failed" : "ስህተት",
-        e?.message || (isEN ? "Could not save profile." : "መገለጫውን ማስቀመጥ አልተሳካም።")
-      );
+      toast.error(isEN ? "Update Failed" : "ስህተት", e?.message || "Could not save profile.");
     } finally {
-      safeSet(setSaving, false);
+      setSavingProfile(false);
     }
-  }, [token, saving, username, displayName, avatar, refreshProfile, safeSet, isEN]);
+  };
 
-  const goHistory = useCallback(() => {
-    router.push("/(authed)/games" as any);
-  }, [router]);
+  // Copy Referral URL
+  const handleCopyReferral = () => {
+    const url = referralUrl || `https://xoethiopia.com/?ref=${referralCode}`;
+    if (Platform.OS === "web") {
+      navigator.clipboard?.writeText(url).then(() => {
+        toast.success(isEN ? "Link Copied" : "ሊንክ ተቀድቷል", isEN ? "Referral link copied to clipboard!" : "የማጋሪያ ሊንክ ወደ ቅንጥብ ሰሌዳ ተቀድቷል!");
+      });
+    }
+  };
 
-  return (
-    <View style={styles.container}>
-      <LinearGradient colors={["#0A090E", "#08070B", "#060508"]} style={StyleSheet.absoluteFill} />
+  const confirmExit = async () => {
+    setExitModalVisible(false);
+    try {
+      await logout();
+      router.push('/(auth)/login');
+    } catch (error) {
+      console.log("Logout error:", error);
+    }
+  };
 
-      <View pointerEvents="none" style={[styles.blob, styles.blob1]} />
-      <View pointerEvents="none" style={[styles.blob, styles.blob2]} />
+  // Setup initial values for edit modal
+  useEffect(() => {
+    if (user) {
+      setEditUsername(user.username || "");
+      setEditDisplayName(user.display_name || "");
+    }
+  }, [user, editModalVisible]);
 
-      <ReferralModal visible={showReferralModal} onClose={() => setShowReferralModal(false)} token={token || null} isEN={isEN} toast={toast} />
-      <LogoutConfirmation visible={exitModalVisible} onCancel={cancelExit} onConfirm={confirmExit} />
-      <SafeAreaView style={styles.safe} edges={["bottom"]}>
-        {/* Top bar - ONLY on mobile (Desktop has global top bar) */}
-        {!isDesktop && (
-          <View style={styles.topBar}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.topIconBtn} hitSlop={10}>
-              <Ionicons name="chevron-back" size={20} color="rgba(255,255,255,0.92)" />
-            </TouchableOpacity>
+  // Mask Phone Number helper
+  const maskedPhone = useMemo(() => {
+    const num = user?.number || "";
+    if (num.length < 7) return num;
+    const start = num.slice(0, 5);
+    const end = num.slice(-3);
+    return `${start}****${end}`;
+  }, [user]);
 
-            <View style={{ flex: 1, alignItems: "center" }}>
-              <Text style={styles.topTitle}>{isEN ? "Profile" : "መገለጫ"}</Text>
-              <Text style={styles.topSub}>{headerSubtitle}</Text>
+  const memberSince = useMemo(() => {
+    return user?.created_at ? formatMemberSince(user.created_at) : "July 2026";
+  }, [user]);
+
+  const stats = useMemo(() => {
+    const wins = user?.total_wins || 0;
+    const total = user?.total_games || 0;
+    return {
+      total,
+      wins,
+      winRate: total ? Math.round((wins / total) * 100) : 0,
+      winnings: `ETB ${(wins * 100).toLocaleString()}`,
+    };
+  }, [user]);
+
+  if (isLargeScreen) {
+    // ─── HIGH FIDELITY DESKTOP WIDESCREEN LAYOUT ───
+    return (
+      <View style={s.rootContainer}>
+        {/* Dark background */}
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: "#0a0e1a" }]} />
+
+        {/* Modals */}
+        <WebDepositModal visible={depositVisible} onClose={() => setDepositVisible(false)} user={user} token={token || undefined} onSuccess={refreshProfile} />
+        <WebWithdrawModal visible={withdrawVisible} onClose={() => setWithdrawVisible(false)} user={user} token={token || undefined} onSuccess={refreshProfile} />
+        <ReferralModal visible={showReferralModal} onClose={() => setShowReferralModal(false)} token={token || null} isEN={isEN} toast={undefined} />
+        <PwaInstallModal visible={pwaModalVisible} onClose={() => setPwaModalVisible(false)} />
+        <LogoutConfirmation visible={exitModalVisible} onCancel={() => setExitModalVisible(false)} onConfirm={confirmExit} />
+        <NotificationsPopover visible={notificationsVisible} onClose={() => setNotificationsVisible(false)} onUnreadCountChange={setUnreadCount} />
+
+        {/* Edit Profile Dialog Modal */}
+        {editModalVisible && (
+          <View style={s.dialogOverlay}>
+            <View style={s.dialogCard}>
+              <View style={s.dialogHeader}>
+                <Text style={s.dialogTitle}>{isEN ? "Edit Profile" : "መገለጫ አርትዕ"}</Text>
+                <TouchableOpacity onPress={() => setEditModalVisible(false)}>
+                  <Ionicons name="close" size={20} color="#8b93a7" />
+                </TouchableOpacity>
+              </View>
+              <View style={s.dialogBody}>
+                <Text style={s.inputLabel}>{isEN ? "USERNAME" : "የተጠቃሚ ስም"}</Text>
+                <TextInput value={editUsername} onChangeText={setEditUsername} style={s.dialogInput} placeholder={isEN ? "Username" : "የተጠቃሚ ስም"} placeholderTextColor="rgba(255,255,255,0.2)" />
+
+                <Text style={[s.inputLabel, { marginTop: 14 }]}>{isEN ? "DISPLAY NAME" : "የሚታይ ስም"}</Text>
+                <TextInput value={editDisplayName} onChangeText={setEditDisplayName} style={s.dialogInput} placeholder={isEN ? "Display Name" : "የሚታይ ስም"} placeholderTextColor="rgba(255,255,255,0.2)" />
+              </View>
+              <View style={s.dialogFooter}>
+                <TouchableOpacity onPress={() => setEditModalVisible(false)} style={s.cancelBtn}>
+                  <Text style={s.cancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleSaveProfile} style={s.saveBtn} disabled={savingProfile}>
+                  {savingProfile ? <ActivityIndicator color="#0a0e1a" /> : <Text style={s.saveBtnText}>Save</Text>}
+                </TouchableOpacity>
+              </View>
             </View>
-
-            <TouchableOpacity onPress={openExitModal} style={styles.topIconBtn} hitSlop={10}>
-              <Ionicons name="log-out-outline" size={18} color="rgba(255,255,255,0.92)" />
-            </TouchableOpacity>
           </View>
         )}
 
-        <ScrollView 
-          contentContainerStyle={[
-            styles.content,
-            isDesktop && { maxWidth: 720, alignSelf: 'center', width: '100%', paddingVertical: 24 }
-          ]} 
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          {/* Missing Profile Notice */}
-          {(user && (!user.username || !user.display_name)) && (
-            <LinearGradient
-              colors={["rgba(0, 218, 243, 0.15)", "rgba(0, 218, 243, 0.03)"]}
-              style={styles.onboardingNotice}
-            >
-              <View style={styles.onboardingIcon}>
-                <Ionicons name="sparkles" size={20} color="#00daf3" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.onboardingTitle}>{isEN ? "Complete your Profile" : "መገለጫዎን ያጠናቅቁ"}</Text>
-                <Text style={styles.onboardingSub}>
-                  {isEN 
-                    ? "Welcome! Please choose a username and display name to unlock all platform features." 
-                    : "እንኳን ደህና መጡ! ሁሉንም የፕላትፎርሙን ጥቅሞች ለማግኘት እባክዎ መለያ ስም እና የሚታይ ስም ይምረጡ።"}
-                </Text>
-              </View>
-            </LinearGradient>
-          )}
+        {/* ── HEADER BAR ── */}
+        <View style={s.header}>
+          <View style={s.headerContentWrapper}>
+            {/* Left: Logo */}
+            <View style={s.logoContainer}>
+              <Image source={require("../../../assets/images/icon.jpg")} style={s.logoImage} />
+              <Text style={s.logoText}>XO ETHIOPIA</Text>
+            </View>
 
-          {/* Hero section */}
-          <View style={[styles.heroCard, isDesktop && styles.heroCardDesktop]}>
-            <LinearGradient colors={["rgba(0, 229, 255, 0.08)", "rgba(0, 229, 255, 0.03)", "rgba(10, 10, 15, 0.6)"]} style={styles.glass} />
+            {/* Center: Toggle Pill */}
+            <View style={s.toggleContainer}>
+              <TouchableOpacity
+                style={s.toggleBtn}
+                onPress={() => router.push('/(authed)/home/gameplay')}
+                activeOpacity={0.85}
+              >
+                <Text style={s.toggleBtnText}>SPIN</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[s.toggleBtn, s.toggleBtnActive]}
+                onPress={() => router.push('/(authed)/home/gameplay')}
+                activeOpacity={0.85}
+              >
+                <Text style={[s.toggleBtnText, s.toggleBtnTextActive]}>XO GAME</Text>
+              </TouchableOpacity>
+            </View>
 
-            <View style={[styles.heroRow, isDesktop && { gap: 28 }]}>
-              <View style={[styles.avatarShell, isDesktop && { width: 100, height: 100 }]}>
-                <LinearGradient
-                  colors={["#00daf3", "#00e5ff"]}
-                  style={[styles.avatarRing, isDesktop && { width: 100, height: 100 }]}
-                />
-                <View style={[styles.avatarInner, isDesktop && { width: 90, height: 90 }]}>
-                  {avatar ? (
-                    <Image source={{ uri: fixUrl(avatar) || undefined }} style={styles.avatarImg} />
-                  ) : (
-                    <View style={styles.avatarFallback}>
-                      <Ionicons name="person-outline" size={isDesktop ? 40 : 34} color="rgba(255,255,255,0.65)" />
+            {/* Right: Utility Cluster */}
+            <View style={s.utilityCluster}>
+
+              <TouchableOpacity onPress={() => setPwaModalVisible(true)} style={s.utilityBtn} activeOpacity={0.8}>
+                <Ionicons name="cloud-download-outline" size={16} color="#8b93a7" />
+                <Text style={s.utilityBtnText}>APP</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={handleLanguageToggle} style={s.utilityBtn} activeOpacity={0.8}>
+                <Ionicons name="globe-outline" size={15} color="#8b93a7" />
+                <Text style={s.utilityBtnText}>{language.toUpperCase()}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={toggleMusic} style={s.utilityBtn} activeOpacity={0.8}>
+                <Ionicons name={isPlaying ? "volume-high-outline" : "volume-mute-outline"} size={16} color="#8b93a7" />
+                <Text style={s.utilityBtnText}>{isPlaying ? "SOUND" : "MUTED"}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={() => setNotificationsVisible(true)} style={s.bellBtn} activeOpacity={0.8}>
+                <Ionicons name="notifications-outline" size={20} color="#fff" />
+                {unreadCount > 0 && (
+                  <View style={s.bellBadge}><Text style={s.bellBadgeText}>{unreadCount}</Text></View>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={() => handleNavClick('profile')} style={s.profileChip} activeOpacity={0.85}>
+                <View style={s.profileChipAvatar}>
+                  <Text style={s.profileChipAvatarText}>{user?.username ? user.username.slice(0, 2).toUpperCase() : "ME"}</Text>
+                </View>
+                <View style={{ marginRight: 6 }}>
+                  <Text style={s.profileChipName}>{user?.username || (user?.number ? `User ${user.number.slice(-4)}` : "Set Your Name")}</Text>
+                  <Text style={s.profileChipVip}>VIP 24</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+
+        {/* ── CORE BODY CONTAINER ── */}
+        <ScrollView style={s.mainScrollView} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
+          <View style={s.pageContentWrapper}>
+            <View style={s.threeColumnRow}>
+              {/* 1. LEFT SIDEBAR (fixed width 280px) */}
+              <View style={s.leftSidebar}>
+                <View style={s.card}>
+                  <View style={s.userCardHeader}>
+                    <View style={s.userCardAvatar}>
+                      <Text style={s.userCardAvatarText}>{user?.username ? user.username.slice(0, 1).toUpperCase() : "A"}</Text>
                     </View>
+                    <View>
+                      <Text style={s.userCardName} numberOfLines={1}>{user?.username || (user?.number ? `User ${user.number.slice(-4)}` : "Set Your Name")}</Text>
+                      <View style={s.onlineRow}>
+                        <View style={s.onlineDot} />
+                        <Text style={s.onlineText}>Online</Text>
+                      </View>
+                    </View>
+                  </View>
+                  
+                  {/* Available Balance card */}
+                  <View style={s.tokensRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.tokenLabel}>AVAILABLE BALANCE</Text>
+                      <Text style={[s.tokenVal, { color: "#22d3ee" }]}>ETB {user?.available_balance ? Number(user.available_balance).toLocaleString() : "0"}</Text>
+                    </View>
+                    <TouchableOpacity onPress={refreshProfile} style={[s.tokenPlusBtn, { backgroundColor: "rgba(34, 211, 238, 0.15)", borderColor: "rgba(34, 211, 238, 0.3)", borderWidth: 1 }]} activeOpacity={0.8}>
+                      <Ionicons name="refresh" size={12} color="#22d3ee" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Vertical Navigation Links */}
+                <View style={s.card}>
+                  <TouchableOpacity onPress={() => handleNavClick('home')} style={s.navItem} activeOpacity={0.8}>
+                    <Ionicons name="home-outline" size={18} color="#8b93a7" />
+                    <Text style={s.navText}>Home</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity onPress={() => handleNavClick('history')} style={s.navItem} activeOpacity={0.8}>
+                    <Ionicons name="time-outline" size={18} color="#8b93a7" />
+                    <Text style={s.navText}>History</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity onPress={() => handleNavClick('leaderboard')} style={s.navItem} activeOpacity={0.8}>
+                    <Ionicons name="trophy-outline" size={18} color="#8b93a7" />
+                    <Text style={s.navText}>Leaderboard</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity onPress={() => handleNavClick('transactions')} style={s.navItem} activeOpacity={0.8}>
+                    <Ionicons name="receipt-outline" size={18} color="#8b93a7" />
+                    <Text style={s.navText}>Transactions</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity onPress={() => handleNavClick('profile')} style={[s.navItem, s.navItemActive]} activeOpacity={0.8}>
+                    <View style={s.navItemActiveBar} />
+                    <Ionicons name="person" size={18} color="#8b5cf6" />
+                    <Text style={[s.navText, s.navTextActive]}>Profile</Text>
+                  </TouchableOpacity>
+
+                  {(user?.role === 'admin' || user?.role === 'superadmin' || user?.role === 'maintenance') && (
+                    <TouchableOpacity onPress={() => handleNavClick('admin')} style={s.navItem} activeOpacity={0.8}>
+                      <Ionicons name="shield-checkmark-outline" size={18} color="#8b93a7" />
+                      <Text style={s.navText}>Admin</Text>
+                    </TouchableOpacity>
                   )}
                 </View>
 
-                <TouchableOpacity
-                  onPress={() => {}}
-                  style={[styles.fab, isDesktop && { width: 36, height: 36, borderRadius: 12 }]}
-                  disabled
-                  activeOpacity={1}
-                >
-                  <LinearGradient colors={["#00daf3", "#00e5ff"]} style={styles.fabInner}>
-                    <Ionicons name="camera-outline" size={isDesktop ? 16 : 16} color="#0a0a0f" />
-                  </LinearGradient>
-                </TouchableOpacity>
-              </View>
-
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.name, isDesktop && { fontSize: 22 }]}>{meName}</Text>
-
-                {!!meNumber && (
-                  <View style={styles.inlineRow}>
-                    <Ionicons name="call-outline" size={14} color="rgba(168,167,212,0.8)" />
-                    <Text style={styles.mutedText}>{meNumber}</Text>
+                {/* Wallet Summary Panel */}
+                <View style={s.card}>
+                  <Text style={s.sectionTitleSmall}>WALLET</Text>
+                  
+                  <View style={s.walletRow}>
+                    <Text style={s.walletLabel}>Deposit</Text>
+                    <Text style={[s.walletValSmall, { color: "#22c55e" }]}>+ 3,420 ETB</Text>
                   </View>
-                )}
+                  
+                  <View style={s.walletRow}>
+                    <Text style={s.walletLabel}>Withdraw</Text>
+                    <Text style={[s.walletValSmall, { color: "#ef4444" }]}>- 420 ETB</Text>
+                  </View>
+                  
+                  <View style={s.walletRow}>
+                    <Text style={s.walletLabel}>Transactions</Text>
+                    <Text style={s.walletValSecond}>12 today</Text>
+                  </View>
 
-                <View style={styles.badgeRow}>
-                  <LinearGradient colors={rankBadgeColors as any} style={styles.badge}>
-                    <Ionicons name={rankMeta.icon} size={14} color="#fff" />
-                    <Text style={styles.badgeText}>{rankMeta.label}</Text>
-                  </LinearGradient>
-
-                  <View style={styles.dotDivider} />
-
-                  <View style={styles.inlineRow}>
-                    <Ionicons name="shield-checkmark-outline" size={14} color="rgba(168, 85, 247, 0.8)" />
-                    <Text style={styles.mutedText}>{isEN ? "Verified" : "የተረጋገጠ"}</Text>
+                  <View style={s.walletButtons}>
+                    <TouchableOpacity onPress={() => setDepositVisible(true)} style={[s.walletBtnSmall, { borderColor: "#22d3ee" }]} activeOpacity={0.8}>
+                      <Text style={[s.walletBtnTextSmall, { color: "#22d3ee" }]}>DEPOSIT</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => setWithdrawVisible(true)} style={[s.walletBtnSmall, { borderColor: "#7c3aed" }]} activeOpacity={0.8}>
+                      <Text style={[s.walletBtnTextSmall, { color: "#7c3aed" }]}>WITHDRAW</Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
+
+                {/* Redundant Profile card removed */}
               </View>
-            </View>
 
-            {/* Stats strip */}
-            <View style={[styles.statsStrip, isDesktop && styles.statsStripDesktop]}>
-              <MiniStat icon="game-controller-outline" label={t("games_played")} value={String(gamesPlayed)} />
-              <View style={styles.stripSep} />
-              <MiniStat icon="trophy-outline" label={t("wins")} value={String(wins)} />
-              <View style={styles.stripSep} />
-              <MiniStat icon="stats-chart-outline" label={t("win_rate")} value={`${winRate}%`} />
-            </View>
-          </View>
+              {/* 2. CENTER COLUMN */}
+              <View style={s.centerColumn}>
+                {/* 1. Large Profile Header Card */}
+                <View style={s.profileHeaderCard}>
+                  <View style={s.profileCardInfoRow}>
+                    {/* Big Avatar */}
+                    <View style={s.profileBigAvatarShell}>
+                      <Text style={s.profileBigAvatarText}>
+                        {user?.username ? user.username.slice(0, 2).toUpperCase() : "ME"}
+                      </Text>
+                    </View>
 
-          {/* Account form & Actions */}
-          <View style={[styles.desktopGrid, isDesktop && { flexDirection: 'row', gap: 16, marginTop: 16 }]}>
-             <View style={isDesktop ? { flex: 1.5 } : { width: '100%' }}>
-                <View style={[styles.panel, isDesktop && { marginTop: 0 }]}>
-                  <View style={styles.panelHeader}>
-                    <View style={styles.panelTitleRow}>
-                      <Ionicons name="person-circle-outline" size={18} color="#a855f7" />
-                      <Text style={styles.panelTitle}>{isEN ? "Account Info" : "የመለያ መረጃ"}</Text>
+                    {/* Meta details */}
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                        <Text style={s.profileUsernameText}>{user?.username || (user?.number ? `User ${user.number.slice(-4)}` : "Set Your Name")}</Text>
+                        <View style={s.vipLevelBadge}>
+                          <Text style={s.vipLevelBadgeText}>VIP 24</Text>
+                        </View>
+                      </View>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 6 }}>
+                        <Ionicons name="checkmark-circle" size={14} color="#22d3ee" />
+                        <Text style={s.profileVerifiedText}>+ VERIFIED</Text>
+                        <Text style={s.profileDotDivider}>•</Text>
+                        <Text style={s.profileMemberSinceText}>Member since {memberSince}</Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+
+                {/* 2. Stat Cards Grid */}
+                <View style={s.statsGrid}>
+                  {/* Games Played */}
+                  <View style={s.statCard}>
+                    <View style={[s.statIconCircle, { backgroundColor: "rgba(34, 211, 238, 0.1)" }]}>
+                      <Ionicons name="layers" size={18} color="#22d3ee" />
+                    </View>
+                    <View style={{ marginLeft: 12 }}>
+                      <Text style={s.statCardLabel}>TOTAL GAMES</Text>
+                      <Text style={s.statCardVal}>{stats.total}</Text>
                     </View>
                   </View>
 
-                  <InputRow
-                    icon="at-outline"
-                    label={isEN ? "Username" : "የተጠቃሚ ስም"}
-                    value={username}
-                    onChangeText={setUsername}
-                    placeholder={isEN ? "Enter a unique username" : "ልዩ የተጠቃሚ ስም ያስገቡ"}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                  />
+                  {/* Win Rate */}
+                  <View style={s.statCard}>
+                    <View style={[s.statIconCircle, { backgroundColor: "rgba(168, 85, 247, 0.1)" }]}>
+                      <Ionicons name="trending-up" size={18} color="#a855f7" />
+                    </View>
+                    <View style={{ marginLeft: 12 }}>
+                      <Text style={s.statCardLabel}>WIN RATE</Text>
+                      <Text style={s.statCardVal}>{stats.winRate}%</Text>
+                    </View>
+                  </View>
 
-                  <InputRow
-                    icon="sparkles-outline"
-                    label={isEN ? "Display name" : "የሚታይ ስም"}
-                    value={displayName}
-                    onChangeText={setDisplayName}
-                    placeholder={isEN ? "How should we show your name?" : "ስምዎን እንዴት እናሳይ?"}
-                  />
+                  {/* Total Winnings */}
+                  <View style={s.statCard}>
+                    <View style={[s.statIconCircle, { backgroundColor: "rgba(34, 197, 94, 0.1)" }]}>
+                      <Ionicons name="trophy" size={18} color="#22c55e" />
+                    </View>
+                    <View style={{ marginLeft: 12 }}>
+                      <Text style={s.statCardLabel}>TOTAL WINNINGS</Text>
+                      <Text style={[s.statCardVal, { color: "#22c55e", fontSize: 18 }]}>{stats.winnings}</Text>
+                    </View>
+                  </View>
 
-                  <ReadOnlyRow
-                    icon="call-outline"
-                    label={isEN ? "Phone" : "ስልክ"}
-                    value={meNumber || (isEN ? "Not set" : "አልተዘጋጀም")}
-                  />
+                  {/* Current Balance */}
+                  <View style={s.statCard}>
+                    <View style={[s.statIconCircle, { backgroundColor: "rgba(245, 182, 66, 0.1)" }]}>
+                      <Ionicons name="wallet" size={18} color="#f5b642" />
+                    </View>
+                    <View style={{ marginLeft: 12 }}>
+                      <Text style={s.statCardLabel}>CURRENT BALANCE</Text>
+                      <Text style={[s.statCardVal, { color: "#f5b642", fontSize: 18 }]}>ETB {user?.available_balance ? Number(user.available_balance).toLocaleString() : "0"}</Text>
+                    </View>
+                  </View>
+                </View>
 
-                  <TouchableOpacity disabled={saving} onPress={saveProfile} activeOpacity={0.9} style={styles.primaryBtn}>
-                    <LinearGradient colors={["#00daf3", "#00daf3"]} style={styles.primaryBtnInner}>
-                      {saving ? (
-                        <ActivityIndicator color="#0a0a0f" />
-                      ) : (
-                        <>
-                          <Ionicons name="save-outline" size={18} color="#0a0a0f" />
-                          <Text style={styles.primaryBtnText}>{isEN ? "Save Changes" : "ለውጦችን አስቀምጥ"}</Text>
-                        </>
-                      )}
-                    </LinearGradient>
+                {/* 3. Account Details Card */}
+                <View style={s.card}>
+                  <Text style={s.cardHeaderTitle}>Account Details</Text>
+                  
+                  <View style={s.detailRowsGroup}>
+                    {/* Masked Phone */}
+                    <View style={s.accountDetailRow}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                        <Ionicons name="call" size={15} color="#8b93a7" />
+                        <Text style={s.accountDetailLabel}>Phone Number</Text>
+                      </View>
+                      <Text style={s.accountDetailVal}>{maskedPhone}</Text>
+                    </View>
+
+                    {/* Verification Status */}
+                    <View style={s.accountDetailRow}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                        <Ionicons name="shield-checkmark" size={15} color="#8b93a7" />
+                        <Text style={s.accountDetailLabel}>Verification Status</Text>
+                      </View>
+                      <Text style={[s.accountDetailVal, { color: "#22d3ee" }]}>Verified (Level 2)</Text>
+                    </View>
+
+                    {/* Referral Code */}
+                    <View style={s.accountDetailRow}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                        <Ionicons name="gift" size={15} color="#8b93a7" />
+                        <Text style={s.accountDetailLabel}>Referral Code</Text>
+                      </View>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                        <Text style={[s.accountDetailVal, { color: "#f5b642" }]}>{referralCode || "XO-ETH"}</Text>
+                        <TouchableOpacity onPress={handleCopyReferral} style={s.copyCodeBtn} activeOpacity={0.8}>
+                          <Ionicons name="copy-outline" size={12} color="#f5b642" />
+                          <Text style={s.copyCodeBtnText}>COPY</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+
+                {/* 4. Settings List Card */}
+                <View style={s.card}>
+                  <Text style={s.cardHeaderTitle}>Settings & Preferences</Text>
+
+                  <View style={{ marginTop: 10 }}>
+                    {/* Row 1: Edit Profile */}
+                    <TouchableOpacity onPress={() => setEditModalVisible(true)} style={s.settingsListRow} activeOpacity={0.8}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                        <View style={[s.settingsIconWrap, { backgroundColor: "rgba(124, 58, 237, 0.1)" }]}>
+                          <Ionicons name="create-outline" size={16} color="#7c3aed" />
+                        </View>
+                        <Text style={s.settingsRowLabel}>Edit Profile details</Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={16} color="#8b93a7" />
+                    </TouchableOpacity>
+
+                    {/* Row 3: Notification Preference */}
+                    <View style={s.settingsListRow}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                        <View style={[s.settingsIconWrap, { backgroundColor: "rgba(245, 182, 66, 0.1)" }]}>
+                          <Ionicons name="notifications-outline" size={16} color="#f5b642" />
+                        </View>
+                        <Text style={s.settingsRowLabel}>Mute Sound & Notifications</Text>
+                      </View>
+                      <Switch value={notisMuted} onValueChange={(val) => {
+                        setNotisMuted(val);
+                        toast.success(isEN ? "Preferences Saved" : "ቅንጅቶች ተቀምጠዋል");
+                      }} trackColor={{ false: "#1f2540", true: "#7c3aed" }} thumbColor={notisMuted ? "#ffffff" : "#8b93a7"} />
+                    </View>
+                  </View>
+                </View>
+
+                {/* 5. Logout Button */}
+                <TouchableOpacity onPress={() => setExitModalVisible(true)} style={s.profileLogoutBtn} activeOpacity={0.85}>
+                  <Ionicons name="log-out-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
+                  <Text style={s.profileLogoutBtnText}>LOGOUT FROM ACCOUNT</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* 3. RIGHT SIDEBAR — Placeholder or Leaderboard widget */}
+              <View style={s.rightSidebar}>
+                <View style={s.card}>
+                  <Text style={s.sectionTitleSmall}>SUPPORT CHANNEL</Text>
+                  <Text style={s.supportCardDesc}>If you have any questions or need verification help, please contact our support team on Telegram.</Text>
+                  
+                  <TouchableOpacity onPress={() => router.push('https://t.me/xoetsupport' as any)} style={s.supportChannelBtn} activeOpacity={0.85}>
+                    <Ionicons name="paper-plane" size={15} color="#fff" />
+                    <Text style={s.supportChannelBtnText}>TELEGRAM SUPPORT</Text>
                   </TouchableOpacity>
                 </View>
-             </View>
 
-             <View style={isDesktop ? { flex: 1, gap: 12 } : { width: '100%', gap: 12 }}>
-                {!isDesktop && (
-                  <View style={[styles.quickRow, { marginTop: 16 }]}>
-                    {(user?.role === 'admin' || user?.role === 'superadmin' || user?.role === 'maintenance') && (
-                      <QuickAction
-                        title={isEN ? "Admin Dashboard" : "አድሚን ዳሽቦርድ"}
-                        subtitle={isEN ? "Manage platform" : "ፕላትፎርሙን አስተዳድር"}
-                        icon="shield-checkmark"
-                        onPress={() => router.push('/admin' as any)}
-                      />
-                    )}
-                    <QuickAction
-                      title={isEN ? "Privacy & Rules" : "የግላዊነት ፖሊሲ"}
-                      subtitle={isEN ? "Terms and conditions" : "ህጎች እና መመሪያዎች"}
-                      icon="document-text-outline"
-                      onPress={() => setRulesVisible(true)}
-                    />
-                    <QuickAction
-                      title={isEN ? "Telegram Support" : "የቴሌግራም ድጋፍ"}
-                      subtitle={isEN ? "Get support" : "ድጋፍ ያግኙ"}
-                      icon="chatbubbles-outline"
-                      onPress={() => Linking.openURL("https://t.me/xoetsupport").catch(() => {})}
-                    />
-                    <QuickAction
-                      title={isEN ? "Community" : "ማህበረሰብ"}
-                      subtitle={isEN ? "Join our Telegram channel" : "የቴሌግራም ቻናላችንን ይቀላቀሉ"}
-                      icon="paper-plane-outline"
-                      onPress={() => Linking.openURL("https://t.me/xoethiopia1").catch(() => {})}
-                    />
-                  </View>
-                )}
-                
-                {isDesktop && (
-                   <>
-                     <View style={styles.panel}>
-                        <View style={styles.panelHeader}>
-                          <View style={styles.panelTitleRow}>
-                            <Ionicons name="settings-outline" size={18} color="#a855f7" />
-                            <Text style={styles.panelTitle}>{isEN ? "Preferences" : "ምርጫዎች"}</Text>
-                          </View>
-                        </View>
-                        {(user?.role === 'admin' || user?.role === 'superadmin' || user?.role === 'maintenance') && (
-                          <TouchableOpacity onPress={() => router.push('/admin' as any)} style={[styles.secondaryBtn, { borderColor: 'rgba(52,211,153,0.3)', backgroundColor: 'rgba(52,211,153,0.05)' }]}>
-                            <Ionicons name="shield-checkmark" size={18} color="#34d399" />
-                            <Text style={[styles.secondaryBtnText, { color: '#34d399' }]}>{isEN ? "Admin Dashboard" : "አድሚን ዳሽቦርድ"}</Text>
-                          </TouchableOpacity>
-                        )}
-                        <TouchableOpacity onPress={() => setRulesVisible(true)} style={styles.secondaryBtn}>
-                           <Ionicons name="document-text-outline" size={18} color="#e5e3ff" />
-                           <Text style={styles.secondaryBtnText}>{isEN ? "Privacy & Rules" : "የግላዊነት ፖሊሲ"}</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={openExitModal} style={[styles.secondaryBtn, { borderColor: 'rgba(239,68,68,0.2)' }]}>
-                          <Ionicons name="log-out-outline" size={18} color="#ef4444" />
-                          <Text style={[styles.secondaryBtnText, { color: '#ef4444' }]}>{t("logout")}</Text>
-                        </TouchableOpacity>
-                     </View>
-                   </>
-                )}
-             </View>
+                <View style={[s.card, { marginTop: 20 }]}>
+                  <Text style={s.sectionTitleSmall}>REFERRAL REWARDS</Text>
+                  <Text style={s.supportCardDesc}>Invite your friends to XO Ethiopia and earn a percentage reward on their wins and deposit bonuses!</Text>
+                  <TouchableOpacity onPress={() => setShowReferralModal(true)} style={[s.supportChannelBtn, { backgroundColor: "#f5b642" }]} activeOpacity={0.85}>
+                    <Ionicons name="gift" size={15} color="#0a0e1a" />
+                    <Text style={[s.supportChannelBtnText, { color: "#0a0e1a" }]}>VIEW REFERRALS</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
           </View>
-
-          <View style={{ height: 40 }} />
         </ScrollView>
+      </View>
+    );
+  }
 
-        {/* Exit modal */}
-        <LogoutConfirmation
-          visible={exitModalVisible}
-          onCancel={cancelExit}
-          onConfirm={confirmExit}
-        />
-        <RulesModal
-          visible={rulesVisible}
-          onClose={() => setRulesVisible(false)}
-          language={language}
-        />
-      </SafeAreaView>
+  // ─── MOBILE VIEW LAYOUT ───
+  return (
+    <View style={s.rootContainer}>
+      <LinearGradient colors={["#0c0c1f", "#070714"]} style={StyleSheet.absoluteFill} />
+
+      {/* Mobile Header */}
+      <View style={s.mobileHeader}>
+        <TouchableOpacity onPress={() => router.back()} style={s.mobileBackBtn}>
+          <Ionicons name="arrow-back" size={20} color="#00daf3" />
+        </TouchableOpacity>
+        <Text style={s.mobileTitleText}>Profile Settings</Text>
+        <View style={{ width: 40 }} />
+      </View>
+
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40, gap: 18 }} showsVerticalScrollIndicator={false}>
+        {/* Mobile Header Card */}
+        <View style={[s.profileHeaderCard, { padding: 18 }]}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+            <View style={[s.profileBigAvatarShell, { width: 48, height: 48 }]}>
+              <Text style={{ color: "#fff", fontSize: 13, fontWeight: "900" }}>ME</Text>
+            </View>
+            <View>
+              <Text style={{ color: "#fff", fontSize: 16, fontWeight: "bold" }}>{user?.username || (user?.number ? `User ${user.number.slice(-4)}` : "Set Your Name")}</Text>
+              <Text style={{ color: "#22d3ee", fontSize: 10, marginTop: 4 }}>Verified • VIP 24</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Mobile Stats Row */}
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+          <View style={[s.mobileStatCard, { width: "47%" }]}>
+            <Text style={s.mobileStatLabel}>GAMES</Text>
+            <Text style={s.mobileStatVal}>{stats.total}</Text>
+          </View>
+          <View style={[s.mobileStatCard, { width: "47%" }]}>
+            <Text style={s.mobileStatLabel}>WIN RATE</Text>
+            <Text style={s.mobileStatVal}>{stats.winRate}%</Text>
+          </View>
+          <View style={[s.mobileStatCard, { width: "47%" }]}>
+            <Text style={s.mobileStatLabel}>WINNINGS</Text>
+            <Text style={[s.mobileStatVal, { color: "#22c55e" }]}>{stats.winnings}</Text>
+          </View>
+          <View style={[s.mobileStatCard, { width: "47%" }]}>
+            <Text style={s.mobileStatLabel}>BALANCE</Text>
+            <Text style={[s.mobileStatVal, { color: "#f5b642" }]}>ETB {user?.available_balance}</Text>
+          </View>
+        </View>
+
+        {/* Mobile Account Details */}
+        <View style={s.card}>
+          <Text style={s.cardHeaderTitle}>Account</Text>
+          <View style={s.detailRowsGroup}>
+            <View style={s.accountDetailRow}>
+              <Text style={s.accountDetailLabel}>Phone</Text>
+              <Text style={s.accountDetailVal}>{maskedPhone}</Text>
+            </View>
+            <View style={s.accountDetailRow}>
+              <Text style={s.accountDetailLabel}>Referral</Text>
+              <TouchableOpacity onPress={handleCopyReferral}>
+                <Text style={[s.accountDetailVal, { color: "#f5b642" }]}>{referralCode || "Copy"}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+
+        {/* Mobile Settings List */}
+        <View style={s.card}>
+          <Text style={s.cardHeaderTitle}>Settings</Text>
+          <TouchableOpacity onPress={() => setEditModalVisible(true)} style={s.settingsListRow}>
+            <Text style={s.settingsRowLabel}>Edit Name</Text>
+            <Ionicons name="chevron-forward" size={16} color="#8b93a7" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Mobile Logout */}
+        <TouchableOpacity onPress={() => setExitModalVisible(true)} style={s.profileLogoutBtn}>
+          <Text style={s.profileLogoutBtnText}>LOGOUT</Text>
+        </TouchableOpacity>
+      </ScrollView>
+      <NotificationsPopover visible={notificationsVisible} onClose={() => setNotificationsVisible(false)} onUnreadCountChange={setUnreadCount} />
+      
+      {/* Edit Profile Dialog Modal */}
+      {editModalVisible && (
+        <View style={s.dialogOverlay}>
+          <View style={s.dialogCard}>
+            <View style={s.dialogHeader}>
+              <Text style={s.dialogTitle}>{isEN ? "Edit Profile" : "መገለጫ አርትዕ"}</Text>
+              <TouchableOpacity onPress={() => setEditModalVisible(false)}>
+                <Ionicons name="close" size={20} color="#8b93a7" />
+              </TouchableOpacity>
+            </View>
+            <View style={s.dialogBody}>
+              <Text style={s.inputLabel}>{isEN ? "USERNAME" : "የተጠቃሚ ስም"}</Text>
+              <TextInput value={editUsername} onChangeText={setEditUsername} style={s.dialogInput} placeholder={isEN ? "Username" : "የተጠቃሚ ስም"} placeholderTextColor="rgba(255,255,255,0.2)" />
+
+              <Text style={[s.inputLabel, { marginTop: 14 }]}>{isEN ? "DISPLAY NAME" : "የሚታይ ስም"}</Text>
+              <TextInput value={editDisplayName} onChangeText={setEditDisplayName} style={s.dialogInput} placeholder={isEN ? "Display Name" : "የሚታይ ስም"} placeholderTextColor="rgba(255,255,255,0.2)" />
+            </View>
+            <View style={s.dialogFooter}>
+              <TouchableOpacity onPress={() => setEditModalVisible(false)} style={s.cancelBtn}>
+                <Text style={s.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleSaveProfile} style={s.saveBtn} disabled={savingProfile}>
+                {savingProfile ? <ActivityIndicator color="#0a0e1a" /> : <Text style={s.saveBtnText}>Save</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* Logout Confirmation Modal */}
+      <LogoutConfirmation visible={exitModalVisible} onCancel={() => setExitModalVisible(false)} onConfirm={confirmExit} />
     </View>
   );
 }
 
-// ---------- memo components ----------
-const MiniStat = memo(function MiniStat({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ComponentProps<typeof Ionicons>["name"];
-  label: string;
-  value: string;
-}) {
-  return (
-    <View style={styles.miniStat}>
-      <Ionicons name={icon} size={16} color="rgba(255,255,255,0.85)" />
-      <Text style={styles.miniLabel} numberOfLines={1}>
-        {label}
-      </Text>
-      <Text style={styles.miniValue} numberOfLines={1}>
-        {value}
-      </Text>
-    </View>
-  );
-});
+const s = StyleSheet.create({
+  rootContainer: { flex: 1, backgroundColor: "#0a0e1a" },
 
-const QuickAction = memo(function QuickAction({
-  title,
-  subtitle,
-  icon,
-  onPress,
-}: {
-  title: string;
-  subtitle: string;
-  icon: React.ComponentProps<typeof Ionicons>["name"];
-  onPress: () => void;
-}) {
-  return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.9} style={styles.quickCard}>
-      <LinearGradient colors={["rgba(255, 255, 255, 0.03)", "rgba(255, 255, 255, 0.01)"]} style={StyleSheet.absoluteFill} />
-      <View style={styles.quickIcon}>
-        <LinearGradient colors={["#00daf3", "#00e5ff"]} style={styles.quickIconInner}>
-          <Ionicons name={icon} size={18} color="#0a0a0f" />
-        </LinearGradient>
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.quickTitle} numberOfLines={1}>
-          {title}
-        </Text>
-        <Text style={styles.quickSub} numberOfLines={1}>
-          {subtitle}
-        </Text>
-      </View>
-      <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.55)" />
-    </TouchableOpacity>
-  );
-});
-
-const InputRow = memo(function InputRow({
-  icon,
-  label,
-  value,
-  onChangeText,
-  placeholder,
-  autoCapitalize,
-  autoCorrect,
-}: {
-  icon: React.ComponentProps<typeof Ionicons>["name"];
-  label: string;
-  value: string;
-  onChangeText: (t: string) => void;
-  placeholder: string;
-  autoCapitalize?: "none" | "sentences" | "words" | "characters";
-  autoCorrect?: boolean;
-}) {
-  return (
-    <View style={styles.rowBlock}>
-      <Text style={styles.rowLabel}>{label}</Text>
-      <View style={styles.rowInputWrap}>
-        <Ionicons name={icon} size={16} color="rgba(255,255,255,0.55)" />
-        <TextInput
-          value={value}
-          onChangeText={onChangeText}
-          placeholder={placeholder}
-          placeholderTextColor="rgba(255,255,255,0.35)"
-          style={styles.rowInput}
-          autoCapitalize={autoCapitalize}
-          autoCorrect={autoCorrect}
-        />
-      </View>
-    </View>
-  );
-});
-
-const ReadOnlyRow = memo(function ReadOnlyRow({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ComponentProps<typeof Ionicons>["name"];
-  label: string;
-  value: string;
-}) {
-  return (
-    <View style={styles.rowBlock}>
-      <Text style={styles.rowLabel}>{label}</Text>
-      <View style={[styles.rowInputWrap, { opacity: 0.75 }]}>
-        <Ionicons name={icon} size={16} color="rgba(255,255,255,0.55)" />
-        <Text style={styles.readOnlyText} numberOfLines={1}>
-          {value}
-        </Text>
-      </View>
-    </View>
-  );
-});
-
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  safe: { flex: 1 },
-
-  blob: {
-    position: "absolute",
-    width: 450,
-    height: 450,
-    borderRadius: 225,
-    opacity: 0.12,
-    ...Platform.select({
-      web: {
-        filter: "blur(80px)",
-      } as any,
-    }),
-  },
-  blob1: {
-    top: "5%",
-    left: "-20%",
-    backgroundColor: "#ff4766", // Glowing Coral Red
-  },
-  blob2: {
-    bottom: "15%",
-    right: "-30%",
-    backgroundColor: "#00daf3", // Glowing Cyan
-  },
-
-  topBar: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  topIconBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    alignItems: "center",
+  // Header Style (Same as gameplay & history headers)
+  header: {
+    height: 88,
+    backgroundColor: "transparent",
     justifyContent: "center",
-    backgroundColor: "rgba(0, 218, 243, 0.08)",
-    borderWidth: 1,
-    borderColor: "rgba(0, 218, 243, 0.14)",
+    paddingHorizontal: 40,
   },
-  topTitle: {
-    color: "#e5e3ff",
-    fontSize: 18,
-    fontWeight: "900",
-    letterSpacing: 0.5,
-  },
-  topSub: {
-    marginTop: 2,
-    color: "rgba(168,167,212,0.6)",
-    fontSize: 12,
-    fontWeight: "700",
-  },
-
-  content: { paddingHorizontal: 16, paddingBottom: 24 },
-
-  onboardingNotice: {
-    padding: 18,
-    borderRadius: 24,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 16,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: "rgba(0, 218, 243, 0.25)",
-    overflow: "hidden",
-  },
-  onboardingIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: "rgba(0, 218, 243, 0.12)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  onboardingTitle: {
-    color: "#e5e3ff",
-    fontSize: 16,
-    fontWeight: "900",
-    marginBottom: 2,
-  },
-  onboardingSub: {
-    color: "rgba(168,167,212,0.7)",
-    fontSize: 12,
-    lineHeight: 18,
-    fontWeight: "600",
-  },
-
-  heroCard: {
-    borderRadius: 28,
-    overflow: "hidden",
-    padding: 20,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
-    backgroundColor: "rgba(255, 255, 255, 0.02)",
-  },
-  heroCardDesktop: {
-    borderRadius: 20,
-    padding: 24,
-    borderColor: "rgba(255,255,255,0.05)",
-    backgroundColor: "rgba(255,255,255,0.02)",
-  },
-  statsStripDesktop: {
-    marginTop: 16,
-    borderRadius: 16,
-    backgroundColor: 'rgba(0,0,0,0.15)',
-  },
-  glass: { ...StyleSheet.absoluteFillObject },
-
-  heroRow: { flexDirection: "row", gap: 16, alignItems: "center" },
-
-  avatarShell: { width: 92, height: 92, justifyContent: "center", alignItems: "center" },
-  avatarRing: { position: "absolute", width: 92, height: 92, borderRadius: 46, opacity: 0.95 },
-  avatarInner: {
-    width: 82,
-    height: 82,
-    borderRadius: 41,
-    backgroundColor: "rgba(12,16,28,0.4)",
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
-  },
-  avatarImg: { width: "100%", height: "100%" },
-  avatarFallback: { flex: 1, alignItems: "center", justifyContent: "center" },
-
-  fab: {
-    position: "absolute",
-    right: -2,
-    bottom: -2,
-    width: 34,
-    height: 34,
-    borderRadius: 12,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.14)",
-  },
-  fabInner: { flex: 1, alignItems: "center", justifyContent: "center" },
-
-  name: { color: "#e5e3ff", fontSize: 20, fontWeight: "900", letterSpacing: 0.3 },
-  mutedText: { color: "rgba(168,167,212,0.8)", fontSize: 13, fontWeight: "600" },
-  inlineRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 },
-
-  badgeRow: { marginTop: 12, flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 12 },
-  badge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
-  },
-  badgeText: { color: "#fff", fontSize: 13, fontWeight: "900" },
-  dotDivider: { width: 6, height: 6, borderRadius: 3, backgroundColor: "rgba(0, 218, 243, 0.2)" },
-
-  statsStrip: {
-    marginTop: 20,
-    borderRadius: 20,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    backgroundColor: "rgba(0,0,0,0.2)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.05)",
+  headerContentWrapper: {
+    width: "100%",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-  stripSep: { width: 1, height: 32, backgroundColor: "rgba(255,255,255,0.08)" },
-  miniStat: { flex: 1, alignItems: "center", gap: 4 },
-  miniLabel: { color: "rgba(168,167,212,0.6)", fontSize: 11, fontWeight: "700", textTransform: 'uppercase' },
-  miniValue: { color: "#fff", fontSize: 16, fontWeight: "900" },
-
-  quickRow: { marginTop: 4, gap: 10, flexDirection: 'column' },
-  quickCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 16,
-    padding: 16,
-    borderRadius: 20,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
-  },
-  quickIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    overflow: "hidden",
-  },
-  quickIconInner: { flex: 1, alignItems: "center", justifyContent: "center" },
-  quickTitle: { color: "#e5e3ff", fontSize: 15, fontWeight: "900" },
-  quickSub: { marginTop: 2, color: "rgba(168,167,212,0.6)", fontSize: 13, fontWeight: "600" },
-
-  panel: {
-    borderRadius: 20,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.05)",
-    backgroundColor: "rgba(255,255,255,0.02)",
-  },
-  panelHeader: { marginBottom: 16 },
-  panelTitleRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  panelTitle: { color: "#fff", fontSize: 15, fontWeight: "800" },
-  panelHint: { marginTop: 4, color: "rgba(168,167,212,0.6)", fontSize: 12, fontWeight: "600" },
-
-  rowBlock: { marginBottom: 16 },
-  rowLabel: { color: "rgba(168,167,212,0.8)", fontSize: 12, fontWeight: "800", marginBottom: 8, textTransform: 'uppercase' },
-  rowInputWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingVertical: Platform.select({ ios: 14, android: 12, default: 14 }) as any,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
-    backgroundColor: "rgba(0,0,0,0.2)",
-  },
-  rowInput: {
-    flex: 1,
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  readOnlyText: { flex: 1, color: "rgba(255,255,255,0.6)", fontSize: 16, fontWeight: "700" },
-
-  primaryBtn: { marginTop: 8, borderRadius: 18, overflow: "hidden" },
-  primaryBtnInner: { paddingVertical: 16, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 10 },
-  primaryBtnText: { color: "#0a0a0f", fontWeight: "900", fontSize: 16, letterSpacing: 0.5 },
-
-  secondaryBtn: {
-    marginTop: 12,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
-    paddingVertical: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    flexDirection: "row",
-    gap: 10,
-  },
-  secondaryBtnText: { color: "#e3e0f8", fontWeight: "900", fontSize: 14 },
-
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" },
-  sheet: {
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    padding: 24,
-    paddingBottom: 40,
-    backgroundColor: "#111118",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
-  },
-  sheetHandle: { alignSelf: "center", width: 40, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.1)", marginBottom: 20 },
-  sheetHeader: { flexDirection: "row", gap: 16, alignItems: "center" },
-  sheetIcon: {
+  logoContainer: { flexDirection: "row", alignItems: "center", gap: 12 },
+  logoImage: {
     width: 48,
     height: 48,
-    borderRadius: 16,
+    borderRadius: 24,
+    borderWidth: 1.5,
+    borderColor: "#7c3aed",
+  },
+  logoText: { color: "#fff", fontSize: 18, fontWeight: "900", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" },
+
+  // Center toggle tabs
+  toggleContainer: {
+    flexDirection: "row",
+    backgroundColor: "#12172a",
+    borderRadius: 24,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: "#1f2540",
+  },
+  toggleBtn: {
+    paddingHorizontal: 22,
+    paddingVertical: 9,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  toggleBtnActive: {
+    backgroundColor: "#7c3aed",
+    ...(Platform.OS === 'web' ? { 
+      background: "linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)",
+      boxShadow: "0 4px 12px rgba(124, 58, 237, 0.4)"
+    } as any : {}),
+  },
+  toggleBtnText: { color: "#8b93a7", fontSize: 12, fontWeight: "800", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" },
+  toggleBtnTextActive: { color: "#ffffff" },
+
+  // Right Cluster
+  utilityCluster: { flexDirection: "row", alignItems: "center", gap: 14 },
+  balancePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#12172a",
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "#1f2540",
+    paddingLeft: 18,
+    paddingRight: 10,
+    paddingVertical: 8,
+  },
+  balanceLabel: { color: "#8b93a7", fontSize: 10, fontWeight: "700", letterSpacing: 0.5, marginRight: 10, fontFamily: "Inter, sans-serif" },
+  balanceVal: { color: "#22d3ee", fontSize: 15, fontWeight: "800", fontFamily: "Inter, sans-serif" },
+  refreshBtn: { marginLeft: 10, padding: 4 },
+  
+  utilityBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#12172a",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#1f2540",
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+  },
+  utilityBtnText: { color: "#8b93a7", fontSize: 11, fontWeight: "700", fontFamily: "Inter, sans-serif" },
+  
+  bellBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#12172a",
+    borderWidth: 1,
+    borderColor: "#1f2540",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(253,111,133,0.15)",
-    borderWidth: 1,
-    borderColor: "rgba(253,111,133,0.3)",
+    position: "relative",
   },
-  sheetTitle: { color: "#fff", fontSize: 18, fontWeight: "900" },
-  sheetSub: { marginTop: 4, color: "rgba(168,167,212,0.6)", fontSize: 14, fontWeight: "600" },
+  bellBadge: {
+    position: "absolute",
+    top: -2,
+    right: -2,
+    backgroundColor: "#ef4444",
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bellBadgeText: { color: "#fff", fontSize: 8, fontWeight: "900", fontFamily: "Inter, sans-serif" },
 
-  sheetActions: { flexDirection: "row", gap: 12, marginTop: 24 },
-  sheetBtnGhost: {
+  profileChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: "#12172a",
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "#1f2540",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  profileChipAvatar: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "#ec4899",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  profileChipAvatarText: { color: "#fff", fontSize: 10, fontWeight: "900", fontFamily: "Inter, sans-serif" },
+  profileChipName: { color: "#fff", fontSize: 12, fontWeight: "700", fontFamily: "Inter, sans-serif" },
+  profileChipVip: { color: "#f5b642", fontSize: 9, fontWeight: "700", fontFamily: "Inter, sans-serif" },
+
+  // Scroll View & Layout blueprints
+  mainScrollView: { flex: 1 },
+  scrollContent: { paddingHorizontal: 40, paddingVertical: 24, gap: 24 },
+  pageContentWrapper: {
+    width: "100%",
+    gap: 24,
+  },
+  threeColumnRow: { flexDirection: "row", gap: 28, alignItems: "flex-start", width: "100%" },
+
+  // Sidebar Layout (Same as gameplay & history left sidebars)
+  leftSidebar: { width: 280, gap: 20 },
+  card: {
+    backgroundColor: "#12172a",
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "#1f2540",
+    padding: 20,
+    ...(Platform.OS === 'web' ? { boxShadow: "0 10px 30px rgba(0,0,0,0.15)" } as any : {}),
+  },
+  userCardHeader: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 14 },
+  userCardAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#ec4899",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  userCardAvatarText: { color: "#fff", fontSize: 16, fontWeight: "900", fontFamily: "Inter, sans-serif" },
+  userCardName: { color: "#fff", fontSize: 15, fontWeight: "700", fontFamily: "Inter, sans-serif" },
+  onlineRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 },
+  onlineDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#22c55e" },
+  onlineText: { color: "#8b93a7", fontSize: 11, fontWeight: "500", fontFamily: "Inter, sans-serif" },
+  
+  tokensRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#0d1220",
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: "#1f2540",
+  },
+  tokenLabel: { color: "#8b93a7", fontSize: 10, fontWeight: "700", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" },
+  tokenVal: { color: "#f5b642", fontSize: 15, fontWeight: "800", marginTop: 2, fontFamily: "Inter, sans-serif" },
+  tokenPlusBtn: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "#f97316",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  // Vertical navigation
+  navItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 6,
+    position: "relative",
+  },
+  navItemActive: { backgroundColor: "rgba(124, 58, 237, 0.08)" },
+  navItemActiveBar: {
+    position: "absolute",
+    left: 0,
+    top: 12,
+    bottom: 12,
+    width: 3.5,
+    backgroundColor: "#7c3aed",
+    borderRadius: 2,
+  },
+  navText: { color: "#8b93a7", fontSize: 14, fontWeight: "700", fontFamily: "Inter, sans-serif" },
+  navTextActive: { color: "#e5e3ff" },
+
+  // Wallet
+  sectionTitleSmall: { color: "#8b93a7", fontSize: 10, fontWeight: "800", letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 14, fontFamily: "Inter, sans-serif" },
+  walletRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 },
+  walletLabel: { color: "#8b93a7", fontSize: 12, fontWeight: "500", fontFamily: "Inter, sans-serif" },
+  walletValSmall: { fontSize: 12, fontWeight: "700", fontFamily: "Inter, sans-serif" },
+  walletValSecond: { color: "#fff", fontSize: 12, fontWeight: "700", fontFamily: "Inter, sans-serif" },
+  walletButtons: { flexDirection: "row", gap: 10, marginTop: 16 },
+  walletBtnSmall: {
     flex: 1,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
-    backgroundColor: "rgba(10, 12, 28, 0.88)",
+    borderRadius: 14,
+    paddingVertical: 8,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  sheetGhostText: { color: "rgba(255,255,255,0.88)", fontWeight: "900" },
+  walletBtnTextSmall: { fontSize: 10, fontWeight: "800", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" },
 
-  sheetBtnDanger: { flex: 1, borderRadius: 18, overflow: "hidden" },
-  sheetDangerInner: { paddingVertical: 16, alignItems: "center", justifyContent: "center" },
-  sheetDangerText: { color: "#fff", fontWeight: "900" },
-
-  desktopGrid: {
-    // Desktop grid settings handled by inline style conditionals
+  // Sidebar bottom profile card styles
+  verifiedIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(0, 218, 243, 0.1)",
+    alignItems: "center",
+    justifyContent: "center",
   },
+  rechargeBtn: {
+    backgroundColor: "#ffffff",
+    borderRadius: 14,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    marginTop: 6,
+  },
+  rechargeBtnText: { color: "#0a0e1a", fontSize: 11, fontWeight: "900", letterSpacing: 0.8, fontFamily: "Inter, sans-serif" },
+  logoutBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 18,
+    paddingVertical: 4,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.03)",
+  },
+  logoutBtnText: { color: "rgba(255,255,255,0.4)", fontSize: 12, fontWeight: "800", letterSpacing: 0.8, fontFamily: "Inter, sans-serif" },
+
+  // Center column
+  centerColumn: { flex: 1, gap: 20 },
+
+  // ── Profile Header Card ──
+  profileHeaderCard: {
+    backgroundColor: "#12172a",
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "#1f2540",
+    padding: 24,
+    ...(Platform.OS === 'web' ? { boxShadow: "0 10px 30px rgba(0,0,0,0.15)" } as any : {}),
+  },
+  profileCardInfoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 20,
+  },
+  profileBigAvatarShell: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "#ec4899",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#1f2540",
+  },
+  profileBigAvatarText: {
+    color: "#fff",
+    fontSize: 20,
+    fontWeight: "900",
+    fontFamily: "Inter, sans-serif",
+  },
+  profileUsernameText: {
+    color: "#fff",
+    fontSize: 22,
+    fontWeight: "900",
+    fontFamily: "Inter, sans-serif",
+  },
+  vipLevelBadge: {
+    backgroundColor: "rgba(245, 182, 66, 0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(245, 182, 66, 0.3)",
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  vipLevelBadgeText: {
+    color: "#f5b642",
+    fontSize: 10,
+    fontWeight: "800",
+    fontFamily: "Inter, sans-serif",
+  },
+  profileVerifiedText: {
+    color: "#22d3ee",
+    fontSize: 10,
+    fontWeight: "900",
+    letterSpacing: 0.5,
+    fontFamily: "Inter, sans-serif",
+  },
+  profileDotDivider: {
+    color: "rgba(255, 255, 255, 0.2)",
+    fontSize: 12,
+    fontFamily: "Inter, sans-serif",
+  },
+  profileMemberSinceText: {
+    color: "rgba(255, 255, 255, 0.4)",
+    fontSize: 11,
+    fontWeight: "600",
+    fontFamily: "Inter, sans-serif",
+  },
+
+  // ── Stat Cards Grid (Same as history page stats grid) ──
+  statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 16 },
+  statCard: {
+    flex: 1,
+    minWidth: 160,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#12172a",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#1f2540",
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  statIconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  statCardLabel: { color: "#8b93a7", fontSize: 9, fontWeight: "800", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" },
+  statCardVal: { color: "#22d3ee", fontSize: 22, fontWeight: "900", marginTop: 2, fontFamily: "Inter, sans-serif" },
+
+  // Account details card
+  cardHeaderTitle: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "800",
+    fontFamily: "Inter, sans-serif",
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.04)",
+    paddingBottom: 12,
+    marginBottom: 12,
+  },
+  detailRowsGroup: { gap: 14 },
+  accountDetailRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 4,
+  },
+  accountDetailLabel: {
+    color: "#8b93a7",
+    fontSize: 13,
+    fontWeight: "600",
+    fontFamily: "Inter, sans-serif",
+  },
+  accountDetailVal: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "800",
+    fontFamily: "Inter, sans-serif",
+  },
+  copyCodeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(245, 182, 66, 0.08)",
+    borderWidth: 0.5,
+    borderColor: "rgba(245, 182, 66, 0.3)",
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    gap: 4,
+  },
+  copyCodeBtnText: {
+    color: "#f5b642",
+    fontSize: 9,
+    fontWeight: "900",
+    fontFamily: "Inter, sans-serif",
+  },
+
+  // ── Settings list rows ──
+  settingsListRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.03)",
+  },
+  settingsIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  settingsRowLabel: {
+    color: "#e5e3ff",
+    fontSize: 13,
+    fontWeight: "600",
+    fontFamily: "Inter, sans-serif",
+  },
+
+  // Logout Button
+  profileLogoutBtn: {
+    backgroundColor: "#ef4444",
+    borderRadius: 20,
+    paddingVertical: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 10,
+    ...(Platform.OS === 'web' ? { boxShadow: "0 10px 25px rgba(239, 68, 68, 0.15)" } as any : {}),
+  },
+  profileLogoutBtnText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "900",
+    letterSpacing: 0.8,
+    fontFamily: "Inter, sans-serif",
+  },
+
+  // ── Dialog Overlay Styles ──
+  dialogOverlay: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.8)",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 1000,
+  },
+  dialogCard: {
+    width: 360,
+    backgroundColor: "#0d1220",
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "#1f2540",
+    padding: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+  },
+  dialogHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  dialogTitle: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "900",
+    fontFamily: "Inter, sans-serif",
+  },
+  dialogBody: {
+    marginBottom: 24,
+  },
+  inputLabel: {
+    color: "#8b93a7",
+    fontSize: 9,
+    fontWeight: "900",
+    letterSpacing: 0.5,
+    marginBottom: 8,
+    fontFamily: "Inter, sans-serif",
+  },
+  dialogInput: {
+    backgroundColor: "#12172a",
+    borderWidth: 1,
+    borderColor: "#1f2540",
+    borderRadius: 14,
+    color: "#fff",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 13,
+    fontFamily: "Inter, sans-serif",
+  },
+  dialogFooter: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  cancelBtn: {
+    flex: 1,
+    backgroundColor: "#12172a",
+    borderWidth: 1,
+    borderColor: "#1f2540",
+    borderRadius: 16,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  cancelBtnText: {
+    color: "#8b93a7",
+    fontSize: 12,
+    fontWeight: "800",
+    fontFamily: "Inter, sans-serif",
+  },
+  saveBtn: {
+    flex: 1,
+    backgroundColor: "#22d3ee",
+    borderRadius: 16,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  saveBtnText: {
+    color: "#0a0e1a",
+    fontSize: 12,
+    fontWeight: "900",
+    fontFamily: "Inter, sans-serif",
+  },
+
+  // ── RIGHT SIDEBAR ──
+  rightSidebar: { width: 320 },
+  supportCardDesc: {
+    color: "rgba(255, 255, 255, 0.4)",
+    fontSize: 12,
+    lineHeight: 18,
+    fontFamily: "Inter, sans-serif",
+    marginBottom: 16,
+  },
+  supportChannelBtn: {
+    backgroundColor: "#7c3aed",
+    borderRadius: 16,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  supportChannelBtnText: {
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: "900",
+    letterSpacing: 0.5,
+    fontFamily: "Inter, sans-serif",
+  },
+
+  // Mobile layout helpers
+  mobileHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    height: 60,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.05)",
+    paddingHorizontal: 16,
+  },
+  mobileBackBtn: { padding: 8 },
+  mobileTitleText: { color: "#fff", fontSize: 18, fontWeight: "900", fontFamily: "Inter, sans-serif" },
+  mobileStatCard: {
+    backgroundColor: "#12172a",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#1f2540",
+    padding: 12,
+  },
+  mobileStatLabel: { color: "#8b93a7", fontSize: 8, fontWeight: "800", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" },
+  mobileStatVal: { color: "#fff", fontSize: 16, fontWeight: "900", marginTop: 4, fontFamily: "Inter, sans-serif" },
 });

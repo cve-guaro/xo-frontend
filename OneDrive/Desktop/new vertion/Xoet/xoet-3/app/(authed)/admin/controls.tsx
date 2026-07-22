@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../../context/authContext';
 import { API_URL } from '../../../config';
+import { AdminTheme as C } from './_layout';
 
 const fmt = (n: number) => Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const timeFmt = (d: string) => {
@@ -32,7 +33,7 @@ export default function AdminControls() {
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
 
-  const [tab, setTab] = useState<'notifications' | 'ticker' | 'refunds' | 'live_queue'>((params?.activeTab as any) || 'notifications');
+  const [tab, setTab] = useState<'notifications' | 'ticker' | 'refunds'>((params?.activeTab as any) || 'notifications');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -108,6 +109,8 @@ export default function AdminControls() {
   const [refundReason, setRefundReason] = useState('');
   const [refundTarget, setRefundTarget] = useState<'available' | 'withdrawable' | 'both'>('available');
   const [refundResult, setRefundResult] = useState<any>(null);
+
+
 
   // ----------------------------------------------------
   // API ACTIONS
@@ -330,81 +333,7 @@ export default function AdminControls() {
     }
   };
 
-  // Fetch Live Queue Stats
-  const fetchLiveStats = useCallback(async () => {
-    try {
-      const res = await fetch(`${API_URL}/admin/live-queue-stats`, {
-        headers: { Authorization: `Bearer ${token}`, 'x-platform': 'web' },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setLiveStats(data);
-      }
-    } catch (e) {
-      console.error('Fetch live queue stats error:', e);
-    }
-  }, [token]);
-
-  useEffect(() => {
-    if (tab === 'live_queue') {
-      fetchLiveStats();
-      const interval = setInterval(fetchLiveStats, 2000);
-      return () => clearInterval(interval);
-    }
-  }, [tab, fetchLiveStats]);
-
-  const combinedBreakdown = React.useMemo(() => {
-    const flat: Record<number, { searching: number; liveMatches: number }> = {};
-    [1, 2, 3].forEach(roomNum => {
-      const breakdown = liveStats.roomStats?.[roomNum]?.betBreakdown || {};
-      Object.entries(breakdown).forEach(([bet, item]: [string, any]) => {
-        const betNum = Number(bet);
-        if (!flat[betNum]) {
-          flat[betNum] = { searching: 0, liveMatches: 0 };
-        }
-        flat[betNum].searching += item.searching || 0;
-        flat[betNum].liveMatches += item.liveMatches || 0;
-      });
-    });
-    return flat;
-  }, [liveStats]);
-
-  const getRoomTotals = (bets: number[]) => {
-    let searching = 0;
-    let liveMatches = 0;
-    bets.forEach(b => {
-      const item = combinedBreakdown[b];
-      if (item) {
-        searching += item.searching || 0;
-        liveMatches += item.liveMatches || 0;
-      }
-    });
-    return { searching, liveMatches };
-  };
-
-
-  const renderBetBreakdown = (breakdown: any, betsToShow: number[]) => {
-    return (
-      <View style={{ gap: 8 }}>
-        {betsToShow.map(bet => {
-          const item = breakdown[bet] || { searching: 0, liveMatches: 0 };
-          return (
-            <View key={bet} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.02)', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)' }}>
-              <Text style={{ color: '#e2e8f0', fontSize: 13, fontWeight: '700' }}>{bet} ETB</Text>
-              <View style={{ flexDirection: 'row', gap: 12 }}>
-                <Text style={{ color: '#00e5ff', fontSize: 11, fontWeight: '600' }}>
-                  {item.searching || 0} searching
-                </Text>
-                <Text style={{ color: '#a78bfa', fontSize: 11, fontWeight: '600' }}>
-                  {item.liveMatches || 0} live games
-                </Text>
-              </View>
-            </View>
-          );
-        })}
-      </View>
-    );
-  };
+  // Live queue stats and breakdowns removed (moved to xo-controls.tsx)
 
   // Initial Data Loading
   useEffect(() => {
@@ -435,6 +364,25 @@ export default function AdminControls() {
             <Text style={s.headerSub}>ADMIN / CONTROLLER PANEL</Text>
           </View>
         </View>
+        
+        <TouchableOpacity
+          onPress={() => router.replace('/(authed)/home/gameplay' as any)}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 8,
+            backgroundColor: '#00e5ff',
+            paddingHorizontal: 16,
+            paddingVertical: 10,
+            borderRadius: 12,
+            alignSelf: isMobile ? 'flex-start' : 'center',
+          }}
+        >
+          <Ionicons name="home" size={16} color="#0a0f1c" />
+          <Text style={{ color: '#0a0f1c', fontSize: 13, fontWeight: '800', fontFamily: 'Inter' }}>
+            Back to Home Page
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* Tab Bar */}
@@ -443,7 +391,6 @@ export default function AdminControls() {
           { key: 'notifications', label: 'Notifications', icon: 'notifications' },
           { key: 'ticker', label: 'Ticker Feed', icon: 'list' },
           { key: 'refunds', label: 'Refund System', icon: 'refresh' },
-          { key: 'live_queue', label: 'Live Queue', icon: 'pulse' },
         ] as const).map(t => (
           <TouchableOpacity
             key={t.key}
@@ -565,103 +512,25 @@ export default function AdminControls() {
         </View>
       )}
 
-
-
       {/* TICKER FEED TAB */}
       {tab === 'ticker' && (
         <View style={s.section}>
-          {/* Controls */}
-          <View style={s.controlCard}>
-            <Text style={s.controlCardTitle}>Scrolling Ticker Controls</Text>
-            
-            <View style={s.switchRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={s.switchLabel}>Show Real Winners</Text>
-                <Text style={s.switchDesc}>Stream actual real game completion wins</Text>
-              </View>
-              <Switch
-                value={settings.real_ticker_enabled}
-                onValueChange={(val) => updateToggle('real_ticker_enabled', val)}
-                trackColor={{ false: '#1e293b', true: '#00e5ff' }}
-                thumbColor={settings.real_ticker_enabled ? '#0a0f1c' : '#94a3b8'}
-              />
-            </View>
-
-            <View style={s.switchRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={s.switchLabel}>Show Fake Ticker Data</Text>
-                <Text style={s.switchDesc}>Display randomized simulated winner entries</Text>
-              </View>
-              <Switch
-                value={settings.fake_ticker_enabled}
-                onValueChange={(val) => updateToggle('fake_ticker_enabled', val)}
-                trackColor={{ false: '#1e293b', true: '#00e5ff' }}
-                thumbColor={settings.fake_ticker_enabled ? '#0a0f1c' : '#94a3b8'}
-              />
-            </View>
-          </View>
-
-          {/* Add Ticker Form */}
-          <View style={[s.section, { marginTop: 24 }]}>
-            <Text style={s.sectionLabel}>ADD SIMULATED TICKER ENTRY</Text>
-            <View style={{ flexDirection: isMobile ? 'column' : 'row', gap: 10, marginBottom: 14 }}>
-              <View style={[s.inputRow, { flex: 1, marginBottom: 0 }]}>
-                <Ionicons name="person-outline" size={16} color="#475569" />
-                <TextInput
-                  value={tickerUsername}
-                  onChangeText={tickerUsername => setTickerUsername(tickerUsername)}
-                  placeholder="Username (e.g. Dawit_X)"
-                  style={s.input}
-                  placeholderTextColor="#334155"
-                />
-              </View>
-              <View style={[s.inputRow, { flex: 0.8, marginBottom: 0 }]}>
-                <Ionicons name="logo-bitcoin" size={16} color="#475569" />
-                <TextInput
-                  value={tickerAmount}
-                  onChangeText={tickerAmount => setTickerAmount(tickerAmount)}
-                  placeholder="Amount in ETB (e.g. 50)"
-                  style={s.input}
-                  placeholderTextColor="#334155"
-                  inputMode="numeric"
-                />
-              </View>
-              <TouchableOpacity onPress={handleAddTicker} style={s.addTickerBtn}>
-                <Text style={s.addTickerBtnText}>Add Entry</Text>
-              </TouchableOpacity>
-            </View>
-
-            {tickerResult && (
-              <View style={[s.resultBox, { borderColor: tickerResult.ok ? 'rgba(52,211,153,0.3)' : 'rgba(248,113,113,0.3)', backgroundColor: tickerResult.ok ? 'rgba(52,211,153,0.06)' : 'rgba(248,113,113,0.06)', marginBottom: 14 }]}>
-                <Ionicons name={tickerResult.ok ? 'checkmark-circle' : 'alert-circle'} size={16} color={tickerResult.ok ? '#34d399' : '#f87171'} />
-                <Text style={{ color: tickerResult.ok ? '#34d399' : '#f87171', fontSize: 12, fontWeight: '700' }}>
-                  {tickerResult.ok ? tickerResult.message : tickerResult.error}
-                </Text>
-              </View>
-            )}
-          </View>
-
-          {/* Ticker Entries Pool */}
-          <Text style={s.sectionLabel}>TICKER ENTRIES POOL ({tickerEntries.length})</Text>
-          {loading && <ActivityIndicator color="#00e5ff" style={{ marginVertical: 20 }} />}
-          {!loading && tickerEntries.length === 0 && (
-            <View style={s.emptyState}>
-              <Text style={{ color: '#475569', fontSize: 12 }}>No ticker entries found</Text>
-            </View>
-          )}
-
-          <View style={s.tickerGrid}>
-            {tickerEntries.map((t, i) => (
-              <View key={t.id || i} style={s.tickerCard}>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>{t.username}</Text>
-                  <Text style={{ color: '#34d399', fontSize: 11, fontWeight: '800', marginTop: 2 }}>{t.amount} ETB</Text>
-                </View>
-                <TouchableOpacity onPress={() => handleDeleteTicker(t.id)} style={s.deleteActionBtn}>
-                  <Ionicons name="trash-outline" size={14} color="#ef4444" />
-                </TouchableOpacity>
-              </View>
-            ))}
+          <View style={[s.controlCard, { alignItems: 'center', padding: 32, gap: 16 }]}>
+            <Ionicons name="trophy-outline" size={48} color="#00e5ff" />
+            <Text style={s.controlCardTitle}>Fake Winner Ticker Consolidation</Text>
+            <Text style={[s.switchDesc, { textAlign: 'center', maxWidth: 400 }]}>
+              Simulated winner entries and announcements configuration has been consolidated into the Leaderboard Hub.
+            </Text>
+            <TouchableOpacity 
+              onPress={() => router.push('/admin/leaderboard' as any)} 
+              style={{
+                flexDirection: 'row', alignItems: 'center', gap: 8,
+                backgroundColor: '#00e5ff', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 10
+              }}
+            >
+              <Text style={{ color: '#0a0f1c', fontWeight: '900', fontSize: 13 }}>Go to Leaderboard Hub</Text>
+              <Ionicons name="arrow-forward" size={14} color="#0a0f1c" />
+            </TouchableOpacity>
           </View>
         </View>
       )}
@@ -796,97 +665,6 @@ export default function AdminControls() {
         </View>
       )}
 
-      {/* LIVE QUEUE TAB */}
-      {tab === 'live_queue' && (
-        <View style={s.section}>
-          <Text style={s.sectionLabel}>LIVE QUEUES & ACTIVE MATCHES</Text>
-          
-          <View style={{ gap: 16 }}>
-            {/* Room 1 */}
-            {(() => {
-              const r1Totals = getRoomTotals([10, 25, 50, 100]);
-              return (
-                <View style={s.controlCard}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                    <Text style={s.controlCardTitle}>Room 1 - Beginner (10-100 ETB)</Text>
-                    <View style={[s.typePill, { borderColor: '#00e5ff40', backgroundColor: 'rgba(0,229,255,0.05)' }]}>
-                      <Text style={{ color: '#00e5ff', fontSize: 10, fontWeight: '800' }}>
-                        {r1Totals.searching} live searchers
-                      </Text>
-                    </View>
-                  </View>
-                  {renderBetBreakdown(combinedBreakdown, [10, 25, 50, 100])}
-                </View>
-              );
-            })()}
-
-            {/* Room 2 */}
-            {(() => {
-              const r2Totals = getRoomTotals([100, 250, 500, 1000]);
-              return (
-                <View style={s.controlCard}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                    <Text style={s.controlCardTitle}>Room 2 - Intermediate (100-1000 ETB)</Text>
-                    <View style={[s.typePill, { borderColor: '#00e5ff40', backgroundColor: 'rgba(0,229,255,0.05)' }]}>
-                      <Text style={{ color: '#00e5ff', fontSize: 10, fontWeight: '800' }}>
-                        {r2Totals.searching} live searchers
-                      </Text>
-                    </View>
-                  </View>
-                  {renderBetBreakdown(combinedBreakdown, [100, 250, 500, 1000])}
-                </View>
-              );
-            })()}
-
-            {/* Room 3 */}
-            {(() => {
-              const r3Totals = getRoomTotals([1000, 2500, 5000, 10000]);
-              return (
-                <View style={s.controlCard}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                    <Text style={s.controlCardTitle}>Room 3 - Advanced (1000-10000 ETB)</Text>
-                    <View style={[s.typePill, { borderColor: '#00e5ff40', backgroundColor: 'rgba(0,229,255,0.05)' }]}>
-                      <Text style={{ color: '#00e5ff', fontSize: 10, fontWeight: '800' }}>
-                        {r3Totals.searching} live searchers
-                      </Text>
-                    </View>
-                  </View>
-                  {renderBetBreakdown(combinedBreakdown, [1000, 2500, 5000, 10000])}
-                </View>
-              );
-            })()}
-          </View>
-
-          {/* Shadow Banned Cooldowns */}
-          <View style={{ marginTop: 24 }}>
-            <Text style={s.sectionLabel}>SHADOW BANNED COOLDOWNS (3-MIN BAN ON 3 STREAK WINS)</Text>
-            {(!liveStats.shadowBanned || liveStats.shadowBanned.length === 0) ? (
-              <View style={s.emptyState}>
-                <Text style={{ color: '#475569', fontSize: 12 }}>No users currently shadow banned</Text>
-              </View>
-            ) : (
-              liveStats.shadowBanned.map((sb: any, i: number) => (
-                <View key={sb.userId + i} style={s.historyCard}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                    <Text style={{ color: '#ef4444', fontSize: 13, fontWeight: '900' }}>
-                      {sb.username || sb.number || 'Unknown User'}
-                    </Text>
-                    <View style={[s.typePill, { borderColor: 'rgba(239,68,68,0.3)', backgroundColor: 'rgba(239,68,68,0.05)' }]}>
-                      <Text style={{ color: '#ef4444', fontSize: 9, fontWeight: '800' }}>
-                        {Math.floor(sb.expiresIn / 60)}m {sb.expiresIn % 60}s LEFT
-                      </Text>
-                    </View>
-                  </View>
-                  <Text style={{ color: '#64748b', fontSize: 11 }}>Range: {sb.rangeKey} ETB</Text>
-                  <Text style={{ color: '#334155', fontSize: 9, marginTop: 4 }}>ID: {sb.userId}</Text>
-                </View>
-              ))
-            )}
-          </View>
-        </View>
-      )}
-
-
       {/* Confirm Modal */}
       <Modal transparent visible={confirmState.visible} animationType="fade">
         <View style={s.modalOverlay}>
@@ -911,95 +689,151 @@ export default function AdminControls() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#09090b', padding: 24, paddingTop: 20 },
+  container: { flex: 1, backgroundColor: 'transparent', padding: 24, paddingTop: 20 },
   headerBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 },
-  backCircle: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0,229,255,0.08)', alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { color: '#fff', fontSize: 18, fontWeight: '900', letterSpacing: 0.5 },
-  headerSub: { color: '#475569', fontSize: 9, fontWeight: '700', letterSpacing: 1.5, marginTop: 2 },
+  backCircle: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.lightPrimary, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { color: '#fff', fontSize: 20, fontWeight: '700', letterSpacing: -0.5, fontFamily: 'Inter' },
+  headerSub: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '600', letterSpacing: 1.5, marginTop: 2, fontFamily: 'Inter' },
 
   tabBar: { flexDirection: 'row', gap: 6, marginBottom: 24, flexWrap: 'wrap' },
-  tab: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', marginBottom: 4 },
-  tabActive: { backgroundColor: '#00e5ff', borderColor: '#00e5ff' },
-  tabText: { color: '#64748b', fontSize: 11, fontWeight: '800' },
-  tabTextActive: { color: '#0a0f1c' },
+  tab: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, backgroundColor: C.surface, borderWidth: 1, borderColor: C.outlineVariant, marginBottom: 4 },
+  tabActive: { backgroundColor: C.primary, borderColor: C.primary },
+  tabText: { color: C.onSurfaceVariant, fontSize: 12, fontWeight: '700', fontFamily: 'Inter' },
+  tabTextActive: { color: '#ffffff', fontFamily: 'Inter' },
 
   section: {},
-  sectionLabel: { color: '#475569', fontSize: 9, fontWeight: '800', letterSpacing: 1.5, marginBottom: 12 },
+  sectionLabel: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '700', letterSpacing: 1.5, marginBottom: 12, textTransform: 'uppercase', fontFamily: 'Inter' },
 
-  fieldLabel: { color: 'rgba(0,229,255,0.6)', fontSize: 9, fontWeight: '800', letterSpacing: 2, marginBottom: 6 },
-  inputRow: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', marginBottom: 14, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12 },
-  input: { flex: 1, color: '#fff', padding: 12, fontSize: 14 },
+  fieldLabel: { color: C.secondary, fontSize: 10, fontWeight: '700', letterSpacing: 1.5, marginBottom: 6, fontFamily: 'Inter' },
+  inputRow: { backgroundColor: C.surfaceContainerLowest, borderRadius: 14, borderWidth: 1, borderColor: C.outlineVariant, marginBottom: 14, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12 },
+  input: { flex: 1, color: '#fff', padding: 12, fontSize: 14, fontFamily: 'Inter' },
 
-  templateBtn: { backgroundColor: 'rgba(255,255,255,0.04)', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
-  templateText: { color: '#94a3b8', fontSize: 11, fontWeight: '700' },
+  templateBtn: { backgroundColor: C.surface, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: C.outlineVariant },
+  templateText: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '600', fontFamily: 'Inter' },
 
-  typeBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
-  typeBtnText: { color: '#64748b', fontSize: 10, fontWeight: '800' },
+  typeBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: C.surface, borderWidth: 1, borderColor: C.outlineVariant },
+  typeBtnText: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '700', fontFamily: 'Inter' },
 
-  sendBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#00e5ff', paddingVertical: 14, borderRadius: 14, marginTop: 8 },
-  sendBtnText: { color: '#0a0f1c', fontSize: 14, fontWeight: '900' },
+  sendBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: C.primaryContainer, paddingVertical: 14, borderRadius: 16, marginTop: 8 },
+  sendBtnText: { color: '#ffffff', fontSize: 14, fontWeight: '700', fontFamily: 'Inter' },
 
-  resultBox: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, padding: 12, borderRadius: 10, borderWidth: 1 },
+  resultBox: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, padding: 12, borderRadius: 12, borderWidth: 1 },
 
-  historyCard: { backgroundColor: 'rgba(24, 24, 27, 0.65)', borderRadius: 14, padding: 14, marginBottom: 6, borderWidth: 1, borderColor: 'rgba(39,39,42,0.4)' },
+  historyCard: { backgroundColor: C.surface, borderRadius: 16, padding: 16, marginBottom: 8, borderWidth: 1, borderColor: C.outlineVariant, ...(Platform.OS === 'web' ? { boxShadow: '14px 17px 40px 4px rgba(112, 144, 176, 0.04)' } as any : {}) },
   typePill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, alignSelf: 'flex-start' },
 
-  emptyState: { padding: 40, alignItems: 'center', backgroundColor: 'rgba(24, 24, 27, 0.3)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(39,39,42,0.2)' },
+  emptyState: { padding: 40, alignItems: 'center', backgroundColor: C.surfaceContainerLowest, borderRadius: 16, borderWidth: 1, borderColor: C.outlineVariant },
 
   // Control Center Style
-  controlCard: { backgroundColor: '#18181b', borderRadius: 16, padding: 18, borderColor: 'rgba(39,39,42,0.4)', borderWidth: 1 },
-  controlCardTitle: { color: '#fff', fontSize: 15, fontWeight: '800', marginBottom: 12 },
-  switchRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
-  switchLabel: { color: '#f3f4f6', fontSize: 13, fontWeight: '700' },
-  switchDesc: { color: '#6b7280', fontSize: 11, marginTop: 2 },
-  systemRuleText: { color: '#fbbf24', fontSize: 11, lineHeight: 16, marginTop: 14, backgroundColor: 'rgba(251,191,36,0.04)', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(251,191,36,0.1)' },
+  controlCard: { backgroundColor: C.surface, borderRadius: 20, padding: 24, borderColor: C.outlineVariant, borderWidth: 1, ...(Platform.OS === 'web' ? { boxShadow: '14px 17px 40px 4px rgba(112, 144, 176, 0.08)' } as any : {}) },
+  controlCardTitle: { color: '#fff', fontSize: 16, fontWeight: '700', marginBottom: 12, fontFamily: 'Inter' },
+  switchRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: C.outlineVariant },
+  switchLabel: { color: '#ffffff', fontSize: 14, fontWeight: '700', fontFamily: 'Inter' },
+  switchDesc: { color: C.onSurfaceVariant, fontSize: 11, marginTop: 2, fontFamily: 'Inter' },
+  systemRuleText: { color: '#fbbf24', fontSize: 12, lineHeight: 18, marginTop: 14, backgroundColor: 'rgba(251,191,36,0.05)', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(251,191,36,0.15)' },
 
-  addBtnSmall: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#00e5ff', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
-  addBtnText: { color: '#0a0f1c', fontSize: 11, fontWeight: '800' },
+  addBtnSmall: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: C.primary, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },
+  addBtnText: { color: '#ffffff', fontSize: 11, fontWeight: '700', fontFamily: 'Inter' },
 
-  fakeUserCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(24, 24, 27, 0.65)', borderRadius: 14, padding: 14, marginBottom: 6, borderWidth: 1, borderColor: 'rgba(39,39,42,0.4)' },
-  fakeUserRank: { color: '#64748b', fontSize: 12, fontWeight: '800', marginRight: 4 },
-  fakeUsername: { color: '#fff', fontSize: 13, fontWeight: '700' },
-  fakeUserStats: { color: '#94a3b8', fontSize: 11, marginTop: 2 },
-  inactiveBadge: { paddingHorizontal: 6, paddingVertical: 2, backgroundColor: 'rgba(239,68,68,0.1)', borderRadius: 4, borderWidth: 1, borderColor: 'rgba(239,68,68,0.2)' },
-  inactiveBadgeText: { color: '#ef4444', fontSize: 8, fontWeight: '800' },
+  fakeUserCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.surface, borderRadius: 16, padding: 16, marginBottom: 8, borderWidth: 1, borderColor: C.outlineVariant, ...(Platform.OS === 'web' ? { boxShadow: '14px 17px 40px 4px rgba(112, 144, 176, 0.04)' } as any : {}) },
+  fakeUserRank: { color: C.onSurfaceVariant, fontSize: 12, fontWeight: '700', marginRight: 4, fontFamily: 'Inter' },
+  fakeUsername: { color: '#fff', fontSize: 13, fontWeight: '700', fontFamily: 'Inter' },
+  fakeUserStats: { color: C.onSurfaceVariant, fontSize: 11, marginTop: 2, fontFamily: 'Inter' },
+  inactiveBadge: { paddingHorizontal: 6, paddingVertical: 2, backgroundColor: 'rgba(245,57,57,0.1)', borderRadius: 4, borderWidth: 1, borderColor: 'rgba(245,57,57,0.2)' },
+  inactiveBadgeText: { color: C.error, fontSize: 8, fontWeight: '700', fontFamily: 'Inter' },
 
-  editActionBtn: { width: 28, height: 28, borderRadius: 6, backgroundColor: 'rgba(0,229,255,0.08)', alignItems: 'center', justifyContent: 'center' },
-  deleteActionBtn: { width: 28, height: 28, borderRadius: 6, backgroundColor: 'rgba(239,68,68,0.08)', alignItems: 'center', justifyContent: 'center' },
+  editActionBtn: { width: 28, height: 28, borderRadius: 6, backgroundColor: C.lightPrimary, alignItems: 'center', justifyContent: 'center' },
+  deleteActionBtn: { width: 28, height: 28, borderRadius: 6, backgroundColor: 'rgba(245,57,57,0.08)', alignItems: 'center', justifyContent: 'center' },
 
   // Ticker Style
-  addTickerBtn: { backgroundColor: '#00e5ff', paddingHorizontal: 18, justifyContent: 'center', borderRadius: 12 },
-  addTickerBtnText: { color: '#0a0f1c', fontSize: 13, fontWeight: '900' },
+  addTickerBtn: { backgroundColor: C.primary, paddingHorizontal: 18, justifyContent: 'center', borderRadius: 12 },
+  addTickerBtnText: { color: '#ffffff', fontSize: 13, fontWeight: '700', fontFamily: 'Inter' },
   tickerGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  tickerCard: { width: Platform.OS === 'web' ? '23%' : '48%', flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(24, 24, 27, 0.65)', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: 'rgba(39,39,42,0.4)' },
+  tickerCard: { width: Platform.OS === 'web' ? '23%' : '48%', flexDirection: 'row', alignItems: 'center', backgroundColor: C.surface, borderRadius: 16, padding: 12, borderWidth: 1, borderColor: C.outlineVariant, ...(Platform.OS === 'web' ? { boxShadow: '14px 17px 40px 4px rgba(112, 144, 176, 0.04)' } as any : {}) },
 
   // Refund Style
-  refundSubmitBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#00e5ff', paddingVertical: 12, borderRadius: 12, marginTop: 14 },
-  refundSubmitBtnText: { color: '#0a0f1c', fontSize: 13, fontWeight: '800' },
+  refundSubmitBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: C.primaryContainer, paddingVertical: 12, borderRadius: 14, marginTop: 14 },
+  refundSubmitBtnText: { color: '#ffffff', fontSize: 13, fontWeight: '700', fontFamily: 'Inter' },
 
   // Back to game header button Style
-  backToGameBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#00e5ff', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 },
-  backToGameBtnText: { color: '#0a0f1c', fontSize: 12, fontWeight: '800' },
+  backToGameBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.primary, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12 },
+  backToGameBtnText: { color: '#ffffff', fontSize: 12, fontWeight: '700', fontFamily: 'Inter' },
 
   // Refund Target Selector Style
-  targetBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', alignItems: 'center' },
-  targetBtnActive: { backgroundColor: '#00e5ff', borderColor: '#00e5ff' },
-  targetBtnText: { color: '#64748b', fontSize: 11, fontWeight: '800' },
-  targetBtnTextActive: { color: '#0a0f1c' },
+  targetBtn: { flex: 1, paddingVertical: 10, borderRadius: 12, backgroundColor: C.surface, borderWidth: 1, borderColor: C.outlineVariant, alignItems: 'center' },
+  targetBtnActive: { backgroundColor: C.primary, borderColor: C.primary },
+  targetBtnText: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '700', fontFamily: 'Inter' },
+  targetBtnTextActive: { color: '#ffffff', fontFamily: 'Inter' },
   targetPill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, alignSelf: 'flex-start' },
 
   // Modal Style
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  modalContent: { backgroundColor: '#18181b', borderRadius: 16, width: '100%', maxWidth: 450, borderWidth: 1, borderColor: 'rgba(39,39,42,0.4)', padding: 24, alignItems: 'center' },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
-  modalTitle: { color: '#fff', fontSize: 15, fontWeight: '800' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(11,20,55,0.85)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  modalContent: { backgroundColor: C.surface, borderRadius: 24, width: '100%', maxWidth: 450, borderWidth: 1, borderColor: C.outlineVariant, padding: 24, alignItems: 'center', ...(Platform.OS === 'web' ? { boxShadow: '14px 17px 40px 4px rgba(112, 144, 176, 0.08)' } as any : {}) },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: C.outlineVariant },
+  modalTitle: { color: '#fff', fontSize: 16, fontWeight: '700', fontFamily: 'Inter' },
   modalBody: { padding: 16 },
-  modalMessage: { color: '#94a3b8', fontSize: 13, textAlign: 'center', marginBottom: 20 },
+  modalMessage: { color: C.onSurfaceVariant, fontSize: 13, textAlign: 'center', marginBottom: 20, fontFamily: 'Inter' },
   modalActions: { flexDirection: 'row', gap: 12, width: '100%' },
-  modalCancelBtn: { flex: 1, backgroundColor: 'rgba(255,255,255,0.06)', paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
-  modalCancelBtnText: { color: '#fff', fontSize: 13, fontWeight: '800' },
-  modalConfirmBtn: { flex: 1, backgroundColor: '#00e5ff', paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
-  modalConfirmBtnText: { color: '#0a0f1c', fontSize: 13, fontWeight: '800' },
-  modalSubmitBtn: { backgroundColor: '#00e5ff', paddingVertical: 12, borderRadius: 12, alignItems: 'center', marginTop: 10 },
-  modalSubmitBtnText: { color: '#0a0f1c', fontSize: 13, fontWeight: '800' },
+  modalCancelBtn: { flex: 1, backgroundColor: C.surfaceContainerLowest, paddingVertical: 12, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: C.outlineVariant },
+  modalCancelBtnText: { color: '#fff', fontSize: 13, fontWeight: '700', fontFamily: 'Inter' },
+  modalConfirmBtn: { flex: 1, backgroundColor: C.primary, paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
+  modalConfirmBtnText: { color: '#ffffff', fontSize: 13, fontWeight: '700', fontFamily: 'Inter' },
+  modalSubmitBtn: { backgroundColor: C.primary, paddingVertical: 12, borderRadius: 12, alignItems: 'center', marginTop: 10 },
+  modalSubmitBtnText: { color: '#ffffff', fontSize: 13, fontWeight: '700', fontFamily: 'Inter' },
+});
+
+const spinS = StyleSheet.create({
+  statCard: {
+    width: Platform.OS === 'web' ? '31%' : '47%',
+    backgroundColor: C.surface,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: C.outlineVariant,
+    ...(Platform.OS === 'web' ? { boxShadow: '14px 17px 40px 4px rgba(112, 144, 176, 0.04)' } as any : {}),
+  },
+  statIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  statValue: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '900',
+    fontFamily: 'Inter',
+    marginBottom: 2,
+  },
+  statLabel: {
+    color: C.onSurfaceVariant,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    fontFamily: 'Inter',
+  },
+  liveStatusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  pageBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: C.surface,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: C.outlineVariant,
+  },
+  pageBtnText: {
+    color: '#00e5ff',
+    fontSize: 12,
+    fontWeight: '700',
+    fontFamily: 'Inter',
+  },
 });
