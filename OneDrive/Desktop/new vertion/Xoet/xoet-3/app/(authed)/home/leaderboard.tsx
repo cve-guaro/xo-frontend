@@ -616,7 +616,7 @@ export default function LeaderboardScreen() {
                   {/* Avatar list stack */}
                   <View style={s.avatarStackRow}>
                     <View style={s.avatarStackContainer}>
-                      <View style={[s.stackAvatar, { backgroundColor: "#ec4899", zIndex: 3 }]}>
+                      <View style={[s.stackAvatar, { backgroundColor: "#8b5cf6", zIndex: 3 }]}>
                         <Text style={s.stackAvatarText}>K</Text>
                       </View>
                       <View style={[s.stackAvatar, { backgroundColor: "#a855f7", zIndex: 2, marginLeft: -10 }]}>
@@ -826,7 +826,7 @@ const s = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: "#ec4899",
+    backgroundColor: "#8b5cf6",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -858,7 +858,7 @@ const s = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#ec4899",
+    backgroundColor: "#8b5cf6",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1168,7 +1168,7 @@ const s = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: "#ec4899",
+    backgroundColor: "#8b5cf6",
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
