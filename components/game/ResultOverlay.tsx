@@ -5,7 +5,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import React, { memo, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
-  Dimensions,
   Easing,
   Image,
   Modal,
@@ -13,11 +12,10 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   Vibration,
   View,
 } from "react-native";
-
-const { width } = Dimensions.get("window");
 
 interface ResultOverlayProps {
   visible: boolean;
@@ -31,7 +29,6 @@ interface ResultOverlayProps {
 }
 
 const CARD_MAX_W = 340;
-const CARD_W = Math.min(width - 40, CARD_MAX_W);
 
 type UiMeta = {
   title: string;
@@ -68,6 +65,9 @@ const UI_LOSE = (amount: number): UiMeta => ({
 });
 
 function ResultOverlay({ visible, outcome, amount, onHome, onPlayAgain, onSendEmoji, floatingEmoji, insufficientBalance = false }: ResultOverlayProps) {
+  const { width: windowWidth } = useWindowDimensions();
+  const cardW = Math.min(windowWidth - 32, CARD_MAX_W);
+
   const isWin = outcome === "win";
   const appear = useRef(new Animated.Value(0)).current;
   const [canContinue, setCanContinue] = useState(false);
@@ -120,7 +120,7 @@ function ResultOverlay({ visible, outcome, amount, onHome, onPlayAgain, onSendEm
   return (
     <Modal visible transparent animationType="none" statusBarTranslucent>
       <View style={styles.container}>
-        <Animated.View style={[styles.card, cardAnimStyle]}>
+        <Animated.View style={[styles.card, { width: cardW }, cardAnimStyle]}>
           <LinearGradient
             colors={ui.border}
             start={START}
@@ -252,14 +252,14 @@ const LOSE_BADGE = ["rgba(255,107,107,0.95)", "rgba(244,63,94,0.85)"] as const;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.44)",
+    backgroundColor: "rgba(0,0,0,0.65)",
     justifyContent: "center",
     alignItems: "center",
-    padding: 20,
-    paddingTop: 100, // Shifted down to not block emoji reaction toast
+    paddingHorizontal: 16,
+    paddingVertical: 24,
   },
 
-  card: { width: CARD_W, borderRadius: 26, overflow: "visible" },
+  card: { borderRadius: 26, overflow: "visible" },
 
   borderGradient: {
     borderRadius: 26,
