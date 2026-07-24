@@ -1277,7 +1277,7 @@ export default function Landing() {
                     </Text>
                   </View>
                   <Text style={{ color: "#fff", fontSize: 9, fontWeight: "700", marginTop: 2 }}>
-                    {spinMode === "5_PLAYER" ? "100 Birr Bet" : "Flexible Bet"}
+                    {spinMode === "5_PLAYER" ? "5 People Spin" : "Flexible Bet"}
                   </Text>
                 </View>
               </View>
@@ -1366,7 +1366,7 @@ export default function Landing() {
               >
                 <Ionicons name="people" size={16} color="#ffffff" />
                 <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "900", letterSpacing: 0.5 }}>
-                  5-PLAYER SPIN • 100 BIRR BET
+                  5 PEOPLE SPIN
                 </Text>
               </TouchableOpacity>
             </ImageBackground>
