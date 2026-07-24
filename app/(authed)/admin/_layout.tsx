@@ -34,6 +34,8 @@ export const AdminTheme = {
   outlineVariant: 'rgba(39, 39, 42, 0.6)',
   error: '#ef4444',
   errorContainer: '#7f1d1d',
+  lightPrimary: 'rgba(0, 218, 243, 0.15)',
+  success: '#22c55e',
 };
 
 const C = AdminTheme;
@@ -200,6 +202,10 @@ export default function AdminLayout() {
 
   const spinGroup = [
     { icon: 'color-palette', label: 'Spin Dashboard', path: '/admin/spin' },
+    { icon: 'options', label: 'Spin Rooms', path: '/admin/spin-rooms' },
+    { icon: 'podium', label: 'Spin Leaderboard', path: '/admin/spin-leaderboard' },
+    { icon: 'time', label: 'Spin History', path: '/admin/spin-history' },
+    { icon: 'shield', label: 'Spin Moderation', path: '/admin/spin-moderation' },
   ];
 
   const bottomTabItems = [
@@ -540,6 +546,8 @@ export default function AdminLayout() {
           >
             <Ionicons name={musicPlaying ? 'volume-high' : 'volume-mute'} size={16} color={musicPlaying ? C.secondary : C.error} />
           </TouchableOpacity>
+          {/* Notification Bell */}
+
           <TouchableOpacity style={[s.iconBtn]} onPress={() => switchLanguage()}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(24, 24, 27, 0.65)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: C.outlineVariant }}>
               <Ionicons name="globe-outline" size={16} color={C.onSurfaceVariant} />

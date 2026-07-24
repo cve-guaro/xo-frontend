@@ -20,11 +20,10 @@ import { AdminTheme as C } from './_layout';
 const fmt = (n: number) => Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export default function XOControlsPage() {
-  const { token, role, showAlert } = useAuth();
+  const { token, user, isSuperAdmin, showAlert } = useAuth();
   const router = useRouter();
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
-  const isSuperAdmin = role === 'superadmin' || role === 'maintenance';
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -280,17 +279,18 @@ export default function XOControlsPage() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#09090b', padding: 24, paddingTop: 20 },
+  container: { flex: 1, backgroundColor: 'transparent', padding: 24, paddingTop: 20 },
   headerBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 },
-  backCircle: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0,218,243,0.08)', alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { color: '#fff', fontSize: 18, fontWeight: '900', letterSpacing: 0.5 },
-  headerSub: { color: C.onSurfaceVariant, fontSize: 9, fontWeight: '700', letterSpacing: 1.5, marginTop: 2 },
+  backCircle: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.lightPrimary, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { color: '#fff', fontSize: 20, fontWeight: '700', letterSpacing: -0.5, fontFamily: 'Inter' },
+  headerSub: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '600', letterSpacing: 1.5, marginTop: 2, fontFamily: 'Inter' },
   card: {
-    backgroundColor: C.surfaceContainerLow,
-    borderRadius: 16,
-    padding: 20,
+    backgroundColor: C.surface,
+    borderRadius: 20,
+    padding: 24,
     borderWidth: 1,
     borderColor: C.outlineVariant,
+    ...(Platform.OS === 'web' ? { boxShadow: '14px 17px 40px 4px rgba(112, 144, 176, 0.08)' } as any : {}),
   },
   cardHeader: {
     flexDirection: 'row',
@@ -300,52 +300,53 @@ const s = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
   },
-  cardTitle: { color: '#fff', fontSize: 15, fontWeight: '800' },
-  cardSubTitle: { color: C.onSurfaceVariant, fontSize: 12, lineHeight: 18, marginTop: 4 },
+  cardTitle: { color: '#fff', fontSize: 16, fontWeight: '700', fontFamily: 'Inter' },
+  cardSubTitle: { color: C.onSurfaceVariant, fontSize: 13, lineHeight: 18, marginTop: 4, fontFamily: 'Inter' },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  sectionLabel: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '800', letterSpacing: 1.5, marginBottom: 12 },
+  sectionLabel: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '700', letterSpacing: 1.5, marginBottom: 12, textTransform: 'uppercase', fontFamily: 'Inter' },
   livePill: {
-    backgroundColor: 'rgba(0,218,243,0.08)',
-    borderColor: 'rgba(0,218,243,0.2)',
+    backgroundColor: C.lightPrimary,
+    borderColor: 'rgba(117, 81, 255, 0.3)',
     borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
-  livePillText: { color: C.primary, fontSize: 10, fontWeight: '800' },
+  livePillText: { color: C.primary, fontSize: 11, fontWeight: '700', fontFamily: 'Inter' },
   betRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.02)',
-    padding: 12,
-    borderRadius: 10,
+    backgroundColor: C.surfaceContainerLowest,
+    padding: 14,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.04)',
+    borderColor: C.outlineVariant,
   },
-  betStake: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  betStake: { color: '#fff', fontSize: 13, fontWeight: '700', fontFamily: 'Inter' },
   emptyState: {
     padding: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: C.surfaceContainerLow,
-    borderRadius: 16,
+    backgroundColor: C.surfaceContainerLowest,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: C.outlineVariant,
   },
   banCard: {
-    backgroundColor: C.surfaceContainerLow,
-    borderRadius: 14,
+    backgroundColor: C.surface,
+    borderRadius: 20,
     padding: 16,
     borderWidth: 1,
     borderColor: C.outlineVariant,
+    ...(Platform.OS === 'web' ? { boxShadow: '14px 17px 40px 4px rgba(112, 144, 176, 0.04)' } as any : {}),
   },
   timeBadge: {
-    backgroundColor: 'rgba(239,68,68,0.1)',
-    borderColor: 'rgba(239,68,68,0.2)',
+    backgroundColor: 'rgba(245,57,57,0.1)',
+    borderColor: 'rgba(245,57,57,0.2)',
     borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
 });

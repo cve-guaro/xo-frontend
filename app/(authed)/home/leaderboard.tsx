@@ -1,35 +1,41 @@
-// app/(authed)/home/leaderboard.tsx — Weekly Leaderboard Full Page
+import { API_URL } from "../../../config";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import CongratulationsModal from "../../../components/CongratulationsModal";
+import { useRouter } from "expo-router";
+import React, { memo, useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Animated,
-  Dimensions,
   FlatList,
-  Image,
-  Modal,
   Platform,
-  ScrollView,
+  RefreshControl,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
   useWindowDimensions,
+  Image,
+  ScrollView,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../../context/authContext";
 import { useSocket } from "../../../context/socketContext";
-import { API_URL } from "../../../config";
+import { WebPressable } from "../../../components/WebPressable";
+import { WebDepositModal, WebWithdrawModal } from "../../../components/WebModals";
+import ProfileEditModal from "../../../components/ProfileEditModal";
+import ReferralModal from "../../../components/ReferralModal";
+import { useBackgroundMusic } from "../../../context/BackgroundMusicProvider";
+import PwaInstallModal from "../../../components/game/PwaInstallModal";
+import CongratulationsModal from "../../../components/CongratulationsModal";
+import { SlidingNumber } from "../../../components/game/SlidingNumber";
+import NotificationsPopover from "../../../components/NotificationsPopover";
 
-const { width: SCREEN_W } = Dimensions.get("window");
-
+// ---- Types ----
 type LeaderboardUser = {
   id: string;
   username: string;
   avatar: string | null;
   wins: number;
+  total?: number;
   rank: number;
   isMe: boolean;
 };
@@ -42,7 +48,7 @@ type PreviousWeekWin = {
   weekEnd: string;
 } | null;
 
-// ── Countdown Timer ──────────────────────────────────────────────────
+// ---- Reset Countdown Component ----
 function CountdownTimer({ secondsRemaining: initialSeconds, isEN }: { secondsRemaining: number; isEN: boolean }) {
   const [remaining, setRemaining] = useState(initialSeconds);
 
@@ -56,370 +62,170 @@ function CountdownTimer({ secondsRemaining: initialSeconds, isEN }: { secondsRem
       setRemaining(prev => Math.max(0, prev - 1));
     }, 1000);
     return () => clearInterval(interval);
-  }, [remaining > 0]);
+  }, [remaining]);
 
   const days = Math.floor(remaining / 86400);
   const hours = Math.floor((remaining % 86400) / 3600);
   const minutes = Math.floor((remaining % 3600) / 60);
   const seconds = remaining % 60;
 
-  const timeBlocks = [
-    { val: days, label: isEN ? 'Days' : 'ቀናት' },
-    { val: hours, label: isEN ? 'Hrs' : 'ሰዓት' },
-    { val: minutes, label: isEN ? 'Min' : 'ደቂቃ' },
-    { val: seconds, label: isEN ? 'Sec' : 'ሰከንድ' },
-  ];
-
   return (
-    <View style={{
-      backgroundColor: '#111115',
-      borderRadius: 24,
-      borderWidth: 1,
-      borderColor: 'rgba(255, 255, 255, 0.05)',
-      padding: 20,
-      alignItems: 'center',
-      justifyContent: 'center',
-    }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 }}>
-        <Ionicons name="time-outline" size={14} color="#00daf3" />
-        <Text style={{ fontSize: 10, fontWeight: '900', color: '#00daf3', letterSpacing: 1.5 }}>
-          {isEN ? "WEEKLY GIVEAWAY RESET" : "ሳምንታዊ ሽልማት ቀየርስ"}
+    <View style={s.countdownCard}>
+      <View style={s.countdownHeaderRow}>
+        <Ionicons name="time-outline" size={14} color="#22d3ee" />
+        <Text style={s.countdownHeaderTitle}>
+          {isEN ? "WEEKLY GIVEAWAY RESET" : "ሳምንታዊ ሽልማት መለኪያ"}
         </Text>
       </View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-        {timeBlocks.map((block, i) => (
-          <React.Fragment key={block.label}>
-            <View style={{ alignItems: 'center', minWidth: 50 }}>
-              <Text style={{ fontSize: 26, fontWeight: '900', color: '#00daf3' }}>
-                {String(block.val).padStart(2, '0')}
-              </Text>
-              <Text style={{ fontSize: 9, fontWeight: '800', color: 'rgba(255,255,255,0.4)', marginTop: 4, letterSpacing: 0.5, textTransform: 'uppercase' }}>
-                {block.label}
-              </Text>
-            </View>
-            {i < timeBlocks.length - 1 && (
-              <Text style={{ fontSize: 20, fontWeight: '900', color: 'rgba(0, 218, 243, 0.25)', marginBottom: 12 }}>:</Text>
-            )}
-          </React.Fragment>
-        ))}
+      <View style={s.countdownDigitsRow}>
+        {/* Days */}
+        <View style={s.digitBlock}>
+          <Text style={s.digitText}>{String(days).padStart(2, '0')}</Text>
+          <Text style={s.digitLabel}>{isEN ? "DAYS" : "ቀናት"}</Text>
+        </View>
+        <Text style={s.digitDivider}>:</Text>
+        {/* Hours */}
+        <View style={s.digitBlock}>
+          <Text style={s.digitText}>{String(hours).padStart(2, '0')}</Text>
+          <Text style={s.digitLabel}>{isEN ? "HRS" : "ሰዓት"}</Text>
+        </View>
+        <Text style={s.digitDivider}>:</Text>
+        {/* Minutes */}
+        <View style={s.digitBlock}>
+          <Text style={s.digitText}>{String(minutes).padStart(2, '0')}</Text>
+          <Text style={s.digitLabel}>{isEN ? "MIN" : "ደቂቃ"}</Text>
+        </View>
+        <Text style={s.digitDivider}>:</Text>
+        {/* Seconds */}
+        <View style={s.digitBlock}>
+          <Text style={s.digitText}>{String(seconds).padStart(2, '0')}</Text>
+          <Text style={s.digitLabel}>{isEN ? "SEC" : "ሰከንድ"}</Text>
+        </View>
       </View>
     </View>
   );
 }
 
-function PrizePoolCard({ isEN, topPrize }: { isEN: boolean; topPrize: number }) {
-  return (
-    <View style={{
-      backgroundColor: '#111115',
-      borderRadius: 24,
-      borderWidth: 1,
-      borderColor: 'rgba(255, 255, 255, 0.05)',
-      padding: 20,
-      flex: 1,
-      justifyContent: 'space-between',
-    }}>
-      <View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 16 }}>
-          <Ionicons name="gift-outline" size={14} color="#f97316" />
-          <Text style={{ fontSize: 10, fontWeight: '900', color: '#f97316', letterSpacing: 1.5 }}>
-            {isEN ? "WEEKLY PRIZE POOL" : "ሳምንታዊ የሽልማት ገንዳ"}
-          </Text>
-        </View>
-        <Text style={{ fontSize: 32, fontWeight: '900', color: '#ffb84d' }}>
-          {topPrize} BIRR
-        </Text>
-        <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 4, fontWeight: '600' }}>
-          {isEN ? "For the 1st Place Winner" : "ለ1ኛ ደረጃ አሸናፊ"}
-        </Text>
-      </View>
-
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 16, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.03)', paddingTop: 14 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#ffb84d', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: '#111115' }}>
-            <Text style={{ fontSize: 9, fontWeight: '900', color: '#000' }}>1</Text>
-          </View>
-          <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#b9cacb', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: '#111115', marginLeft: -8 }}>
-            <Text style={{ fontSize: 9, fontWeight: '900', color: '#000' }}>2</Text>
-          </View>
-          <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#fb923c', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: '#111115', marginLeft: -8 }}>
-            <Text style={{ fontSize: 9, fontWeight: '900', color: '#000' }}>3</Text>
-          </View>
-        </View>
-        <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '700' }}>
-          +1.2k {isEN ? "Players Joining" : "ተጫዋቾች ተሳትፈዋል"}
-        </Text>
-      </View>
-    </View>
-  );
-}
-
-function MobileUnifiedCard({
-  secondsRemaining: initialSeconds,
-  isEN,
-  prizes,
-}: {
-  secondsRemaining: number;
-  isEN: boolean;
-  prizes: { rank: number; amount: number }[];
-}) {
-  const [remaining, setRemaining] = useState(initialSeconds);
-
-  useEffect(() => {
-    setRemaining(initialSeconds);
-  }, [initialSeconds]);
-
-  useEffect(() => {
-    if (remaining <= 0) return;
-    const interval = setInterval(() => {
-      setRemaining(prev => Math.max(0, prev - 1));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [remaining > 0]);
-
-  const days = Math.floor(remaining / 86400);
-  const hours = Math.floor((remaining % 86400) / 3600);
-  const minutes = Math.floor((remaining % 3600) / 60);
-  const seconds = remaining % 60;
-
-  const prize1 = prizes.find(p => p.rank === 1)?.amount || 500;
-  const prize2 = prizes.find(p => p.rank === 2)?.amount || 300;
-  const prize3 = prizes.find(p => p.rank === 3)?.amount || 200;
-
-  return (
-    <View style={{
-      backgroundColor: '#111115',
-      borderRadius: 24,
-      borderWidth: 1.5,
-      borderColor: '#f97316',
-      paddingTop: 18,
-      paddingHorizontal: 20,
-      paddingBottom: 28,
-      marginHorizontal: 20,
-      marginBottom: 32,
-      position: 'relative',
-    }}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Ionicons name="gift-outline" size={14} color="#f97316" />
-          <Text style={{ fontSize: 10, fontWeight: '900', color: '#f97316', letterSpacing: 1.5 }}>
-            {isEN ? "WEEKLY PRIZE POOL" : "ሳምንታዊ የሽልማት ገንዳ"}
-          </Text>
-        </View>
-
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: '#ffb84d', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#111115' }}>
-              <Text style={{ fontSize: 7, fontWeight: '900', color: '#000' }}>1</Text>
-            </View>
-            <View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: '#b9cacb', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#111115', marginLeft: -5 }}>
-              <Text style={{ fontSize: 7, fontWeight: '900', color: '#000' }}>2</Text>
-            </View>
-            <View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: '#fb923c', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#111115', marginLeft: -5 }}>
-              <Text style={{ fontSize: 7, fontWeight: '900', color: '#000' }}>3</Text>
-            </View>
-          </View>
-          <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: '700' }}>
-            +1.2k {isEN ? "Joining" : "ተሳታፊዎች"}
-          </Text>
-        </View>
-      </View>
-
-      <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: 24, marginVertical: 10 }}>
-        <View style={{ alignItems: 'center' }}>
-          <Text style={{ fontSize: 9, fontWeight: '900', color: '#ffb84d', letterSpacing: 0.5 }}>1ST PLACE</Text>
-          <Text style={{ fontSize: 32, fontWeight: '900', color: '#ffb84d', marginTop: 2 }}>
-            {prize1}
-            <Text style={{ fontSize: 14, fontWeight: '700', color: 'rgba(255, 184, 77, 0.6)' }}> {isEN ? "Birr" : "ብር"}</Text>
-          </Text>
-        </View>
-
-        <View style={{ alignItems: 'center' }}>
-          <Text style={{ fontSize: 9, fontWeight: '900', color: '#b9cacb', letterSpacing: 0.5 }}>2ND PLACE</Text>
-          <Text style={{ fontSize: 22, fontWeight: '900', color: '#b9cacb', marginTop: 2 }}>
-            {prize2}
-            <Text style={{ fontSize: 11, fontWeight: '700', color: 'rgba(185, 202, 203, 0.6)' }}> {isEN ? "Birr" : "ብር"}</Text>
-          </Text>
-        </View>
-
-        <View style={{ alignItems: 'center' }}>
-          <Text style={{ fontSize: 9, fontWeight: '900', color: '#fb923c', letterSpacing: 0.5 }}>3RD PLACE</Text>
-          <Text style={{ fontSize: 16, fontWeight: '900', color: '#fb923c', marginTop: 2 }}>
-            {prize3}
-            <Text style={{ fontSize: 9, fontWeight: '700', color: 'rgba(251, 146, 60, 0.6)' }}> {isEN ? "Birr" : "ብር"}</Text>
-          </Text>
-        </View>
-      </View>
-
-      {remaining > 0 && (
-        <View style={{
-          position: 'absolute',
-          bottom: -18,
-          left: 0,
-          right: 0,
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 10,
-        }}>
-          <View style={{
-            backgroundColor: '#1E1E24',
-            borderRadius: 12,
-            borderWidth: 1.5,
-            borderColor: '#f97316',
-            paddingVertical: 8,
-            paddingHorizontal: 16,
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 6,
-            shadowColor: '#f97316',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.3,
-            shadowRadius: 4,
-            elevation: 4,
-          }}>
-            <Ionicons name="time-outline" size={14} color="#00daf3" />
-            <Text style={{ fontSize: 13, fontWeight: '900', color: '#00daf3', letterSpacing: 0.5 }}>
-              {String(days).padStart(2, '0')} : {String(hours).padStart(2, '0')} : {String(minutes).padStart(2, '0')} : {String(seconds).padStart(2, '0')}
-            </Text>
-          </View>
-        </View>
-      )}
-    </View>
-  );
-}
-
-// ── Podium Component ──────────────────────────────────────────────────
-function Podium({ top3, prizes }: { top3: LeaderboardUser[]; prizes: { rank: number; amount: number }[] }) {
-  const getPrize = (rank: number) => prizes.find(p => p.rank === rank)?.amount || 0;
-  const { width } = useWindowDimensions();
-  const isDesktop = Platform.OS === 'web' && width >= 768;
-
-  const spots = [
-    { data: top3[1], rank: 2, barH: isDesktop ? 70 : 45, color: '#b9cacb', borderColor: 'rgba(185, 202, 203, 0.25)', bgColor: 'rgba(255,255,255,0.02)', textColor: '#b9cacb' },
-    { data: top3[0], rank: 1, barH: isDesktop ? 100 : 70, color: '#ffb84d', borderColor: 'rgba(255, 184, 77, 0.3)', bgColor: 'rgba(255,255,255,0.03)', textColor: '#ffb84d' },
-    { data: top3[2], rank: 3, barH: isDesktop ? 60 : 35, color: '#fb923c', borderColor: 'rgba(251, 146, 60, 0.25)', bgColor: 'rgba(255,255,255,0.02)', textColor: '#fb923c' },
-  ];
-
-  return (
-    <View style={s.podiumContainer}>
-      {spots.map((spot) => {
-        const u = spot.data;
-        const prize = getPrize(spot.rank);
-        return (
-          <View key={spot.rank} style={s.podiumSpot}>
-            <Text style={[s.podiumPrize, { color: spot.textColor }]}>{prize} Birr</Text>
-            <View style={[s.rankCircle, { borderColor: spot.color, width: spot.rank === 1 ? 64 : 50, height: spot.rank === 1 ? 64 : 50 }]}>
-              {u?.avatar ? (
-                <Image source={{ uri: u.avatar }} style={{ width: '100%', height: '100%', borderRadius: 999 }} />
-              ) : (
-                <Text style={{ fontSize: spot.rank === 1 ? 24 : 18, fontWeight: '900', color: '#fff' }}>{spot.rank}</Text>
-              )}
-              {/* Always render rank badge so they can see rank 1, 2, 3 even with avatars */}
-              <View style={[s.crownBadge, { backgroundColor: spot.color, bottom: spot.rank === 1 ? -4 : -2, right: spot.rank === 1 ? -4 : -2, width: spot.rank === 1 ? 22 : 18, height: spot.rank === 1 ? 22 : 18, borderRadius: spot.rank === 1 ? 11 : 9 }]}>
-                {spot.rank === 1 ? (
-                  <Ionicons name="trophy" size={10} color="#000" />
-                ) : (
-                  <Text style={{ fontSize: 9, fontWeight: '900', color: '#000' }}>{spot.rank}</Text>
-                )}
-              </View>
-            </View>
-            <View style={[s.podiumBar, { height: spot.barH, borderColor: spot.borderColor, backgroundColor: spot.bgColor, width: spot.rank === 1 ? 100 : 80 }]}>
-              <Text style={s.podiumName} numberOfLines={1}>{u?.username || '—'}</Text>
-            </View>
-          </View>
-        );
-      })}
-    </View>
-  );
-}
-
-// ── Leaderboard Item ──────────────────────────────────────────────────
-function LBItem({ item }: { item: LeaderboardUser }) {
-  const isTop3 = item.rank <= 3;
-  const rankColor = item.isMe ? '#00daf3' : (item.rank === 1 ? '#ffb84d' : item.rank === 2 ? '#b9cacb' : item.rank === 3 ? '#fb923c' : '#00daf3');
-  const scoreColor = item.isMe ? '#00daf3' : '#ffb84d';
-
-  return (
-    <View style={[
-      s.lbItem,
-      item.isMe && {
-        backgroundColor: 'rgba(0, 218, 243, 0.05)',
-        borderColor: '#00daf3',
-        shadowColor: '#00daf3',
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.15,
-        shadowRadius: 10,
-        elevation: 4,
-      }
-    ]}>
-      <Text style={[s.lbRank, { color: rankColor, fontSize: isTop3 ? 18 : 14 }]}>{item.rank}</Text>
-      <View style={[s.lbAvatar, item.isMe && { backgroundColor: 'rgba(0, 218, 243, 0.15)', borderColor: '#00daf3' }]}>
-        {item.avatar ? (
-          <Image source={{ uri: item.avatar }} style={{ width: '100%', height: '100%', borderRadius: 999 }} />
-        ) : (
-          <Ionicons name={isTop3 && item.rank === 1 ? "trophy" : "person"} size={14} color={item.isMe ? '#00daf3' : (isTop3 && item.rank === 1 ? '#ffb84d' : '#d1c5eb')} />
-        )}
-      </View>
-      <View style={s.lbInfo}>
-        <Text style={[s.lbName, item.isMe && { color: '#00daf3' }]}>{item.username}{item.isMe ? ' (You)' : ''}</Text>
-      </View>
-      <Text style={[s.lbScore, { color: scoreColor }]}>{item.wins} Wins</Text>
-    </View>
-  );
-}
-
-// ── Main Screen ───────────────────────────────────────────────────────
 export default function LeaderboardScreen() {
-  const { token, language } = useAuth();
+  const router = useRouter();
+  const { width } = useWindowDimensions();
+  const isDesktop = Platform.OS === "web" && width >= 1024;
+  const isTablet = Platform.OS === "web" && width >= 768 && width < 1024;
+  const isLargeScreen = isDesktop || isTablet;
+
+  const { user, token, language, refreshProfile, switchLanguage } = useAuth();
+  const { isPlaying, toggleMusic } = useBackgroundMusic();
+  const [notificationsVisible, setNotificationsVisible] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const { onMessage } = useSocket();
+  const myId = user?.id ?? null;
   const isEN = language === "en";
+
+  // Sidebar navigation helpers
+  const handleNavClick = (screen: string) => {
+    if (screen === 'home') {
+      router.push('/(authed)/home/gameplay');
+    } else if (screen === 'history') {
+      router.push('/(authed)/home/history');
+    } else if (screen === 'leaderboard') {
+      router.push('/(authed)/home/leaderboard');
+    } else if (screen === 'profile') {
+      router.push('/(authed)/home/account');
+    } else if (screen === 'transactions') {
+      router.push('/(authed)/home/transactions');
+    } else if (screen === 'admin') {
+      router.push('/admin');
+    }
+  };
+
+  const handleLanguageToggle = useCallback(() => {
+    switchLanguage?.();
+  }, [switchLanguage]);
+
+  // States
   const [loading, setLoading] = useState(true);
   const [leaderboard, setLeaderboard] = useState<LeaderboardUser[]>([]);
+  const [top3, setTop3] = useState<LeaderboardUser[]>([]);
   const [myRank, setMyRank] = useState<LeaderboardUser | null>(null);
-  const [prizes, setPrizes] = useState<{ rank: number; amount: number }[]>([]);
+
+  // Weekly metadata states
+  const [weeklyPrizes, setWeeklyPrizes] = useState<{ rank: number; amount: number }[]>([]);
   const [secondsRemaining, setSecondsRemaining] = useState(0);
   const [previousWeekWin, setPreviousWeekWin] = useState<PreviousWeekWin>(null);
   const [showCongrats, setShowCongrats] = useState(false);
-  const [payoutPending, setPayoutPending] = useState(false);
-  const flatListRef = useRef<FlatList>(null);
-  const { width } = useWindowDimensions();
-  const isDesktop = Platform.OS === 'web' && width >= 768;
+  const [totalParticipants, setTotalParticipants] = useState(1200);
 
-  const fetchData = useCallback(async () => {
+  // Timeframe filters
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [timeframe, setTimeframe] = useState<"weekly" | "alltime">("weekly");
+
+  // Modals visibility
+  const [depositVisible, setDepositVisible] = useState(false);
+  const [withdrawVisible, setWithdrawVisible] = useState(false);
+  const [pwaModalVisible, setPwaModalVisible] = useState(false);
+  const [showReferralModal, setShowReferralModal] = useState(false);
+
+  // Fetch weekly metadata for reset countdown and prizes pool
+  const fetchWeeklyMetadata = useCallback(async () => {
     if (!token) return;
-    setLoading(true);
     try {
       const res = await fetch(`${API_URL}/leaderboard/weekly`, {
-        headers: { Authorization: `Bearer ${token}`, 'x-platform': 'web' },
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
         const data = await res.json();
-        setLeaderboard(data.leaderboard || []);
-        setMyRank(data.myRank || null);
-        setPrizes(data.prizes || []);
+        setWeeklyPrizes(data.prizes || []);
         setSecondsRemaining(data.secondsRemaining || 0);
-        setPayoutPending(data.payoutPending || false);
+        setTotalParticipants(data.total || 1200);
         if (data.previousWeekWin) {
           setPreviousWeekWin(data.previousWeekWin);
           setShowCongrats(true);
         }
       }
     } catch (e) {
-      console.error('Leaderboard fetch error:', e);
-    } finally {
-      setLoading(false);
+      console.error("Weekly metadata fetch error:", e);
     }
   }, [token]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  // Fetch timeframe leaderboard (monthly or alltime)
+  const fetchLeaderboardData = useCallback(async () => {
+    if (!token) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/leaderboard/${timeframe}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setLeaderboard(data.leaderboard || []);
+        setTop3(data.top3 || []);
+        setMyRank(data.myRank || null);
+      }
+    } catch (e) {
+      console.error("Leaderboard fetch error:", e);
+    } finally {
+      setLoading(false);
+    }
+  }, [token, timeframe]);
 
+  useEffect(() => {
+    fetchWeeklyMetadata();
+  }, [fetchWeeklyMetadata]);
+
+  useEffect(() => {
+    fetchLeaderboardData();
+  }, [fetchLeaderboardData]);
+
+  // Handle balance updates via websocket
   useEffect(() => {
     const unsub = onMessage(({ type }) => {
       if (type === "balance_update") {
-        fetchData();
+        fetchWeeklyMetadata();
+        fetchLeaderboardData();
       }
     });
     return unsub;
-  }, [onMessage, fetchData]);
+  }, [onMessage, fetchWeeklyMetadata, fetchLeaderboardData]);
 
   const handleClaimPrize = async () => {
     setShowCongrats(false);
@@ -439,403 +245,1100 @@ export default function LeaderboardScreen() {
     }
   };
 
-  const top3 = leaderboard.slice(0, 3);
+  // Podium Positions Calculation
+  const podiumData = useMemo(() => {
+    const defaultPodium = [
+      { id: "2", username: "Abram Mango", wins: 72, total: 100, rank: 2, isMe: false, avatar: null },
+      { id: "1", username: "Kianna Tori", wins: 60, total: 85, rank: 1, isMe: false, avatar: null },
+      { id: "3", username: "Alfonso Labin", wins: 63, total: 89, rank: 3, isMe: false, avatar: null },
+    ];
+    if (top3.length === 0) return defaultPodium;
+    // Map Top 3 to Podium Positions: [2nd, 1st, 3rd]
+    const first = top3[0] || null;
+    const second = top3[1] || null;
+    const third = top3[2] || null;
 
-  const flatListData = useMemo(() => {
-    const base = [...leaderboard];
-    const myInList = leaderboard.find(u => u.isMe);
-    if (!myInList && myRank && myRank.rank) {
-      base.push(myRank);
-    }
-    const list = [{ id: 'subheader', type: 'subheader' } as any, ...base];
-    if (base.length === 0) {
-      list.push({ id: 'empty', type: 'empty' } as any);
-    }
-    return list;
-  }, [leaderboard, myRank]);
+    return [
+      second || defaultPodium[0],
+      first || defaultPodium[1],
+      third || defaultPodium[2],
+    ];
+  }, [top3]);
 
-  const scrollToMe = () => {
-    const myIdx = flatListData.findIndex(u => u.isMe);
-    if (myIdx >= 0 && flatListRef.current) {
-      flatListRef.current.scrollToIndex({ index: myIdx, animated: true, viewPosition: 0.5 });
-    }
-  };
+  // First place prize value
+  const topPrize = weeklyPrizes.find(p => p.rank === 1)?.amount || 500;
 
-  if (loading) {
+  if (isLargeScreen) {
+    // ─── HIGH FIDELITY DESKTOP WIDESCREEN LAYOUT ───
     return (
-      <View style={s.root}>
-        <LinearGradient colors={["#0A090E", "#08070B", "#060508"]} style={StyleSheet.absoluteFill} />
+      <View style={s.rootContainer}>
+        {/* Dark background */}
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: "#0a0e1a" }]} />
 
-        <View pointerEvents="none" style={[s.blob, s.blob1]} />
-        <View pointerEvents="none" style={[s.blob, s.blob2]} />
-        <SafeAreaView style={s.safe} edges={['top', 'left', 'right']}>
-          <View style={s.header}>
-            <View style={{ width: 180, height: 24, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 8 }} />
-            <View style={s.refreshBtn} />
-          </View>
-          <View style={{ marginTop: 15, marginBottom: 20 }}>
-            <View style={s.podiumContainer}>
-              {[2, 1, 3].map(rank => (
-                <View key={rank} style={s.podiumSpot}>
-                  <View style={{ width: 40, height: 16, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 4, marginBottom: 10 }} />
-                  <View style={[s.rankCircle, { borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(255,255,255,0.05)', width: rank === 1 ? 64 : 50, height: rank === 1 ? 64 : 50 }]} />
-                  <View style={[s.podiumBar, { height: rank === 1 ? 100 : (rank === 2 ? 70 : 60), backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.02)', width: rank === 1 ? 100 : 80 }]} />
+        {/* Modals */}
+        <WebDepositModal visible={depositVisible} onClose={() => setDepositVisible(false)} user={user} token={token || undefined} onSuccess={refreshProfile} />
+        <WebWithdrawModal visible={withdrawVisible} onClose={() => setWithdrawVisible(false)} user={user} token={token || undefined} onSuccess={refreshProfile} />
+        <ProfileEditModal visible={!user?.username} onClose={() => {}} initialUsername={user?.username} initialDisplayName={(user as any)?.display_name} initialAvatar={(user as any)?.avatar} onSaved={refreshProfile} />
+        <ReferralModal visible={showReferralModal} onClose={() => setShowReferralModal(false)} token={token || null} isEN={isEN} toast={undefined} />
+        <PwaInstallModal visible={pwaModalVisible} onClose={() => setPwaModalVisible(false)} />
+        <CongratulationsModal visible={showCongrats} previousWeekWin={previousWeekWin} onDismiss={handleClaimPrize} isEN={isEN} />
+        <NotificationsPopover visible={notificationsVisible} onClose={() => setNotificationsVisible(false)} onUnreadCountChange={setUnreadCount} />
+
+        {/* ── HEADER BAR ── */}
+        <View style={s.header}>
+          <View style={s.headerContentWrapper}>
+            {/* Left: Logo */}
+            <View style={s.logoContainer}>
+              <Image source={require("../../../assets/images/icon.jpg")} style={s.logoImage} />
+              <Text style={s.logoText}>XO ETHIOPIA</Text>
+            </View>
+
+            {/* Center: Toggle Pill */}
+            <View style={s.toggleContainer}>
+              <TouchableOpacity
+                style={s.toggleBtn}
+                onPress={() => router.push('/(authed)/home/gameplay')}
+                activeOpacity={0.85}
+              >
+                <Text style={s.toggleBtnText}>SPIN</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[s.toggleBtn, s.toggleBtnActive]}
+                onPress={() => router.push('/(authed)/home/gameplay')}
+                activeOpacity={0.85}
+              >
+                <Text style={[s.toggleBtnText, s.toggleBtnTextActive]}>XO GAME</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Right: Utility Cluster */}
+            <View style={s.utilityCluster}>
+
+              <TouchableOpacity onPress={() => setPwaModalVisible(true)} style={s.utilityBtn} activeOpacity={0.8}>
+                <Ionicons name="cloud-download-outline" size={16} color="#8b93a7" />
+                <Text style={s.utilityBtnText}>APP</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={handleLanguageToggle} style={s.utilityBtn} activeOpacity={0.8}>
+                <Ionicons name="globe-outline" size={15} color="#8b93a7" />
+                <Text style={s.utilityBtnText}>{language.toUpperCase()}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={toggleMusic} style={s.utilityBtn} activeOpacity={0.8}>
+                <Ionicons name={isPlaying ? "volume-high-outline" : "volume-mute-outline"} size={16} color="#8b93a7" />
+                <Text style={s.utilityBtnText}>{isPlaying ? "SOUND" : "MUTED"}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={() => setNotificationsVisible(true)} style={s.bellBtn} activeOpacity={0.8}>
+                <Ionicons name="notifications-outline" size={20} color="#fff" />
+                {unreadCount > 0 && (
+                  <View style={s.bellBadge}><Text style={s.bellBadgeText}>{unreadCount}</Text></View>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={() => handleNavClick('profile')} style={s.profileChip} activeOpacity={0.85}>
+                <View style={s.profileChipAvatar}>
+                  <Text style={s.profileChipAvatarText}>{user?.username ? user.username.slice(0, 2).toUpperCase() : "ME"}</Text>
                 </View>
-              ))}
+                <View style={{ marginRight: 6 }}>
+                  <Text style={s.profileChipName}>{user?.username || (user?.number ? `User ${user.number.slice(-4)}` : "Set Your Name")}</Text>
+                  <Text style={s.profileChipVip}>VIP 24</Text>
+                </View>
+              </TouchableOpacity>
             </View>
           </View>
-          {/* Countdown Skeleton */}
-          <View style={{ marginHorizontal: 20, height: 100, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', marginBottom: 16 }} />
-          <View style={s.subHeader}>
-            <View style={{ width: 120, height: 20, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 6 }} />
-          </View>
-          <View style={s.listContent}>
-            {[1, 2, 3, 4, 5].map((_, i) => (
-              <View key={i} style={s.lbItem}>
-                <View style={{ width: 24, height: 24, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12 }} />
-                <View style={s.lbAvatar} />
-                <View style={s.lbInfo}>
-                  <View style={{ width: '60%', height: 16, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 4 }} />
+        </View>
+
+        {/* ── CORE BODY CONTAINER ── */}
+        <ScrollView style={s.mainScrollView} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
+          <View style={s.pageContentWrapper}>
+            <View style={s.threeColumnRow}>
+              {/* 1. LEFT SIDEBAR (fixed width 280px) */}
+              <View style={s.leftSidebar}>
+                <View style={s.card}>
+                  <View style={s.userCardHeader}>
+                    <View style={s.userCardAvatar}>
+                      <Text style={s.userCardAvatarText}>{user?.username ? user.username.slice(0, 1).toUpperCase() : "A"}</Text>
+                    </View>
+                    <View>
+                      <Text style={s.userCardName} numberOfLines={1}>{user?.username || (user?.number ? `User ${user.number.slice(-4)}` : "Set Your Name")}</Text>
+                      <View style={s.onlineRow}>
+                        <View style={s.onlineDot} />
+                        <Text style={s.onlineText}>Online</Text>
+                      </View>
+                    </View>
+                  </View>
+                  
+                  {/* Available Balance card */}
+                  <View style={s.tokensRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.tokenLabel}>AVAILABLE BALANCE</Text>
+                      <Text style={[s.tokenVal, { color: "#22d3ee" }]}>ETB {user?.available_balance ? Number(user.available_balance).toLocaleString() : "0"}</Text>
+                    </View>
+                    <TouchableOpacity onPress={refreshProfile} style={[s.tokenPlusBtn, { backgroundColor: "rgba(34, 211, 238, 0.15)", borderColor: "rgba(34, 211, 238, 0.3)", borderWidth: 1 }]} activeOpacity={0.8}>
+                      <Ionicons name="refresh" size={12} color="#22d3ee" />
+                    </TouchableOpacity>
+                  </View>
                 </View>
-                <View style={{ width: 50, height: 16, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 4 }} />
+
+                {/* Vertical Navigation Links */}
+                <View style={s.card}>
+                  <TouchableOpacity onPress={() => handleNavClick('home')} style={s.navItem} activeOpacity={0.8}>
+                    <Ionicons name="home-outline" size={18} color="#8b93a7" />
+                    <Text style={s.navText}>Home</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity onPress={() => handleNavClick('history')} style={s.navItem} activeOpacity={0.8}>
+                    <Ionicons name="time-outline" size={18} color="#8b93a7" />
+                    <Text style={s.navText}>History</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity onPress={() => handleNavClick('leaderboard')} style={[s.navItem, s.navItemActive]} activeOpacity={0.8}>
+                    <View style={s.navItemActiveBar} />
+                    <Ionicons name="trophy" size={18} color="#8b5cf6" />
+                    <Text style={[s.navText, s.navTextActive]}>Leaderboard</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity onPress={() => handleNavClick('transactions')} style={s.navItem} activeOpacity={0.8}>
+                    <Ionicons name="receipt-outline" size={18} color="#8b93a7" />
+                    <Text style={s.navText}>Transactions</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity onPress={() => handleNavClick('profile')} style={s.navItem} activeOpacity={0.8}>
+                    <Ionicons name="person-outline" size={18} color="#8b93a7" />
+                    <Text style={s.navText}>Profile</Text>
+                  </TouchableOpacity>
+
+                  {(user?.role === 'admin' || user?.role === 'superadmin' || user?.role === 'maintenance') && (
+                    <TouchableOpacity onPress={() => handleNavClick('admin')} style={s.navItem} activeOpacity={0.8}>
+                      <Ionicons name="shield-checkmark-outline" size={18} color="#8b93a7" />
+                      <Text style={s.navText}>Admin</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {/* Wallet Summary Panel */}
+                <View style={s.card}>
+                  <Text style={s.sectionTitleSmall}>WALLET</Text>
+                  
+                  <View style={s.walletRow}>
+                    <Text style={s.walletLabel}>Deposit</Text>
+                    <Text style={[s.walletValSmall, { color: "#22c55e" }]}>+ 3,420 ETB</Text>
+                  </View>
+                  
+                  <View style={s.walletRow}>
+                    <Text style={s.walletLabel}>Withdraw</Text>
+                    <Text style={[s.walletValSmall, { color: "#ef4444" }]}>- 420 ETB</Text>
+                  </View>
+                  
+                  <View style={s.walletRow}>
+                    <Text style={s.walletLabel}>Transactions</Text>
+                    <Text style={s.walletValSecond}>12 today</Text>
+                  </View>
+
+                  <View style={s.walletButtons}>
+                    <TouchableOpacity onPress={() => setDepositVisible(true)} style={[s.walletBtnSmall, { borderColor: "#22d3ee" }]} activeOpacity={0.8}>
+                      <Text style={[s.walletBtnTextSmall, { color: "#22d3ee" }]}>DEPOSIT</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => setWithdrawVisible(true)} style={[s.walletBtnSmall, { borderColor: "#7c3aed" }]} activeOpacity={0.8}>
+                      <Text style={[s.walletBtnTextSmall, { color: "#7c3aed" }]}>WITHDRAW</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Redundant Profile card removed */}
               </View>
-            ))}
+
+              {/* 2. CENTER COLUMN */}
+              <View style={s.centerColumn}>
+                {/* Title and Filter Row */}
+                <View style={s.titleRowContainer}>
+                  <View>
+                    <Text style={s.mainTitle}>LEADERBOARD</Text>
+                    <Text style={s.subTitle}>Top players this month</Text>
+                  </View>
+
+                  {/* Filter Dropdown */}
+                  <View style={{ zIndex: 100 }}>
+                    <TouchableOpacity onPress={() => setDropdownOpen(!dropdownOpen)} style={s.filterDropdown} activeOpacity={0.85}>
+                      <Ionicons name="calendar-outline" size={14} color="#8b93a7" style={{ marginRight: 6 }} />
+                      <Text style={s.filterDropdownText}>
+                        {timeframe === "weekly" ? "Weekly" : "All Time"}
+                      </Text>
+                      <Ionicons name={dropdownOpen ? "chevron-up" : "chevron-down"} size={14} color="#8b93a7" />
+                    </TouchableOpacity>
+                    {dropdownOpen && (
+                      <View style={s.dropdownMenu}>
+                        <TouchableOpacity onPress={() => { setTimeframe("weekly"); setDropdownOpen(false); }} style={s.dropdownItem}>
+                          <Text style={s.dropdownItemText}>Weekly</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => { setTimeframe("alltime"); setDropdownOpen(false); }} style={s.dropdownItem}>
+                          <Text style={s.dropdownItemText}>All Time</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </View>
+                </View>
+
+                {/* PODIUM VISUAL */}
+                <View style={s.podiumRow}>
+                  {podiumData.map((item, idx) => {
+                    const isWinner = item.rank === 1;
+                    const isThird = item.rank === 3;
+                    const blockH = isWinner ? 190 : (isThird ? 130 : 155);
+                    const blockColor = isWinner ? "#7c3aed" : "#1e243d";
+                    const winnings = `$ ${item.wins * 5}`;
+                    const initials = item.username ? item.username.slice(0, 2).toUpperCase() : "PL";
+
+                    return (
+                      <View key={item.id || idx} style={s.podiumSpotContainer}>
+                        {/* Crown/Trophy above first place */}
+                        {isWinner && (
+                          <View style={s.crownFloatingIcon}>
+                            <Ionicons name="ribbon" size={24} color="#f5b642" />
+                          </View>
+                        )}
+
+                        {/* Player details above block */}
+                        <View style={s.podiumPlayerDetails}>
+                          <View style={[s.podiumAvatarCircle, { borderColor: isWinner ? "#f5b642" : "#1f2540" }]}>
+                            {item.avatar ? (
+                              <Image source={{ uri: item.avatar }} style={s.podiumAvatarImg} />
+                            ) : (
+                              <Text style={s.podiumAvatarText}>{initials}</Text>
+                            )}
+                          </View>
+                          <Text style={s.podiumPlayerName} numberOfLines={1}>{item.username}</Text>
+                          <View style={s.podiumPrizePill}>
+                            <Text style={s.podiumPrizeText}>{winnings}</Text>
+                          </View>
+                        </View>
+
+                        {/* Raised 3D block */}
+                        <View style={[s.podiumBlock, { height: blockH, backgroundColor: blockColor, borderColor: isWinner ? "rgba(245, 182, 66, 0.2)" : "#1f2540" }]}>
+                          <Text style={s.podiumNumberText}>{item.rank}</Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+
+                {/* LEADERBOARD LIST CARD */}
+                <View style={s.card}>
+                  <View style={s.leaderboardListHeader}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                      <Ionicons name="trophy-outline" size={16} color="#7c3aed" />
+                      <Text style={s.leaderboardListTitle}>Weekly Leaderboard</Text>
+                    </View>
+
+                    {/* Toggle Pill inside Card */}
+                    <View style={s.timeframeTogglePillContainer}>
+                      <TouchableOpacity 
+                        onPress={() => setTimeframe("weekly")} 
+                        style={[s.togglePillBtn, timeframe === "weekly" && s.togglePillBtnActive]}
+                      >
+                        <Text style={[s.togglePillBtnText, timeframe === "weekly" && s.togglePillBtnTextActive]}>Weekly</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        onPress={() => setTimeframe("alltime")} 
+                        style={[s.togglePillBtn, timeframe === "alltime" && s.togglePillBtnActive]}
+                      >
+                        <Text style={[s.togglePillBtnText, timeframe === "alltime" && s.togglePillBtnTextActive]}>All Time</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  {/* List Rows */}
+                  <View style={{ gap: 10, marginTop: 14 }}>
+                    {loading && <ActivityIndicator color="#00daf3" style={{ marginVertical: 20 }} />}
+                    {!loading && leaderboard.length === 0 && (
+                      <Text style={s.emptyListText}>No rankings available yet.</Text>
+                    )}
+                    {!loading && leaderboard.map((item, idx) => {
+                      const isTop3 = item.rank <= 3;
+                      const badgeBg = item.rank === 1 ? "#f5b642" : (item.rank === 2 ? "#b9cacb" : (item.rank === 3 ? "#fb923c" : "rgba(124, 58, 237, 0.15)"));
+                      const badgeTextCol = isTop3 ? "#0a0e1a" : "#8b5cf6";
+                      const winnings = `$ ${item.wins * 5}`;
+                      const totalGamesCount = item.total || Math.round(item.wins * 1.5);
+                      const isMe = item.isMe;
+
+                      return (
+                        <View key={item.id} style={[s.rankRowContainer, isMe && s.rankRowContainerMe]}>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+                            {/* Rank Badge */}
+                            <View style={[s.rankBadge, { backgroundColor: badgeBg }]}>
+                              <Text style={[s.rankBadgeText, { color: badgeTextCol }]}>{item.rank}</Text>
+                            </View>
+
+                            {/* Avatar */}
+                            <View style={s.rankRowAvatar}>
+                              {item.avatar ? (
+                                <Image source={{ uri: item.avatar }} style={s.rankRowAvatarImg} />
+                              ) : (
+                                <Text style={s.rankRowAvatarText}>{item.username.slice(0, 2).toUpperCase()}</Text>
+                              )}
+                            </View>
+
+                            {/* Info */}
+                            <View>
+                              <Text style={s.rankRowName}>{item.username} {isMe && "(You)"}</Text>
+                              <Text style={s.rankRowStats}>Win Battles won: {item.wins} / {totalGamesCount}</Text>
+                            </View>
+                          </View>
+
+                          {/* PNL */}
+                          <View style={{ alignItems: "flex-end" }}>
+                            <Text style={s.rankRowPnlLabel}>Pnl.</Text>
+                            <Text style={s.rankRowPnlVal}>{winnings}</Text>
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </View>
+                </View>
+              </View>
+
+              {/* 3. RIGHT SIDEBAR — GIVEAWAY resetting details */}
+              <View style={s.rightSidebar}>
+                {/* 1. Reset Countdown Timer Card */}
+                <CountdownTimer secondsRemaining={secondsRemaining} isEN={isEN} />
+
+                {/* 2. Prize Pool Card */}
+                <View style={[s.card, { marginTop: 20 }]}>
+                  <View style={s.prizeHeaderRow}>
+                    <Ionicons name="trophy" size={16} color="#f5b642" style={{ marginRight: 8 }} />
+                    <Text style={s.prizeHeaderTitle}>WEEKLY PRIZE POOL</Text>
+                  </View>
+
+                  <Text style={s.prizeBigAmount}>{topPrize} BIRR</Text>
+                  <Text style={s.prizeSubtext}>For the 1st Place Winner</Text>
+
+                  {/* Avatar list stack */}
+                  <View style={s.avatarStackRow}>
+                    <View style={s.avatarStackContainer}>
+                      <View style={[s.stackAvatar, { backgroundColor: "#ec4899", zIndex: 3 }]}>
+                        <Text style={s.stackAvatarText}>K</Text>
+                      </View>
+                      <View style={[s.stackAvatar, { backgroundColor: "#a855f7", zIndex: 2, marginLeft: -10 }]}>
+                        <Text style={s.stackAvatarText}>A</Text>
+                      </View>
+                      <View style={[s.stackAvatar, { backgroundColor: "#06b6d4", zIndex: 1, marginLeft: -10 }]}>
+                        <Text style={s.stackAvatarText}>M</Text>
+                      </View>
+                    </View>
+                    <Text style={s.joiningCountText}>+{totalParticipants} Players joining</Text>
+                  </View>
+                </View>
+              </View>
+            </View>
           </View>
-        </SafeAreaView>
+        </ScrollView>
       </View>
     );
   }
 
+  // ─── MOBILE VIEW LAYOUT ───
   return (
-    <View style={s.root}>
-      <LinearGradient colors={["#0A090E", "#08070B", "#060508"]} style={StyleSheet.absoluteFill} />
-
-      <View pointerEvents="none" style={[s.blob, s.blob1]} />
-      <View pointerEvents="none" style={[s.blob, s.blob2]} />
-
-      {/* Blurry illustrative Tic-Tac-Toe game board in the background */}
-      <View style={{
-        position: 'absolute',
-        top: '28%',
-        left: '-15%',
-        width: 320,
-        height: 320,
-        transform: [{ rotate: '-18deg' }, { scale: 1.25 }],
-        opacity: 0.04, // Soft, premium visibility
-        zIndex: 0,
-        ...Platform.select({
-          web: {
-            filter: "blur(1.5px)",
-          } as any,
-        }),
-      }} pointerEvents="none">
-        {/* Horizontal lines */}
-        <View style={{ 
-          position: 'absolute', top: 106, left: 0, right: 0, height: 2.5, backgroundColor: '#00daf3',
-          shadowColor: '#00daf3', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 6
-        }} />
-        <View style={{ 
-          position: 'absolute', top: 213, left: 0, right: 0, height: 2.5, backgroundColor: '#00daf3',
-          shadowColor: '#00daf3', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 6
-        }} />
-        {/* Vertical lines */}
-        <View style={{ 
-          position: 'absolute', left: 106, top: 0, bottom: 0, width: 2.5, backgroundColor: '#00daf3',
-          shadowColor: '#00daf3', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 6
-        }} />
-        <View style={{ 
-          position: 'absolute', left: 213, top: 0, bottom: 0, width: 2.5, backgroundColor: '#00daf3',
-          shadowColor: '#00daf3', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 6
-        }} />
-        
-        {/* Illustrative faded board moves */}
-        <Text style={{ 
-          position: 'absolute', top: 15, left: 25, fontSize: 52, fontWeight: '900', color: '#00daf3',
-          textShadowColor: 'rgba(0, 218, 243, 0.4)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 6
-        }}>X</Text>
-        <Text style={{ 
-          position: 'absolute', top: 125, left: 135, fontSize: 52, fontWeight: '900', color: '#00daf3',
-          textShadowColor: 'rgba(0, 218, 243, 0.4)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 6
-        }}>O</Text>
-        <Text style={{ 
-          position: 'absolute', top: 235, left: 245, fontSize: 52, fontWeight: '900', color: '#00daf3',
-          textShadowColor: 'rgba(0, 218, 243, 0.4)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 6
-        }}>X</Text>
+    <View style={s.rootContainer}>
+      <LinearGradient colors={["#0c0c1f", "#070714"]} style={StyleSheet.absoluteFill} />
+      
+      {/* Mobile Header */}
+      <View style={s.mobileHeader}>
+        <TouchableOpacity onPress={() => router.back()} style={s.mobileBackBtn}>
+          <Ionicons name="arrow-back" size={20} color="#00daf3" />
+        </TouchableOpacity>
+        <Text style={s.mobileTitleText}>Leaderboard</Text>
+        <View style={{ width: 40 }} />
       </View>
 
-      <SafeAreaView style={s.safe} edges={['top', 'left', 'right']}>
-        <FlatList
-          ref={flatListRef}
-          data={flatListData}
-          keyExtractor={(item) => item.id}
-          onScrollToIndexFailed={(info) => {
-            const wait = new Promise(resolve => setTimeout(resolve, 50));
-            wait.then(() => {
-              flatListRef.current?.scrollToIndex({ index: info.index, animated: true, viewPosition: 0.5 });
-            });
-          }}
-          renderItem={({ item }) => {
-            if (item.type === 'subheader') {
-              return (
-                <View style={{
-                  flexDirection: 'row',
-                  alignItems: 'baseline',
-                  gap: 8,
-                  marginHorizontal: -20,
-                  paddingHorizontal: 20,
-                  paddingTop: 12,
-                  paddingBottom: 12,
-                  backgroundColor: 'transparent',
-                  zIndex: 10,
-                }}>
-                  <Text style={s.subHeaderTitle}>{isEN ? "All Players" : "ሁሉም ተጫዋቾች"}</Text>
-                  <Text style={s.subHeaderLabel}>{isEN ? "(Weekly)" : "(ሳምንታዊ)"}</Text>
-                </View>
-              );
-            }
-            if (item.type === 'empty') {
-              return (
-                <View style={s.emptyWrap}>
-                  <Ionicons name="trophy-outline" size={40} color="rgba(255,255,255,0.2)" />
-                  <Text style={s.emptyText}>{isEN ? "No players ranked yet this week" : "በዚህ ሳምንት ገና ምንም ተጫዋች አልተመዘገበም"}</Text>
-                </View>
-              );
-            }
-            return <LBItem item={item} />;
-          }}
-          ListHeaderComponent={() => {
-            const warningBanner = payoutPending && (
-              <View style={{
-                marginHorizontal: isDesktop ? 20 : 0,
-                marginBottom: 16,
-                padding: 14,
-                backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                borderColor: 'rgba(245, 158, 11, 0.3)',
-                borderWidth: 1,
-                borderRadius: 12,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 10
-              }}>
-                <Ionicons name="time" size={18} color="#f59e0b" />
-                <Text style={{ color: '#f59e0b', fontSize: 12, fontWeight: '700', flex: 1, lineHeight: 16 }}>
-                  {isEN 
-                    ? "Results Under Review: The admin team is currently validating last week's matches to ensure fair play. Payouts will be ready once verification completes."
-                    : "ግምገማ ላይ ያለ ውጤት፡ ባለፈው ሳምንት የተጫወቱ ጨዋታዎች ትክክለኛነት በስተርዳዳሪው እየተጣራ ነው። ማረጋገጫው ሲጠናቀቅ ሽልማቶች ይከፈላሉ::"}
-                </Text>
-              </View>
-            );
+      <FlatList
+        data={leaderboard}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}
+        ListHeaderComponent={() => (
+          <View style={{ marginTop: 16 }}>
+            {/* Countdown at top of mobile list */}
+            <View style={{ marginBottom: 20 }}>
+              <CountdownTimer secondsRemaining={secondsRemaining} isEN={isEN} />
+            </View>
 
-            if (isDesktop) {
-              return (
-                <View>
-                  {warningBanner}
-                  <View style={{ flexDirection: 'row', gap: 24, paddingHorizontal: 20, marginBottom: 24 }}>
-                    {/* Left Box: Podium */}
-                    <View style={{ flex: 1.5, backgroundColor: '#111115', borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', padding: 24 }}>
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                        <Text style={{ fontSize: 18, fontWeight: '900', color: '#fff' }}>{isEN ? "Weekly Top Winners" : "ሳምንታዊ ከፍተኛ አሸናፊዎች"}</Text>
-                        <TouchableOpacity onPress={fetchData} style={s.refreshBtn}>
-                           <Ionicons name="refresh" size={18} color="#00daf3" />
-                        </TouchableOpacity>
+            {/* Mobile Podium */}
+            <View style={[s.podiumRow, { marginHorizontal: 0, marginBottom: 24 }]}>
+              {podiumData.map((item, idx) => {
+                const isWinner = item.rank === 1;
+                const blockH = isWinner ? 120 : 90;
+                const initials = item.username ? item.username.slice(0, 2).toUpperCase() : "PL";
+                return (
+                  <View key={item.id || idx} style={s.podiumSpotContainer}>
+                    <View style={s.podiumPlayerDetails}>
+                      <View style={[s.podiumAvatarCircle, { width: isWinner ? 48 : 38, height: isWinner ? 48 : 38 }]}>
+                        <Text style={[s.podiumAvatarText, { fontSize: isWinner ? 12 : 10 }]}>{initials}</Text>
                       </View>
-                      <Podium top3={top3} prizes={prizes} />
+                      <Text style={[s.podiumPlayerName, { fontSize: 11 }]} numberOfLines={1}>{item.username}</Text>
+                      <Text style={{ color: "#f5b642", fontSize: 10, fontWeight: "800", marginTop: 2 }}>{item.wins} Wins</Text>
                     </View>
-
-                    {/* Right Box: Countdown + Prize Pool */}
-                    <View style={{ flex: 1, gap: 16 }}>
-                      {secondsRemaining > 0 && (
-                        <CountdownTimer secondsRemaining={secondsRemaining} isEN={isEN} />
-                      )}
-                      <PrizePoolCard isEN={isEN} topPrize={prizes.find(p => p.rank === 1)?.amount || 500} />
+                    <View style={[s.podiumBlock, { height: blockH, backgroundColor: isWinner ? "#7c3aed" : "#1e243d", paddingVertical: 8 }]}>
+                      <Text style={[s.podiumNumberText, { fontSize: isWinner ? 24 : 18 }]}>{item.rank}</Text>
                     </View>
                   </View>
+                );
+              })}
+            </View>
+          </View>
+        )}
+        renderItem={({ item }) => {
+          const isTop3 = item.rank <= 3;
+          const badgeBg = item.rank === 1 ? "#f5b642" : (item.rank === 2 ? "#b9cacb" : (item.rank === 3 ? "#fb923c" : "rgba(255,255,255,0.06)"));
+          const badgeTextCol = isTop3 ? "#0a0e1a" : "rgba(255,255,255,0.4)";
+          return (
+            <View style={s.rankRowContainer as any}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                <View style={[s.rankBadge as any, { width: 28, height: 28, borderRadius: 14, backgroundColor: badgeBg }]}>
+                  <Text style={[s.rankBadgeText as any, { color: badgeTextCol, fontSize: 12 }]}>{item.rank}</Text>
                 </View>
-              );
-            }
-
-            // Mobile Header components
-            return (
-              <View style={{ backgroundColor: 'transparent', marginBottom: 12 }}>
-                {warningBanner}
-                {/* Header */}
-                <View style={[s.header, { paddingHorizontal: 0 }]}>
-                  <Text style={s.headerTitle}>{isEN ? "Weekly Top Winners" : "ሳምንታዊ ከፍተኛ አሸናፊዎች"}</Text>
-                  <TouchableOpacity onPress={fetchData} style={s.refreshBtn}>
-                    <Ionicons name="refresh" size={18} color="#00daf3" />
-                  </TouchableOpacity>
-                </View>
-
-                {/* Podium */}
-                <View style={{ marginTop: 8, marginBottom: 12, marginHorizontal: -20 }}>
-                  <Podium top3={top3} prizes={prizes} />
-                </View>
-
-                {/* Mobile Unified Prize & Timer Card */}
-                <View style={{ marginHorizontal: -20 }}>
-                  <MobileUnifiedCard
-                    secondsRemaining={secondsRemaining}
-                    isEN={isEN}
-                    prizes={prizes}
-                  />
+                <View>
+                  <Text style={s.rankRowName as any}>{item.username}</Text>
+                  <Text style={s.rankRowStats as any}>{item.wins} wins battles won</Text>
                 </View>
               </View>
-            );
-          }}
-          stickyHeaderIndices={[1]}
-          contentContainerStyle={s.listContent}
-          style={{ flex: 1 }}
-          showsVerticalScrollIndicator={false}
-        />
-
-        {/* Find Me Button */}
-        {myRank && myRank.rank && (
-          <TouchableOpacity onPress={scrollToMe} style={s.findMeBtn} activeOpacity={0.85}>
-            <View style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 8,
-              paddingVertical: 12,
-              paddingHorizontal: 24,
-              borderRadius: 24,
-              backgroundColor: '#111115',
-              borderWidth: 1.5,
-              borderColor: '#00daf3',
-              shadowColor: '#00daf3',
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.3,
-              shadowRadius: 8,
-              elevation: 8,
-            }}>
-              <Ionicons name="arrow-down" size={14} color="#00daf3" />
-              <Text style={{ color: '#00daf3', fontWeight: '900', fontSize: 13 }}>{isEN ? "FIND ME" : "እኔን ፈልግ"}</Text>
+              <Text style={{ color: "#22d3ee", fontWeight: "900", fontSize: 13 }}>$ {item.wins * 5}</Text>
             </View>
-          </TouchableOpacity>
-        )}
-      </SafeAreaView>
-
-      {/* Congratulations Modal */}
-      <CongratulationsModal
-        visible={showCongrats}
-        previousWeekWin={previousWeekWin}
-        onDismiss={handleClaimPrize}
-        isEN={isEN}
+          );
+        }}
       />
+      <NotificationsPopover visible={notificationsVisible} onClose={() => setNotificationsVisible(false)} onUnreadCountChange={setUnreadCount} />
     </View>
   );
 }
 
-// ── Styles ─────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
-  root: { flex: 1 },
-  safe: { flex: 1 },
-  loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  loadingText: { color: '#00daf3', fontSize: 13, marginTop: 12, fontWeight: '600' },
+  rootContainer: { flex: 1, backgroundColor: "#0a0e1a" },
 
-  blob: {
-    position: "absolute",
-    width: 450,
-    height: 450,
-    borderRadius: 225,
-    opacity: 0.12,
-    ...Platform.select({
-      web: {
-        filter: "blur(80px)",
-      } as any,
-    }),
-  },
-  blob1: {
-    top: "5%",
-    left: "-20%",
-    backgroundColor: "#ff4766", // Glowing Coral Red
-  },
-  blob2: {
-    bottom: "15%",
-    right: "-30%",
-    backgroundColor: "#00daf3", // Glowing Cyan
-  },
-
+  // Header Style (Same as gameplay & history headers)
   header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 20, paddingTop: 20, paddingBottom: 10,
+    height: 88,
+    backgroundColor: "transparent",
+    justifyContent: "center",
+    paddingHorizontal: 40,
   },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: '#fff', letterSpacing: 0.3 },
-  refreshBtn: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
+  headerContentWrapper: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  logoContainer: { flexDirection: "row", alignItems: "center", gap: 12 },
+  logoImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: "#7c3aed",
+  },
+  logoText: { color: "#fff", fontSize: 18, fontWeight: "900", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" },
+
+  // Center toggle tabs
+  toggleContainer: {
+    flexDirection: "row",
+    backgroundColor: "#12172a",
+    borderRadius: 24,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: "#1f2540",
+  },
+  toggleBtn: {
+    paddingHorizontal: 22,
+    paddingVertical: 9,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  toggleBtnActive: { backgroundColor: "#7c3aed" },
+  toggleBtnText: { color: "#8b93a7", fontSize: 12, fontWeight: "800", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" },
+  toggleBtnTextActive: { color: "#ffffff" },
+
+  // Right Cluster
+  utilityCluster: { flexDirection: "row", alignItems: "center", gap: 14 },
+  balancePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#12172a",
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "#1f2540",
+    paddingLeft: 18,
+    paddingRight: 10,
+    paddingVertical: 8,
+  },
+  balanceLabel: { color: "#8b93a7", fontSize: 10, fontWeight: "700", letterSpacing: 0.5, marginRight: 10, fontFamily: "Inter, sans-serif" },
+  balanceVal: { color: "#22d3ee", fontSize: 15, fontWeight: "800", fontFamily: "Inter, sans-serif" },
+  refreshBtn: { marginLeft: 10, padding: 4 },
+  
+  utilityBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#12172a",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#1f2540",
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+  },
+  utilityBtnText: { color: "#8b93a7", fontSize: 11, fontWeight: "700", fontFamily: "Inter, sans-serif" },
+  
+  bellBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#12172a",
+    borderWidth: 1,
+    borderColor: "#1f2540",
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  bellBadge: {
+    position: "absolute",
+    top: -2,
+    right: -2,
+    backgroundColor: "#ef4444",
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bellBadgeText: { color: "#fff", fontSize: 8, fontWeight: "900", fontFamily: "Inter, sans-serif" },
+
+  profileChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: "#12172a",
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "#1f2540",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  profileChipAvatar: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "#ec4899",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  profileChipAvatarText: { color: "#fff", fontSize: 10, fontWeight: "900", fontFamily: "Inter, sans-serif" },
+  profileChipName: { color: "#fff", fontSize: 12, fontWeight: "700", fontFamily: "Inter, sans-serif" },
+  profileChipVip: { color: "#f5b642", fontSize: 9, fontWeight: "700", fontFamily: "Inter, sans-serif" },
+
+  // Scroll View & Layout blueprints
+  mainScrollView: { flex: 1 },
+  scrollContent: { paddingHorizontal: 40, paddingVertical: 24, gap: 24 },
+  pageContentWrapper: {
+    width: "100%",
+    gap: 24,
+  },
+  threeColumnRow: { flexDirection: "row", gap: 28, alignItems: "flex-start", width: "100%" },
+
+  // Sidebar Layout (Same as gameplay & history left sidebars)
+  leftSidebar: { width: 280, gap: 20 },
+  card: {
+    backgroundColor: "#12172a",
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "#1f2540",
+    padding: 20,
+    ...(Platform.OS === 'web' ? { boxShadow: "0 10px 30px rgba(0,0,0,0.15)" } as any : {}),
+  },
+  userCardHeader: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 14 },
+  userCardAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#ec4899",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  userCardAvatarText: { color: "#fff", fontSize: 16, fontWeight: "900", fontFamily: "Inter, sans-serif" },
+  userCardName: { color: "#fff", fontSize: 15, fontWeight: "700", fontFamily: "Inter, sans-serif" },
+  onlineRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 },
+  onlineDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#22c55e" },
+  onlineText: { color: "#8b93a7", fontSize: 11, fontWeight: "500", fontFamily: "Inter, sans-serif" },
+  
+  tokensRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#0d1220",
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: "#1f2540",
+  },
+  tokenLabel: { color: "#8b93a7", fontSize: 10, fontWeight: "700", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" },
+  tokenVal: { color: "#f5b642", fontSize: 15, fontWeight: "800", marginTop: 2, fontFamily: "Inter, sans-serif" },
+  tokenPlusBtn: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "#f97316",
+    alignItems: "center",
+    justifyContent: "center",
   },
 
-  // Podium
-  podiumContainer: {
-    flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center',
-    height: 160, gap: 16, paddingHorizontal: 20,
+  // Vertical navigation
+  navItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 6,
+    position: "relative",
   },
-  podiumSpot: { alignItems: 'center' },
-  podiumPrize: { fontSize: 13, fontWeight: '700', marginBottom: 10, textShadowColor: 'rgba(0,0,0,0.5)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 },
-  rankCircle: {
-    borderRadius: 999, borderWidth: 3,
-    alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#0c0c1d', marginBottom: -20, zIndex: 2, overflow: 'hidden',
+  navItemActive: { backgroundColor: "rgba(124, 58, 237, 0.08)" },
+  navItemActiveBar: {
+    position: "absolute",
+    left: 0,
+    top: 12,
+    bottom: 12,
+    width: 3.5,
+    backgroundColor: "#7c3aed",
+    borderRadius: 2,
   },
-  crownBadge: {
-    position: 'absolute', bottom: -4, right: -4,
-    width: 22, height: 22, borderRadius: 11,
-    backgroundColor: '#ffb84d', alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.4, shadowRadius: 4,
-  },
-  podiumBar: {
-    borderTopLeftRadius: 14, borderTopRightRadius: 14,
-    borderWidth: 1, borderBottomWidth: 0,
-    alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 14,
-  },
-  podiumName: { fontSize: 12, fontWeight: '700', color: '#ecedf6', maxWidth: 80, textAlign: 'center' },
+  navText: { color: "#8b93a7", fontSize: 14, fontWeight: "700", fontFamily: "Inter, sans-serif" },
+  navTextActive: { color: "#e5e3ff" },
 
-  // Sub Header
-  subHeader: {
-    flexDirection: 'row', alignItems: 'baseline', gap: 8,
-    paddingHorizontal: 20, paddingBottom: 12,
+  // Wallet
+  sectionTitleSmall: { color: "#8b93a7", fontSize: 10, fontWeight: "800", letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 14, fontFamily: "Inter, sans-serif" },
+  walletRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 },
+  walletLabel: { color: "#8b93a7", fontSize: 12, fontWeight: "500", fontFamily: "Inter, sans-serif" },
+  walletValSmall: { fontSize: 12, fontWeight: "700", fontFamily: "Inter, sans-serif" },
+  walletValSecond: { color: "#fff", fontSize: 12, fontWeight: "700", fontFamily: "Inter, sans-serif" },
+  walletButtons: { flexDirection: "row", gap: 10, marginTop: 16 },
+  walletBtnSmall: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingVertical: 8,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  subHeaderTitle: { fontSize: 16, fontWeight: '700', color: '#fff' },
-  subHeaderLabel: { fontSize: 12, color: '#00daf3', fontWeight: '500' },
+  walletBtnTextSmall: { fontSize: 10, fontWeight: "800", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" },
 
-  // List
-  listContent: { paddingHorizontal: 20, gap: 10, paddingBottom: 120 },
-  lbItem: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    paddingVertical: 14, paddingHorizontal: 16,
-    borderRadius: 16, backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)',
+  // Sidebar bottom profile card styles
+  verifiedIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(0, 218, 243, 0.1)",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  lbItemMe: {
-    backgroundColor: 'rgba(0, 218, 243, 0.08)',
-    borderColor: 'rgba(0, 218, 243, 0.25)',
-    shadowColor: '#00daf3', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.15, shadowRadius: 15,
+  rechargeBtn: {
+    backgroundColor: "#ffffff",
+    borderRadius: 14,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    marginTop: 6,
   },
-  lbRank: { width: 28, fontWeight: '900', textAlign: 'center' },
-  lbAvatar: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+  rechargeBtnText: { color: "#0a0e1a", fontSize: 11, fontWeight: "900", letterSpacing: 0.8, fontFamily: "Inter, sans-serif" },
+  logoutBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 18,
+    paddingVertical: 4,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.03)",
   },
-  lbInfo: { flex: 1 },
-  lbName: { fontSize: 14, fontWeight: '700', color: '#fff' },
-  lbScore: { fontWeight: '800', color: '#ffb84d', fontSize: 14 },
+  logoutBtnText: { color: "rgba(255,255,255,0.4)", fontSize: 12, fontWeight: "800", letterSpacing: 0.8, fontFamily: "Inter, sans-serif" },
 
-  // Empty
-  emptyWrap: { alignItems: 'center', paddingTop: 40, gap: 12 },
-  emptyText: { color: 'rgba(255,255,255,0.4)', fontSize: 13, fontWeight: '600', textAlign: 'center' },
+  // Center column
+  centerColumn: { flex: 1, gap: 20 },
+  titleRowContainer: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
+  mainTitle: { color: "#fff", fontSize: 36, fontWeight: "900", letterSpacing: -0.5, fontFamily: "Inter, sans-serif" },
+  subTitle: { color: "#8b93a7", fontSize: 13, fontWeight: "600", marginTop: 4, fontFamily: "Inter, sans-serif" },
 
-  // Find Me
-  findMeBtn: {
-    position: 'absolute', bottom: 100, alignSelf: 'center',
-    borderRadius: 24, overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.5, shadowRadius: 12,
-    elevation: 8,
+  // Dropdown filter styles
+  filterDropdown: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#12172a",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#1f2540",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 8,
   },
-  findMeInner: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingVertical: 12, paddingHorizontal: 24, borderRadius: 24,
+  filterDropdownText: { color: "#fff", fontSize: 13, fontWeight: "700", fontFamily: "Inter, sans-serif" },
+  dropdownMenu: {
+    position: "absolute",
+    top: 50,
+    right: 0,
+    backgroundColor: "#12172a",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#1f2540",
+    width: 140,
+    padding: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
   },
-  findMeText: { color: '#fff', fontWeight: '900', fontSize: 13 },
+  dropdownItem: { paddingVertical: 10, paddingHorizontal: 12, borderRadius: 8 },
+  dropdownItemText: { color: "#fff", fontSize: 12, fontWeight: "600", fontFamily: "Inter, sans-serif" },
+
+  // ── Podium styling ──
+  podiumRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "flex-end",
+    gap: 16,
+    marginTop: 20,
+    marginBottom: 10,
+    marginHorizontal: 10,
+  },
+  podiumSpotContainer: {
+    flex: 1,
+    alignItems: "center",
+    position: "relative",
+  },
+  crownFloatingIcon: {
+    position: "absolute",
+    top: -30,
+    zIndex: 10,
+  },
+  podiumPlayerDetails: {
+    alignItems: "center",
+    marginBottom: 12,
+    zIndex: 2,
+  },
+  podiumAvatarCircle: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: "#0d1220",
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  podiumAvatarImg: {
+    width: "100%",
+    height: "100%",
+  },
+  podiumAvatarText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "900",
+    fontFamily: "Inter, sans-serif",
+  },
+  podiumPlayerName: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "800",
+    marginTop: 6,
+    fontFamily: "Inter, sans-serif",
+    textAlign: "center",
+    width: 90,
+  },
+  podiumPrizePill: {
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderWidth: 0.5,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    marginTop: 6,
+  },
+  podiumPrizeText: {
+    color: "#22d3ee",
+    fontSize: 10,
+    fontWeight: "900",
+    fontFamily: "Inter, sans-serif",
+  },
+  podiumBlock: {
+    width: "100%",
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingTop: 12,
+    ...(Platform.OS === 'web' ? { boxShadow: "0 10px 25px rgba(0,0,0,0.2)" } as any : {}),
+  },
+  podiumNumberText: {
+    color: "#fff",
+    fontSize: 48,
+    fontWeight: "900",
+    fontFamily: "Inter, sans-serif",
+    opacity: 0.15,
+  },
+
+  // ── Leaderboard List panel inside Card ──
+  leaderboardListHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 255, 255, 0.04)",
+    paddingBottom: 14,
+  },
+  leaderboardListTitle: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "800",
+    fontFamily: "Inter, sans-serif",
+  },
+  timeframeTogglePillContainer: {
+    flexDirection: "row",
+    backgroundColor: "#0d1220",
+    borderRadius: 14,
+    padding: 3,
+    borderWidth: 0.5,
+    borderColor: "#1f2540",
+  },
+  togglePillBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 11,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  togglePillBtnActive: {
+    backgroundColor: "#7c3aed",
+  },
+  togglePillBtnText: {
+    color: "#8b93a7",
+    fontSize: 10,
+    fontWeight: "800",
+    fontFamily: "Inter, sans-serif",
+  },
+  togglePillBtnTextActive: {
+    color: "#fff",
+  },
+  emptyListText: {
+    color: "rgba(255,255,255,0.3)",
+    fontSize: 13,
+    textAlign: "center",
+    paddingVertical: 30,
+    fontFamily: "Inter, sans-serif",
+  },
+
+  // ── List Row Row Container ──
+  rankRowContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#0d1220",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#1f2540",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  rankRowContainerMe: {
+    borderColor: "#7c3aed",
+    backgroundColor: "rgba(124, 58, 237, 0.04)",
+  },
+  rankBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  rankBadgeText: {
+    fontSize: 11,
+    fontWeight: "900",
+    fontFamily: "Inter, sans-serif",
+  },
+  rankRowAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#ec4899",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  rankRowAvatarImg: {
+    width: "100%",
+    height: "100%",
+  },
+  rankRowAvatarText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "900",
+    fontFamily: "Inter, sans-serif",
+  },
+  rankRowName: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "800",
+    fontFamily: "Inter, sans-serif",
+  },
+  rankRowStats: {
+    color: "#8b93a7",
+    fontSize: 10,
+    fontWeight: "600",
+    marginTop: 2,
+    fontFamily: "Inter, sans-serif",
+  },
+  rankRowPnlLabel: {
+    color: "#8b93a7",
+    fontSize: 9,
+    fontWeight: "700",
+    fontFamily: "Inter, sans-serif",
+  },
+  rankRowPnlVal: {
+    color: "#22d3ee",
+    fontSize: 13,
+    fontWeight: "900",
+    marginTop: 2,
+    fontFamily: "Inter, sans-serif",
+  },
+
+  // ── RIGHT SIDEBAR GIVEAWAY DETAILS ──
+  rightSidebar: { width: 320 },
+  countdownCard: {
+    backgroundColor: "#12172a",
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "#1f2540",
+    padding: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    ...(Platform.OS === 'web' ? { boxShadow: "0 10px 30px rgba(0,0,0,0.15)" } as any : {}),
+  },
+  countdownHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 14,
+  },
+  countdownHeaderTitle: {
+    color: "#22d3ee",
+    fontSize: 10,
+    fontWeight: "900",
+    letterSpacing: 1,
+    fontFamily: "Inter, sans-serif",
+  },
+  countdownDigitsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  digitBlock: {
+    alignItems: "center",
+    minWidth: 44,
+  },
+  digitText: {
+    color: "#22d3ee",
+    fontSize: 24,
+    fontWeight: "900",
+    fontFamily: "Inter, sans-serif",
+  },
+  digitLabel: {
+    color: "rgba(255, 255, 255, 0.4)",
+    fontSize: 8,
+    fontWeight: "800",
+    marginTop: 4,
+    letterSpacing: 0.5,
+    fontFamily: "Inter, sans-serif",
+  },
+  digitDivider: {
+    color: "rgba(34, 211, 238, 0.2)",
+    fontSize: 18,
+    fontWeight: "900",
+    marginBottom: 10,
+    fontFamily: "Inter, sans-serif",
+  },
+
+  // Prize Pool Card inside right sidebar
+  prizeHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 14,
+  },
+  prizeHeaderTitle: {
+    color: "#f5b642",
+    fontSize: 10,
+    fontWeight: "900",
+    letterSpacing: 1,
+    fontFamily: "Inter, sans-serif",
+  },
+  prizeBigAmount: {
+    color: "#f5b642",
+    fontSize: 32,
+    fontWeight: "900",
+    fontFamily: "Inter, sans-serif",
+  },
+  prizeSubtext: {
+    color: "rgba(255, 255, 255, 0.4)",
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 4,
+    fontFamily: "Inter, sans-serif",
+  },
+
+  // Avatar list stack
+  avatarStackRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginTop: 18,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.03)",
+    paddingTop: 14,
+  },
+  avatarStackContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  stackAvatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: "#12172a",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stackAvatarText: {
+    color: "#fff",
+    fontSize: 9,
+    fontWeight: "900",
+    fontFamily: "Inter, sans-serif",
+  },
+  joiningCountText: {
+    color: "rgba(255, 255, 255, 0.5)",
+    fontSize: 11,
+    fontWeight: "700",
+    fontFamily: "Inter, sans-serif",
+  },
+
+  // Mobile layout helpers
+  mobileHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    height: 60,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.05)",
+    paddingHorizontal: 16,
+  },
+  mobileBackBtn: { padding: 8 },
+  mobileTitleText: { color: "#fff", fontSize: 18, fontWeight: "900", fontFamily: "Inter, sans-serif" },
 });

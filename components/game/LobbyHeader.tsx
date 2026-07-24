@@ -91,12 +91,12 @@ export const LobbyHeader = memo(function LobbyHeader({
                 <Ionicons
                   name="cloud-download-outline"
                   size={14}
-                  color={deferredPrompt ? "#00daf3" : "#fff"}
+                  color={deferredPrompt ? "#8b5cf6" : "#fff"}
                 />
                 <Text
                   style={[
                     styles.downloadText,
-                    { color: deferredPrompt ? "#00daf3" : "#fff" },
+                    { color: deferredPrompt ? "#8b5cf6" : "#fff" },
                   ]}
                 >
                   APP
@@ -116,7 +116,7 @@ export const LobbyHeader = memo(function LobbyHeader({
 
           {/* Notification Bell with Badge */}
           <TouchableOpacity
-            onPress={() => setNotificationsVisible(true)}
+            onPress={() => goReplace("/(authed)/notifications")}
             activeOpacity={0.85}
             style={styles.actionBtn}
           >
@@ -133,46 +133,43 @@ export const LobbyHeader = memo(function LobbyHeader({
         end={{ x: 1, y: 1 }}
         style={styles.balanceCard}
       >
-        {/* Huge X watermark in the background */}
-        <Text style={styles.watermarkX}>X</Text>
-
-        <View style={styles.balanceLeft}>
+        <View style={styles.balanceHeaderRow}>
           <Text style={styles.balanceLabel}>
             {isEN ? "AVAILABLE BALANCE" : "ቀሪ ሂሳብ"}
           </Text>
-          <View style={styles.balanceRow}>
-            <Text style={styles.balanceValue}>
-              ETB {Math.floor(balance).toLocaleString()}
-            </Text>
-            {/* Purple dot next to the number */}
-            <View style={styles.balanceDot} />
-          </View>
-        </View>
 
-        <TouchableOpacity
-          onPress={handleRefreshProfile}
-          activeOpacity={0.85}
-          style={styles.refreshBtn}
-        >
-          <View style={styles.refreshInner}>
-            <Ionicons name="reload" size={12} color="#fff" />
-            <Text style={styles.refreshText}>
+          <TouchableOpacity
+            onPress={handleRefreshProfile}
+            activeOpacity={0.85}
+            style={styles.refreshBtnCompact}
+          >
+            <Ionicons name="reload-outline" size={12} color="#a78bfa" />
+            <Text style={styles.refreshTextCompact}>
               {isEN ? "Refresh" : "አድስ"}
             </Text>
-          </View>
-        </TouchableOpacity>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.balanceRow}>
+          <Text style={styles.balanceValue}>
+            ETB {Math.floor(balance).toLocaleString()}
+          </Text>
+          {/* Purple dot next to the number */}
+          <View style={styles.balanceDot} />
+        </View>
       </LinearGradient>
     </Animated.View>
   );
 });
 
-const styles = StyleSheet.create({
-  header: { marginTop: 6 },
+  const styles = StyleSheet.create({
+  header: { marginTop: 12, marginBottom: 4 },
   headerTop: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 10,
+    marginBottom: 14,
   },
   avatarButton: {
     flexDirection: "row",
@@ -216,11 +213,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   downloadBtnActive: {
-    borderColor: "#00daf3",
-    backgroundColor: "rgba(0, 218, 243, 0.15)",
+    borderColor: "#8b5cf6",
+    backgroundColor: "rgba(139, 92, 246, 0.15)",
     ...Platform.select({
       web: {
-        boxShadow: "0 0 8px #00daf3",
+        boxShadow: "0 0 8px #8b5cf6",
       } as any,
     }),
   },
@@ -251,30 +248,32 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: "#ef4444",
-    borderWidth: 1,
-    borderColor: "#000",
   },
   balanceCard: {
-    marginTop: 12,
-    borderRadius: 22,
-    padding: 14,
-    overflow: "hidden",
+    borderRadius: 24,
+    padding: 16,
+    marginTop: 4,
+    marginBottom: 4,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.05)",
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    overflow: "hidden",
     position: "relative",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
   },
-  watermarkX: {
+  balanceWatermark: {
     position: "absolute",
-    right: 40,
+    right: -20,
     bottom: -45,
     fontSize: 140,
     fontWeight: "900",
-    color: "rgba(0,218,243,0.06)",
+    color: "rgba(139, 92, 246, 0.06)",
     transform: [{ rotate: "-12deg" }],
     zIndex: 0,
+  },
+  balanceHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    zIndex: 1,
   },
   balanceLeft: {
     flex: 1,
@@ -282,8 +281,9 @@ const styles = StyleSheet.create({
   },
   balanceLabel: {
     color: "rgba(255,255,255,0.62)",
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "800",
+    letterSpacing: 0.5,
   },
   balanceRow: {
     flexDirection: "row",
@@ -293,35 +293,31 @@ const styles = StyleSheet.create({
   },
   balanceValue: {
     color: "rgba(255,255,255,0.98)",
-    fontSize: 32,
+    fontSize: 30,
     fontWeight: "900",
   },
   balanceDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#00daf3",
+    backgroundColor: "#8b5cf6",
     alignSelf: "center",
-    marginTop: 12,
+    marginTop: 10,
   },
-  refreshBtn: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-    overflow: "hidden",
-    zIndex: 1,
-  },
-  refreshInner: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+  refreshBtnCompact: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: "rgba(139, 92, 246, 0.18)",
+    borderWidth: 1.5,
+    borderColor: "rgba(139, 92, 246, 0.4)",
   },
-  refreshText: {
-    color: "#fff",
+  refreshTextCompact: {
+    color: "#c084fc",
     fontWeight: "800",
-    fontSize: 11,
+    fontSize: 12,
   },
 });

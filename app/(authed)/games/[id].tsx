@@ -353,7 +353,7 @@ export default function GameViewer() {
             </View>
 
             {/* Match Controls (Arena Nav) */}
-            <View style={styles.controlsBar}>
+            <View style={[styles.controlsBar, { flexDirection: isDesktop ? 'row' : 'column' }]}>
                <View style={styles.controlSectionLeft}>
                   <View style={styles.progressCircle}>
                      <Text style={styles.progressCircleLabel}>{step}</Text>

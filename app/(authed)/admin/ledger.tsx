@@ -271,7 +271,7 @@ export default function AdminLedger() {
                  )}
               </View>
 
-              <View style={[styles.searchBox, { width: isMobile ? '100%' : 140, height: 40, paddingVertical: 0 }]}>
+              <View style={[styles.searchBox, { width: isMobile ? '100%' : 160, height: 40, paddingVertical: 0 }]}>
                  <Ionicons name="game-controller-outline" size={14} color="rgba(168,167,212,0.6)" />
                  {Platform.OS === 'web' ? (
                     <select
@@ -281,14 +281,14 @@ export default function AdminLedger() {
                     >
                       <option value="all" style={{ background: '#111128' }}>All Games</option>
                       <option value="xo" style={{ background: '#111128' }}>XO Games</option>
-                      <option value="spin" style={{ background: '#111128' }}>Spin Games</option>
+                      <option value="spin" disabled style={{ background: '#111128', color: '#555' }}>Spin Wheel (Coming Soon)</option>
                     </select>
                  ) : (
                     <TouchableOpacity style={{ flex: 1 }} onPress={() => {
-                       const order = ['all', 'xo', 'spin'] as const;
-                       setGameFilter(order[(order.indexOf(gameFilter) + 1) % order.length]);
+                       const order = ['all', 'xo'] as const;
+                       setGameFilter(order[(order.indexOf(gameFilter as any) + 1) % order.length] as any);
                     }}>
-                       <Text style={{ color: '#e5e3ff', fontSize: 11, fontWeight: '700' }}>{gameFilter.toUpperCase()}</Text>
+                       <Text style={{ color: '#e5e3ff', fontSize: 11, fontWeight: '700' }}>{gameFilter === 'all' ? 'ALL GAMES' : 'XO GAMES'}</Text>
                     </TouchableOpacity>
                  )}
               </View>
@@ -594,94 +594,94 @@ export default function AdminLedger() {
 const styles = StyleSheet.create({
   glow: { position: 'absolute', width: 500, height: 500, borderRadius: 250 },
   pageHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 32 },
-  pageTitle: { color: '#e5e3ff', fontSize: 36, fontWeight: '900', letterSpacing: -1 },
-  pageSub: { color: '#a8a7d4', fontSize: 14, marginTop: 8 },
+  pageTitle: { color: '#ffffff', fontSize: 28, fontWeight: '700', letterSpacing: -0.5 },
+  pageSub: { color: C.onSurfaceVariant, fontSize: 13, marginTop: 6, fontWeight: '500' },
   tabContainer: { 
-    backgroundColor: '#0f0f11', borderRadius: 16, padding: 4, borderWidth: 1, borderColor: 'rgba(39, 39, 42, 0.2)' 
+    backgroundColor: C.surfaceContainerLowest, borderRadius: 16, padding: 4, borderWidth: 1, borderColor: C.outlineVariant 
   },
   tabBar: { flexDirection: 'row', gap: 4 },
   tabBtn: { paddingHorizontal: 28, paddingVertical: 12, borderRadius: 12 },
   tabBtnActive: { backgroundColor: C.primary, shadowColor: C.primary, shadowRadius: 12, shadowOpacity: 0.2 },
-  tabText: { color: '#a8a7d4', fontSize: 14, fontWeight: '800' },
-  tabTextActive: { color: '#0c0c1f' },
+  tabText: { color: C.onSurfaceVariant, fontSize: 14, fontWeight: '700' },
+  tabTextActive: { color: '#ffffff' },
 
   statsRow: { flexDirection: 'row', gap: 24, marginBottom: 40 },
   statCard: { flex: 1, borderRadius: 20, padding: 24 },
   statTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  statLabel: { color: '#a8a7d4', fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 2, flex: 1, paddingRight: 4 },
-  statValue: { color: '#e5e3ff', fontSize: 28, fontWeight: '900' },
-  statUnit: { color: 'rgba(168,167,212,0.5)', fontSize: 13, fontWeight: '600' },
-  statSub: { color: 'rgba(168,167,212,0.5)', fontSize: 10, marginTop: 4, letterSpacing: 1 },
+  statLabel: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 2, flex: 1, paddingRight: 4 },
+  statValue: { color: '#ffffff', fontSize: 28, fontWeight: '700', letterSpacing: -0.5 },
+  statUnit: { color: 'rgba(255,255,255,0.4)', fontSize: 13, fontWeight: '600' },
+  statSub: { color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 4, letterSpacing: 1 },
 
   tableCard: { flex: 1, marginBottom: 0, backgroundColor: 'transparent' },
   tableHead: { 
-    paddingHorizontal: 24, paddingVertical: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(24, 24, 27, 0.65)', borderTopLeftRadius: 20, borderTopRightRadius: 20, borderWidth: 1, borderBottomWidth: 0, borderColor: 'rgba(39, 39, 42, 0.6)'
+    paddingHorizontal: 24, paddingVertical: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: C.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, borderWidth: 1, borderBottomWidth: 0, borderColor: C.outlineVariant
   },
-  tableTitle: { color: '#fff', fontSize: 20, fontWeight: '900', letterSpacing: 0.5 },
-  searchBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(0,0,0,0.3)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(0, 218, 243, 0.3)', width: 220, shadowColor: C.primary, shadowOpacity: 0.2, shadowRadius: 10 },
+  tableTitle: { color: '#fff', fontSize: 20, fontWeight: '700', letterSpacing: -0.5 },
+  searchBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.surfaceContainerLowest, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: C.outlineVariant, width: 220 },
   searchInput: { flex: 1, color: '#fff', fontSize: 13, height: 20 },
-  filterChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 16, backgroundColor: 'rgba(166,140,255,0.1)', borderRadius: 20, borderWidth: 1, borderColor: 'rgba(0, 218, 243, 0.3)' },
-  filterChipText: { color: C.primary, fontSize: 13, fontWeight: '800' },
+  filterChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 16, backgroundColor: C.lightPrimary, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(117,81,255,0.3)' },
+  filterChipText: { color: C.primary, fontSize: 13, fontWeight: '700' },
   colRow: { 
     flexDirection: 'row', paddingHorizontal: 24, paddingVertical: 14, alignItems: 'center',
     backgroundColor: 'transparent'
   },
-  colHead: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1.5, flex: 1 },
-  txRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, backgroundColor: 'rgba(24, 24, 27, 0.5)', borderRadius: 16, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(39, 39, 42, 0.4)' },
+  colHead: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1.5, flex: 1 },
+  txRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, backgroundColor: C.surface, borderRadius: 16, marginBottom: 8, borderWidth: 1, borderColor: C.outlineVariant, ...(Platform.OS === 'web' ? { boxShadow: '14px 17px 40px 4px rgba(112, 144, 176, 0.04)' } as any : {}) },
   txUser: { flex: 2, flexDirection: 'row', alignItems: 'center', gap: 10, minWidth: 0, overflow: 'hidden' },
-  txAvatar: { width: 34, height: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center', flexShrink: 0, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-  txAvatarText: { fontSize: 12, fontWeight: '900' },
-  txName: { color: '#fff', fontSize: 13, fontWeight: '800', letterSpacing: 0.5 },
-  txId: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '600' },
-  txAmount: { color: '#34d399', fontSize: 16, fontWeight: '900' },
+  txAvatar: { width: 34, height: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center', flexShrink: 0, borderWidth: 1, borderColor: C.outlineVariant, backgroundColor: C.surfaceContainerLow },
+  txAvatarText: { fontSize: 12, fontWeight: '700' },
+  txName: { color: '#fff', fontSize: 13, fontWeight: '700', letterSpacing: -0.2 },
+  txId: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '500' },
+  txAmount: { color: C.success, fontSize: 16, fontWeight: '700' },
   methodPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  methodText: { fontSize: 10, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1 },
+  methodText: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
   txTimestamp: { flex: 1.2 },
-  txDate: { color: '#fff', fontSize: 12, fontWeight: '700' },
-  txTime: { color: C.onSurfaceVariant, fontSize: 11, marginTop: 2, fontWeight: '600' },
-  statusPending: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(251,191,36,0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(251,191,36,0.3)', shadowColor: '#fbbf24', shadowOpacity: 0.5, shadowRadius: 10 },
+  txDate: { color: '#fff', fontSize: 12, fontWeight: '600' },
+  txTime: { color: C.onSurfaceVariant, fontSize: 11, marginTop: 2, fontWeight: '500' },
+  statusPending: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(251,191,36,0.06)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(251,191,36,0.2)' },
   statusDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#fbbf24', flexShrink: 0 },
-  statusSuccess: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(52,211,153,0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(52,211,153,0.3)', shadowColor: '#34d399', shadowOpacity: 0.5, shadowRadius: 10 },
-  statusFailed: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(248,113,113,0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(248,113,113,0.3)', shadowColor: '#f87171', shadowOpacity: 0.5, shadowRadius: 10 },
-  statusText: { fontSize: 10, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.5 },
+  statusSuccess: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(34,197,94,0.06)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(34,197,94,0.2)' },
+  statusFailed: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(245,57,57,0.06)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(245,57,57,0.2)' },
+  statusText: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
   txActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 6, alignItems: 'center' },
-  approveBtn: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(0,218,243,0.4)' },
-  approveTxt: { color: C.secondary, fontSize: 12, fontWeight: '800' },
-  rejectBtn: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(253,111,133,0.4)' },
-  rejectTxt: { color: C.error, fontSize: 12, fontWeight: '800' },
-  receiptBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(166,140,255,0.4)' },
-  receiptTxt: { color: C.primary, fontSize: 12, fontWeight: '800' },
-  empty: { color: '#a8a7d4', textAlign: 'center', marginVertical: 40, fontSize: 14 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  receiptModal: { width: '100%', maxWidth: 450, backgroundColor: '#09090b', borderRadius: 28, borderWidth: 1, borderColor: 'rgba(39, 39, 42, 0.6)', overflow: 'hidden' },
-  receiptHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 24, borderBottomWidth: 1, borderBottomColor: 'rgba(39, 39, 42, 0.4)' },
-  receiptTitle: { color: '#fff', fontSize: 18, fontWeight: '900', flex: 1, marginLeft: 12 },
+  approveBtn: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(106,210,255,0.4)', backgroundColor: 'rgba(106,210,255,0.05)' },
+  approveTxt: { color: C.secondary, fontSize: 12, fontWeight: '700' },
+  rejectBtn: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(245,57,57,0.4)', backgroundColor: 'rgba(245,57,57,0.05)' },
+  rejectTxt: { color: C.error, fontSize: 12, fontWeight: '700' },
+  receiptBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(117,81,255,0.4)', backgroundColor: C.lightPrimary },
+  receiptTxt: { color: C.primary, fontSize: 12, fontWeight: '700' },
+  empty: { color: C.onSurfaceVariant, textAlign: 'center', marginVertical: 40, fontSize: 14 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(11,20,55,0.85)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  receiptModal: { width: '100%', maxWidth: 450, backgroundColor: C.surface, borderRadius: 28, borderWidth: 1, borderColor: C.outlineVariant, overflow: 'hidden', ...(Platform.OS === 'web' ? { boxShadow: '14px 17px 40px 4px rgba(112, 144, 176, 0.08)' } as any : {}) },
+  receiptHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 24, borderBottomWidth: 1, borderBottomColor: C.outlineVariant },
+  receiptTitle: { color: '#fff', fontSize: 18, fontWeight: '700', flex: 1, marginLeft: 12, letterSpacing: -0.2 },
   
   receiptAmountRow: { alignItems: 'center', marginVertical: 32 },
-  receiptAmount: { fontSize: 48, fontWeight: '900', letterSpacing: -2 },
-  receiptCurrency: { color: 'rgba(168,167,212,0.6)', fontSize: 14, fontWeight: '800', marginTop: 4 },
+  receiptAmount: { fontSize: 44, fontWeight: '700', letterSpacing: -1 },
+  receiptCurrency: { color: C.onSurfaceVariant, fontSize: 14, fontWeight: '700', marginTop: 4 },
   
   statusBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 10, borderRadius: 12, marginBottom: 32 },
-  statusBannerTxt: { fontSize: 12, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1 },
+  statusBannerTxt: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
   
   receiptGrid: { gap: 20, marginBottom: 40 },
   receiptInfoItem: { gap: 4 },
-  receiptInfoLabel: { color: 'rgba(168,167,212,0.5)', fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1 },
+  receiptInfoLabel: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
   receiptInfoVal: { color: '#fff', fontSize: 15, fontWeight: '600' },
   
-  printBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: 'rgba(166,140,255,0.1)', height: 56, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(0, 218, 243, 0.3)' },
-  printBtnTxt: { color: '#fff', fontSize: 14, fontWeight: '800' },
+  printBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: C.lightPrimary, height: 56, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(117,81,255,0.3)' },
+  printBtnTxt: { color: '#fff', fontSize: 14, fontWeight: '700' },
   paginationRow: { 
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', 
-    padding: 20, marginTop: 8, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(39, 39, 42, 0.6)',
-    backgroundColor: 'rgba(24, 24, 27, 0.65)'
+    padding: 20, marginTop: 8, borderRadius: 20, borderWidth: 1, borderColor: C.outlineVariant,
+    backgroundColor: C.surface
   },
   paginationInfo: { color: C.onSurfaceVariant, fontSize: 12, fontWeight: '700' },
   pageBtn: { 
-    flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(166,140,255,0.1)', 
-    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(0, 218, 243, 0.3)' 
+    flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.lightPrimary, 
+    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(117,81,255,0.3)' 
   },
-  pageBtnText: { color: '#fff', fontSize: 13, fontWeight: '800' },
-  reviewBtn: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: 'rgba(166,140,255,0.1)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(0, 218, 243, 0.3)' },
-  reviewBtnTxt: { color: '#fff', fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
+  pageBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  reviewBtn: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: C.lightPrimary, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(117,81,255,0.3)' },
+  reviewBtnTxt: { color: '#fff', fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
 });

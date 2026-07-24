@@ -1,7 +1,6 @@
 // app/game/waiting.tsx
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
-// Removed expo-av import
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState, memo } from "react";
@@ -18,13 +17,19 @@ import {
   Text,
   TouchableOpacity,
   View,
-  useWindowDimensions
+  useWindowDimensions,
+  ScrollView
 } from "react-native";
 import { useAuth } from "../../../context/authContext";
 import { useSocket } from "../../../context/socketContext";
 import { haptics } from "../../../lib/haptcs";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { API_URL } from "../../../config";
+import { useBackgroundMusic } from "../../../context/BackgroundMusicProvider";
+import NotificationsPopover from "../../../components/NotificationsPopover";
+import PwaInstallModal from "../../../components/game/PwaInstallModal";
+import { WebDepositModal, WebWithdrawModal } from "../../../components/WebModals";
+import SearchingView from "../../../components/game/SearchingView";
 
 const { width: SCREEN_W } = Dimensions.get("window");
 
@@ -37,14 +42,20 @@ function parseErr(e: any): { code?: string; message: string; matchId?: string } 
   return { code, message, matchId };
 }
 
-
-
 export default function WaitingScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
   const { amount, time, token: urlToken, betMin, betMax } = useLocalSearchParams<{ amount?: string, time?: string, token?: string, betMin?: string, betMax?: string }>();
-  const { user, token: ctxToken, refreshProfile, fixUrl } = useAuth();
+  const { user, token: ctxToken, refreshProfile, fixUrl, language, switchLanguage } = useAuth();
+  const { isPlaying, toggleMusic } = useBackgroundMusic();
+
+  const [depositVisible, setDepositVisible] = useState(false);
+  const [withdrawVisible, setWithdrawVisible] = useState(false);
+  const [notificationsVisible, setNotificationsVisible] = useState(false);
+  const [pwaModalVisible, setPwaModalVisible] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const isEN = language === "en";
 
   // Robust token: Prefer URL token for Join-by-Link scenarios, fallback to AuthContext
   const token = urlToken || ctxToken;
@@ -69,6 +80,27 @@ export default function WaitingScreen() {
 
   const [internalError, setInternalError] = useState<string | null>(null);
   const pulse = useRef(new Animated.Value(0)).current;
+
+  const handleLanguageToggle = useCallback(() => {
+    switchLanguage?.();
+  }, [switchLanguage]);
+
+  const handleNavClick = (screen: string) => {
+    cancelFind?.().catch(() => {});
+    if (screen === 'home') {
+      router.push('/(authed)/home/gameplay');
+    } else if (screen === 'history') {
+      router.push('/(authed)/home/history');
+    } else if (screen === 'leaderboard') {
+      router.push('/(authed)/home/leaderboard');
+    } else if (screen === 'transactions') {
+      router.push('/(authed)/home/transactions');
+    } else if (screen === 'profile') {
+      router.push('/(authed)/home/account');
+    } else if (screen === 'admin') {
+      router.push('/(authed)/admin');
+    }
+  };
 
   useEffect(() => {
     if (lastError) {
@@ -128,7 +160,6 @@ export default function WaitingScreen() {
             setIsMatched(true);
             const { matchId, symbol, opponentUsername, opponentAvatar, houseCutPercent, timerDuration, betAmount: bkAmount, youAre } = msg.payload || {};
 
-            // CRITICAL: Ensure matchId is a valid truthy string and not "undefined" or "null" literal
             const safeMatchId = String(matchId || "");
             if (!safeMatchId || safeMatchId === "undefined" || safeMatchId === "null") {
               console.error("[WAITING] Invalid matchId received:", matchId);
@@ -181,152 +212,104 @@ export default function WaitingScreen() {
 
   if (isDesktop) {
     return (
-      <>
-        <View style={{ flex: 1, backgroundColor: '#060814', overflow: 'hidden' }}>
-          {Platform.OS !== 'web' && <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />}
+      <View style={s.rootContainer}>
+        {/* Web Deposit & Withdraw Modals & Notifications */}
+        <WebDepositModal visible={depositVisible} onClose={() => setDepositVisible(false)} user={user} token={token || undefined} onSuccess={refreshProfile} />
+        <WebWithdrawModal visible={withdrawVisible} onClose={() => setWithdrawVisible(false)} user={user} token={token || undefined} onSuccess={refreshProfile} />
+        <NotificationsPopover visible={notificationsVisible} onClose={() => setNotificationsVisible(false)} onUnreadCountChange={setUnreadCount} />
+        <PwaInstallModal visible={pwaModalVisible} onClose={() => setPwaModalVisible(false)} />
 
-          {/* Dynamic Premium Background */}
-          <View style={StyleSheet.absoluteFill} pointerEvents="none">
-            <LinearGradient colors={["rgba(129,236,255,0.03)", "transparent"]} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }} style={StyleSheet.absoluteFill} />
+        {/* ── CORE BODY CONTAINER (Full-bleed desktop matchmaking arena) ── */}
+        <View style={{ flex: 1, width: '100%', height: '100%', position: 'relative' }}>
+          {/* ── HEADER BAR OVERLAY ── */}
+          <View style={[s.header, { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 50 }]}>
+            <View style={s.headerContentWrapper}>
+              {/* Left: Logo */}
+              <View style={s.logoContainer}>
+                <Image source={require("../../../assets/images/icon.jpg")} style={s.logoImage} resizeMode="cover" />
+                <Text style={s.logoText}>XO ETHIOPIA</Text>
+              </View>
+
+              {/* Right: Utility Cluster */}
+              <View style={s.utilityCluster}>
+                <TouchableOpacity onPress={() => setPwaModalVisible(true)} style={s.utilityBtn} activeOpacity={0.8}>
+                  <Ionicons name="cloud-download-outline" size={16} color="#8b93a7" />
+                  <Text style={s.utilityBtnText}>APP</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity onPress={handleLanguageToggle} style={s.utilityBtn} activeOpacity={0.8}>
+                  <Ionicons name="globe-outline" size={15} color="#8b93a7" />
+                  <Text style={s.utilityBtnText}>{language?.toUpperCase() || "EN"}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity onPress={toggleMusic} style={s.utilityBtn} activeOpacity={0.8}>
+                  <Ionicons name={isPlaying ? "volume-medium-outline" : "volume-mute-outline"} size={16} color="#8b93a7" />
+                </TouchableOpacity>
+
+                <TouchableOpacity onPress={() => setNotificationsVisible(true)} style={s.bellBtn} activeOpacity={0.8}>
+                  <Ionicons name="notifications-outline" size={16} color="#8b93a7" />
+                  {unreadCount > 0 && (
+                    <View style={s.bellBadge}><Text style={s.bellBadgeText}>{unreadCount}</Text></View>
+                  )}
+                </TouchableOpacity>
+
+                {/* Profile Chip */}
+                <TouchableOpacity onPress={() => handleNavClick('profile')} style={s.profileChip} activeOpacity={0.8}>
+                  <View style={s.profileChipAvatar}>
+                    <Text style={s.profileChipAvatarText}>{user?.username ? user.username.slice(0, 2).toUpperCase() : "ME"}</Text>
+                  </View>
+                  <View style={{ marginRight: 6 }}>
+                    <Text style={s.profileChipName}>{user?.username || "Player"}</Text>
+                    <Text style={s.profileChipVip}>VIP 24</Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
 
-          <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
-            {/* Header like mobile */}
-            <View style={[st.mHeader, { width: 600, alignSelf: 'center', marginTop: 40 }]}>
-              <View style={st.mHeaderCard}>
-                <LinearGradient colors={["rgba(255,255,255,0.03)", "rgba(255,255,255,0.01)"]} style={StyleSheet.absoluteFill} />
-                <View style={st.mProfile}>
-                  <View style={st.mAvatar}>
-                    <LinearGradient colors={["#00daf3", "#00a3ff"]} style={[st.mAvatarInner]}>
-                      <Ionicons name="person" size={18} color="#0c0c1f" />
-                    </LinearGradient>
-                  </View>
-                  <View>
-                    <Text style={st.mUsername}>{user?.username || "Player"}</Text>
-                    <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: '700' }}>{isMatched ? 'MATCH FOUND' : 'WAITING...'}</Text>
-                  </View>
-                </View>
-                <View style={st.mMeta}>
-                  <View style={st.mBalance}><Text style={st.mBalanceText}>ETB {Number(user?.available_balance || 0).toLocaleString()}</Text></View>
-                  <View style={st.mBet}><Text style={st.mBetText}>ETB {betRangeLabel} BET</Text></View>
-                </View>
-              </View>
-            </View>
-
-            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-              <View style={st.mOrbWrap}>
-                <Animated.View style={[st.mOrbRing, { width: 220, height: 220, opacity: fade, transform: [{ scale }] }]} />
-                <Animated.View style={[st.mOrbRing, { width: 170, height: 170, opacity: fade, transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1.1] }) }] }]} />
-
-                <View style={[st.mOrbCore, { width: 90, height: 90, borderRadius: 45 }]}>
-                  <LinearGradient colors={isMatched ? ['#10b981', '#059669'] : ['#00daf3', '#00a3ff']} style={st.mOrbCoreInner}>
-                    <Ionicons name={isMatched ? "checkmark" : "search"} size={40} color={isMatched ? "#fff" : "#0c0c1f"} />
-                  </LinearGradient>
-                </View>
-              </View>
-
-              <Text style={{ color: '#f8fafc', fontSize: 24, fontWeight: '900', letterSpacing: 2, marginTop: 40 }}>
-                {isMatched ? 'MATCH FOUND!' : 'FINDING OPPONENT...'}
-              </Text>
-              <View style={{ backgroundColor: 'rgba(255,255,255,0.05)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, marginTop: 16 }}>
-                <Text style={{ color: '#00daf3', fontSize: 16, fontWeight: '800' }}>{timeStr} elapsed</Text>
-              </View>
-            </View>
-
-            <View style={{ paddingBottom: 60, alignItems: 'center' }}>
-              <TouchableOpacity onPress={() => router.replace('/home/gameplay' as any)} disabled={isMatched} style={{ width: 440, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(239,68,68,0.3)' }} activeOpacity={0.8}>
-                <LinearGradient colors={["rgba(239,68,68,0.15)", "rgba(239,68,68,0.05)"]} style={{ paddingVertical: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-                  <Ionicons name="close-circle-outline" size={18} color="#f87171" />
-                  <Text style={{ color: '#f87171', fontSize: 13, fontWeight: '900', letterSpacing: 1 }}>CANCEL SEARCH</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
-          </SafeAreaView>
+          <SearchingView
+            onCancel={() => { cancelFind?.().catch(() => {}); router.replace('/home/gameplay' as any); }}
+            isMatched={isMatched}
+            betMin={safeBetMin}
+            betMax={safeBetMax}
+          />
         </View>
-        {/* 2-Min Timeout Modal - Desktop */}
+
+        {/* 2-Min Timeout Modal */}
         <Modal visible={timeoutModal} transparent animationType="fade">
-          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', alignItems: 'center', justifyContent: 'center' }}>
-            <View style={{ backgroundColor: '#0e1420', borderRadius: 28, padding: 36, width: 400, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', alignItems: 'center', justifyContent: 'center' }}>
+            <View style={{ backgroundColor: '#0c0c16', borderRadius: 28, padding: 36, width: 420, maxWidth: '90%', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
               <View style={{ alignItems: 'center', marginBottom: 32 }}>
                 <Ionicons name="time-outline" size={48} color="#f59e0b" />
                 <Text style={{ color: '#f8fafc', fontSize: 22, fontWeight: '900', marginTop: 16, textAlign: 'center' }}>No Opponent Found</Text>
                 <Text style={{ color: '#94a3b8', fontSize: 14, textAlign: 'center', marginTop: 8, lineHeight: 22 }}>2 minutes elapsed with no match.</Text>
               </View>
               <View style={{ gap: 12 }}>
-                <TouchableOpacity onPress={() => { setTimeoutModal(false); cancelFind?.().catch(() => { }); router.replace({ pathname: '/home/gameplay', params: { openRooms: 'true' } } as any); }} style={{ width: '100%', padding: 16, backgroundColor: 'rgba(0,218,243,0.15)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(0,218,243,0.4)', alignItems: 'center' }}>
-                  <Text style={{ color: '#00daf3', fontSize: 16, fontWeight: '900' }}>Try Another Room</Text>
+                <TouchableOpacity onPress={() => { setTimeoutModal(false); cancelFind?.().catch(() => { }); router.replace({ pathname: '/home/gameplay', params: { openRooms: 'true' } } as any); }} style={{ width: '100%', padding: 16, backgroundColor: 'rgba(34,211,238,0.12)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(34,211,238,0.35)', alignItems: 'center' }}>
+                  <Text style={{ color: '#22d3ee', fontSize: 16, fontWeight: '900' }}>Try Another Room</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => setTimeoutModal(false)} style={{ width: '100%', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', alignItems: 'center' }}>
+                <TouchableOpacity onPress={() => setTimeoutModal(false)} style={{ width: '100%', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', alignItems: 'center' }}>
                   <Text style={{ color: '#94a3b8', fontWeight: '700' }}>Keep Searching</Text>
                 </TouchableOpacity>
               </View>
             </View>
           </View>
         </Modal>
-      </>
+      </View>
     );
   }
 
-  // ─── PREMIUM MOBILE/TABLET DESIGN (Matching Desktop Fidelity) ───
+  // ─── MOBILE / TABLET VIEW ───
   return (
-    <View style={[st.root, { backgroundColor: '#0a0f1c' }]}>
+    <View style={[st.root, { backgroundColor: '#050814' }]}>
       {Platform.OS !== 'web' && <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />}
-
-      {/* Background Animated Blobs (Nebula Effect) */}
-      <View style={StyleSheet.absoluteFill} pointerEvents="none">
-        <View style={{ position: 'absolute', top: -100, left: -50, width: 300, height: 300, borderRadius: 150, backgroundColor: 'rgba(0,218,243,0.06)' }} />
-        <View style={{ position: 'absolute', bottom: -50, right: -50, width: 300, height: 300, borderRadius: 150, backgroundColor: 'rgba(0,218,243,0.04)' }} />
-      </View>
-
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
-        <View style={st.mHeader}>
-          <View style={st.mHeaderCard}>
-            <LinearGradient colors={["rgba(255,255,255,0.03)", "rgba(255,255,255,0.01)"]} style={StyleSheet.absoluteFill} />
-            <View style={st.mProfile}>
-              <View style={st.mAvatar}>
-                <LinearGradient colors={["#00daf3", "#00a3ff"]} style={[st.mAvatarInner]}>
-                  <Ionicons name="person" size={18} color="#0c0c1f" />
-                </LinearGradient>
-              </View>
-              <View>
-                <Text style={st.mUsername}>{user?.username || "Player"}</Text>
-                <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: '700' }}>{isMatched ? 'MATCH FOUND' : 'WAITING...'}</Text>
-              </View>
-            </View>
-            <View style={st.mMeta}>
-              <View style={st.mBalance}><Text style={st.mBalanceText}>ETB {Number(user?.available_balance || 0).toLocaleString()}</Text></View>
-              <View style={st.mBet}><Text style={st.mBetText}>ETB {betRangeLabel} BET</Text></View>
-            </View>
-          </View>
-        </View>
-
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <View style={st.mOrbWrap}>
-            {/* Radar Rings */}
-            <Animated.View style={[st.mOrbRing, { width: 180, height: 180, opacity: fade, transform: [{ scale }] }]} />
-            <Animated.View style={[st.mOrbRing, { width: 140, height: 140, opacity: fade, transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1.1] }) }] }]} />
-
-            <View style={st.mOrbCore}>
-              <LinearGradient colors={isMatched ? ['#10b981', '#059669'] : ['#00daf3', '#00a3ff']} style={st.mOrbCoreInner}>
-                <Ionicons name={isMatched ? "checkmark" : "search"} size={32} color={isMatched ? "#fff" : "#0c0c1f"} />
-              </LinearGradient>
-            </View>
-          </View>
-
-          <Text style={st.mTitle}>{isMatched ? "MATCH FOUND!" : (queued ? "Finding opponent..." : "Preparing...")}</Text>
-          <View style={{ backgroundColor: 'rgba(255,255,255,0.05)', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 8, marginTop: 12 }}>
-            <Text style={st.mSub}>{timeStr} elapsed</Text>
-          </View>
-        </View>
-
-        <View style={st.mFooter}>
-
-          <TouchableOpacity onPress={() => router.replace('/home/gameplay' as any)} disabled={isMatched} style={st.mCancel}>
-            <LinearGradient colors={["rgba(239,68,68,0.2)", "rgba(239,68,68,0.1)"]} style={[st.mCancelInner, { borderWidth: 1, borderColor: 'rgba(239,68,68,0.3)' }]}>
-              <Text style={st.mCancelText}>CANCEL SEARCH</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
+        <SearchingView
+          onCancel={() => { cancelFind?.().catch(() => {}); router.replace('/home/gameplay' as any); }}
+          isMatched={isMatched}
+          betMin={safeBetMin}
+          betMax={safeBetMax}
+        />
       </SafeAreaView>
 
       {/* 2-Min Timeout Modal - Mobile */}
@@ -356,8 +339,103 @@ export default function WaitingScreen() {
   );
 }
 
-const st = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#0a0f1c' },
+const s = StyleSheet.create({
+  rootContainer: { flex: 1, backgroundColor: "#050814" },
+  header: {
+    height: 88,
+    backgroundColor: "transparent",
+    justifyContent: "center",
+    paddingHorizontal: 40,
+  },
+  headerContentWrapper: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  logoContainer: { flexDirection: "row", alignItems: "center", gap: 12 },
+  logoImage: { width: 36, height: 36, borderRadius: 18 },
+  logoText: { color: "#fff", fontSize: 18, fontWeight: "900", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" },
+  utilityCluster: { flexDirection: "row", alignItems: "center", gap: 16 },
+  utilityBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(255, 255, 255, 0.03)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  utilityBtnText: { color: "#8b93a7", fontSize: 11, fontWeight: "700", fontFamily: "Inter, sans-serif" },
+  bellBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.03)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.05)",
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  bellBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    backgroundColor: "#ef4444",
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    minWidth: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bellBadgeText: { color: "#fff", fontSize: 9, fontWeight: "800" },
+  profileChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: "rgba(139, 92, 246, 0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(139, 92, 246, 0.25)",
+    borderRadius: 20,
+    paddingLeft: 6,
+    paddingRight: 12,
+    paddingVertical: 6,
+  },
+  profileChipAvatar: { width: 28, height: 28, borderRadius: 14, backgroundColor: "#8b5cf6", alignItems: "center", justifyContent: "center" },
+  profileChipAvatarText: { color: "#fff", fontSize: 11, fontWeight: "900" },
+  profileChipName: { color: "#fff", fontSize: 12, fontWeight: "800", fontFamily: "Inter, sans-serif" },
+  profileChipVip: { color: "#a855f7", fontSize: 9, fontWeight: "900", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" },
+  mainScrollView: { flex: 1 },
+  scrollContent: { flexGrow: 1 },
+  pageContentWrapper: { width: "100%", paddingHorizontal: 40, paddingVertical: 24, alignSelf: "center", maxWidth: 1440 },
+  threeColumnRow: { flexDirection: "row", gap: 24, width: "100%" },
+  leftSidebar: { width: 280, gap: 16 },
+  card: { backgroundColor: "rgba(15, 23, 42, 0.3)", borderWidth: 1, borderColor: "rgba(255,255,255,0.05)", borderRadius: 24, padding: 20 },
+  userCardHeader: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 16 },
+  userCardAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: "#8b5cf6", alignItems: "center", justifyContent: "center" },
+  userCardAvatarText: { color: "#fff", fontSize: 16, fontWeight: "900" },
+  userCardName: { color: "#fff", fontSize: 15, fontWeight: "800", fontFamily: "Inter, sans-serif" },
+  onlineRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 },
+  onlineDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#22c55e" },
+  onlineText: { color: "#22c55e", fontSize: 11, fontWeight: "700" },
+  tokensRow: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "rgba(10, 15, 30, 0.4)", borderRadius: 16, borderWidth: 1, borderColor: "rgba(255, 255, 255, 0.04)", padding: 12 },
+  tokenLabel: { color: "rgba(255,255,255,0.5)", fontSize: 9, fontWeight: "800", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" },
+  tokenVal: { fontSize: 15, fontWeight: "900", marginTop: 2, fontFamily: "Inter, sans-serif" },
+  tokenPlusBtn: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  navItem: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, marginBottom: 4 },
+  navText: { color: "#8b93a7", fontSize: 13, fontWeight: "700", fontFamily: "Inter, sans-serif" },
+  sectionTitleSmall: { color: "rgba(255,255,255,0.35)", fontSize: 10, fontWeight: "800", letterSpacing: 1, textTransform: "uppercase", marginBottom: 12, fontFamily: "Inter, sans-serif" },
+  walletRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
+  walletLabel: { color: "rgba(255,255,255,0.5)", fontSize: 12, fontFamily: "Inter, sans-serif" },
+  walletValSmall: { fontSize: 12, fontWeight: "800", fontFamily: "Inter, sans-serif" },
+  walletValSecond: { color: "#8b93a7", fontSize: 12, fontWeight: "700", fontFamily: "Inter, sans-serif" },
+  divider: { height: 1, backgroundColor: "rgba(255, 255, 255, 0.05)", marginVertical: 12 },
+
+  root: { flex: 1, backgroundColor: '#050814' },
   // Desktop
   dHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: 20 },
   dUser: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', padding: 8, borderRadius: 30, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
@@ -393,7 +471,7 @@ const st = StyleSheet.create({
   mOrbWrap: { width: 220, height: 220, alignItems: 'center', justifyContent: 'center' },
   mOrbRing: { position: 'absolute', borderRadius: 999, borderWidth: 1.5, borderColor: 'rgba(0,218,243,0.2)' },
   mOrbGlow: { position: 'absolute', width: '100%', height: '100%', borderRadius: 999, backgroundColor: '#00daf3' },
-  mOrbCore: { width: 72, height: 72, borderRadius: 36, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', shadowColor: '#00daf3', shadowOpacity: 0.5, shadowRadius: 10 },
+  mOrbCore: { width: 130, height: 130, borderRadius: 65, overflow: 'hidden', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.25)', shadowColor: '#00daf3', shadowOpacity: 0.5, shadowRadius: 15 },
   mOrbCoreInner: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   mTitle: { color: '#fff', fontSize: 20, fontWeight: '900', marginTop: 24, letterSpacing: 1 },
   mSub: { color: '#00daf3', fontSize: 13, fontWeight: '800' },
@@ -402,3 +480,5 @@ const st = StyleSheet.create({
   mCancelInner: { paddingVertical: 16, alignItems: 'center' },
   mCancelText: { color: '#ef4444', fontWeight: '900', fontSize: 13, letterSpacing: 1 },
 });
+
+const st = s;

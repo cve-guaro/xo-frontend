@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { ArrowForwardIcon, CheckmarkCircleIcon, ServerIcon, ConstructIcon } from "../../components/SvgIcons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -45,6 +46,7 @@ export default function LoginScreen() {
   };
 
   const [step, setStep] = useState<"number" | "otp">(pendingNumber ? "otp" : "number");
+  const [loginMode, setLoginMode] = useState<"choice" | "sms">(pendingNumber ? "sms" : "choice");
   const [resendTimer, setResendTimer] = useState(0);
   const [maintenanceData, setMaintenanceData] = useState<{ error: string, message: string } | null>(null);
   const [otpAttempts, setOtpAttempts] = useState(0);
@@ -288,103 +290,139 @@ export default function LoginScreen() {
               <Text style={styles.cardSub}>Welcome back. Enter your phone number to continue.</Text>
 
               {step === "number" ? (
-                <View style={{ marginTop: 24 }}>
-                  <View style={styles.phoneInputGrid}>
-                    <View style={styles.countryPicker}>
-                      <Text style={{ fontSize: 16 }}>🇪🇹</Text>
-                      <Text style={styles.countryCode}>+251</Text>
-                    </View>
-                    <View style={styles.phoneInputWrap}>
-                      <TextInput
-                        placeholder="9xx / 7xx xxx xxx"
-                        placeholderTextColor="rgba(255,255,255,0.2)"
-                        style={styles.mainInput}
-                        keyboardType="number-pad"
-                        value={national}
-                        onChangeText={(t) => {
-                          let val = t.replace(/\D/g, "");
-                          if (val.length > 0 && val[0] !== '9' && val[0] !== '7') {
-                             val = val.replace(/^[^97]+/, "");
+                <View style={{ marginTop: 20 }}>
+                  {loginMode === "choice" ? (
+                    <View style={{ gap: 14 }}>
+                      {/* Button 1: Telegram Bot Login */}
+                      <TouchableOpacity
+                        disabled={telegramLoading}
+                        onPress={async () => {
+                          try {
+                            await loginWithTelegram();
+                          } catch (err: any) {
+                            toast.error('Telegram Login', err?.message || 'Login failed');
                           }
-                          setNational(val.slice(0, 9));
                         }}
-                        maxLength={9}
-                      />
-                    </View>
-                  </View>
-
-                  <TouchableOpacity 
-                    disabled={!canSend} 
-                    onPress={onSend} 
-                    activeOpacity={0.8}
-                    style={{ marginTop: 20 }}
-                  >
-                    <LinearGradient 
-                      colors={canSend ? ["#00daf3", "#00a3ff"] : ["rgba(0, 218, 243, 0.15)", "rgba(0, 163, 255, 0.15)"]} 
-                      start={{x:0,y:0}} end={{x:1,y:0}}
-                      style={styles.sendBtn}
-                    >
-                      {requestingOtp ? (
-                        <ActivityIndicator color={canSend ? "#0c0c1f" : "rgba(255,255,255,0.4)"} />
-                      ) : (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                          <Text style={[styles.sendBtnText, { color: canSend ? '#0c0c1f' : 'rgba(255,255,255,0.4)' }]}>Send OTP</Text>
-                          <ArrowForwardIcon size={18} color={canSend ? '#0c0c1f' : 'rgba(255,255,255,0.4)'} />
+                        activeOpacity={0.8}
+                      >
+                        <View style={{
+                          height: 58,
+                          borderRadius: 18,
+                          backgroundColor: 'rgba(0, 136, 204, 0.18)',
+                          borderWidth: 1.5,
+                          borderColor: 'rgba(0, 136, 204, 0.4)',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexDirection: 'row',
+                          gap: 10,
+                        }}>
+                          {telegramLoading ? (
+                            <ActivityIndicator color="#0088CC" />
+                          ) : (
+                            <>
+                              <Ionicons name="paper-plane" size={20} color="#0088CC" />
+                              <Text style={{ color: '#0088CC', fontSize: 15, fontWeight: '800' }}>
+                                {language === 'am' ? 'በቴሌግራም ቦት ግባ (@XoethiopiaBot)' : 'Login with Telegram Bot'}
+                              </Text>
+                            </>
+                          )}
                         </View>
+                      </TouchableOpacity>
+
+                      {telegramLoading && (
+                        <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, textAlign: 'center', marginTop: -4 }}>
+                          {language === 'am' 
+                            ? 'ቴሌግራምን ይክፈቱ እና ስልክ ቁጥርዎን ያጋሩ...' 
+                            : 'Open Telegram and share your phone number...'}
+                        </Text>
                       )}
-                    </LinearGradient>
-                  </TouchableOpacity>
 
-                  {/* ── OR divider ── */}
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 20, gap: 12 }}>
-                    <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.08)' }} />
-                    <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12, fontWeight: '700', letterSpacing: 1 }}>OR</Text>
-                    <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.08)' }} />
-                  </View>
+                      {/* Divider */}
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 4, gap: 12 }}>
+                        <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.08)' }} />
+                        <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, fontWeight: '700', letterSpacing: 1 }}>OR</Text>
+                        <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.08)' }} />
+                      </View>
 
-                  {/* ── Telegram Login Button ── */}
-                  <TouchableOpacity
-                    disabled={telegramLoading}
-                    onPress={async () => {
-                      try {
-                        await loginWithTelegram();
-                      } catch (err: any) {
-                        toast.error('Telegram Login', err?.message || 'Login failed');
-                      }
-                    }}
-                    activeOpacity={0.8}
-                    style={{ marginTop: 16 }}
-                  >
-                    <View style={{
-                      height: 60,
-                      borderRadius: 20,
-                      backgroundColor: 'rgba(0, 136, 204, 0.15)',
-                      borderWidth: 1,
-                      borderColor: 'rgba(0, 136, 204, 0.3)',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexDirection: 'row',
-                      gap: 10,
-                    }}>
-                      {telegramLoading ? (
-                        <ActivityIndicator color="#0088CC" />
-                      ) : (
-                        <>
-                          <Text style={{ fontSize: 20 }}>✈️</Text>
-                          <Text style={{ color: '#0088CC', fontSize: 16, fontWeight: '800' }}>
-                            {language === 'am' ? 'በቴሌግራም ግባ' : 'Login with Telegram'}
+                      {/* Button 2: SMS OTP Login */}
+                      <TouchableOpacity
+                        onPress={() => setLoginMode("sms")}
+                        activeOpacity={0.8}
+                      >
+                        <View style={{
+                          height: 58,
+                          borderRadius: 18,
+                          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                          borderWidth: 1.5,
+                          borderColor: 'rgba(255, 255, 255, 0.12)',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexDirection: 'row',
+                          gap: 10,
+                        }}>
+                          <Text style={{ fontSize: 18 }}>💬</Text>
+                          <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '800' }}>
+                            {language === 'am' ? 'በስልክ ቁጥር (SMS OTP) ግባ' : 'Login with SMS OTP'}
                           </Text>
-                        </>
-                      )}
+                        </View>
+                      </TouchableOpacity>
                     </View>
-                  </TouchableOpacity>
+                  ) : (
+                    /* SMS OTP Input View */
+                    <View>
+                      <TouchableOpacity 
+                        onPress={() => setLoginMode("choice")}
+                        style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 16 }}
+                      >
+                        <Text style={{ color: '#00daf3', fontSize: 13, fontWeight: '700' }}>← Back to login options</Text>
+                      </TouchableOpacity>
 
-                  {telegramLoading && (
-                    <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, textAlign: 'center', marginTop: 8 }}>
-                      {language === 'am' 
-                        ? 'ቴሌግራምን ይክፈቱ እና ስልክ ቁጥርዎን ያጋሩ...' 
-                        : 'Open Telegram and share your phone number...'}
-                    </Text>
+                      <View style={styles.phoneInputGrid}>
+                        <View style={styles.countryPicker}>
+                          <Text style={{ fontSize: 16 }}>🇪🇹</Text>
+                          <Text style={styles.countryCode}>+251</Text>
+                        </View>
+                        <View style={styles.phoneInputWrap}>
+                          <TextInput
+                            placeholder="9xx / 7xx xxx xxx"
+                            placeholderTextColor="rgba(255,255,255,0.2)"
+                            style={styles.mainInput}
+                            keyboardType="number-pad"
+                            value={national}
+                            onChangeText={(t) => {
+                              let val = t.replace(/\D/g, "");
+                              if (val.length > 0 && val[0] !== '9' && val[0] !== '7') {
+                                 val = val.replace(/^[^97]+/, "");
+                              }
+                              setNational(val.slice(0, 9));
+                            }}
+                            maxLength={9}
+                          />
+                        </View>
+                      </View>
+
+                      <TouchableOpacity 
+                        disabled={!canSend} 
+                        onPress={onSend} 
+                        activeOpacity={0.8}
+                        style={{ marginTop: 20 }}
+                      >
+                        <LinearGradient 
+                          colors={canSend ? ["#00daf3", "#00a3ff"] : ["rgba(0, 218, 243, 0.15)", "rgba(0, 163, 255, 0.15)"]} 
+                          start={{x:0,y:0}} end={{x:1,y:0}}
+                          style={styles.sendBtn}
+                        >
+                          {requestingOtp ? (
+                            <ActivityIndicator color={canSend ? "#0c0c1f" : "rgba(255,255,255,0.4)"} />
+                          ) : (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                              <Text style={[styles.sendBtnText, { color: canSend ? '#0c0c1f' : 'rgba(255,255,255,0.4)' }]}>Send OTP</Text>
+                              <ArrowForwardIcon size={18} color={canSend ? '#0c0c1f' : 'rgba(255,255,255,0.4)'} />
+                            </View>
+                          )}
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    </View>
                   )}
                 </View>
               ) : (

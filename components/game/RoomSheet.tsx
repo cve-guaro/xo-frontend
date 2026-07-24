@@ -70,58 +70,56 @@ const RoomSheet = memo(function RoomSheet({
           isDesktop ? styles.desktopModal : styles.sheet,
           !isDesktop && { transform: [{ translateY: sheetTranslateY }] },
           isDesktop && {
-            transform: [{ scale: backdropOpacity.interpolate({ inputRange: [0, 1], outputRange: [0.95, 1] }) }],
+            transform: [{ scale: backdropOpacity.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] }) }],
             opacity: backdropOpacity
           }
         ]}
       >
+        {/* Glow accent pill */}
+        <View style={styles.topAccentBar} />
+
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.sheetContent}>
           {/* Header with back button for AMOUNTS step */}
           {step === "AMOUNTS" ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, paddingHorizontal: 4 }}>
-              <TouchableOpacity onPress={onBack} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' }}>
-                <Ionicons name="chevron-back" size={20} color="rgba(255,255,255,0.8)" />
+            <View style={styles.headerRow}>
+              <TouchableOpacity onPress={onBack} style={styles.iconCircleBtn} activeOpacity={0.8}>
+                <Ionicons name="chevron-back" size={20} color="#00daf3" />
               </TouchableOpacity>
               <View style={{ flex: 1, marginLeft: 12 }}>
                 <Text style={styles.sheetTitle}>{isEN ? `${selectedRoom.titleEn} amount` : `${selectedRoom.titleAm} መጠን`}</Text>
-                <Text style={styles.sheetSubTitle}>Commission {selectedRoom.id === "R1" ? "20% / 10%" : `${selectedRoom.cut}%`} • {selectedRoom.time}s</Text>
+                <View style={styles.subTitleBadge}>
+                  <Ionicons name="time-outline" size={12} color="#a78bfa" />
+                  <Text style={styles.sheetSubTitleText}>
+                    Commission {selectedRoom.id === "R1" ? "20% / 10%" : `${selectedRoom.cut}%`} • {selectedRoom.time}s
+                  </Text>
+                </View>
               </View>
-              <TouchableOpacity onPress={onClose} style={styles.sheetCloseBtn}>
+              <TouchableOpacity onPress={onClose} style={styles.iconCircleBtn} activeOpacity={0.8}>
                 <Ionicons name="close" size={20} color="rgba(255,255,255,0.7)" />
               </TouchableOpacity>
             </View>
           ) : (
-            <>
-              <TouchableOpacity onPress={onClose} style={styles.sheetCloseBtn}>
+            <View style={styles.headerRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sheetTitle}>{isEN ? "Select Room" : "ክፍል ይምረጡ"}</Text>
+                <Text style={styles.sheetSubTitleText}>{isEN ? "Tap a room to choose stake amount" : "መጠኖችን ለማየት ክፍሉን ይጫኑ"}</Text>
+              </View>
+              <TouchableOpacity onPress={onClose} style={styles.iconCircleBtn} activeOpacity={0.8}>
                 <Ionicons name="close" size={20} color="rgba(255,255,255,0.7)" />
               </TouchableOpacity>
-              <View style={styles.sheetHeader}>
-                <Text style={styles.sheetTitle}>{isEN ? "Select room" : "ክፍል ይምረጡ"}</Text>
-                <Text style={styles.sheetSubTitle}>{isEN ? "Tap a room to see amounts." : "መጠኖችን ለማየት ክፍሉን ይጫኑ"}</Text>
-              </View>
-            </>
+            </View>
           )}
-
 
           {step === "ROOMS" ? (
             <View style={styles.roomList}>
               {/* Global rooms lock banner */}
               {userCaps?.rooms_locked && (
-                <View style={{
-                  backgroundColor: 'rgba(253,111,133,0.08)',
-                  borderWidth: 1,
-                  borderColor: 'rgba(253,111,133,0.3)',
-                  borderRadius: 16,
-                  padding: 20,
-                  alignItems: 'center',
-                  marginBottom: 16,
-                  gap: 8,
-                }}>
-                  <Ionicons name="lock-closed" size={32} color="#fd6f85" />
-                  <Text style={{ color: '#fd6f85', fontWeight: '900', fontSize: 16, letterSpacing: 0.5 }}>
-                    {isEN ? 'Rooms Locked' : 'ክፍሎች ተዘግተዋል'}
+                <View style={styles.lockedBanner}>
+                  <Ionicons name="lock-closed" size={28} color="#fd6f85" />
+                  <Text style={styles.lockedTitle}>
+                    {isEN ? 'Rooms Temporarily Locked' : 'ክፍሎች ተዘግተዋል'}
                   </Text>
-                  <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, textAlign: 'center', lineHeight: 18 }}>
+                  <Text style={styles.lockedSub}>
                     {isEN
                       ? 'All game rooms are temporarily locked by the admin. Please check back later.'
                       : 'ሁሉም የጨዋታ ክፍሎች በጊዜያዊነት ተዘግተዋል። ቆይተው ይሞክሩ።'}
@@ -130,11 +128,7 @@ const RoomSheet = memo(function RoomSheet({
               )}
               {ROOMS.map((room) => {
                 const isR1 = room.id === "R1";
-                const isR2 = room.id === "R2";
-                const isR3 = room.id === "R3";
-                
                 let roomLocked = false;
-
                 const globalLocked = !!userCaps?.rooms_locked;
                 return (
                   <TouchableOpacity 
@@ -144,9 +138,9 @@ const RoomSheet = memo(function RoomSheet({
                     onPress={() => onSelectRoom(room.id)} 
                     style={[styles.roomBtn, (roomLocked || globalLocked) && { opacity: 0.4 }]}
                   >
-                    <LinearGradient colors={roomLocked || globalLocked ? ['#444', '#222'] : room.colors} start={{x:0,y:0}} end={{x:1,y:0}} style={styles.roomInner}>
+                    <LinearGradient colors={roomLocked || globalLocked ? ['#2a2a38', '#1a1a24'] : (room.colors as [string, string])} start={{x:0,y:0}} end={{x:1,y:0}} style={styles.roomInner}>
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.roomName}>{isEN ? room.titleEn : room.titleAm} {roomLocked && "(MAXED)"}{globalLocked && "🔐"}</Text>
+                        <Text style={styles.roomName}>{isEN ? room.titleEn : room.titleAm} {roomLocked && "(MAXED)"}{globalLocked && " 🔐"}</Text>
                         <Text style={styles.roomDetail}>
                           {isEN 
                             ? `ETB ${room.rangeLabel} • ${isR1 ? '20% / 10%' : `${room.cut}%`} Commission • ${room.time}s` 
@@ -154,8 +148,8 @@ const RoomSheet = memo(function RoomSheet({
                         </Text>
                       </View>
                       <View style={styles.roomAction}>
-                        <Text style={styles.viewText}>{isEN ? "View" : "ይሂዱ"}</Text>
-                        <Ionicons name="chevron-forward" size={14} color="#fff" />
+                        <Text style={styles.viewText}>{isEN ? "Choose" : "ይምረጡ"}</Text>
+                        <Ionicons name="chevron-forward" size={16} color="#fff" />
                       </View>
                     </LinearGradient>
                   </TouchableOpacity>
@@ -163,9 +157,9 @@ const RoomSheet = memo(function RoomSheet({
               })}
 
               <View style={styles.fairPlayBanner}>
-                <Ionicons name="shield-checkmark" size={16} color="#8193f8ff" />
+                <Ionicons name="shield-checkmark" size={18} color="#38bdf8" />
                 <Text style={styles.fairPlayText}>
-                  {isEN ? "Fair play is enforced. Any cheating results in a permanent ban." : "ትክክለኛ ጨዋታ ተፈጻሚ ይሆናል። ማንኛውም ማጭበርበር ለዘለቄታው እገዳ ያስከትላል።"}
+                  {isEN ? "Fair play is strictly enforced. Anti-cheat system active." : "ትክክለኛ ጨዋታ ተፈጻሚ ይሆናል።"}
                 </Text>
               </View>
             </View>
@@ -189,9 +183,22 @@ const RoomSheet = memo(function RoomSheet({
 
                   const disabled = (balance < opt.amount) || capReached;
                   const isSelected = localAmount === opt.amount;
+
+                  // Curated premium gradients
+                  const defaultGradients: Record<number, [string, string]> = {
+                    10: ['#4f46e5', '#3b82f6'],
+                    15: ['#7c3aed', '#6366f1'],
+                    25: ['#0284c7', '#06b6d4'],
+                    50: ['#0d9488', '#10b981'],
+                    100: ['#d97706', '#f59e0b'],
+                    250: ['#c026d3', '#db2777'],
+                    500: ['#e11d48', '#f43f5e'],
+                    1000: ['#4f46e5', '#9333ea'],
+                  };
+
                   const pillColors = disabled
-                    ? ['rgba(60,60,80,0.6)', 'rgba(40,40,60,0.4)'] as [string, string]
-                    : opt.colors as [string, string];
+                    ? ['rgba(40,44,68,0.6)', 'rgba(25,28,45,0.4)'] as [string, string]
+                    : (defaultGradients[opt.amount] || opt.colors) as [string, string];
 
                   const showCapBadge = currentWins !== null;
 
@@ -204,64 +211,43 @@ const RoomSheet = memo(function RoomSheet({
                         else onSelectAmount(selectedRoom, opt.min, opt.max);
                       }}
                       style={({ pressed }) => [
-                        { width: '48%', marginBottom: 16, borderRadius: 16, overflow: 'hidden', opacity: disabled ? 0.45 : 1 },
-                        pressed && !disabled ? { transform: [{ scale: 0.98 }] } : null,
-                        isSelected && { transform: [{ scale: 1.01 }] },
+                        styles.amountCardWrap,
+                        disabled && { opacity: 0.45 },
+                        pressed && !disabled ? { transform: [{ scale: 0.97 }] } : null,
+                        isSelected && styles.amountCardSelected,
                       ]}
                     >
                       <LinearGradient
                         colors={pillColors}
-                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                        style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          paddingVertical: 18,
-                          paddingHorizontal: 16,
-                          paddingBottom: showCapBadge ? 28 : 18,
-                          borderRadius: 16,
-                          borderWidth: isSelected ? 2 : 0,
-                          borderColor: isSelected ? '#fff' : 'transparent',
-                          height: '100%',
-                          position: 'relative',
-                        }}
+                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                        style={styles.amountCardInner}
                       >
                         <View style={{ flex: 1 }}>
-                          <Text style={{ color: '#fff', fontWeight: '900', fontSize: 18, letterSpacing: 0.3 }}>
+                          <Text style={styles.amountValText}>
                             ETB {opt.rangeLabel ? opt.rangeLabel : opt.amount.toLocaleString()}
                           </Text>
-                          <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 11, fontWeight: '700', marginTop: 4 }}>
+                          <Text style={styles.amountMetaText}>
                             Commission {opt.amount === 10 ? 20 : selectedRoom.cut}% • {selectedRoom.time}s
                             {capReached ? ' • LOCKED' : ''}
                           </Text>
                         </View>
-                        <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.9)" />
+
+                        <View style={styles.amountArrowCircle}>
+                          <Ionicons name="chevron-forward" size={16} color="#ffffff" />
+                        </View>
 
                         {/* Win cap progress badge */}
                         {showCapBadge && (
-                          <View style={{
-                            position: 'absolute',
-                            bottom: 6,
-                            right: 10,
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            gap: 4,
-                            backgroundColor: capReached ? 'rgba(248,113,113,0.25)' : 'rgba(255,255,255,0.12)',
-                            paddingHorizontal: 8,
-                            paddingVertical: 3,
-                            borderRadius: 8,
-                          }}>
+                          <View style={[
+                            styles.capBadge,
+                            capReached && { backgroundColor: 'rgba(239,68,68,0.3)', borderColor: '#ef4444' }
+                          ]}>
                             <Ionicons
                               name={capReached ? 'lock-closed' : 'trophy-outline'}
                               size={10}
-                              color={capReached ? '#f87171' : 'rgba(255,255,255,0.7)'}
+                              color={capReached ? '#f87171' : '#fbbf24'}
                             />
-                            <Text style={{
-                              color: capReached ? '#f87171' : 'rgba(255,255,255,0.8)',
-                              fontSize: 10,
-                              fontWeight: '900',
-                              letterSpacing: 0.3,
-                            }}>
+                            <Text style={[styles.capBadgeText, capReached && { color: '#f87171' }]}>
                               {currentWins}/{CAP_LIMIT}
                             </Text>
                           </View>
@@ -272,41 +258,45 @@ const RoomSheet = memo(function RoomSheet({
                 })}
               </View>
 
-
-              {/* Balance indicator — always shown at the bottom (matches img 5) */}
-              <View style={[styles.balanceNote, { marginTop: 16 }]}>
-                <Ionicons name="wallet-outline" size={14} color="rgba(255,255,255,0.5)" />
-                <Text style={styles.balanceNoteText}>
-                  {isEN ? `Balance: ETB ${balance.toLocaleString()}` : `ቀሪ ገንዘብ: ETB ${balance.toLocaleString()}`}
-                </Text>
+              {/* Balance Card Footer */}
+              <View style={styles.balanceContainer}>
+                <View style={styles.balanceBadge}>
+                  <Ionicons name="wallet-outline" size={16} color="#00daf3" />
+                  <Text style={styles.balanceNoteText}>
+                    {isEN ? `Available Balance:` : `ቀሪ ገንዘብ:`}
+                  </Text>
+                  <Text style={styles.balanceValText}>ETB {balance.toLocaleString()}</Text>
+                </View>
               </View>
 
               {/* Desktop: Confirm button */}
               {isDesktop && (
-                <View style={{ marginTop: 16 }}>
+                <View style={{ marginTop: 18, width: '100%' }}>
                   <TouchableOpacity
                     onPress={handleConfirmDesktop}
                     disabled={localAmount === null}
-                    activeOpacity={0.8}
+                    activeOpacity={0.85}
                   >
                     <LinearGradient
-                      colors={localAmount !== null ? ['#00daf3', '#00a3ff'] : ['rgba(255,255,255,0.05)', 'rgba(255,255,255,0.02)']}
+                      colors={localAmount !== null ? ['#00daf3', '#3b82f6'] : ['rgba(255,255,255,0.06)', 'rgba(255,255,255,0.03)']}
                       start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                       style={styles.confirmBtn}
                     >
-                      <Text style={[styles.confirmText, localAmount === null && { color: 'rgba(255,255,255,0.2)' }]}>
+                      <Text style={[styles.confirmText, localAmount === null && { color: 'rgba(255,255,255,0.3)' }]}>
                         {isEN ? "CONFIRM AMOUNT" : "መጠኑን አረጋግጥ"}
                       </Text>
+                      {localAmount !== null && <Ionicons name="arrow-forward" size={18} color="#fff" style={{ marginLeft: 8 }} />}
                     </LinearGradient>
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={onBack} style={{ marginTop: 12, alignItems: 'center' }}>
-                    <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, fontWeight: 'bold' }}>{isEN ? "BACK TO ROOMS" : "ይመለሱ"}</Text>
+
+                  <TouchableOpacity onPress={onBack} style={styles.backLinkBtn} activeOpacity={0.7}>
+                    <Ionicons name="chevron-back" size={14} color="rgba(255,255,255,0.4)" />
+                    <Text style={styles.backLinkText}>{isEN ? "BACK TO ROOMS" : "ይመለሱ"}</Text>
                   </TouchableOpacity>
                 </View>
               )}
             </>
           )}
-
         </ScrollView>
       </Animated.View>
     </View>
@@ -319,22 +309,27 @@ const styles = StyleSheet.create({
   sheetBackdrop: {
     position: 'absolute',
     top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: "rgba(10,12,24,0.6)",
+    backgroundColor: "rgba(5, 7, 18, 0.75)",
     zIndex: -1,
+  },
+  topAccentBar: {
+    height: 3,
+    width: "100%",
+    backgroundColor: "#6366f1",
   },
   desktopModal: {
     width: '92%',
-    maxWidth: 420,
-    backgroundColor: '#18181b',
-    borderRadius: 32,
-    borderWidth: 1,
-    borderColor: '#27272a',
+    maxWidth: 440,
+    backgroundColor: '#0f1222',
+    borderRadius: 28,
+    borderWidth: 1.5,
+    borderColor: 'rgba(99, 102, 241, 0.3)',
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.45,
-    shadowRadius: 40,
-    elevation: 20,
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.35,
+    shadowRadius: 32,
+    elevation: 24,
     alignSelf: 'center',
     marginBottom: 'auto',
     marginTop: 'auto',
@@ -344,138 +339,273 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 0,
     width: "100%",
-    backgroundColor: "#18181b",
-    borderTopLeftRadius: 40,
-    borderTopRightRadius: 40,
-    minHeight: 420,
-    paddingTop: 12,
+    backgroundColor: "#0f1222",
+    borderTopLeftRadius: 36,
+    borderTopRightRadius: 36,
+    minHeight: 440,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -12 },
-    shadowOpacity: 0.45,
+    shadowOpacity: 0.5,
     shadowRadius: 30,
     elevation: 24,
-    borderTopWidth: 1,
-    borderTopColor: "#27272a",
+    borderTopWidth: 1.5,
+    borderTopColor: "rgba(99, 102, 241, 0.3)",
     zIndex: 10001,
   },
-  sheetCloseBtn: {
-    position: 'absolute',
-    top: 24,
-    right: 24,
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 16,
+  },
+  iconCircleBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 20,
-  },
-  sheetHeader: {
-    paddingHorizontal: 28,
-    marginTop: 24,
-    marginBottom: 28,
   },
   sheetTitle: {
-    color: "#fff",
-    fontSize: 26,
+    color: "#ffffff",
+    fontSize: 22,
     fontWeight: "900",
-    letterSpacing: 0.4
+    letterSpacing: 0.3,
+    fontFamily: Platform.OS === 'web' ? 'Inter, sans-serif' : undefined,
   },
-  sheetSubTitle: {
-    color: "rgba(255,255,255,0.5)",
-    fontSize: 14,
+  subTitleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     marginTop: 4,
-    fontWeight: "600"
+  },
+  sheetSubTitleText: {
+    color: "rgba(255, 255, 255, 0.55)",
+    fontSize: 12,
+    fontWeight: "700",
   },
   sheetContent: {
-    paddingBottom: 100
+    paddingHorizontal: 16,
+    paddingBottom: 32,
   },
   roomList: {
-    paddingHorizontal: 24,
-    gap: 12
+    gap: 12,
+    marginTop: 8,
+  },
+  lockedBanner: {
+    backgroundColor: 'rgba(253, 111, 133, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(253, 111, 133, 0.35)',
+    borderRadius: 20,
+    padding: 20,
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 8,
+  },
+  lockedTitle: {
+    color: '#fd6f85',
+    fontWeight: '900',
+    fontSize: 15,
+    letterSpacing: 0.5,
+  },
+  lockedSub: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 18,
   },
   roomBtn: {
-    borderRadius: 18,
+    borderRadius: 20,
     overflow: "hidden",
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 8,
   },
   roomInner: {
-    paddingVertical: 22,
-    paddingHorizontal: 22,
+    paddingVertical: 20,
+    paddingHorizontal: 20,
     flexDirection: "row",
     alignItems: "center",
-    gap: 16
+    gap: 16,
   },
   roomName: {
-    color: "#fff",
+    color: "#ffffff",
     fontSize: 18,
     fontWeight: "900",
-    letterSpacing: 0.3
+    letterSpacing: 0.3,
   },
   roomDetail: {
-    color: "rgba(255,255,255,0.85)",
-    fontSize: 13,
-    marginTop: 3,
-    fontWeight: "700"
+    color: "rgba(255, 255, 255, 0.85)",
+    fontSize: 12,
+    marginTop: 4,
+    fontWeight: "700",
   },
   roomAction: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6
+    gap: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
   },
   viewText: {
-    color: "#fff",
-    fontSize: 13,
-    fontWeight: "900"
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  fairPlayBanner: {
+    marginTop: 14,
+    backgroundColor: "rgba(56, 189, 248, 0.08)",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderWidth: 1,
+    borderColor: "rgba(56, 189, 248, 0.2)",
+  },
+  fairPlayText: {
+    flex: 1,
+    color: "#38bdf8",
+    fontSize: 11,
+    fontWeight: "700",
+    lineHeight: 16,
   },
   amountGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    paddingHorizontal: 2,
+    marginTop: 8,
   },
-  fairPlayBanner: {
-    marginTop: 24,
-    backgroundColor: "rgba(129,140,248,0.08)",
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    borderWidth: 1,
-    borderColor: "rgba(129,140,248,0.15)",
-  },
-  fairPlayText: {
-    flex: 1,
-    color: "rgba(129,140,248,0.8)",
-    fontSize: 12,
-    fontWeight: "700",
-    lineHeight: 18,
-  },
-  balanceNote: {
-    marginTop: 16,
-    alignItems: 'center',
-  },
-  balanceNoteText: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  confirmBtn: {
-    height: 60,
+  amountCardWrap: {
+    width: '48%',
+    marginBottom: 14,
     borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  amountCardSelected: {
+    borderWidth: 2,
+    borderColor: '#00daf3',
+    shadowColor: '#00daf3',
+    shadowOpacity: 0.7,
+    shadowRadius: 14,
+  },
+  amountCardInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    minHeight: 82,
+    position: 'relative',
+  },
+  amountValText: {
+    color: '#ffffff',
+    fontWeight: '900',
+    fontSize: 17,
+    letterSpacing: 0.3,
+  },
+  amountMetaText: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 10,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  amountArrowCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: 24,
+  },
+  capBadge: {
+    position: 'absolute',
+    bottom: 6,
+    right: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  capBadgeText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.3,
+  },
+  balanceContainer: {
+    marginTop: 12,
+    alignItems: 'center',
+  },
+  balanceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(20, 26, 48, 0.9)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 218, 243, 0.25)',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  balanceNoteText: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  balanceValText: {
+    color: '#00daf3',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  confirmBtn: {
+    height: 54,
+    borderRadius: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#00daf3',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 8,
   },
   confirmText: {
-    color: '#fff',
+    color: '#ffffff',
     fontWeight: '900',
-    fontSize: 16,
+    fontSize: 15,
     letterSpacing: 1,
+  },
+  backLinkBtn: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: 4,
+  },
+  backLinkText: {
+    color: 'rgba(255, 255, 255, 0.45)',
+    fontSize: 12,
+    fontWeight: '800',
   },
 });

@@ -17,6 +17,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import NotificationsPopover from "../../../components/NotificationsPopover";
 import { useAudioPlayer } from "expo-audio";
 import { LinearGradient } from "expo-linear-gradient";
+import Svg, { Circle, Path, G, Text as SvgText, Defs, RadialGradient, Stop, LinearGradient as SvgLinearGradient } from "react-native-svg";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -34,6 +35,8 @@ import {
   TouchableOpacity,
   View,
   useWindowDimensions,
+  Modal,
+  ImageBackground,
 } from "react-native";
 
 import { useAuth } from "../../../context/authContext";
@@ -42,6 +45,124 @@ import { haptics } from "../../../lib/haptcs";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useBackgroundMusic } from "../../../context/BackgroundMusicProvider";
 import { useToast } from "../../../context/ToastContext";
+
+// Geometry and Svg Wheel helpers for Mobile layout
+const polarToCartesian = (cx: number, cy: number, r: number, angleInDegrees: number) => {
+  const angleInRadians = (angleInDegrees - 90) * Math.PI / 180.0;
+  return {
+    x: cx + r * Math.cos(angleInRadians),
+    y: cy + r * Math.sin(angleInRadians),
+  };
+};
+
+const getArcPath = (cx: number, cy: number, r: number, startAngle: number, endAngle: number) => {
+  const start = polarToCartesian(cx, cy, r, endAngle);
+  const end = polarToCartesian(cx, cy, r, startAngle);
+  const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
+  return [
+    "M", cx, cy,
+    "L", start.x, start.y,
+    "A", r, r, 0, largeArcFlag, 0, end.x, end.y,
+    "Z"
+  ].join(" ");
+};
+
+function SpinWheelSvg({ size, faded, mode, hidePointer }: { size: number; faded?: boolean; mode?: "5_PLAYER" | "RAIL"; hidePointer?: boolean }) {
+  const cx = size / 2;
+  const cy = size / 2;
+  const r = size * 0.40;
+
+  let sectors = [];
+  if (mode === "RAIL") {
+    sectors = [
+      { value: "15%", color: "#a855f7", angle: 54 },
+      { value: "25%", color: "#22c55e", angle: 90 },
+      { value: "10%", color: "#22d3ee", angle: 36 },
+      { value: "35%", color: "#f97316", angle: 126 },
+      { value: "15%", color: "#ef4444", angle: 54 },
+    ];
+  } else {
+    sectors = [
+      { value: "20%", color: "#a855f7", angle: 72 },
+      { value: "20%", color: "#22c55e", angle: 72 },
+      { value: "20%", color: "#22d3ee", angle: 72 },
+      { value: "20%", color: "#f97316", angle: 72 },
+      { value: "20%", color: "#ef4444", angle: 72 },
+    ];
+  }
+
+  let accumulatedAngle = 0;
+
+  return (
+    <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ opacity: faded ? 0.35 : 1 }}>
+      {!faded && (
+        <Defs>
+          <RadialGradient id="wheelGlow" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+            <Stop offset="0%" stopColor="#7c3aed" stopOpacity={0.4} />
+            <Stop offset="70%" stopColor="#7c3aed" stopOpacity={0.1} />
+            <Stop offset="100%" stopColor="#7c3aed" stopOpacity={0} />
+          </RadialGradient>
+        </Defs>
+      )}
+      {!faded && <Circle cx={cx} cy={cy} r={r * 1.35} fill="url(#wheelGlow)" />}
+      {/* Slices */}
+      <G>
+        {sectors.map((sec, idx) => {
+          const startAngle = accumulatedAngle;
+          const endAngle = accumulatedAngle + sec.angle;
+          accumulatedAngle = endAngle;
+          const textAngle = startAngle + sec.angle / 2;
+          const textPos = polarToCartesian(cx, cy, r * 0.65, textAngle);
+          return (
+            <G key={idx}>
+              <Path d={getArcPath(cx, cy, r, startAngle, endAngle)} fill={sec.color} stroke="#12172a" strokeWidth={1.5} />
+              {!faded && (
+                <SvgText
+                  x={textPos.x}
+                  y={textPos.y}
+                  fill="#ffffff"
+                  fontSize={size * 0.05}
+                  fontWeight="900"
+                  textAnchor="middle"
+                  alignmentBaseline="middle"
+                >
+                  {sec.value}
+                </SvgText>
+              )}
+            </G>
+          );
+        })}
+      </G>
+
+      {/* Gold Rim */}
+      <Circle cx={cx} cy={cy} r={r * 0.98} stroke="#f5b642" strokeWidth={size * 0.05} fill="none" />
+      <Circle cx={cx} cy={cy} r={r * 1.01} stroke="#c59b27" strokeWidth={size * 0.008} fill="none" />
+
+      {/* Rim Studs */}
+      {Array.from({ length: 16 }).map((_, idx) => {
+        const angle = idx * 22.5;
+        const pos = polarToCartesian(cx, cy, r * 0.98, angle);
+        return <Circle key={idx} cx={pos.x} cy={pos.y} r={size * 0.015} fill="#ffffff" stroke="#c59b27" strokeWidth={0.5} />;
+      })}
+
+      {/* Gold Center Pin */}
+      <Circle cx={cx} cy={cy} r={r * 0.16} fill="#f5b642" stroke="#ffe599" strokeWidth={1.5} />
+      <Circle cx={cx} cy={cy} r={r * 0.08} fill="#ffe599" />
+
+      {/* Pointer */}
+      {!faded && !hidePointer && (
+        <G transform={`rotate(180, ${cx}, ${cy - r * 1.02})`}>
+          <Path
+            d={`M ${cx} ${cy - r * 1.02} L ${cx - 10} ${cy - r * 1.14} L ${cx + 10} ${cy - r * 1.14} Z`}
+            fill="#f5b642"
+            stroke="#c59b27"
+            strokeWidth={1.2}
+          />
+        </G>
+      )}
+    </Svg>
+  );
+}
 
 // ── Extracted components (Stage 3 refactor) ──
 import { ROOMS, DEMO_BOARD, BOARD_SIZE } from "../../../components/game/gameplayConstants";
@@ -71,6 +192,24 @@ export default function Landing() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === "web" && width >= 768;
+
+  // Infinite slow rotation animation for home screen wheels
+  const idleSpinAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.timing(idleSpinAnim, {
+        toValue: 1,
+        duration: 25000, // 25 seconds for a smooth, slow rotation
+        easing: Easing.linear,
+        useNativeDriver: Platform.OS !== "web",
+      })
+    ).start();
+  }, []);
+
+  const idleSpinRotate = idleSpinAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "360deg"],
+  });
 
   // Promotion Popup & Scrolling Ticker States
   const [promoConfig, setPromoConfig] = useState<any>(null);
@@ -124,6 +263,7 @@ export default function Landing() {
   const { ensureConnected, findMatch, cancelFind, isSearching, onMessage, send } = useSocket();
   const { user, token, booting, refreshProfile, language, switchLanguage, t, showAlert, fixUrl } = useAuth();
   const { isPlaying: bgMusicPlaying, toggleMusic } = useBackgroundMusic();
+
 
   // PWA Install state
   const [deferredPrompt, setDeferredPrompt] = useState<any>(
@@ -247,6 +387,11 @@ export default function Landing() {
   const [friendModalVisible, setFriendModalVisible] = useState(false);
   const [inviteResult, setInviteResult] = useState<any>(null);
   const [rulesVisible, setRulesVisible] = useState(false);
+  const [selectedTab, setSelectedTab] = useState<"SPIN" | "XO_GAME">("SPIN");
+  const [spinMode, setSpinMode] = useState<"5_PLAYER" | "RAIL">("5_PLAYER");
+  const [showMobileStakeModal, setShowMobileStakeModal] = useState(false);
+  const [mobileStakeInput, setMobileStakeInput] = useState("50");
+  const [spinError, setSpinError] = useState<string | null>(null);
   const toast = useToast();
   const [incomingInvite, setIncomingInvite] = useState<any>(null);
 
@@ -280,6 +425,26 @@ export default function Landing() {
       useNativeDriver: Platform.OS !== 'web',
     }).start();
   }, [floatingExpanded]);
+
+  const handleMobileSpinNow = async () => {
+    setShowMobileStakeModal(true);
+  };
+
+  const handleConfirmMobileRailSpin = async (stakeVal: number) => {
+    if (isNaN(stakeVal) || stakeVal <= 0) {
+      setSpinError(isEN ? "Invalid stake amount" : "ትክክለኛ ያልሆነ መጠን");
+      return;
+    }
+    if (balance < stakeVal) {
+      setSpinError(isEN ? "Insufficient balance" : "በቂ ሂሳብ የሎትም");
+      return;
+    }
+    setShowMobileStakeModal(false);
+    router.push({
+      pathname: '/(authed)/home/spin',
+      params: { mode: "RAIL", stake: String(stakeVal) }
+    } as any);
+  };
 
   const fetchWeeklyLeaderboard = useCallback(async () => {
     if (!token) return;
@@ -901,118 +1066,89 @@ export default function Landing() {
 
   if (isLargeScreen) {
     return (
-      <DesktopLayout
-        user={user}
-        token={token}
-        balance={balance}
-        language={language}
-        isDesktop={isDesktop}
-        isTablet={isTablet}
-        isBanned={isBanned}
-        isSearching={isSearching}
-        isEN={isEN}
-        weeklyLeaderboard={weeklyLeaderboard}
-        weeklyPrizes={weeklyPrizes}
-        loadingWeekly={loadingWeekly}
-        secondsRemaining={secondsRemaining}
-        winRate={winRate}
-        rankMeta={rankMeta}
-        rawTickerList={rawTickerList}
-        roomSheetVisible={roomSheetVisible}
-        sheetStep={sheetStep}
-        selectedRoom={selectedRoom}
-        backdropOpacity={backdropOpacity}
-        sheetTranslateY={sheetTranslateY}
-        userCaps={{ r1_10_wins: (user as any)?.r1_10_wins, r1_15_wins: (user as any)?.r1_15_wins, r1_25_wins: (user as any)?.r1_25_wins, r1_50_wins: (user as any)?.r1_50_wins, r1_99_wins: (user as any)?.r1_99_wins, rooms_locked: appConfig.rooms_locked }}
-        depositVisible={depositVisible}
-        withdrawVisible={withdrawVisible}
-        friendModalVisible={friendModalVisible}
-        pwaModalVisible={pwaModalVisible}
-        showReferralModal={showReferralModal}
-        showPromo={showPromo}
-        inviteResult={inviteResult}
-        promoConfig={promoConfig}
-        setDepositVisible={setDepositVisible}
-        setWithdrawVisible={setWithdrawVisible}
-        setFriendModalVisible={setFriendModalVisible}
-        setPwaModalVisible={setPwaModalVisible}
-        setShowReferralModal={setShowReferralModal}
-        setShowPromo={setShowPromo}
-        setInviteResult={setInviteResult}
-        openRoomSheet={openRoomSheet}
-        closeRoomSheet={closeRoomSheet}
-        goBackToRooms={goBackToRooms}
-        onSelectRoom={onSelectRoom}
-        selectAmount={selectAmount}
-        refreshProfile={refreshProfile}
-        handleLanguageToggle={handleLanguageToggle}
-        handleSendInvite={handleSendInvite}
-        router={router}
-        appConfig={appConfig}
-      />
+      <View style={{ flex: 1 }}>
+        <DesktopLayout
+          selectedTab={selectedTab}
+          setSelectedTab={setSelectedTab}
+          user={user}
+          token={token}
+          balance={balance}
+          language={language}
+          isDesktop={isDesktop}
+          isTablet={isTablet}
+          isBanned={isBanned}
+          isSearching={isSearching}
+          isEN={isEN}
+          weeklyLeaderboard={weeklyLeaderboard}
+          weeklyPrizes={weeklyPrizes}
+          loadingWeekly={loadingWeekly}
+          secondsRemaining={secondsRemaining}
+          winRate={winRate}
+          rankMeta={rankMeta}
+          rawTickerList={rawTickerList}
+          roomSheetVisible={roomSheetVisible}
+          sheetStep={sheetStep}
+          selectedRoom={selectedRoom}
+          backdropOpacity={backdropOpacity}
+          sheetTranslateY={sheetTranslateY}
+          userCaps={{ r1_10_wins: (user as any)?.r1_10_wins, r1_15_wins: (user as any)?.r1_15_wins, r1_25_wins: (user as any)?.r1_25_wins, r1_50_wins: (user as any)?.r1_50_wins, r1_99_wins: (user as any)?.r1_99_wins, rooms_locked: appConfig.rooms_locked }}
+          depositVisible={depositVisible}
+          withdrawVisible={withdrawVisible}
+          friendModalVisible={friendModalVisible}
+          pwaModalVisible={pwaModalVisible}
+          showReferralModal={showReferralModal}
+          showPromo={showPromo}
+          inviteResult={inviteResult}
+          promoConfig={promoConfig}
+          setDepositVisible={setDepositVisible}
+          setWithdrawVisible={setWithdrawVisible}
+          setFriendModalVisible={setFriendModalVisible}
+          setPwaModalVisible={setPwaModalVisible}
+          setShowReferralModal={setShowReferralModal}
+          setShowPromo={setShowPromo}
+          setInviteResult={setInviteResult}
+          openRoomSheet={openRoomSheet}
+          closeRoomSheet={closeRoomSheet}
+          goBackToRooms={goBackToRooms}
+          onSelectRoom={onSelectRoom}
+          selectAmount={selectAmount}
+          refreshProfile={refreshProfile}
+          handleLanguageToggle={handleLanguageToggle}
+          handleSendInvite={handleSendInvite}
+          router={router}
+          appConfig={appConfig}
+          unreadCount={unreadCount}
+          setNotificationsVisible={setNotificationsVisible}
+          bgMusicPlaying={bgMusicPlaying}
+          onToggleSound={handleToggleSound}
+        />
+        {/* Render all shared modals here so they are active on desktop */}
+        <NotificationsPopover
+          visible={notificationsVisible}
+          onClose={() => setNotificationsVisible(false)}
+          onUnreadCountChange={setUnreadCount}
+        />
+        <IncomingInviteModal
+          invite={incomingInvite}
+          onAccept={() => handleInviteResponse(true)}
+          onDecline={() => handleInviteResponse(false)}
+        />
+        <RematchTopPopup
+          visible={!!globalRematchOffer?.visible}
+          fromName={globalRematchOffer?.fromName}
+          amount={globalRematchOffer?.amount}
+          onAccept={handleGlobalRematchAccept}
+          onDecline={handleGlobalRematchDecline}
+        />
+        {exitModalVisible && <ExitModal language={language} onCancel={cancelExit} onConfirm={confirmExit} />}
+      </View>
     );
   }
 
       // ── Mobile return ──
   return (
-    <View style={styles.bg}>
-      <LinearGradient colors={["#0A090E", "#08070B", "#060508"]} style={StyleSheet.absoluteFill} />
-
-      <View pointerEvents="none" style={[styles.blob, styles.blob1]} />
-      <View pointerEvents="none" style={[styles.blob, styles.blob2]} />
-      <View pointerEvents="none" style={[styles.blob, styles.blob3]} />
-
-      {/* Blurry illustrative Tic-Tac-Toe game board in the background */}
-      <View style={{
-        position: 'absolute',
-        top: '28%',
-        left: '-15%',
-        width: 320,
-        height: 320,
-        transform: [{ rotate: '-18deg' }, { scale: 1.25 }],
-        opacity: 0.04, // Soft, premium visibility
-        zIndex: 0,
-        ...Platform.select({
-          web: {
-            filter: "blur(1.5px)",
-          } as any,
-        }),
-      }} pointerEvents="none">
-        {/* Horizontal lines */}
-        <View style={{
-          position: 'absolute', top: 106, left: 0, right: 0, height: 2.5, backgroundColor: '#a855f7',
-          shadowColor: '#a855f7', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 6
-        }} />
-        <View style={{
-          position: 'absolute', top: 213, left: 0, right: 0, height: 2.5, backgroundColor: '#a855f7',
-          shadowColor: '#a855f7', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 6
-        }} />
-        {/* Vertical lines */}
-        <View style={{
-          position: 'absolute', left: 106, top: 0, bottom: 0, width: 2.5, backgroundColor: '#a855f7',
-          shadowColor: '#a855f7', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 6
-        }} />
-        <View style={{
-          position: 'absolute', left: 213, top: 0, bottom: 0, width: 2.5, backgroundColor: '#a855f7',
-          shadowColor: '#a855f7', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 6
-        }} />
-
-        {/* Illustrative faded board moves */}
-        <Text style={{
-          position: 'absolute', top: 15, left: 25, fontSize: 52, fontWeight: '900', color: '#8b5cf6',
-          textShadowColor: 'rgba(139, 92, 246, 0.4)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 6
-        }}>X</Text>
-        <Text style={{
-          position: 'absolute', top: 125, left: 135, fontSize: 52, fontWeight: '900', color: '#a855f7',
-          textShadowColor: 'rgba(168, 85, 247, 0.4)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 6
-        }}>O</Text>
-        <Text style={{
-          position: 'absolute', top: 235, left: 245, fontSize: 52, fontWeight: '900', color: '#8b5cf6',
-          textShadowColor: 'rgba(139, 92, 246, 0.4)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 6
-        }}>X</Text>
-      </View>
-
-      <SafeAreaView style={styles.safe} edges={['left', 'right', 'top']}>
+    <View style={{ flex: 1, backgroundColor: "#060614" }}>
+      <SafeAreaView style={{ flex: 1 }} edges={['left', 'right', 'top']}>
         <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
 
@@ -1034,7 +1170,7 @@ export default function Landing() {
           />
 
           {/* Quick Actions Grid (Mobile) */}
-          <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 6 }}>
             {/* Deposit */}
             <MobileQuickTile
               icon="arrow-down"
@@ -1061,22 +1197,377 @@ export default function Landing() {
             />
           </View>
 
-                    <WeeklyPodium
-            isEN={isEN}
-            weeklyLeaderboard={weeklyLeaderboard}
-            myWeeklyRank={myWeeklyRank}
-            isBanned={isBanned}
-            openRoomSheet={openRoomSheet}
-            setFriendModalVisible={setFriendModalVisible}
-            setRulesVisible={setRulesVisible}
-            t={t}
-          />
+          {/* Tab Selector SPIN vs XO (Mobile) */}
+          <View style={{ flexDirection: "row", backgroundColor: "#141829", borderRadius: 12, padding: 4, marginTop: 16, borderWidth: 1, borderColor: "#1e2340", alignSelf: "center", width: "100%" }}>
+            <TouchableOpacity
+              onPress={() => setSelectedTab("SPIN")}
+              style={{
+                flex: 1,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                paddingVertical: 10,
+                borderRadius: 10,
+                backgroundColor: selectedTab === "SPIN" ? "rgba(139, 92, 246, 0.15)" : "transparent",
+                borderColor: selectedTab === "SPIN" ? "#8b5cf6" : "transparent",
+                borderWidth: selectedTab === "SPIN" ? 1 : 0,
+                gap: 8,
+              }}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="aperture-outline" size={16} color={selectedTab === "SPIN" ? "#8b5cf6" : "#8b93a7"} />
+              <Text style={{ color: selectedTab === "SPIN" ? "#fff" : "#8b93a7", fontSize: 13, fontWeight: "800", letterSpacing: 0.5 }}>
+                SPIN
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setSelectedTab("XO_GAME")}
+              style={{
+                flex: 1,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                paddingVertical: 10,
+                borderRadius: 10,
+                backgroundColor: selectedTab === "XO_GAME" ? "rgba(139, 92, 246, 0.15)" : "transparent",
+                borderColor: selectedTab === "XO_GAME" ? "#8b5cf6" : "transparent",
+                borderWidth: selectedTab === "XO_GAME" ? 1 : 0,
+                gap: 8,
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={{ color: selectedTab === "XO_GAME" ? "#fff" : "#8b93a7", fontSize: 13, fontWeight: "800", letterSpacing: 0.5 }}>
+                XO
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {selectedTab === "SPIN" ? (
+            /* MOBILE SPIN SECTION */
+            <ImageBackground
+              source={require("../../../assets/images/spin-bg.jpg")}
+              style={{
+                marginTop: 16,
+                borderRadius: 24,
+                padding: 20,
+                alignItems: "center",
+                width: "100%",
+                overflow: "hidden",
+                borderWidth: 1.5,
+                borderColor: "#1f2540",
+              }}
+              imageStyle={{ borderRadius: 24, opacity: 0.85 }}
+              resizeMode="cover"
+            >
+              <View style={[StyleSheet.absoluteFillObject, { backgroundColor: "rgba(15, 10, 35, 0.65)", borderRadius: 24 }]} />
+
+              {/* Header tags row */}
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", width: "100%", marginBottom: 14 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: "rgba(34, 211, 238, 0.1)", borderRadius: 12, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: "rgba(34, 211, 238, 0.2)" }}>
+                  <Text style={{ color: "#22d3ee", fontSize: 10, fontWeight: "800", letterSpacing: 0.5 }}>
+                    SPIN TO WIN •
+                  </Text>
+                </View>
+                <View style={{ backgroundColor: "rgba(139, 92, 246, 0.1)", borderRadius: 12, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: "rgba(139, 92, 246, 0.2)", alignItems: "flex-end" }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                    <Ionicons name="people-outline" size={10} color="#a78bfa" />
+                    <Text style={{ color: "#a78bfa", fontSize: 9, fontWeight: "800" }}>
+                      {spinMode === "5_PLAYER" ? "5 Players" : "Multi-Odds"}
+                    </Text>
+                  </View>
+                  <Text style={{ color: "#fff", fontSize: 9, fontWeight: "700", marginTop: 2 }}>
+                    {spinMode === "5_PLAYER" ? "100 Birr Bet" : "Flexible Bet"}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Centered Wheel container */}
+              <View style={{ width: 260, height: 260, position: "relative", alignItems: "center", justifyContent: "center" }}>
+                {/* Rotating wheel segment - rotates only internal part */}
+                <Animated.View style={{ transform: [{ rotate: idleSpinRotate }], width: 260, height: 260 }}>
+                  <SpinWheelSvg size={260} mode={spinMode} hidePointer={true} />
+                </Animated.View>
+
+                {/* Statically positioned pointer at top center */}
+                <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center" }} pointerEvents="none">
+                  <Svg width={260} height={260} viewBox="0 0 260 260">
+                    <G transform={`rotate(180, 130, ${130 - 104 * 1.02})`}>
+                      <Path
+                        d={`M 130 ${130 - 104 * 1.02} L ${130 - 10} ${130 - 104 * 1.14} L ${130 + 10} ${130 - 104 * 1.14} Z`}
+                        fill="#f5b642"
+                        stroke="#c59b27"
+                        strokeWidth={1.2}
+                      />
+                    </G>
+                  </Svg>
+                </View>
+              </View>
+
+              {/* SPIN NOW! button (triggers Rail Spin) */}
+              <TouchableOpacity
+                onPress={handleMobileSpinNow}
+                style={{
+                  marginTop: 24,
+                  width: "100%",
+                  maxWidth: 260,
+                  borderRadius: 24,
+                  overflow: "hidden",
+                  shadowColor: "#a855f7",
+                  shadowOffset: { width: 0, height: 6 },
+                  shadowOpacity: 0.4,
+                  shadowRadius: 12,
+                  elevation: 6,
+                }}
+                activeOpacity={0.85}
+              >
+                <LinearGradient
+                  colors={["#a855f7", "#7c3aed"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={{ paddingVertical: 11, alignItems: "center", justifyContent: "center" }}
+                >
+                  <Text style={{ color: "#fff", fontSize: 15, fontWeight: "900", letterSpacing: 1 }}>
+                    SPIN NOW!
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              {/* Transparent Button with Border (opens 5-Player Spin) */}
+              <TouchableOpacity
+                onPress={() => {
+                  haptics.tap();
+                  router.push({
+                    pathname: '/(authed)/home/spin',
+                    params: { mode: "5_PLAYER" }
+                  } as any);
+                }}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 10,
+                  marginTop: 14,
+                  paddingVertical: 12,
+                  paddingHorizontal: 28,
+                  borderRadius: 26,
+                  borderWidth: 1.8,
+                  borderColor: "#8b5cf6",
+                  backgroundColor: "rgba(139, 92, 246, 0.25)",
+                  width: "100%",
+                  maxWidth: 270,
+                  shadowColor: "#8b5cf6",
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.4,
+                  shadowRadius: 8,
+                  elevation: 6,
+                }}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="people" size={16} color="#ffffff" />
+                <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "900", letterSpacing: 0.5 }}>
+                  5-PLAYER SPIN • 100 BIRR BET
+                </Text>
+              </TouchableOpacity>
+            </ImageBackground>
+          ) : (
+            /* ORIGINAL XO_GAME WEEKLY PODIUM */
+            <WeeklyPodium
+              isEN={isEN}
+              weeklyLeaderboard={weeklyLeaderboard}
+              myWeeklyRank={myWeeklyRank}
+              isBanned={isBanned}
+              openRoomSheet={openRoomSheet}
+              setFriendModalVisible={setFriendModalVisible}
+              setRulesVisible={setRulesVisible}
+              t={t}
+            />
+          )}
 
           <View style={{ height: 40 }} />
         </ScrollView>
+
+        {/* Mobile Sticky Bottom Navigation Bar */}
+        <View style={{
+          flexDirection: "row",
+          backgroundColor: "#0d0e1a",
+          borderTopWidth: 1,
+          borderTopColor: "#1e2340",
+          paddingVertical: 10,
+          paddingBottom: Platform.OS === "ios" ? 20 : 10,
+          alignItems: "center",
+          justifyContent: "space-around",
+          width: "100%",
+        }}>
+          <TouchableOpacity
+            style={{ alignItems: "center" }}
+            onPress={() => router.push('/(authed)/home/gameplay')}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="home" size={22} color="#8b5cf6" />
+            <Text style={{ color: "#8b5cf6", fontSize: 10, fontWeight: "700", marginTop: 4 }}>
+              {isEN ? "Home" : "ዋና ገጽ"}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={{ alignItems: "center" }}
+            onPress={() => router.push('/(authed)/home/history')}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="time-outline" size={22} color="#8b93a7" />
+            <Text style={{ color: "#8b93a7", fontSize: 10, fontWeight: "700", marginTop: 4 }}>
+              {isEN ? "History" : "ታሪክ"}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={{ alignItems: "center" }}
+            onPress={() => router.push('/(authed)/home/leaderboard')}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="trophy-outline" size={22} color="#8b93a7" />
+            <Text style={{ color: "#8b93a7", fontSize: 10, fontWeight: "700", marginTop: 4 }}>
+              {isEN ? "Leaderboard" : "ደረጃዎች"}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={{ alignItems: "center" }}
+            onPress={() => router.push('/(authed)/home/account')}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="person-outline" size={22} color="#8b93a7" />
+            <Text style={{ color: "#8b93a7", fontSize: 10, fontWeight: "700", marginTop: 4 }}>
+              {isEN ? "Profile" : "መለያ"}
+            </Text>
+          </TouchableOpacity>
+        </View>
         {!!user?.username && <WelcomeTermsPopup visible={termsVisible} onAgree={handleAgreeTerms} language={language} />}
+        <ProfileEditModal
+          visible={!user?.username && !booting}
+          onClose={() => {}}
+          initialUsername={user?.username}
+          initialDisplayName={(user as any)?.display_name}
+          initialAvatar={(user as any)?.avatar}
+          onSaved={refreshProfile}
+          language={language}
+        />
         <BonusLogsModal visible={bonusModalVisible} onClose={() => setBonusModalVisible(false)} language={language} />
         <RulesModal visible={rulesVisible} onClose={() => setRulesVisible(false)} language={language} />
+
+        {/* Mobile Rail Spin Stake Selector Modal */}
+        <Modal visible={showMobileStakeModal} transparent animationType="slide">
+          <View style={{
+            flex: 1,
+            justifyContent: "flex-end",
+            backgroundColor: "rgba(6, 9, 22, 0.75)"
+          }}>
+            <View style={{
+              backgroundColor: "#0d0e1a",
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              borderWidth: 1,
+              borderColor: "#1e2340",
+              padding: 24,
+              paddingBottom: Platform.OS === "ios" ? 40 : 24,
+            }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+                <Text style={{ color: "#fff", fontSize: 18, fontWeight: "900", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" }}>
+                  {isEN ? "CHOOSE YOUR WAGER" : "የእንጨት መጠን ይምረጡ"}
+                </Text>
+                <TouchableOpacity onPress={() => setShowMobileStakeModal(false)}>
+                  <Ionicons name="close" size={24} color="#8b93a7" />
+                </TouchableOpacity>
+              </View>
+
+              {spinError && (
+                <Text style={{ color: "#ef4444", fontSize: 13, fontWeight: "700", textAlign: "center", marginBottom: 12 }}>
+                  {spinError}
+                </Text>
+              )}
+
+              {/* Current Balance */}
+              <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 16 }}>
+                <Text style={{ color: "#8b93a7", fontSize: 12, fontWeight: "700", fontFamily: "Inter, sans-serif" }}>
+                  {isEN ? "AVAILABLE BALANCE:" : "ያለዎት ቀሪ ሂሳብ:"}
+                </Text>
+                <Text style={{ color: "#22d3ee", fontSize: 13, fontWeight: "900", fontFamily: "Inter, sans-serif" }}>
+                  ETB {balance.toLocaleString()}
+                </Text>
+              </View>
+
+              {/* Stepper +/- */}
+              <View style={{
+                flexDirection: "row",
+                alignItems: "center",
+                backgroundColor: "#141829",
+                borderRadius: 12,
+                padding: 4,
+                marginBottom: 16,
+                borderWidth: 1,
+                borderColor: "#1e2340"
+              }}>
+                <TouchableOpacity
+                  onPress={() => setMobileStakeInput(prev => String(Math.max(10, Number(prev) - 10)))}
+                  style={{ width: 44, height: 44, backgroundColor: "#1e2340", borderRadius: 10, alignItems: "center", justifyContent: "center" }}
+                >
+                  <Ionicons name="remove" size={20} color="#fff" />
+                </TouchableOpacity>
+                
+                <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+                  <Text style={{ color: "#fff", fontSize: 18, fontWeight: "900", fontFamily: "Inter, sans-serif" }}>{mobileStakeInput} ETB</Text>
+                </View>
+
+                <TouchableOpacity
+                  onPress={() => setMobileStakeInput(prev => String(Number(prev) + 10))}
+                  style={{ width: 44, height: 44, backgroundColor: "#1e2340", borderRadius: 10, alignItems: "center", justifyContent: "center" }}
+                >
+                  <Ionicons name="add" size={20} color="#fff" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Presets */}
+              <View style={{ flexDirection: "row", gap: 8, marginBottom: 20 }}>
+                {[10, 50, 100, 500].map(val => (
+                  <TouchableOpacity
+                    key={val}
+                    onPress={() => setMobileStakeInput(String(val))}
+                    style={{
+                      flex: 1,
+                      paddingVertical: 10,
+                      backgroundColor: "#141829",
+                      borderRadius: 10,
+                      borderWidth: 1,
+                      borderColor: mobileStakeInput === String(val) ? "#22d3ee" : "#1e2340",
+                      alignItems: "center"
+                    }}
+                  >
+                    <Text style={{ color: mobileStakeInput === String(val) ? "#22d3ee" : "#8b93a7", fontSize: 12, fontWeight: "800", fontFamily: "Inter, sans-serif" }}>
+                      {val}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Confirm button */}
+              <TouchableOpacity
+                onPress={() => handleConfirmMobileRailSpin(Number(mobileStakeInput))}
+                style={{
+                  backgroundColor: "#22d3ee",
+                  borderRadius: 14,
+                  paddingVertical: 14,
+                  alignItems: "center",
+                  justifyContent: "center"
+                }}
+              >
+                <Text style={{ color: "#0d0e1a", fontSize: 14, fontWeight: "900", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" }}>
+                  {isEN ? "CONFIRM & JOIN" : "አረጋግጥ እና ጀምር"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
 
         {Platform.OS === 'web' && (
           <>

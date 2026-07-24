@@ -45,7 +45,7 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https: http://localhost:9001 http://localhost:3000; font-src 'self' https://fonts.gstatic.com https://fonts.googleapis.com; connect-src 'self' https://xoethiopia.com wss://xoethiopia.com https://*.xoethiopia.com wss://*.xoethiopia.com https://xogpt-production.up.railway.app wss://xogpt-production.up.railway.app https://*.sentry.io; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests;"
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https: http://localhost:9001 http://localhost:3000; font-src 'self' https://fonts.gstatic.com https://fonts.googleapis.com; connect-src 'self' https://xoethiopia.com wss://xoethiopia.com https://*.xoethiopia.com wss://*.xoethiopia.com https://xogpt-production.up.railway.app wss://xogpt-production.up.railway.app https://*.vercel.app wss://*.vercel.app https://*.sentry.io; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests;"
         },
         {
           "key": "Strict-Transport-Security",
@@ -95,10 +95,16 @@
       ]
     }
   ],
+  "buildCommand": "npx expo export --platform web",
+  "outputDirectory": "dist",
   "rewrites": [
     {
       "source": "/_expo/static/js/(.*).map",
       "destination": "/404"
+    },
+    {
+      "source": "/((?!_expo|assets|favicon.ico|manifest.json|serve-json.json).*)",
+      "destination": "/index.html"
     }
   ]
 }

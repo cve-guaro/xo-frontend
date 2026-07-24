@@ -171,13 +171,16 @@ export default function FinancialDashboard() {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           {/* Game Filter */}
           <View style={st.tfSelector}>
-            {(['all', 'xo', 'spin'] as const).map(gf => (
+            {(['all', 'xo'] as const).map(gf => (
               <TouchableOpacity key={gf} style={[st.tfOpt, gameFilter === gf && { backgroundColor: C.secondary }]} onPress={() => setGameFilter(gf)}>
                 <Text style={[st.tfText, gameFilter === gf && { color: '#0a0f1c', fontWeight: '900' as any }]}>
-                  {gf === 'all' ? 'ALL' : gf === 'xo' ? 'XO' : 'SPIN'}
+                  {gf === 'all' ? 'ALL GAMES' : 'XO GAME'}
                 </Text>
               </TouchableOpacity>
             ))}
+            <View style={[st.tfOpt, { opacity: 0.4 }]}>
+              <Text style={[st.tfText, { fontStyle: 'italic' }]}>SPIN (Soon)</Text>
+            </View>
           </View>
 
           {/* Time Range Selector */}

@@ -1,6 +1,7 @@
 // context/authContext.tsx
 import * as SecureStore from "expo-secure-store";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useAudioPlayer } from "expo-audio";
 // Remove expo-av import completely as audio stubs exist below
 import { Platform, Alert, Modal, View, Text, TouchableOpacity, StyleSheet, Pressable, Linking } from "react-native";
 import { CheckmarkCircleIcon, AlertCircleIcon } from "../components/SvgIcons";
@@ -637,10 +638,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshingRef = useRef<Promise<void> | null>(null);
   const methodsFetchingRef = useRef<Promise<PaymentMethod[]> | null>(null);
 
-  // Sound effects refs removed for expo-audio migration; stubs maintained to prevent breaking Context dependents.
-  const playSuccessSound = async () => { /* stubs for future implementation */ };
-  const playErrorSound = async () => { /* stubs for future implementation */ };
-  const playClickSound = async () => { /* stubs for future implementation */ };
+  // Sound effects players and methods using expo-audio
+  const clickPlayer = useAudioPlayer(require("../assets/sounds/click.wav"));
+  const winPlayer = useAudioPlayer(require("../assets/sounds/win.mp3"));
+  const losePlayer = useAudioPlayer(require("../assets/sounds/lose.wav"));
+
+  const playSuccessSound = async () => {
+    if ((!user || !user.sound_muted) && clickPlayer) {
+      try {
+        clickPlayer.play();
+      } catch (e) {
+        console.warn("Success sound play error:", e);
+      }
+    }
+  };
+  const playErrorSound = async () => {
+    if ((!user || !user.sound_muted) && losePlayer) {
+      try {
+        losePlayer.play();
+      } catch (e) {
+        console.warn("Error sound play error:", e);
+      }
+    }
+  };
+  const playClickSound = async () => {
+    if ((!user || !user.sound_muted) && clickPlayer) {
+      try {
+        clickPlayer.play();
+      } catch (e) {
+        console.warn("Click sound play error:", e);
+      }
+    }
+  };
 
   // Load saved language on boot
   useEffect(() => {
@@ -1429,8 +1458,37 @@ export const GlobalUIComponents = () => {
   );
 };
 
-export const useAuth = () => {
+export const useAuth = (): Ctx => {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
+  if (!ctx) {
+    console.warn("[useAuth] Warning: useAuth called outside AuthProvider. Using fallback.");
+    return {
+      token: null,
+      user: null,
+      booting: false,
+      retrying: false,
+      loginWithPhone: async () => {},
+      verifyPhoneOtp: async () => ({ ok: false }),
+      loginWithTelegramData: async () => ({ ok: false }),
+      logout: async () => {},
+      refreshProfile: async () => {},
+      setSoundMuted: async () => {},
+      requestOtp: async () => ({ ok: false }),
+      verifyOtp: async () => ({ ok: false }),
+      updateAvatar: async () => ({ ok: false }),
+      updateUsername: async () => ({ ok: false }),
+      requestWithdraw: async () => ({ ok: false }),
+      showAlert: () => {},
+      closeAlert: () => {},
+      playSuccessSound: async () => {},
+      playErrorSound: async () => {},
+      playClickSound: async () => {},
+      language: "en",
+      setLanguage: () => {},
+      t: (key: string) => key,
+      switchLanguage: () => {},
+      fixUrl: (url?: string | null) => url || null,
+    } as any;
+  }
   return ctx;
 };

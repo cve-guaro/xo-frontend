@@ -5,6 +5,37 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '../../../context/authContext';
 import { API_URL } from '../../../config';
 import { AdminTheme as C } from './_layout';
+import Svg, { Path } from 'react-native-svg';
+
+function Sparkline({ data, width = 80, height = 30, color = '#7551FF' }: { data: number[]; width?: number; height?: number; color?: string }) {
+  if (!data || data.length < 2) return null;
+  const max = Math.max(...data);
+  const min = Math.min(...data);
+  const range = max - min === 0 ? 1 : max - min;
+  
+  const points = data.map((val, idx) => {
+    const x = (idx / (data.length - 1)) * width;
+    const y = height - ((val - min) / range) * height;
+    return `${x},${y}`;
+  });
+  
+  const pathD = `M ${points.map((p, i) => `${i === 0 ? '' : 'L '}${p.replace(',', ' ')}`).join(' ')}`;
+  
+  return (
+    <View style={{ width, height, opacity: 0.85 }}>
+      <Svg width={width} height={height}>
+        <Path
+          d={pathD}
+          fill="none"
+          stroke={color}
+          strokeWidth={2.5}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </Svg>
+    </View>
+  );
+}
 
 let PrimeChart: any = null;
 if (Platform.OS === 'web') {
@@ -211,7 +242,7 @@ export default function AdminOverview() {
     if (!d.graphData?.length) return;
     setChartData({
       labels: d.graphData.map((i: any) => i.date),
-      datasets: [{ label: 'Wallet Net Position (ETB)', fill: true, backgroundColor: 'rgba(0,163,255,0.08)', borderColor: '#00A3FF', tension: 0.4, borderWidth: 2, pointRadius: 3, pointBackgroundColor: '#00A3FF', data: d.graphData.map((i: any) => i.profit) }]
+      datasets: [{ label: 'Wallet Net Position (ETB)', fill: true, backgroundColor: 'rgba(117, 81, 255, 0.08)', borderColor: '#7551FF', tension: 0.4, borderWidth: 2, pointRadius: 3, pointBackgroundColor: '#7551FF', data: d.graphData.map((i: any) => i.profit) }]
     });
     setChartOptions({ maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#475569', font: { size: 10 } }, grid: { display: false } }, y: { ticks: { color: '#475569', font: { size: 10 }, callback: (v: number) => fmtK(v) }, grid: { color: 'rgba(255,255,255,0.04)' } } } });
   }, [d.graphData]);
@@ -312,35 +343,75 @@ export default function AdminOverview() {
         </View>
       </View>
 
-      {/* ═══ Top Metric Cards (compact) ═══ */}
+      {/* ═══ Top Metric Cards (responsive flex wrap) ═══ */}
       <View style={[st.topGrid, isMobile && { flexDirection: 'column' }]}>
-        <View style={st.metricCard}>
-          <Text style={st.metricLabel}>TOTAL VOLUME (ETB)</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
-            <ACount value={d.volume24h} style={st.metricValue} />
+        <View style={[st.metricCard, !isMobile && width < 1280 && { flexBasis: '47%' }]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+              <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(117, 81, 255, 0.1)', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="wallet" size={20} color="#7551FF" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={st.metricLabel} numberOfLines={2}>TOTAL VOLUME (ETB)</Text>
+                <ACount value={d.volume24h} style={st.metricValue} />
+              </View>
+            </View>
+            {!isMobile && width >= 1280 && <Sparkline data={[10, 15, 8, 12, 20, 16, 25]} color="#7551FF" width={70} height={30} />}
           </View>
         </View>
-        <View style={st.metricCard}>
-          <Text style={st.metricLabel}>DEPOSITS vs WITHDRAWALS</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
-            <Text style={[st.metricValue, { color: '#34d399' }]}>{fmtK(d.depositsToday)}</Text>
-            <Text style={{ color: '#475569', fontSize: 14, fontWeight: '700' }}>/</Text>
-            <Text style={[st.metricValue, { color: '#f87171', fontSize: 20 }]}>{fmtK(d.withdrawalsToday)}</Text>
-            <Text style={{ color: '#475569', fontSize: 10, fontWeight: '700', marginLeft: 4 }}>ETB (Today)</Text>
+
+        <View style={[st.metricCard, !isMobile && width < 1280 && { flexBasis: '47%' }]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+              <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(106, 210, 255, 0.1)', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="swap-horizontal" size={20} color="#6AD2FF" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={st.metricLabel} numberOfLines={2}>DEPOSITS vs WITHDRAWALS</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
+                  <Text style={[st.metricValue, { color: '#34d399', fontSize: 18 }]}>{fmtK(d.depositsToday)}</Text>
+                  <Text style={{ color: '#475569', fontSize: 12, fontWeight: '700' }}>/</Text>
+                  <Text style={[st.metricValue, { color: '#f87171', fontSize: 14 }]}>{fmtK(d.withdrawalsToday)}</Text>
+                </View>
+              </View>
+            </View>
+            {!isMobile && width >= 1280 && <Sparkline data={[12, 10, 20, 18, 15, 25, 20, 30]} color="#6AD2FF" width={70} height={30} />}
           </View>
         </View>
-        <View style={st.metricCard}>
-          <Text style={st.metricLabel}>ACTIVE MATCHES</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
-            <ACount value={d.activeMatches} style={st.metricValue} />
-            <View style={[st.trendBadge, { backgroundColor: 'rgba(167,139,250,0.1)', borderColor: 'rgba(167,139,250,0.2)' }]}><Text style={[st.trendText, { color: '#a78bfa' }]}>{d.onlineUsers} Online</Text></View>
+
+        <View style={[st.metricCard, !isMobile && width < 1280 && { flexBasis: '47%' }]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+              <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(34, 197, 94, 0.1)', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="game-controller" size={20} color="#22c55e" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={st.metricLabel} numberOfLines={2}>ACTIVE MATCHES</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <ACount value={d.activeMatches} style={st.metricValue} />
+                  <View style={[st.trendBadge, { backgroundColor: 'rgba(167,139,250,0.1)', borderColor: 'rgba(167,139,250,0.2)', paddingHorizontal: 6, paddingVertical: 1 }]}><Text style={[st.trendText, { color: '#a78bfa', fontSize: 8 }]}>{d.onlineUsers} Online</Text></View>
+                </View>
+              </View>
+            </View>
+            {!isMobile && width >= 1280 && <Sparkline data={[5, 8, 6, 10, 8, 12, 10, 15]} color="#22c55e" width={70} height={30} />}
           </View>
         </View>
-        <View style={st.metricCard}>
-          <Text style={st.metricLabel}>GROSS GAMING REVENUE</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
-            <ACount value={d.ggr} prefix="" style={[st.metricValue, { color: '#34d399' }]} />
-            <Text style={{ color: '#475569', fontSize: 11, fontWeight: '700' }}>ETB</Text>
+
+        <View style={[st.metricCard, !isMobile && width < 1280 && { flexBasis: '47%' }]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+              <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(234, 179, 8, 0.1)', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="cash" size={20} color="#eab308" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={st.metricLabel} numberOfLines={2}>GROSS GAMING REVENUE</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
+                  <ACount value={d.ggr} prefix="" style={[st.metricValue, { color: '#34d399' }]} />
+                  <Text style={{ color: '#475569', fontSize: 9, fontWeight: '700' }}>ETB</Text>
+                </View>
+              </View>
+            </View>
+            {!isMobile && width >= 1280 && <Sparkline data={[10, 12, 15, 18, 22, 28, 35]} color="#eab308" width={70} height={30} />}
           </View>
         </View>
       </View>
@@ -356,15 +427,15 @@ export default function AdminOverview() {
             </View>
             <View style={st.tfSelector}>
               {(['day', 'week', 'month'] as const).map(tf => (
-                <TouchableOpacity key={tf} style={[st.tfOpt, timeframe === tf && { backgroundColor: '#00A3FF' }]} onPress={() => setTimeframe(tf)}>
-                  <Text style={[st.tfText, timeframe === tf && { color: '#0a0f1c', fontWeight: '900' }]}>{tf === 'day' ? '24H' : tf === 'week' ? '7D' : '30D'}</Text>
+                <TouchableOpacity key={tf} style={[st.tfOpt, timeframe === tf && { backgroundColor: C.primary }]} onPress={() => setTimeframe(tf)}>
+                  <Text style={[st.tfText, timeframe === tf && { color: '#ffffff', fontWeight: '700' }]}>{tf === 'day' ? '24H' : tf === 'week' ? '7D' : '30D'}</Text>
                 </TouchableOpacity>
               ))}
             </View>
           </View>
           <View style={{ height: 240 }}>
             {isMounted && Platform.OS === 'web' && PrimeChart && Object.keys(chartData).length > 0 ? (
-              <React.Suspense fallback={<View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator size="small" color="#00daf3" /></View>}>
+              <React.Suspense fallback={<View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator size="small" color={C.primary} /></View>}>
                 <PrimeChart type="line" data={chartData} options={chartOptions} style={{ height: '100%' }} />
               </React.Suspense>
             ) : (
@@ -388,7 +459,7 @@ export default function AdminOverview() {
           </View>
           <View style={{ height: 180 }}>
             {isMounted && Platform.OS === 'web' && PrimeChart && Object.keys(userChartData).length > 0 ? (
-              <React.Suspense fallback={<View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator size="small" color="#00daf3" /></View>}>
+              <React.Suspense fallback={<View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator size="small" color={C.primary} /></View>}>
                 <PrimeChart type="bar" data={userChartData} options={userChartOptions} style={{ height: '100%' }} />
               </React.Suspense>
             ) : (
@@ -406,66 +477,147 @@ export default function AdminOverview() {
             onPress={() => router.push('/admin/controls?activeTab=live_queue' as any)}
             style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
           >
-            <Text style={{ color: '#00daf3', fontSize: 11, fontWeight: '800' }}>See More</Text>
-            <Ionicons name="arrow-forward" size={12} color="#00daf3" />
+            <Text style={{ color: C.primary, fontSize: 11, fontWeight: '700' }}>See More</Text>
+            <Ionicons name="arrow-forward" size={12} color={C.primary} />
           </TouchableOpacity>
         </View>
         
-        <View style={{ gap: 12, flexDirection: isMobile ? 'column' : 'row' }}>
+        <View style={{ gap: 16, flexDirection: isMobile ? 'column' : 'row' }}>
           {/* Room 1 */}
-          <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.02)', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#8b5cf6' }} />
-              <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>Room 1 - Beginner</Text>
+          <View style={{ flex: 1, backgroundColor: C.surfaceContainerLowest, padding: 18, borderRadius: 16, borderWidth: 1, borderColor: C.outlineVariant }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#8b5cf6' }} />
+                <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>Room 1 - Beginner</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#10b981' }} />
+                <Text style={{ color: '#10b981', fontSize: 9, fontWeight: '800', letterSpacing: 0.5 }}>LIVE</Text>
+              </View>
             </View>
-            <Text style={{ color: '#64748b', fontSize: 11, marginBottom: 12 }}>10 - 100 ETB</Text>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <Text style={{ color: C.onSurfaceVariant, fontSize: 11, marginBottom: 16 }}>10 - 100 ETB</Text>
+            
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
               <View>
-                <Text style={{ color: '#00e5ff', fontSize: 16, fontWeight: '900' }}>{r1Totals.searching}</Text>
-                <Text style={{ color: '#475569', fontSize: 10, fontWeight: '700', marginTop: 2 }}>SEARCHING</Text>
+                <Text style={{ color: C.secondary, fontSize: 18, fontWeight: '700' }}>{r1Totals.searching}</Text>
+                <Text style={{ color: C.onSurfaceVariant, fontSize: 9, fontWeight: '700', marginTop: 2, textTransform: 'uppercase' }}>Searching</Text>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
-                <Text style={{ color: '#a78bfa', fontSize: 16, fontWeight: '900' }}>{r1Totals.liveMatches}</Text>
-                <Text style={{ color: '#475569', fontSize: 10, fontWeight: '700', marginTop: 2 }}>LIVE MATCHES</Text>
+                <Text style={{ color: '#a78bfa', fontSize: 18, fontWeight: '700' }}>{r1Totals.liveMatches}</Text>
+                <Text style={{ color: C.onSurfaceVariant, fontSize: 9, fontWeight: '700', marginTop: 2, textTransform: 'uppercase' }}>Live Matches</Text>
               </View>
+            </View>
+
+            {/* Horizontal Progress Bar */}
+            <View style={{ height: 6, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 3, width: '100%', marginBottom: 14, overflow: 'hidden' }}>
+              <View style={{ height: '100%', backgroundColor: '#8b5cf6', borderRadius: 3, width: `${Math.min(100, Math.max(8, (r1Totals.searching / 50) * 100))}%` }} />
+            </View>
+
+            {/* Bottom Row: player count & button */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Ionicons name="people-outline" size={14} color={C.onSurfaceVariant} />
+                <Text style={{ color: C.onSurfaceVariant, fontSize: 11, fontWeight: '700' }}>{r1Totals.searching}/50 PLAYERS</Text>
+              </View>
+              <TouchableOpacity 
+                activeOpacity={0.7} 
+                onPress={() => router.push('/admin/controls?activeTab=live_queue' as any)}
+                style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#8b5cf6' }}
+              >
+                <Text style={{ color: '#8b5cf6', fontSize: 9, fontWeight: '800' }}>VIEW ROOM</Text>
+              </TouchableOpacity>
             </View>
           </View>
 
           {/* Room 2 */}
-          <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.02)', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#3b82f6' }} />
-              <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>Room 2 - Intermediate</Text>
+          <View style={{ flex: 1, backgroundColor: C.surfaceContainerLowest, padding: 18, borderRadius: 16, borderWidth: 1, borderColor: C.outlineVariant }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#3b82f6' }} />
+                <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>Room 2 - Intermediate</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#10b981' }} />
+                <Text style={{ color: '#10b981', fontSize: 9, fontWeight: '800', letterSpacing: 0.5 }}>LIVE</Text>
+              </View>
             </View>
-            <Text style={{ color: '#64748b', fontSize: 11, marginBottom: 12 }}>100 - 1000 ETB</Text>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <Text style={{ color: C.onSurfaceVariant, fontSize: 11, marginBottom: 16 }}>100 - 1000 ETB</Text>
+            
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
               <View>
-                <Text style={{ color: '#00e5ff', fontSize: 16, fontWeight: '900' }}>{r2Totals.searching}</Text>
-                <Text style={{ color: '#475569', fontSize: 10, fontWeight: '700', marginTop: 2 }}>SEARCHING</Text>
+                <Text style={{ color: C.secondary, fontSize: 18, fontWeight: '700' }}>{r2Totals.searching}</Text>
+                <Text style={{ color: C.onSurfaceVariant, fontSize: 9, fontWeight: '700', marginTop: 2, textTransform: 'uppercase' }}>Searching</Text>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
-                <Text style={{ color: '#a78bfa', fontSize: 16, fontWeight: '900' }}>{r2Totals.liveMatches}</Text>
-                <Text style={{ color: '#475569', fontSize: 10, fontWeight: '700', marginTop: 2 }}>LIVE MATCHES</Text>
+                <Text style={{ color: '#a78bfa', fontSize: 18, fontWeight: '700' }}>{r2Totals.liveMatches}</Text>
+                <Text style={{ color: C.onSurfaceVariant, fontSize: 9, fontWeight: '700', marginTop: 2, textTransform: 'uppercase' }}>Live Matches</Text>
               </View>
+            </View>
+
+            {/* Horizontal Progress Bar */}
+            <View style={{ height: 6, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 3, width: '100%', marginBottom: 14, overflow: 'hidden' }}>
+              <View style={{ height: '100%', backgroundColor: '#3b82f6', borderRadius: 3, width: `${Math.min(100, Math.max(8, (r2Totals.searching / 50) * 100))}%` }} />
+            </View>
+
+            {/* Bottom Row: player count & button */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Ionicons name="people-outline" size={14} color={C.onSurfaceVariant} />
+                <Text style={{ color: C.onSurfaceVariant, fontSize: 11, fontWeight: '700' }}>{r2Totals.searching}/50 PLAYERS</Text>
+              </View>
+              <TouchableOpacity 
+                activeOpacity={0.7} 
+                onPress={() => router.push('/admin/controls?activeTab=live_queue' as any)}
+                style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#3b82f6' }}
+              >
+                <Text style={{ color: '#3b82f6', fontSize: 9, fontWeight: '800' }}>VIEW ROOM</Text>
+              </TouchableOpacity>
             </View>
           </View>
 
           {/* Room 3 */}
-          <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.02)', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#06b6d4' }} />
-              <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>Room 3 - Advanced</Text>
+          <View style={{ flex: 1, backgroundColor: C.surfaceContainerLowest, padding: 18, borderRadius: 16, borderWidth: 1, borderColor: C.outlineVariant }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#06b6d4' }} />
+                <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>Room 3 - Advanced</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#10b981' }} />
+                <Text style={{ color: '#10b981', fontSize: 9, fontWeight: '800', letterSpacing: 0.5 }}>LIVE</Text>
+              </View>
             </View>
-            <Text style={{ color: '#64748b', fontSize: 11, marginBottom: 12 }}>1000 - 10000 ETB</Text>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <Text style={{ color: C.onSurfaceVariant, fontSize: 11, marginBottom: 16 }}>1000 - 10000 ETB</Text>
+            
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
               <View>
-                <Text style={{ color: '#00e5ff', fontSize: 16, fontWeight: '900' }}>{r3Totals.searching}</Text>
-                <Text style={{ color: '#475569', fontSize: 10, fontWeight: '700', marginTop: 2 }}>SEARCHING</Text>
+                <Text style={{ color: C.secondary, fontSize: 18, fontWeight: '700' }}>{r3Totals.searching}</Text>
+                <Text style={{ color: C.onSurfaceVariant, fontSize: 9, fontWeight: '700', marginTop: 2, textTransform: 'uppercase' }}>Searching</Text>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
-                <Text style={{ color: '#a78bfa', fontSize: 16, fontWeight: '900' }}>{r3Totals.liveMatches}</Text>
-                <Text style={{ color: '#475569', fontSize: 10, fontWeight: '700', marginTop: 2 }}>LIVE MATCHES</Text>
+                <Text style={{ color: '#a78bfa', fontSize: 18, fontWeight: '700' }}>{r3Totals.liveMatches}</Text>
+                <Text style={{ color: C.onSurfaceVariant, fontSize: 9, fontWeight: '700', marginTop: 2, textTransform: 'uppercase' }}>Live Matches</Text>
               </View>
+            </View>
+
+            {/* Horizontal Progress Bar */}
+            <View style={{ height: 6, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 3, width: '100%', marginBottom: 14, overflow: 'hidden' }}>
+              <View style={{ height: '100%', backgroundColor: '#06b6d4', borderRadius: 3, width: `${Math.min(100, Math.max(8, (r3Totals.searching / 50) * 100))}%` }} />
+            </View>
+
+            {/* Bottom Row: player count & button */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Ionicons name="people-outline" size={14} color={C.onSurfaceVariant} />
+                <Text style={{ color: C.onSurfaceVariant, fontSize: 11, fontWeight: '700' }}>{r3Totals.searching}/50 PLAYERS</Text>
+              </View>
+              <TouchableOpacity 
+                activeOpacity={0.7} 
+                onPress={() => router.push('/admin/controls?activeTab=live_queue' as any)}
+                style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#06b6d4' }}
+              >
+                <Text style={{ color: '#06b6d4', fontSize: 9, fontWeight: '800' }}>VIEW ROOM</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -478,14 +630,19 @@ export default function AdminOverview() {
           <Text style={st.panelTitle}>RECENT TRANSACTIONS</Text>
           <View style={{ gap: 8 }}>
             {txs.slice(0, 5).map((tx: any, i: number) => {
-              const isDep = tx.type === 'DEPOSIT' || String(tx.type).toLowerCase() === 'deposit';
-              const isSucc = tx.status === 'COMPLETED' || tx.status === 'success';
+              const typeUpper = String(tx.type || '').toUpperCase();
+              const isCredit = ['DEPOSIT', 'GIFT', 'BONUS', 'WELCOME_BONUS', 'PROMO', 'GIVEAWAY', 'REFERRAL', 'REFERRAL_BONUS', 'REFUND', 'WIN', 'ADMIN_CREDIT'].includes(typeUpper);
+              const isSucc = tx.status === 'COMPLETED' || tx.status === 'success' || tx.status === 'SUCCESS';
               const statusColor = isSucc ? '#34d399' : (String(tx.status).toUpperCase() === 'PENDING' ? '#f59e0b' : '#64748b');
+              
+              const badgeBg = (isCredit && isSucc) ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)';
+              const badgeIconColor = (isCredit && isSucc) ? '#22c55e' : '#ef4444';
+
               return (
                 <View key={i} style={st.txRow}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-                    <View style={[st.txIcon, { backgroundColor: isDep ? 'rgba(52,211,153,0.1)' : 'rgba(248,113,113,0.1)' }]}>
-                      <Ionicons name={isDep ? 'arrow-down' : 'arrow-up'} color={isDep ? '#34d399' : '#f87171'} size={14} />
+                    <View style={[st.txIcon, { backgroundColor: badgeBg, borderRadius: 16 }]}>
+                      <Ionicons name={isCredit ? 'arrow-down' : 'arrow-up'} color={badgeIconColor} size={14} />
                     </View>
                     <View>
                       <Text style={{ color: '#e2e8f0', fontSize: 12, fontWeight: '700' }}>{tx.username || 'User'}</Text>
@@ -493,7 +650,7 @@ export default function AdminOverview() {
                     </View>
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={{ color: isDep ? '#34d399' : '#e2e8f0', fontSize: 12, fontWeight: '800' }}>{isDep ? '+' : '-'}{fmt(tx.amount)}</Text>
+                    <Text style={{ color: isCredit ? '#34d399' : '#ef4444', fontSize: 12, fontWeight: '800' }}>{isCredit ? '+' : '-'}{fmt(tx.amount)}</Text>
                     <View style={[st.statusPill, { borderColor: statusColor + '40' }]}><Text style={{ color: statusColor, fontSize: 7, fontWeight: '800' }}>{tx.status}</Text></View>
                   </View>
                 </View>
@@ -551,20 +708,20 @@ export default function AdminOverview() {
                       <Ionicons name="person" color="#34d399" size={14} />
                     </View>
                     <View>
-                      <Text style={{ color: '#e2e8f0', fontSize: 12, fontWeight: '700' }}>
-                        {usr.username || `User ${usr.number?.slice(-4)}`}
-                      </Text>
-                      <Text style={{ color: '#475569', fontSize: 9, fontWeight: '600' }}>
-                        {usr.number || 'No Phone'}
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={{ color: '#64748b', fontSize: 10, fontWeight: '600' }}>
-                      Last seen: {timeSince(usr.last_seen)}
+                    <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '700' }}>
+                      {usr.username || `User ${usr.number?.slice(-4)}`}
                     </Text>
-                    <Text style={{ color: '#00daf3', fontSize: 9, fontWeight: '800', marginTop: 2 }}>Details →</Text>
+                    <Text style={{ color: C.onSurfaceVariant, fontSize: 9, fontWeight: '600' }}>
+                      {usr.number || 'No Phone'}
+                    </Text>
                   </View>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={{ color: C.onSurfaceVariant, fontSize: 10, fontWeight: '600' }}>
+                    Last seen: {timeSince(usr.last_seen)}
+                  </Text>
+                  <Text style={{ color: C.primary, fontSize: 10, fontWeight: '700', marginTop: 2 }}>Details →</Text>
+                </View>
                 </TouchableOpacity>
               ))}
               {dauData.length === 0 && (
@@ -604,42 +761,42 @@ const st = StyleSheet.create({
   // Alert
   alertBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'rgba(245,158,11,0.06)', borderWidth: 1, borderColor: 'rgba(245,158,11,0.3)', borderRadius: 16, padding: 16, marginBottom: 24, shadowColor: '#f59e0b', shadowOpacity: 0.2, shadowRadius: 15, elevation: 5 },
   alertIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(245,158,11,0.15)', alignItems: 'center', justifyContent: 'center' },
-  alertTitle: { color: '#fff', fontSize: 13, fontWeight: '900', letterSpacing: 1 },
-  alertSub: { color: '#94a3b8', fontSize: 10, fontWeight: '600', marginTop: 2 },
-  alertBtn: { backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10 },
-  alertBtnText: { color: '#0a0f1c', fontSize: 11, fontWeight: '800' },
+  alertTitle: { color: '#fff', fontSize: 13, fontWeight: '700', letterSpacing: 1 },
+  alertSub: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '500', marginTop: 2 },
+  alertBtn: { backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12 },
+  alertBtnText: { color: '#0a0f1c', fontSize: 11, fontWeight: '700' },
   // Header
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
-  title: { fontSize: 28, fontWeight: '900', color: '#fff', letterSpacing: 1 },
-  subtitle: { color: C.onSurfaceVariant, fontSize: 12, fontWeight: '600', marginTop: 2 },
-  statusBadge: { backgroundColor: 'rgba(52,211,153,0.06)', borderWidth: 1, borderColor: 'rgba(52,211,153,0.2)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  statusDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#34d399', shadowColor: '#34d399', shadowOpacity: 0.8, shadowRadius: 6 },
-  statusText: { color: '#34d399', fontSize: 9, fontWeight: '900', letterSpacing: 1.5 },
-  refreshBtn: { backgroundColor: C.secondary, width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', shadowColor: C.secondary, shadowOpacity: 0.5, shadowRadius: 10, elevation: 5 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 },
+  title: { fontSize: 24, fontWeight: '700', color: '#fff', letterSpacing: -0.5 },
+  subtitle: { color: C.onSurfaceVariant, fontSize: 13, fontWeight: '500', marginTop: 2 },
+  statusBadge: { backgroundColor: 'rgba(34,197,94,0.06)', borderWidth: 1, borderColor: 'rgba(34,197,94,0.2)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.success, shadowColor: C.success, shadowOpacity: 0.8, shadowRadius: 6 },
+  statusText: { color: C.success, fontSize: 10, fontWeight: '700', letterSpacing: 1.5 },
+  refreshBtn: { backgroundColor: C.primary, width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center', shadowColor: C.primary, shadowOpacity: 0.4, shadowRadius: 8, elevation: 5 },
   // Top metric cards
-  topGrid: { flexDirection: 'row', gap: 12, marginBottom: 16 },
-  metricCard: { flex: 1, backgroundColor: 'rgba(24, 24, 27, 0.65)', borderWidth: 1, borderColor: 'rgba(39, 39, 42, 0.6)', borderRadius: 20, padding: 24, justifyContent: 'space-between', minHeight: 120, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.25, shadowRadius: 16, elevation: 6 },
-  metricLabel: { color: C.onSurfaceVariant, fontSize: 9, fontWeight: '800', letterSpacing: 1.5, marginBottom: 6 },
-  metricValue: { color: '#fff', fontSize: 24, fontWeight: '900', letterSpacing: -0.5 },
-  trendBadge: { backgroundColor: 'rgba(52,211,153,0.08)', borderWidth: 1, borderColor: 'rgba(52,211,153,0.2)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
-  trendText: { color: '#34d399', fontSize: 9, fontWeight: '800' },
+  topGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginBottom: 20 },
+  metricCard: { flex: 1, minWidth: 220, backgroundColor: C.surface, borderWidth: 1, borderColor: C.outlineVariant, borderRadius: 20, padding: 20, justifyContent: 'space-between', minHeight: 110, ...(Platform.OS === 'web' ? { boxShadow: '14px 17px 40px 4px rgba(112, 144, 176, 0.08)' } as any : { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 16, elevation: 6 }) },
+  metricLabel: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '700', letterSpacing: 0.5, marginBottom: 4, textTransform: 'uppercase', flexWrap: 'wrap' },
+  metricValue: { color: '#fff', fontSize: 26, fontWeight: '700', letterSpacing: -0.5 },
+  trendBadge: { backgroundColor: 'rgba(34,197,94,0.08)', borderWidth: 1, borderColor: 'rgba(34,197,94,0.2)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
+  trendText: { color: C.success, fontSize: 10, fontWeight: '700' },
   // Bento rows
-  bentoRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
-  chartCard: { backgroundColor: 'rgba(24, 24, 27, 0.65)', borderWidth: 1, borderColor: 'rgba(39, 39, 42, 0.6)', borderRadius: 24, padding: 20, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.25, shadowRadius: 16, elevation: 6 },
-  chartTitle: { color: '#fff', fontSize: 12, fontWeight: '900', letterSpacing: 0.5 },
-  chartSub: { color: C.onSurfaceVariant, fontSize: 9, fontWeight: '600', marginTop: 2 },
-  tfSelector: { flexDirection: 'row', gap: 4, padding: 3, backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
-  tfOpt: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 8 },
-  tfText: { fontSize: 9, fontWeight: '700', letterSpacing: 1, color: C.onSurfaceVariant },
+  bentoRow: { flexDirection: 'row', gap: 16, marginBottom: 20 },
+  chartCard: { backgroundColor: C.surface, borderWidth: 1, borderColor: C.outlineVariant, borderRadius: 24, padding: 24, overflow: 'hidden', ...(Platform.OS === 'web' ? { boxShadow: '14px 17px 40px 4px rgba(112, 144, 176, 0.08)' } as any : { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 16, elevation: 6 }) },
+  chartTitle: { color: '#fff', fontSize: 13, fontWeight: '700', letterSpacing: 0.5 },
+  chartSub: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '500', marginTop: 2 },
+  tfSelector: { flexDirection: 'row', gap: 4, padding: 3, backgroundColor: C.surfaceContainerLowest, borderRadius: 12, borderWidth: 1, borderColor: C.outlineVariant },
+  tfOpt: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },
+  tfText: { fontSize: 10, fontWeight: '700', letterSpacing: 1, color: C.onSurfaceVariant },
   // Bottom panels
-  panelCard: { backgroundColor: 'rgba(24, 24, 27, 0.65)', borderWidth: 1, borderColor: 'rgba(39, 39, 42, 0.6)', borderRadius: 24, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.25, shadowRadius: 16, elevation: 6 },
-  panelTitle: { color: '#fff', fontSize: 11, fontWeight: '900', letterSpacing: 1, marginBottom: 16 },
-  txRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderColor: 'rgba(39, 39, 42, 0.3)' },
-  txIcon: { width: 30, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  statusPill: { borderWidth: 1, paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6, marginTop: 2 },
-  pendingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderColor: 'rgba(39, 39, 42, 0.3)' },
-  goBtn: { backgroundColor: 'rgba(0,218,243,0.1)', borderWidth: 1, borderColor: 'rgba(0,218,243,0.3)', paddingVertical: 8, borderRadius: 10, alignItems: 'center', marginTop: 8 },
-  goBtnText: { color: C.secondary, fontSize: 11, fontWeight: '900' },
-  healthRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(24,24,27,0.5)', borderWidth: 1, borderColor: 'rgba(39,39,42,0.3)', borderRadius: 12, padding: 12 },
+  panelCard: { backgroundColor: C.surface, borderWidth: 1, borderColor: C.outlineVariant, borderRadius: 24, padding: 24, ...(Platform.OS === 'web' ? { boxShadow: '14px 17px 40px 4px rgba(112, 144, 176, 0.08)' } as any : { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 16, elevation: 6 }) },
+  panelTitle: { color: '#fff', fontSize: 12, fontWeight: '700', letterSpacing: 1, marginBottom: 16, textTransform: 'uppercase' },
+  txRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderColor: C.outlineVariant },
+  txIcon: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  statusPill: { borderWidth: 1, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, marginTop: 2 },
+  pendingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderColor: C.outlineVariant },
+  goBtn: { backgroundColor: C.lightPrimary, borderWidth: 1, borderColor: 'rgba(117,81,255,0.2)', paddingVertical: 10, borderRadius: 12, alignItems: 'center', marginTop: 8 },
+  goBtnText: { color: C.primary, fontSize: 12, fontWeight: '700' },
+  healthRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: C.surfaceContainerLowest, borderWidth: 1, borderColor: C.outlineVariant, borderRadius: 14, padding: 12 },
   healthDot: { width: 8, height: 8, borderRadius: 4, shadowOpacity: 0.8, shadowRadius: 6 },
 });

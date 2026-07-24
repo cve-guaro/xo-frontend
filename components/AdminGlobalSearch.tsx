@@ -126,8 +126,8 @@ export default function AdminGlobalSearch() {
         onPress={() => setModalVisible(true)}
       >
         <Ionicons name="search" size={16} color={C.onSurfaceVariant} />
-        <Text style={s.searchText}>{isEN ? 'Search users...' : 'ተጠቃሚዎችን ፈልግ...'}</Text>
-        <View style={s.searchCmd}><Text style={{ color: C.onSurfaceVariant, fontSize: 8 }}>/</Text></View>
+        <Text style={s.searchText}>{isEN ? 'Search users, transactions, rooms...' : 'ተጠቃሚዎችን፣ ዝውውሮችን፣ ክፍሎችን ፈልግ...'}</Text>
+        <View style={s.searchCmd}><Text style={{ color: C.onSurfaceVariant, fontSize: 9, fontWeight: '700' }}>⌘K</Text></View>
       </TouchableOpacity>
 
       <Modal visible={modalVisible} transparent animationType="fade">
@@ -224,7 +224,7 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(23,23,50,0.4)',
     paddingHorizontal: 12, paddingVertical: 8,
     borderRadius: 8, borderWidth: 1, borderColor: 'rgba(68,68,107,0.15)',
-    width: 240,
+    width: 300,
   },
   searchText: { color: C.onSurfaceVariant, fontSize: 13, flex: 1 },
   searchCmd: { backgroundColor: 'rgba(255,255,255,0.05)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },

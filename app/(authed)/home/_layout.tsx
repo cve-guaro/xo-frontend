@@ -15,7 +15,7 @@ const colors = {
   bg: "#0a0a1a", // Surface dark
   bar: "rgba(10,10,26,0.7)", // Glassy bar
   border: "rgba(255,255,255,0.08)", // Primary dim border
-  active: "#00daf3", // Primary neon cyan
+  active: "#8b5cf6", // Primary neon cyan
   inactive: "#9090a8", // Inverse on-surface
   activePillBg: "rgba(0,218,243,0.12)",
   activePillBorder: "rgba(0,218,243,0.2)",
@@ -169,7 +169,7 @@ export default function AuthedLayout() {
       </Tabs>
 
       {/* Global Custom Floating Bottom Nav — 4 items: Home, History, Leaderboard, Profile */}
-      {!isDesktop && (
+      {!isDesktop && !pathname.includes('spin') && (
         <View style={{
           position: 'absolute', bottom: 0,
           left: 0, right: 0, zIndex: 9999, elevation: 9999,
@@ -186,7 +186,7 @@ export default function AuthedLayout() {
             {/* Home */}
             <TouchableOpacity onPress={() => router.push('/(authed)/home/gameplay')} style={s.navItem}>
               {pathname === '/home/gameplay' && <View style={s.activeIndicator} />}
-              <House size={22} color={pathname === '/home/gameplay' ? "#00daf3" : "#9090a8"} weight={pathname === '/home/gameplay' ? "fill" : "regular"} />
+              <House size={22} color={pathname === '/home/gameplay' ? "#8b5cf6" : "#9090a8"} weight={pathname === '/home/gameplay' ? "fill" : "regular"} />
               <Text style={[s.navLabel, pathname === '/home/gameplay' && s.navLabelActive]}>
                 {language === 'am' ? 'ዋና' : 'Home'}
               </Text>
@@ -195,7 +195,7 @@ export default function AuthedLayout() {
             {/* History (Match History) */}
             <TouchableOpacity onPress={() => router.push('/(authed)/home/history')} style={s.navItem}>
               {pathname === '/home/history' && <View style={s.activeIndicator} />}
-              <ClockCounterClockwise size={22} color={pathname === '/home/history' ? "#00daf3" : "#9090a8"} weight={pathname === '/home/history' ? "fill" : "regular"} />
+              <ClockCounterClockwise size={22} color={pathname === '/home/history' ? "#8b5cf6" : "#9090a8"} weight={pathname === '/home/history' ? "fill" : "regular"} />
               <Text style={[s.navLabel, pathname === '/home/history' && s.navLabelActive]}>
                 {language === 'am' ? 'ታሪክ' : 'History'}
               </Text>
@@ -204,7 +204,7 @@ export default function AuthedLayout() {
             {/* Leaderboard */}
             <TouchableOpacity onPress={() => router.push('/(authed)/home/leaderboard')} style={s.navItem}>
               {pathname === '/home/leaderboard' && <View style={s.activeIndicator} />}
-              <Trophy size={22} color={pathname === '/home/leaderboard' ? "#00daf3" : "#9090a8"} weight={pathname === '/home/leaderboard' ? "fill" : "regular"} />
+              <Trophy size={22} color={pathname === '/home/leaderboard' ? "#8b5cf6" : "#9090a8"} weight={pathname === '/home/leaderboard' ? "fill" : "regular"} />
               <Text style={[s.navLabel, pathname === '/home/leaderboard' && s.navLabelActive]}>
                 {language === 'am' ? 'ሊደርቦርድ' : 'Leaderboard'}
               </Text>
@@ -213,7 +213,7 @@ export default function AuthedLayout() {
             {/* Profile */}
             <TouchableOpacity onPress={() => router.push('/(authed)/home/account')} style={s.navItem}>
               {pathname === '/home/account' && <View style={s.activeIndicator} />}
-              <UserCircle size={22} color={pathname === '/home/account' ? "#00daf3" : "#9090a8"} weight={pathname === '/home/account' ? "fill" : "regular"} />
+              <UserCircle size={22} color={pathname === '/home/account' ? "#8b5cf6" : "#9090a8"} weight={pathname === '/home/account' ? "fill" : "regular"} />
               <Text style={[s.navLabel, pathname === '/home/account' && s.navLabelActive]}>
                 {language === 'am' ? 'መለያ' : 'Profile'}
               </Text>
@@ -228,11 +228,11 @@ export default function AuthedLayout() {
 const s = StyleSheet.create({
   navItem: { flex: 1, alignItems: 'center', position: 'relative' },
   navLabel: { fontSize: 9, marginTop: 6, fontWeight: '700', textTransform: 'uppercase', color: '#9090a8' },
-  navLabelActive: { color: '#00daf3' },
+  navLabelActive: { color: '#8b5cf6' },
   activeIndicator: {
     position: 'absolute', top: -15, width: 24, height: 3,
-    backgroundColor: '#00daf3', borderRadius: 2,
-    shadowColor: '#00daf3', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8, shadowRadius: 10, elevation: 4
+    backgroundColor: '#8b5cf6', borderRadius: 2,
+    shadowColor: '#8b5cf6', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8, shadowRadius: 10, elevation: 4
   }
 });
 
