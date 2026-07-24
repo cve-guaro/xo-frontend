@@ -19,6 +19,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../../context/authContext";
 import { API_URL } from "../../../config";
 import ActionConfirmModal from "../../../components/ActionConfirmModal";
+import User360View from "../../../components/User360View";
 
 const C = {
   bg: '#0a0a1a',
@@ -1161,75 +1162,25 @@ export default function AdminLeaderboardPage() {
                       </Text>
                     </View>
                   ) : reviewUserData ? (
-                    <View>
-                      {/* User Stats Card */}
-                      <View style={{ backgroundColor: 'rgba(255,255,255,0.02)', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', marginBottom: 16 }}>
-                        <Text style={{ color: C.secondary, fontSize: 11, fontWeight: '800', letterSpacing: 0.5, marginBottom: 8 }}>PLAYER METRICS & WALLET</Text>
-                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-                          <View style={{ flex: 1, minWidth: 120, backgroundColor: 'rgba(255,255,255,0.02)', padding: 8, borderRadius: 8 }}>
-                            <Text style={{ color: C.dim, fontSize: 9 }}>Available Bal</Text>
-                            <Text style={{ color: '#fff', fontSize: 14, fontWeight: '900', marginTop: 2 }}>{reviewUserData.wallet?.available || 0} ETB</Text>
-                          </View>
-                          <View style={{ flex: 1, minWidth: 120, backgroundColor: 'rgba(255,255,255,0.02)', padding: 8, borderRadius: 8 }}>
-                            <Text style={{ color: C.dim, fontSize: 9 }}>Bonus Balance</Text>
-                            <Text style={{ color: C.gold, fontSize: 14, fontWeight: '900', marginTop: 2 }}>{reviewUserData.wallet?.bonus || 0} ETB</Text>
-                          </View>
-                          <View style={{ flex: 1, minWidth: 120, backgroundColor: 'rgba(255,255,255,0.02)', padding: 8, borderRadius: 8 }}>
-                            <Text style={{ color: C.dim, fontSize: 9 }}>Win Rate</Text>
-                            <Text style={{ color: C.green, fontSize: 14, fontWeight: '900', marginTop: 2 }}>
-                              {reviewUserData.stats?.totalGames > 0 ? `${Math.round((reviewUserData.stats.wins / reviewUserData.stats.totalGames) * 100)}%` : '0%'}
-                            </Text>
-                          </View>
-                          <View style={{ flex: 1, minWidth: 120, backgroundColor: 'rgba(255,255,255,0.02)', padding: 8, borderRadius: 8 }}>
-                            <Text style={{ color: C.dim, fontSize: 9 }}>Total Games</Text>
-                            <Text style={{ color: '#fff', fontSize: 14, fontWeight: '900', marginTop: 2 }}>{reviewUserData.stats?.totalGames || 0}</Text>
-                          </View>
-                        </View>
-                      </View>
-
-                      {/* Game History List */}
-                      <View>
-                        <Text style={{ color: '#fff', fontSize: 12, fontWeight: '800', marginBottom: 8, letterSpacing: 0.5 }}>RECENT GAMES (ANTI-CHEAT AUDIT)</Text>
-                        {(!reviewUserData.games || reviewUserData.games.length === 0) ? (
-                          <Text style={{ color: C.dim, fontSize: 12, paddingVertical: 10 }}>No games recorded for this player.</Text>
-                        ) : (
-                          reviewUserData.games.map((g: any) => {
-                            const isWon = g.winner === reviewUserData.user?.id;
-                            const isDraw = g.status === 'completed' && !g.winner;
-                            const oppName = g.player_x === reviewUserData.user?.id ? (g.player_o_name || 'Opponent') : (g.player_x_name || 'Opponent');
-                            const dateStr = new Date(g.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-                            return (
-                              <View key={g.id} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.03)' }}>
-                                <View style={{ flex: 1 }}>
-                                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: isDraw ? C.dim : isWon ? C.green : C.red }} />
-                                    <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>vs {oppName}</Text>
-                                    <Text style={{ color: C.dim, fontSize: 10 }}>· {g.bet_amount} ETB</Text>
-                                  </View>
-                                  <Text style={{ color: C.dim, fontSize: 9, marginTop: 2 }}>{dateStr} · {g.status}</Text>
-                                </View>
-                                <TouchableOpacity 
-                                  onPress={async () => {
-                                    try {
-                                      const res = await fetch(`${API_URL}/admin/games/${g.id}/moves`, { headers });
-                                      const movesJson = await res.json();
-                                      setReplayGame(g);
-                                      setReplayMoves(movesJson.moves || []);
-                                      setReplayBoardStep(0);
-                                    } catch (e) {
-                                      showAlert('Error', 'Failed to load game moves');
-                                    }
-                                  }}
-                                  style={{ backgroundColor: 'rgba(0, 229, 255, 0.1)', borderWidth: 1, borderColor: 'rgba(0, 229, 255, 0.2)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 }}
-                                  activeOpacity={0.7}
-                                >
-                                  <Text style={{ color: C.accent, fontSize: 10, fontWeight: '700' }}>Replay</Text>
-                                </TouchableOpacity>
-                              </View>
-                            );
-                          })
-                        )}
-                      </View>
+                    <View style={{ height: 440 }}>
+                      <User360View
+                        data={reviewUserData}
+                        onReplayGame={async (g) => {
+                          try {
+                            const res = await fetch(`${API_URL}/admin/games/${g.id}/moves`, { headers });
+                            const movesJson = await res.json();
+                            if (res.ok) {
+                              setReplayGame(g);
+                              setReplayMoves(movesJson.moves || []);
+                              setReplayBoardStep(0);
+                            } else {
+                              showAlert('Error', 'Failed to load game moves');
+                            }
+                          } catch (err) {
+                            showAlert('Error', 'Failed to load game moves');
+                          }
+                        }}
+                      />
                     </View>
                   ) : (
                     <Text style={{ color: C.dim, fontSize: 12, textAlign: 'center', marginVertical: 20 }}>Select a player to load details</Text>

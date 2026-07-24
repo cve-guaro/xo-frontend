@@ -9,6 +9,7 @@ import { API_URL } from '../../../config';
 import { useRouter } from 'expo-router';
 import { AdminTheme as C } from './_layout';
 import ActionConfirmModal from '../../../components/ActionConfirmModal';
+import User360View from '../../../components/User360View';
 
 const glass: any = {
   backgroundColor: 'rgba(24, 24, 27, 0.65)',
@@ -70,6 +71,7 @@ export default function AdminUsers() {
   });
 
   const [user360, setUser360] = useState<{ loading: boolean, txs: any[], recent_games: any[], games: { wins:number, losses:number, draws:number, total:number, totalGames?:number } }>({ loading: false, txs: [], recent_games: [], games: { wins:0, losses:0, draws:0, total:0, totalGames:0 } });
+  const [user360Data, setUser360Data] = useState<any>(null);
 
   const fetchUsers = useCallback(async (searchOverride?: string) => {
     try {
@@ -132,6 +134,7 @@ export default function AdminUsers() {
       ]);
       if (res360.ok) {
         const d = await res360.json();
+        setUser360Data(d);
         setUser360({ loading: false, txs: d.transactions || [], recent_games: d.games || [], games: d.stats || {wins:0,losses:0,draws:0,total:0,totalGames:0} });
       } else {
         setUser360(p => ({ ...p, loading: false }));
@@ -675,116 +678,18 @@ export default function AdminUsers() {
             </View>
 
             {/* Scrollable Content */}
-            <ScrollView style={{ flex: 1, backgroundColor: '#10131a', ...(Platform.OS === 'web' ? { overflow: 'auto' as any } : {}) }} contentContainerStyle={{ padding: isMobile ? 12 : 32, paddingBottom: 40, gap: 32 }}>
-               
-               {/* Room Prizes */}
-               <View>
-                  <Text style={{ fontSize: 12, color: '#a9abb3', textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: '600', marginBottom: 16, flexDirection: 'row', alignItems: 'center' }}><Ionicons name="trophy-outline" size={14} /> Room Prizes</Text>
-                  <View style={{ flexDirection: 'row', gap: 16, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
-                     {[10, 15, 25, 50].map(amt => (
-                        <View key={amt} style={{ flex: 1, minWidth: isMobile ? '40%' : '20%', backgroundColor: amt === 50 ? '#22262f' : '#161a21', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: amt === 50 ? 'rgba(129,236,255,0.4)' : 'rgba(255,255,255,0.05)' }}>
-                           {amt === 50 && <View style={{ position: 'absolute', top: 0, right: 0, backgroundColor: '#81ecff', paddingHorizontal: 6, paddingVertical: 2, borderBottomLeftRadius: 8 }}><Text style={{ color: '#005762', fontSize: 8, fontWeight: '900', textTransform: 'uppercase' }}>HOT</Text></View>}
-                           <Text style={{ fontSize: 18, fontWeight: '800', color: '#81ecff', marginBottom: 4 }}>{amt} ETB</Text>
-                           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <Text style={{ fontSize: 10, color: '#a9abb3' }}>{(selected as any)?.[`r1_${amt}_wins`] || 0} / 25</Text>
-                              <Ionicons name={amt === 50 ? "flame" : "star"} size={14} color={amt === 50 ? "#81ecff" : "rgba(255,255,255,0.2)"} />
-                           </View>
-                        </View>
-                     ))}
-                  </View>
-               </View>
-
-               <View style={{ flexDirection: isMobile ? 'column' : 'row', gap: 32 }}>
-                  {/* Left: Game History */}
-                  <View style={{ flex: isMobile ? undefined : 2, width: isMobile ? '100%' : 'auto' }}>
-                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16, alignItems: 'center' }}>
-                        <Text style={{ fontSize: 12, color: '#a9abb3', textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: '600' }}><Ionicons name="reader-outline" size={14} /> Game History</Text>
-                        <TouchableOpacity onPress={() => setReferralUserId(selected?.id || null)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(16,185,129,0.1)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
-                           <Ionicons name="people" size={12} color="#10b981" />
-                           <Text style={{ color: '#10b981', fontSize: 10, fontWeight: '700', textTransform: 'uppercase' }}>Referral Analytics</Text>
-                        </TouchableOpacity>
-                     </View>
-                     <ScrollView id="custom-scroll-1" nestedScrollEnabled showsVerticalScrollIndicator={true} style={{ height: 350, ...(Platform.OS === 'web' ? { overflow: 'auto' as any } : {}) }} contentContainerStyle={{ gap: 8, paddingRight: isMobile ? 0 : 8 }}>
-                        {user360.recent_games.map((tx: any, i) => {
-                           const isWin = !!tx.winner && String(tx.winner).toLowerCase() === String(selected?.id).toLowerCase();
-                           return (
-                              <View key={i} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, backgroundColor: 'rgba(22,26,33,0.5)', borderRadius: 12 }}>
-                                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, flex: 1 }}>
-                                    <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: isWin ? 'rgba(129,236,255,0.1)' : 'rgba(255,111,124,0.1)', alignItems: 'center', justifyContent: 'center' }}>
-                                       <Ionicons name={isWin ? "trophy" : "close"} size={16} color={isWin ? "#81ecff" : "#ff6f7c"} />
-                                    </View>
-                                    <View style={{ flexShrink: 1 }}>
-                                       <Text style={{ fontSize: 14, fontWeight: '500', color: '#ecedf6' }}>{isWin ? 'Game Win' : 'Game Loss'}</Text>
-                                       <Text style={{ fontSize: 10, color: '#a9abb3' }}>{timeSince(tx.created_at)}</Text>
-                                    </View>
-                                 </View>
-                                 <View style={{ alignItems: 'flex-end', marginLeft: 8 }}>
-                                    <Text style={{ fontSize: 16, fontWeight: '900', color: isWin ? '#81ecff' : '#ff6f7c', textShadowColor: isWin ? 'rgba(129,236,255,0.3)' : 'rgba(255,111,124,0.3)', textShadowOffset: {width:0, height:2}, textShadowRadius: 8, letterSpacing: 0.5 }}>{isWin ? '+' : '-'} ETB {balanceEtb(Number(isWin ? (tx.prize_amount ?? tx.bet_amount ?? 0) : (tx.bet_amount ?? 0)))}</Text>
-                                 </View>
-                              </View>
-                           );
-                        })}
-                        {user360.recent_games.length === 0 && (
-                          <Text style={{ color: 'rgba(255,255,255,0.3)', padding: 16, textAlign: 'center', fontSize: 12 }}>No recent games logged.</Text>
-                        )}
-                     </ScrollView>
-                  </View>
-
-                  {/* Right Banking Timeline */}
-                  <View style={{ flex: isMobile ? undefined : 1, width: isMobile ? '100%' : 'auto' }}>
-                     <Text style={{ fontSize: 12, color: '#a9abb3', textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: '600', marginBottom: 16 }}><Ionicons name="wallet-outline" size={14} /> Banking Activity</Text>
-                     <View id="custom-scroll-2" style={{ backgroundColor: '#161a21', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', flex: 1, height: 400, overflow: Platform.OS === 'web' ? 'auto' as any : 'hidden' }}>
-                        <ScrollView id="custom-scroll-3" nestedScrollEnabled showsVerticalScrollIndicator={true} style={{ flex: 1, ...(Platform.OS === 'web' ? { overflow: 'auto' as any } : {}) }} contentContainerStyle={{ padding: 24 }}>
-                           {user360.txs.map((tx: any, i) => {
-                           const txType = String(tx.tx_type || tx.type || '').toUpperCase();
-                           const isAdmin = tx.bank === 'ADMIN' || txType === 'ADMIN_CREDIT' || txType === 'ADMIN_DEBIT' || txType === 'ADMIN_EDIT';
-                           const isDeposit = txType === 'DEPOSIT';
-                           const isGift = txType === 'GIFT' || txType === 'BONUS';
-                           const isPrize = txType === 'PRIZE';
-                           const isRefund = txType === 'REFUND';
-                           const isWithdraw = txType.includes('WITHDRAW');
-                           const isPositive = isDeposit || isGift || isPrize || isRefund || (isAdmin && txType === 'ADMIN_CREDIT');
-                           const isSucc = tx.status === 'COMPLETED' || tx.status === 'success';
-                           const isPending = String(tx.status).toUpperCase().includes('PENDING');
-
-                           const label = isAdmin ? (txType === 'ADMIN_CREDIT' ? 'ADMIN CREDIT' : txType === 'ADMIN_DEBIT' ? 'ADMIN DEBIT' : 'ADMIN EDIT')
-                             : isDeposit ? 'DEPOSIT'
-                             : isGift ? 'BONUS / GIFT'
-                             : isPrize ? 'PRIZE'
-                             : isRefund ? 'REFUND'
-                             : isWithdraw ? txType.replace(/_/g, ' ')
-                             : txType;
-
-                           const col = isAdmin ? '#a78bfa' : isGift ? '#00daf3' : isPrize ? '#fbbf24' : isPositive ? (isSucc ? '#34d399' : isPending ? '#fbbf24' : '#64748b') : (isSucc ? '#ff6f7c' : isPending ? '#fbbf24' : '#64748b');
-                           const textColor = isAdmin ? '#a78bfa' : isGift ? '#00daf3' : isPrize ? '#fbbf24' : isPositive ? '#34d399' : '#ff6f7c';
-                           const iconName = isAdmin ? "build-outline" : isGift ? "gift-outline" : isPrize ? "trophy-outline" : isRefund ? "refresh-outline" : isPositive ? "arrow-down-outline" : "arrow-up-outline";
-                           const statusBadge = isPending ? ' (PENDING)' : !isSucc ? ` (${tx.status})` : '';
-
-                           return (
-                              <View key={i} style={{ position: 'relative', paddingLeft: 24, paddingVertical: 4, borderLeftWidth: 2, borderLeftColor: `${col}4d`, marginBottom: 16 }}>
-                                 <View style={{ position: 'absolute', left: -9, top: 4, width: 16, height: 16, backgroundColor: col, borderRadius: 8, borderWidth: 4, borderColor: '#10131a' }} />
-                                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
-                                    <Text style={{ fontSize: 12, fontWeight: '700', color: isAdmin ? '#a78bfa' : '#ecedf6' }}>
-                                      {label}{statusBadge}
-                                    </Text>
-                                    <Ionicons name={iconName} size={14} color={col} />
-                                 </View>
-                                 <Text style={{ fontSize: 10, color: '#a9abb3', marginBottom: 4 }}>{tx.bank ? tx.bank : ''}{tx.tx_ref ? ' · ' + String(tx.tx_ref).slice(0,12) : ''}</Text>
-                                 <Text style={{ fontSize: 10, color: '#a9abb3', marginBottom: 8 }}>{timeSince(tx.created_at)}</Text>
-                                 <View style={{ flexDirection: 'row' }}>
-                                    <Text style={{ fontSize: 20, fontWeight: '900', color: textColor, textShadowColor: `${textColor}33`, textShadowOffset: {width:0, height:2}, textShadowRadius: 8, letterSpacing: 0.5 }}>{isPositive ? '+' : '-'} ETB {balanceEtb(Number(tx.amount))}</Text>
-                                 </View>
-                              </View>
-                           );
-                        })}
-                        {user360.txs.length === 0 && (
-                             <Text style={{ color: 'rgba(255,255,255,0.3)', padding: 16, textAlign: 'center', fontSize: 12 }}>No recent transactions.</Text>
-                        )}
-                        </ScrollView>
-                     </View>
-                  </View>
-               </View>
-            </ScrollView>
+            <View style={{ flex: 1, backgroundColor: '#10131a', padding: isMobile ? 12 : 24 }}>
+              {user360.loading ? (
+                <ActivityIndicator size="large" color={C.primary} style={{ marginTop: 60 }} />
+              ) : user360Data ? (
+                <User360View
+                  data={user360Data}
+                  onViewReferrals={() => setReferralUserId(selected?.id || null)}
+                />
+              ) : (
+                <Text style={{ color: 'rgba(255,255,255,0.4)', textAlign: 'center', marginTop: 60 }}>Failed to load user details.</Text>
+              )}
+            </View>
 
             {/* Footer Controls */}
             <View style={{ 

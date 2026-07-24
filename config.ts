@@ -4,8 +4,9 @@
 import { Platform } from 'react-native';
 
 const getApiUrl = () => {
-  if (process.env.EXPO_PUBLIC_API_URL) {
-    return process.env.EXPO_PUBLIC_API_URL;
+  const envUrl = process.env.EXPO_PUBLIC_API_URL;
+  if (envUrl && !envUrl.includes('onrender.com') && !envUrl.includes('render.com')) {
+    return envUrl;
   }
   if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location) {
     const hostname = window.location.hostname;
@@ -22,3 +23,6 @@ export const MIN_DEPOSIT = Number(process.env.MIN_DEPOSIT || 10);
 
 // Frontend URL — used for promo links and referral URLs
 export const APP_URL = process.env.EXPO_PUBLIC_APP_URL || 'https://xoethiopia.com';
+
+// Agora credentials
+export const AGORA_APP_ID = process.env.EXPO_PUBLIC_AGORA_APP_ID || 'ba52d09d3e204851af7ddbe4340b38a2';

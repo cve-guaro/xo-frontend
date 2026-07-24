@@ -3,6 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator,
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/authContext';
 import { API_URL } from '../config';
+import User360View from './User360View';
 
 const C = {
   primary: '#00daf3',
@@ -132,7 +133,6 @@ export default function AdminGlobalSearch() {
       <Modal visible={modalVisible} transparent animationType="fade">
         <View style={s.modalOverlay}>
           <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setModalVisible(false)} />
-          
           <View style={s.modalContent}>
             {selectedUser && user360 ? (
               // --- 360 User Details View ---
@@ -147,29 +147,9 @@ export default function AdminGlobalSearch() {
                   </TouchableOpacity>
                 </View>
                 
-                <ScrollView contentContainerStyle={s.detailsScroll}>
-                  <View style={s.detailSection}>
-                    <Text style={s.sectionTitle}>Profile</Text>
-                    <Text style={s.detailText}>Name: <Text style={{color: '#fff'}}>{user360.user.username}</Text></Text>
-                    <Text style={s.detailText}>Phone: <Text style={{color: '#fff'}}>{user360.user.number}</Text></Text>
-                    <Text style={s.detailText}>Joined: <Text style={{color: '#fff'}}>{new Date(user360.user.created_at).toLocaleDateString()}</Text></Text>
-                    <Text style={s.detailText}>Status: <Text style={{color: user360.user.banned ? C.error : C.success}}>{user360.user.banned ? 'Banned' : 'Active'}</Text></Text>
-                  </View>
-                  
-                  <View style={s.detailSection}>
-                    <Text style={s.sectionTitle}>Wallet</Text>
-                    <Text style={s.detailText}>Available: <Text style={{color: C.secondary}}>ETB {user360.wallet.available}</Text></Text>
-                    <Text style={s.detailText}>Withdrawable: <Text style={{color: C.success}}>ETB {user360.wallet.withdrawable}</Text></Text>
-                    <Text style={s.detailText}>Bonus: <Text style={{color: C.primary}}>ETB {user360.wallet.bonus}</Text></Text>
-                  </View>
-                  
-                  <View style={s.detailSection}>
-                    <Text style={s.sectionTitle}>Game Stats</Text>
-                    <Text style={s.detailText}>Total Games: <Text style={{color: '#fff'}}>{user360.stats.totalGames}</Text></Text>
-                    <Text style={s.detailText}>Wins: <Text style={{color: C.success}}>{user360.stats.wins}</Text></Text>
-                    <Text style={s.detailText}>Losses: <Text style={{color: C.error}}>{user360.stats.losses}</Text></Text>
-                  </View>
-                </ScrollView>
+                <View style={{ flex: 1, padding: 16 }}>
+                  <User360View data={user360} hideActions={true} />
+                </View>
               </View>
             ) : selectedUser && detailsLoading ? (
                <View style={s.detailsContainer}>
@@ -309,7 +289,8 @@ const s = StyleSheet.create({
   
   // Details state
   detailsContainer: {
-    height: 400,
+    flex: 1,
+    minHeight: 520,
   },
   detailsHeader: {
     flexDirection: 'row',

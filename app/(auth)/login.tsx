@@ -26,7 +26,7 @@ import { useToast } from "../../context/ToastContext";
 export default function LoginScreen() {
   const router = useRouter();
   const { ref, promo } = useLocalSearchParams<{ref?: string, promo?: string}>();
-  const { requestOtp, verifyOtp, requestingOtp, verifyingOtp, pendingNumber, user, token, t, language } = useAuth();
+  const { requestOtp, verifyOtp, requestingOtp, verifyingOtp, pendingNumber, user, token, t, language, loginWithTelegram, telegramLoading } = useAuth();
   const { unlockAudio } = useBackgroundMusic();
   const { width } = useWindowDimensions();
   const isDesktop = width > 768 && Platform.OS === 'web';
@@ -334,6 +334,58 @@ export default function LoginScreen() {
                       )}
                     </LinearGradient>
                   </TouchableOpacity>
+
+                  {/* ── OR divider ── */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 20, gap: 12 }}>
+                    <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.08)' }} />
+                    <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12, fontWeight: '700', letterSpacing: 1 }}>OR</Text>
+                    <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.08)' }} />
+                  </View>
+
+                  {/* ── Telegram Login Button ── */}
+                  <TouchableOpacity
+                    disabled={telegramLoading}
+                    onPress={async () => {
+                      try {
+                        await loginWithTelegram();
+                      } catch (err: any) {
+                        toast.error('Telegram Login', err?.message || 'Login failed');
+                      }
+                    }}
+                    activeOpacity={0.8}
+                    style={{ marginTop: 16 }}
+                  >
+                    <View style={{
+                      height: 60,
+                      borderRadius: 20,
+                      backgroundColor: 'rgba(0, 136, 204, 0.15)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(0, 136, 204, 0.3)',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexDirection: 'row',
+                      gap: 10,
+                    }}>
+                      {telegramLoading ? (
+                        <ActivityIndicator color="#0088CC" />
+                      ) : (
+                        <>
+                          <Text style={{ fontSize: 20 }}>✈️</Text>
+                          <Text style={{ color: '#0088CC', fontSize: 16, fontWeight: '800' }}>
+                            {language === 'am' ? 'በቴሌግራም ግባ' : 'Login with Telegram'}
+                          </Text>
+                        </>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+
+                  {telegramLoading && (
+                    <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, textAlign: 'center', marginTop: 8 }}>
+                      {language === 'am' 
+                        ? 'ቴሌግራምን ይክፈቱ እና ስልክ ቁጥርዎን ያጋሩ...' 
+                        : 'Open Telegram and share your phone number...'}
+                    </Text>
+                  )}
                 </View>
               ) : (
                 <View style={{ marginTop: 24 }}>

@@ -2,7 +2,7 @@
 import * as SecureStore from "expo-secure-store";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 // Remove expo-av import completely as audio stubs exist below
-import { Platform, Alert, Modal, View, Text, TouchableOpacity, StyleSheet, Pressable } from "react-native";
+import { Platform, Alert, Modal, View, Text, TouchableOpacity, StyleSheet, Pressable, Linking } from "react-native";
 import { CheckmarkCircleIcon, AlertCircleIcon } from "../components/SvgIcons";
 import { API_URL } from "../config"; // e.g. https://api.yourapp.com
 
@@ -426,6 +426,10 @@ type Ctx = {
   requestOtp: (rawNumber: string) => Promise<void>;
   verifyOtp: (rawNumber: string, code: string, ref?: string, promo?: string) => Promise<void>;
 
+  // Telegram login flow
+  loginWithTelegram: () => Promise<void>;
+  telegramLoading: boolean;
+
   // Profile & session
   refreshProfile: () => Promise<void>;
   logout: () => Promise<void>;
@@ -621,6 +625,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [verifyingOtp, setVerifyingOtp] = useState(false);
   const [pendingNumber, setPendingNumber] = useState<string | null>(null);
   const [offline, setOffline] = useState<boolean>(false);
+  const [telegramLoading, setTelegramLoading] = useState(false);
 
   // Language state
   const [language, setLanguageState] = useState<Language>("en");
@@ -1013,6 +1018,106 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // ---- Telegram login ----
+  const loginWithTelegram = useCallback(async () => {
+    setTelegramLoading(true);
+    let pollTimer: ReturnType<typeof setInterval> | null = null;
+    try {
+      await playClickSound();
+
+      // 1) Init session on backend
+      const initRes = await fetch(`${API_URL}/auth/telegram-init`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-platform': Platform.OS === 'web' ? 'web' : 'mobile',
+        },
+      });
+      if (!initRes.ok) {
+        throw new Error('Failed to start Telegram login');
+      }
+      const { sessionToken, deepLink } = await initRes.json();
+
+      // 2) Open Telegram
+      const canOpen = await Linking.canOpenURL(deepLink);
+      if (canOpen) {
+        await Linking.openURL(deepLink);
+      } else {
+        // Fallback: open in browser (works on web)
+        if (Platform.OS === 'web') {
+          window.open(deepLink, '_blank');
+        } else {
+          throw new Error('Telegram is not installed. Please install Telegram first.');
+        }
+      }
+
+      // 3) Poll for result every 2 seconds (max 5 min = 150 polls)
+      let polls = 0;
+      const maxPolls = 150;
+
+      await new Promise<void>((resolve, reject) => {
+        pollTimer = setInterval(async () => {
+          polls++;
+          if (polls > maxPolls) {
+            if (pollTimer) clearInterval(pollTimer);
+            reject(new Error('Login session expired. Please try again.'));
+            return;
+          }
+
+          try {
+            const pollRes = await fetch(
+              `${API_URL}/auth/telegram-poll?session=${sessionToken}`,
+              {
+                headers: {
+                  'x-platform': Platform.OS === 'web' ? 'web' : 'mobile',
+                },
+              }
+            );
+            if (!pollRes.ok) return; // Retry on next interval
+
+            const data = await pollRes.json();
+
+            if (data.status === 'done') {
+              if (pollTimer) clearInterval(pollTimer);
+
+              // Save tokens (same as verifyOtp)
+              const newToken = String(data.token);
+              await storage.setItemAsync(KEY, newToken);
+              if (data.refreshToken) {
+                await storage.setItemAsync(REFRESH_KEY, String(data.refreshToken));
+              }
+              setToken(newToken);
+
+              // Fetch full profile
+              const profile = await fetchMe(newToken);
+              setUser(profile);
+              await storage.setItemAsync(USER_KEY, JSON.stringify(profile));
+              setPendingNumber(null);
+
+              // Fetch payment methods
+              void fetchPaymentMethods();
+
+              await playSuccessSound();
+              resolve();
+            } else if (data.status === 'expired') {
+              if (pollTimer) clearInterval(pollTimer);
+              reject(new Error('Session expired. Please try again.'));
+            }
+            // If status === 'waiting', continue polling
+          } catch {
+            // Network error during poll — just retry on next interval
+          }
+        }, 2000);
+      });
+    } catch (err: any) {
+      await playErrorSound();
+      throw err;
+    } finally {
+      if (pollTimer) clearInterval(pollTimer);
+      setTelegramLoading(false);
+    }
+  }, [fetchPaymentMethods]);
+
   // Cooldown: prevent refreshProfile from firing more than once every 5 seconds
   const lastRefreshRef = useRef<number>(0);
   const REFRESH_COOLDOWN_MS = 5000;
@@ -1157,6 +1262,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       pendingNumber,
       requestOtp,
       verifyOtp: verifyOtp as any,
+      loginWithTelegram,
+      telegramLoading,
 
       refreshProfile,
       logout,
@@ -1191,6 +1298,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       requestingOtp,
       verifyingOtp,
       pendingNumber,
+      telegramLoading,
+      loginWithTelegram,
       language,
       paymentMethod,
       fetchingMethods,

@@ -34,6 +34,7 @@ export default function AdminLedger() {
   const [actionId, setActionId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<'All'|'Pending'|'Admin Review'|'Success'|'Failed'>('All');
   const [amountRange, setAmountRange] = useState<'all' | '0-100' | '100-10000' | '10000-100000'>('all');
+  const [gameFilter, setGameFilter] = useState<'all' | 'xo' | 'spin'>('all');
   const [page, setPage] = useState(0);
   const [total, setTotal] = useState(0);
   const [stats, setStats] = useState<any>(null);
@@ -266,6 +267,28 @@ export default function AdminLedger() {
                        setAmountRange(order[(order.indexOf(amountRange) + 1) % order.length]);
                     }}>
                        <Text style={{ color: '#e5e3ff', fontSize: 11, fontWeight: '700' }}>{amountRange.toUpperCase()}</Text>
+                    </TouchableOpacity>
+                 )}
+              </View>
+
+              <View style={[styles.searchBox, { width: isMobile ? '100%' : 140, height: 40, paddingVertical: 0 }]}>
+                 <Ionicons name="game-controller-outline" size={14} color="rgba(168,167,212,0.6)" />
+                 {Platform.OS === 'web' ? (
+                    <select
+                      value={gameFilter}
+                      onChange={(e: any) => setGameFilter(e.target.value as any)}
+                      style={{ background: 'transparent', border: 'none', color: 'rgba(229,227,255,0.8)', fontSize: 12, fontWeight: 700, outlineStyle: 'none', cursor: 'pointer' as any, flex: 1 } as any}
+                    >
+                      <option value="all" style={{ background: '#111128' }}>All Games</option>
+                      <option value="xo" style={{ background: '#111128' }}>XO Games</option>
+                      <option value="spin" style={{ background: '#111128' }}>Spin Games</option>
+                    </select>
+                 ) : (
+                    <TouchableOpacity style={{ flex: 1 }} onPress={() => {
+                       const order = ['all', 'xo', 'spin'] as const;
+                       setGameFilter(order[(order.indexOf(gameFilter) + 1) % order.length]);
+                    }}>
+                       <Text style={{ color: '#e5e3ff', fontSize: 11, fontWeight: '700' }}>{gameFilter.toUpperCase()}</Text>
                     </TouchableOpacity>
                  )}
               </View>
