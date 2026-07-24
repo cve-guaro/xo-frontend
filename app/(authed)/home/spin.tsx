@@ -313,6 +313,29 @@ export default function SpinGameScreen() {
     }
   }, [screenState, joinLoading, round, router, mode]);
 
+  // ── Stuck-state recovery ────────────────────────────────────────────
+  // If the game gets stuck (e.g. socket disconnected during spin), auto-recover
+  useEffect(() => {
+    if (screenState !== "spinning" && screenState !== "waiting") return;
+
+    const stuckTimeout = setTimeout(() => {
+      if (screenState === "spinning") {
+        // Stuck in spinning for 20s — force recover
+        console.warn("[SPIN] Stuck in spinning state, auto-recovering...");
+        stopSpinLoop();
+        setIsSpinning(false);
+        setScreenState("browse");
+        setRound(null);
+        setWinningSlice(null);
+        setResultData(null);
+        setError("Connection lost during spin. Please try again.");
+        refreshProfile();
+      }
+    }, 20000);
+
+    return () => clearTimeout(stuckTimeout);
+  }, [screenState, stopSpinLoop, refreshProfile]);
+
   // ── Socket message handler ───────────────────────────────────────────
   useEffect(() => {
     const unsub = onMessage((msg) => {
