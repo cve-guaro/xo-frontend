@@ -380,8 +380,12 @@ export default function SpinGameScreen() {
 
         case "spin:locked":
           setRound(prev => {
-            if (!prev || prev.roundId !== payload.roundId) return prev;
-            return { ...prev, status: "locked", pot: payload.pot };
+            if (prev && prev.roundId !== payload.roundId) return prev;
+            return {
+              ...(prev || { roundId: payload.roundId, mode: "RAIL", players: payload.players || [] }),
+              status: "locked",
+              pot: payload.pot,
+            };
           });
           // Start 3-2-1 pre-spin countdown
           setPreSpinCountdown(3);
@@ -410,16 +414,19 @@ export default function SpinGameScreen() {
           setSpinDuration(payload.spinDuration || 5000);
           setScreenState("spinning");
           setRound(prev => {
-            if (!prev || prev.roundId !== payload.roundId) return prev;
+            if (prev && prev.roundId !== payload.roundId) return prev;
             playSpinLoop();
-            return { ...prev, status: "spinning" };
+            return {
+              ...(prev || { roundId: payload.roundId, mode: "RAIL", players: [] }),
+              status: "spinning",
+            };
           });
           break;
 
         case "spin:result":
           stopSpinLoop();
           setRound(prev => {
-            if (!prev || prev.roundId !== payload.roundId) return prev;
+            if (prev && prev.roundId !== payload.roundId) return prev;
             setResultData({
               winnerId: payload.winnerId,
               winnerName: payload.winnerName,
@@ -427,7 +434,7 @@ export default function SpinGameScreen() {
             });
             setScreenState("result");
             // Only play win/lose sound if user was actually in this active round
-            const isUserInRound = prev.players.some(p => p.userId === user?.id);
+            const isUserInRound = prev?.players.some(p => p.userId === user?.id);
             if (isUserInRound) {
               if (payload.winnerId === user?.id) {
                 playWin();
@@ -435,7 +442,10 @@ export default function SpinGameScreen() {
                 playLose();
               }
             }
-            return { ...prev, status: "resolved" };
+            return {
+              ...(prev || { roundId: payload.roundId, mode: "RAIL", players: [] }),
+              status: "resolved",
+            };
           });
           // Refresh balance
           setTimeout(() => refreshProfile(), 1500);
@@ -680,7 +690,8 @@ export default function SpinGameScreen() {
     setAddLoading(true);
     setError(null);
     try {
-      const result = await emitAck("spin:add_stake", { amount, token });
+      const currentRoundId = roundRef.current?.roundId;
+      const result = await emitAck("spin:add_stake", { amount, roundId: currentRoundId, token });
       if (result.ok) {
         // Handled via spin:stake_updated event
         playAddMoney();
@@ -692,7 +703,7 @@ export default function SpinGameScreen() {
     } finally {
       setAddLoading(false);
     }
-  }, [emitAck, token]);
+  }, [emitAck, token, playAddMoney]);
 
   const handleToggleMic = useCallback(async () => {
     const nextMuted = !micMuted;
@@ -1551,10 +1562,20 @@ export default function SpinGameScreen() {
                     <Ionicons name="remove" size={20} color="#ef4444" />
                   </TouchableOpacity>
 
-                  {/* Stake Amount Display */}
-                  <Text style={{ color: "#ffffff", fontSize: 18, fontWeight: "900", fontFamily: "Inter, sans-serif" }}>
-                    +{round ? addAmount : betAmount} ETB
-                  </Text>
+                  {/* Stake Amount Display (Tappable on Mobile) */}
+                  <TouchableOpacity
+                    disabled={joinLoading || addLoading}
+                    onPress={() => {
+                      if (round) handleAddStake(addAmount);
+                      else handleJoinRoom(is5Player ? "5_PLAYER" : "RAIL", betAmount);
+                    }}
+                    style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 4 }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={{ color: "#ffffff", fontSize: 17, fontWeight: "900", fontFamily: "Inter, sans-serif" }}>
+                      +{round ? addAmount : betAmount} ETB
+                    </Text>
+                  </TouchableOpacity>
 
                   {/* Plus Button & Bet/Play Button side by side */}
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -1587,14 +1608,16 @@ export default function SpinGameScreen() {
                         else handleJoinRoom(is5Player ? "5_PLAYER" : "RAIL", betAmount);
                       }}
                       style={{
-                        width: 44,
+                        paddingHorizontal: 12,
                         height: 36,
                         borderRadius: 12,
                         borderWidth: 1.5,
-                        borderColor: "#8b5cf6",
-                        backgroundColor: "#16102b",
+                        borderColor: addLoading || joinLoading ? "#00daf3" : "#8b5cf6",
+                        backgroundColor: addLoading || joinLoading ? "rgba(0, 218, 243, 0.2)" : "#16102b",
                         alignItems: "center",
                         justifyContent: "center",
+                        flexDirection: "row",
+                        gap: 4,
                         shadowColor: "#8b5cf6",
                         shadowOffset: { width: 0, height: 0 },
                         shadowOpacity: 0.6,
@@ -1604,7 +1627,7 @@ export default function SpinGameScreen() {
                       activeOpacity={0.8}
                     >
                       {joinLoading || addLoading ? (
-                        <ActivityIndicator size="small" color="#8b5cf6" />
+                        <ActivityIndicator size="small" color="#00daf3" />
                       ) : (
                         <Ionicons name="play" size={20} color="#8b5cf6" style={{ marginLeft: 2 }} />
                       )}
