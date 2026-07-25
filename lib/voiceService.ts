@@ -34,6 +34,8 @@ class VoiceService {
   private currentUid: number | string = 0;
   private muted = true;
   private appId = AGORA_APP_ID || "ba52d09d3e204851af7ddbe4340b38a2";
+  private joinRetryCount = 0;
+  private maxJoinRetries = 2;
 
   async fetchToken(roomId: string, uid: string | number): Promise<{ token: string; channel: string; uid: any } | null> {
     try {
@@ -57,28 +59,40 @@ class VoiceService {
 
     if (Platform.OS === "web" && AgoraRTC) {
       try {
-        if (!this.rtcClient) {
-          this.rtcClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
-
-          // Listen for remote users publishing audio
-          this.rtcClient.on("user-published", async (user: any, mediaType: string) => {
-            try {
-              await this.rtcClient.subscribe(user, mediaType);
-              if (mediaType === "audio") {
-                user.audioTrack?.play();
-              }
-            } catch (err) {
-              console.warn("[VoiceService] Remote audio subscribe failed:", err);
-            }
-          });
-
-          this.rtcClient.on("user-unpublished", (user: any) => {
-            try {
-              user.audioTrack?.stop();
-            } catch (err) {}
-          });
+        // Always create a fresh client to avoid stale state after leave/rejoin
+        if (this.rtcClient) {
+          try { await this.rtcClient.leave(); } catch (_) {}
+          this.rtcClient = null;
         }
+        if (this.localAudioTrack) {
+          try { this.localAudioTrack.stop(); this.localAudioTrack.close(); } catch (_) {}
+          this.localAudioTrack = null;
+        }
+
+        this.rtcClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+
+        // Listen for remote users publishing audio
+        this.rtcClient.on("user-published", async (user: any, mediaType: string) => {
+          try {
+            await this.rtcClient.subscribe(user, mediaType);
+            if (mediaType === "audio") {
+              user.audioTrack?.play();
+              console.log(`[VoiceService] Playing remote audio from UID ${user.uid}`);
+            }
+          } catch (err) {
+            console.warn("[VoiceService] Remote audio subscribe failed:", err);
+          }
+        });
+
+        this.rtcClient.on("user-unpublished", (user: any) => {
+          try {
+            user.audioTrack?.stop();
+          } catch (err) {}
+        });
+
         this.isInitialized = true;
+        this.isJoined = false;
+        this.joinRetryCount = 0;
         console.log("[VoiceService] Agora Web RTC Client initialized successfully.");
         return true;
       } catch (err) {
@@ -122,6 +136,7 @@ class VoiceService {
       try {
         await this.rtcClient.join(this.appId, channelName, token || null, uid);
         this.isJoined = true;
+        this.joinRetryCount = 0;
         console.log(`[VoiceService] Web client joined channel "${channelName}" as UID ${uid}`);
 
         // Only publish AFTER join succeeds — prevents "haven't joined yet" error
@@ -135,14 +150,22 @@ class VoiceService {
           }
         } catch (micErr: any) {
           // Microphone access denied or publish failed — non-fatal
+          // User can still HEAR others even if mic publish fails
           console.warn("[VoiceService] Microphone access / publish notice:", micErr?.message || micErr);
         }
 
         return true;
       } catch (err: any) {
-        // Join failed (network issue, Agora edge server unreachable)
-        console.warn("[VoiceService] Web joinChannel failed (will use socket fallback):", err?.message || err);
+        console.warn("[VoiceService] Web joinChannel failed:", err?.message || err);
         this.isJoined = false;
+
+        // Auto-retry once after a brief delay (handles transient Agora edge server issues)
+        if (this.joinRetryCount < this.maxJoinRetries) {
+          this.joinRetryCount++;
+          console.log(`[VoiceService] Retrying join (attempt ${this.joinRetryCount}/${this.maxJoinRetries})...`);
+          await new Promise(r => setTimeout(r, 1500));
+          return this.joinChannel(channelId, uid, token || undefined);
+        }
       }
     }
 
@@ -176,6 +199,7 @@ class VoiceService {
         }
         await this.rtcClient.leave();
         this.isJoined = false;
+        this.rtcClient = null; // Force fresh client on next initialize()
         console.log("[VoiceService] Web client left channel.");
         return true;
       } catch (err) {
