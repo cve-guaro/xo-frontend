@@ -259,12 +259,52 @@ class VoiceService {
   }
 
   async muteRemoteUser(uid: number | string, muted: boolean): Promise<void> {
+    const numUid = typeof uid === "number" ? uid : this.stringToUid(String(uid));
+
+    if (Platform.OS === "web" && this.rtcClient) {
+      try {
+        const remoteUsers = this.rtcClient.remoteUsers || [];
+        const user = remoteUsers.find((u: any) => String(u.uid) === String(numUid) || String(u.uid) === String(uid));
+        if (user && user.audioTrack) {
+          user.audioTrack.setVolume(muted ? 0 : 100);
+          console.log(`[VoiceService] Web remote user ${uid} volume set to: ${muted ? 0 : 100}`);
+        }
+      } catch (err) {
+        console.warn(`[VoiceService] Web mute remote user ${uid} failed:`, err);
+      }
+      return;
+    }
+
     if (this.engine) {
       try {
-        const numUid = typeof uid === "number" ? uid : this.stringToUid(String(uid));
         this.engine.muteRemoteAudioStream(numUid, muted);
       } catch (err) {
-        console.error(`[VoiceService] Mute remote user ${uid} failed:`, err);
+        console.error(`[VoiceService] Native mute remote user ${uid} failed:`, err);
+      }
+    }
+  }
+
+  async muteAllRemoteUsers(muted: boolean): Promise<void> {
+    if (Platform.OS === "web" && this.rtcClient) {
+      try {
+        const remoteUsers = this.rtcClient.remoteUsers || [];
+        remoteUsers.forEach((u: any) => {
+          if (u.audioTrack) {
+            u.audioTrack.setVolume(muted ? 0 : 100);
+          }
+        });
+        console.log(`[VoiceService] Web all remote users volume set to: ${muted ? 0 : 100}`);
+      } catch (err) {
+        console.warn("[VoiceService] Web mute all remote users failed:", err);
+      }
+      return;
+    }
+
+    if (this.engine) {
+      try {
+        this.engine.muteAllRemoteAudioStreams(muted);
+      } catch (err) {
+        console.error("[VoiceService] Native mute all failed:", err);
       }
     }
   }

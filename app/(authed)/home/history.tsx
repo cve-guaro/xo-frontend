@@ -83,8 +83,14 @@ const getBoardFromMoves = (moves: Move[]) => {
 
 const getBoardForStep = (moves: Move[], step: number) => {
   const board = Array(9).fill(null);
-  if (!moves || !Array.isArray(moves)) return board;
-  const visibleMoves = moves.slice(0, step);
+  if (!moves || !Array.isArray(moves) || step <= 0) return board;
+
+  // Determine current round offset (round 1 = moves 1..9, round 2 = moves 10..18, etc.)
+  // Resets board clean for each round so symbols don't overlay
+  const currentRoundIndex = Math.floor((step - 1) / 9);
+  const roundStartMove = currentRoundIndex * 9;
+  const visibleMoves = moves.slice(roundStartMove, step);
+
   visibleMoves.forEach(move => {
     if (move && typeof move.index === 'number' && move.index >= 0 && move.index < 9) {
       board[move.index] = move.symbol;

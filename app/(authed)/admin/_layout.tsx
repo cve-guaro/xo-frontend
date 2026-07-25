@@ -493,6 +493,14 @@ export default function AdminLayout() {
 
         <View style={[s.sidebarFooter, collapsed && { paddingHorizontal: 8, alignItems: 'center' }]}>
           <TouchableOpacity
+            style={[s.emergencyBtn, { backgroundColor: 'rgba(6, 182, 212, 0.12)', borderColor: 'rgba(6, 182, 212, 0.3)', marginBottom: 8 }, collapsed && { paddingHorizontal: 0, width: 40, height: 40, borderRadius: 12 }]}
+            activeOpacity={0.7}
+            onPress={() => router.push('/(authed)/home/gameplay' as any)}
+          >
+            <Ionicons name="home-outline" size={18} color="#06b6d4" />
+            {!collapsed && <Text style={[s.emergencyText, { color: '#06b6d4' }]}>{isEN ? 'BACK TO HOME' : 'ወደ መነሻ'}</Text>}
+          </TouchableOpacity>
+          <TouchableOpacity
             style={[s.emergencyBtn, collapsed && { paddingHorizontal: 0, width: 40, height: 40, borderRadius: 12 }]}
             activeOpacity={0.7}
             onPress={() => setLogoutModalVisible(true)}

@@ -93,6 +93,10 @@ export default function ProfileScreen() {
   const [showReferralModal, setShowReferralModal] = useState(false);
   const [exitModalVisible, setExitModalVisible] = useState(false);
 
+  const [referralCode, setReferralCode] = useState("");
+  const [referralUrl, setReferralUrl] = useState("");
+  const [referralEnabled, setReferralEnabled] = useState(true);
+
   // Fetch Referral Code
   useEffect(() => {
     if (token) {
@@ -104,6 +108,7 @@ export default function ProfileScreen() {
           if (d.ok) {
             setReferralCode(d.referralCode);
             setReferralUrl(d.referralUrl);
+            if (d.enabled !== undefined) setReferralEnabled(!!d.enabled);
           }
         })
         .catch(() => {});
@@ -506,19 +511,21 @@ export default function ProfileScreen() {
                     </View>
 
                     {/* Referral Code */}
-                    <View style={s.accountDetailRow}>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                        <Ionicons name="gift" size={15} color="#8b93a7" />
-                        <Text style={s.accountDetailLabel}>Referral Code</Text>
+                    {referralEnabled && (
+                      <View style={s.accountDetailRow}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                          <Ionicons name="gift" size={15} color="#8b93a7" />
+                          <Text style={s.accountDetailLabel}>Referral Code</Text>
+                        </View>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                          <Text style={[s.accountDetailVal, { color: "#f5b642" }]}>{referralCode || "XO-ETH"}</Text>
+                          <TouchableOpacity onPress={handleCopyReferral} style={s.copyCodeBtn} activeOpacity={0.8}>
+                            <Ionicons name="copy-outline" size={12} color="#f5b642" />
+                            <Text style={s.copyCodeBtnText}>COPY</Text>
+                          </TouchableOpacity>
+                        </View>
                       </View>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                        <Text style={[s.accountDetailVal, { color: "#f5b642" }]}>{referralCode || "XO-ETH"}</Text>
-                        <TouchableOpacity onPress={handleCopyReferral} style={s.copyCodeBtn} activeOpacity={0.8}>
-                          <Ionicons name="copy-outline" size={12} color="#f5b642" />
-                          <Text style={s.copyCodeBtnText}>COPY</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
+                    )}
                   </View>
                 </View>
 
@@ -645,12 +652,14 @@ export default function ProfileScreen() {
               <Text style={s.accountDetailLabel}>Phone</Text>
               <Text style={s.accountDetailVal}>{maskedPhone}</Text>
             </View>
-            <View style={s.accountDetailRow}>
-              <Text style={s.accountDetailLabel}>Referral</Text>
-              <TouchableOpacity onPress={handleCopyReferral}>
-                <Text style={[s.accountDetailVal, { color: "#f5b642" }]}>{referralCode || "Copy"}</Text>
-              </TouchableOpacity>
-            </View>
+            {referralEnabled && (
+              <View style={s.accountDetailRow}>
+                <Text style={s.accountDetailLabel}>Referral</Text>
+                <TouchableOpacity onPress={handleCopyReferral}>
+                  <Text style={[s.accountDetailVal, { color: "#f5b642" }]}>{referralCode || "Copy"}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         </View>
 
@@ -662,6 +671,14 @@ export default function ProfileScreen() {
             <Ionicons name="chevron-forward" size={16} color="#8b93a7" />
           </TouchableOpacity>
         </View>
+
+        {/* Mobile Admin Panel Button (visible to admins) */}
+        {(user?.role === 'admin' || user?.role === 'superadmin') && (
+          <TouchableOpacity onPress={() => router.push('/(authed)/admin' as any)} style={[s.profileLogoutBtn, { backgroundColor: 'rgba(6, 182, 212, 0.15)', borderColor: 'rgba(6, 182, 212, 0.4)', marginBottom: 10 }]}>
+            <Ionicons name="shield-checkmark" size={18} color="#06b6d4" style={{ marginRight: 6 }} />
+            <Text style={[s.profileLogoutBtnText, { color: '#06b6d4' }]}>OPEN ADMIN PANEL</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Mobile Logout */}
         <TouchableOpacity onPress={() => setExitModalVisible(true)} style={s.profileLogoutBtn}>

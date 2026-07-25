@@ -218,6 +218,8 @@ export default function SpinGameScreen() {
 
   const mutedPlayersRef = useRef<Set<string>>(new Set());
   const masterSpeakerMutedRef = useRef(false);
+  const [mutedRemoteUsers, setMutedRemoteUsers] = useState<Record<string, boolean>>({});
+  const [allRemoteMuted, setAllRemoteMuted] = useState(false);
   const mediaRecorderRef = useRef<any>(null);
   const streamRef = useRef<any>(null);
 
@@ -1042,31 +1044,59 @@ export default function SpinGameScreen() {
                 </TouchableOpacity>
               </View>
 
-              {/* RIGHT SIDE: Monthly Leaderboard Panel */}
+              {/* RIGHT SIDE: Active Room Players & Per-User Voice Controls Panel */}
               <View style={ds.sidebar5P}>
                 <View style={ds.rightSidebarPanel}>
                   <View style={ds.leaderboardHeader}>
-                    <Text style={ds.leaderboardTitle}>TOP PLAYERS</Text>
-                    <Ionicons name="trophy" size={16} color="#f5b642" />
+                    <Text style={ds.leaderboardTitle}>ROOM PLAYERS ({round?.players?.length || 0}/5)</Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        const newAllMuted = !allRemoteMuted;
+                        setAllRemoteMuted(newAllMuted);
+                        voiceService.muteAllRemoteUsers(newAllMuted);
+                      }}
+                      style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: allRemoteMuted ? "rgba(239, 68, 68, 0.2)" : "rgba(34, 197, 94, 0.15)", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 }}
+                    >
+                      <Ionicons name={allRemoteMuted ? "volume-mute" : "volume-high"} size={14} color={allRemoteMuted ? "#ef4444" : "#22c55e"} />
+                      <Text style={{ color: allRemoteMuted ? "#ef4444" : "#22c55e", fontSize: 11, fontWeight: "600" }}>
+                        {allRemoteMuted ? "Muted All" : "Mute All"}
+                      </Text>
+                    </TouchableOpacity>
                   </View>
                   {Array.from({ length: 5 }, (_, idx) => {
-                    const lead = leaderboard && leaderboard[idx] ? leaderboard[idx] : null;
-                    const rank = idx + 1;
-                    const circleBg = rank === 1 ? "#f5b642" : (rank === 2 ? "#b9cacb" : (rank === 3 ? "#f97316" : (rank === 4 ? "#a855f7" : "#22c55e")));
+                    const player = round?.players && round.players[idx] ? round.players[idx] : null;
+                    const isSelf = player?.userId === user?.id;
+                    const isMuted = player ? !!mutedRemoteUsers[player.userId] : false;
                     return (
-                      <View key={lead?.id || idx} style={ds.leaderRow}>
-                        <View style={[ds.leaderBadge, { backgroundColor: circleBg, opacity: lead ? 1 : 0.4 }]}>
-                          <Text style={ds.leaderBadgeText}>{rank}</Text>
+                      <View key={player?.userId || idx} style={ds.leaderRow}>
+                        <View style={[ds.leaderBadge, { backgroundColor: player ? (isSelf ? "#06b6d4" : "#3b82f6") : "rgba(255,255,255,0.08)", opacity: player ? 1 : 0.4 }]}>
+                          <Text style={ds.leaderBadgeText}>{idx + 1}</Text>
                         </View>
                         <View style={ds.leaderDetails}>
-                          <Text style={[ds.leaderName, !lead && { color: "rgba(255,255,255,0.3)" }]} numberOfLines={1}>
-                            {lead ? `@${lead.username}` : "@---"}
+                          <Text style={[ds.leaderName, !player && { color: "rgba(255,255,255,0.3)" }]} numberOfLines={1}>
+                            {player ? `${player.username}${isSelf ? " (You)" : ""}` : "Waiting for player..."}
                           </Text>
-                          <Text style={[ds.leaderVal, !lead && { color: "rgba(255,255,255,0.2)" }]}>
-                            {lead ? `${lead.wins || lead.score || 0} Wins` : "0 Wins"}
+                          <Text style={[ds.leaderVal, !player && { color: "rgba(255,255,255,0.2)" }]}>
+                            {player ? `${player.stake} ETB` : "Empty Seat"}
                           </Text>
                         </View>
-                        {rank === 1 && lead && <Ionicons name="ribbon" size={16} color="#f5b642" />}
+                        {player && !isSelf && (
+                          <TouchableOpacity
+                            onPress={() => {
+                              const nextMuted = !isMuted;
+                              setMutedRemoteUsers(prev => ({ ...prev, [player.userId]: nextMuted }));
+                              voiceService.muteRemoteUser(player.userId, nextMuted);
+                            }}
+                            style={{ padding: 6, backgroundColor: isMuted ? "rgba(239,68,68,0.2)" : "rgba(255,255,255,0.08)", borderRadius: 8 }}
+                          >
+                            <Ionicons name={isMuted ? "mic-off" : "mic"} size={16} color={isMuted ? "#ef4444" : "#22c55e"} />
+                          </TouchableOpacity>
+                        )}
+                        {player && isSelf && (
+                          <View style={{ padding: 6, backgroundColor: "rgba(6, 182, 212, 0.15)", borderRadius: 8 }}>
+                            <Ionicons name="person" size={16} color="#06b6d4" />
+                          </View>
+                        )}
                       </View>
                     );
                   })}

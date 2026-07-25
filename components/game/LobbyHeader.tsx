@@ -143,7 +143,7 @@ export const LobbyHeader = memo(function LobbyHeader({
             activeOpacity={0.85}
             style={styles.refreshBtnCompact}
           >
-            <Ionicons name="reload-outline" size={12} color="#a78bfa" />
+            <Ionicons name="reload-outline" size={16} color="#a78bfa" />
             <Text style={styles.refreshTextCompact}>
               {isEN ? "Refresh" : "አድስ"}
             </Text>
@@ -308,16 +308,16 @@ export const LobbyHeader = memo(function LobbyHeader({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
     borderRadius: 20,
-    backgroundColor: "rgba(139, 92, 246, 0.18)",
+    backgroundColor: "rgba(139, 92, 246, 0.22)",
     borderWidth: 1.5,
-    borderColor: "rgba(139, 92, 246, 0.4)",
+    borderColor: "rgba(139, 92, 246, 0.5)",
   },
   refreshTextCompact: {
     color: "#c084fc",
     fontWeight: "800",
-    fontSize: 12,
+    fontSize: 13,
   },
 });

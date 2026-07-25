@@ -485,10 +485,10 @@ export default function LeaderboardScreen() {
                   {podiumData.map((item, idx) => {
                     const isWinner = item.rank === 1;
                     const isThird = item.rank === 3;
-                    const blockH = isWinner ? 190 : (isThird ? 130 : 155);
+                    const blockH = isWinner ? 110 : (isThird ? 75 : 90);
                     const blockColor = isWinner ? "#7c3aed" : "#1e243d";
                     const winnings = `$ ${item.wins * 5}`;
-                    const initials = item.username ? item.username.slice(0, 2).toUpperCase() : "PL";
+                    const initials = item.username ? item.username.slice(0, 2).toUpperCase() : "ME";
 
                     return (
                       <View key={item.id || idx} style={s.podiumSpotContainer}>
@@ -516,7 +516,7 @@ export default function LeaderboardScreen() {
 
                         {/* Raised 3D block */}
                         <View style={[s.podiumBlock, { height: blockH, backgroundColor: blockColor, borderColor: isWinner ? "rgba(245, 182, 66, 0.2)" : "#1f2540" }]}>
-                          <Text style={s.podiumNumberText}>{item.rank}</Text>
+                          <Text style={[s.podiumNumberText, { fontSize: 32 }]}>{item.rank}</Text>
                         </View>
                       </View>
                     );
@@ -548,12 +548,6 @@ export default function LeaderboardScreen() {
                     </View>
                   </View>
 
-                  {/* List Rows */}
-                  <View style={{ gap: 10, marginTop: 14 }}>
-                    {loading && <ActivityIndicator color="#00daf3" style={{ marginVertical: 20 }} />}
-                    {!loading && leaderboard.length === 0 && (
-                      <Text style={s.emptyListText}>No rankings available yet.</Text>
-                    )}
                     {!loading && leaderboard.map((item, idx) => {
                       const isTop3 = item.rank <= 3;
                       const badgeBg = item.rank === 1 ? "#f5b642" : (item.rank === 2 ? "#b9cacb" : (item.rank === 3 ? "#fb923c" : "rgba(124, 58, 237, 0.15)"));
@@ -595,6 +589,7 @@ export default function LeaderboardScreen() {
                       );
                     })}
                   </View>
+                  </ScrollView>
                 </View>
               </View>
 
