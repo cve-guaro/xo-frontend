@@ -134,6 +134,13 @@ class VoiceService {
 
     if (Platform.OS === "web" && this.rtcClient) {
       try {
+        const state = this.rtcClient.connectionState;
+        if (state === "CONNECTED" || state === "CONNECTING") {
+          console.log(`[VoiceService] Web client already in ${state} state, skipping join.`);
+          this.isJoined = true;
+          return true;
+        }
+
         await this.rtcClient.join(this.appId, channelName, token || null, uid);
         this.isJoined = true;
         this.joinRetryCount = 0;
@@ -156,6 +163,12 @@ class VoiceService {
 
         return true;
       } catch (err: any) {
+        if (err?.code === "INVALID_OPERATION" || String(err?.message || "").includes("connecting/connected")) {
+          console.log("[VoiceService] Client already connecting/connected, treating as success.");
+          this.isJoined = true;
+          return true;
+        }
+
         console.warn("[VoiceService] Web joinChannel failed:", err?.message || err);
         this.isJoined = false;
 
