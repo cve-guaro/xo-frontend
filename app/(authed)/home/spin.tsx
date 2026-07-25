@@ -614,14 +614,19 @@ export default function SpinGameScreen() {
   // Keep a ref to the current round so cleanup can access it without stale closure
   const roundRef = useRef<RoundState | null>(null);
   useEffect(() => { roundRef.current = round; }, [round]);
+  const joinAttemptedRef = useRef(false);
 
   // ── Auto-join room when screen comes into focus & cleanup audio on leave ──
   useFocusEffect(
     useCallback(() => {
-      if (mode === "5_PLAYER" && !round) {
-        handleJoinRoom("5_PLAYER");
-      } else if (mode === "RAIL" && stake && !round) {
-        handleJoinRoom("RAIL", Number(stake));
+      if (!joinAttemptedRef.current) {
+        if (mode === "5_PLAYER" && !roundRef.current) {
+          joinAttemptedRef.current = true;
+          handleJoinRoom("5_PLAYER");
+        } else if (mode === "RAIL" && stake && !roundRef.current) {
+          joinAttemptedRef.current = true;
+          handleJoinRoom("RAIL", Number(stake));
+        }
       }
 
       return () => {
@@ -634,8 +639,9 @@ export default function SpinGameScreen() {
         if (currentRound) {
           emitAck("spin:leave", { roundId: currentRound.roundId, token }).catch(() => {});
         }
+        joinAttemptedRef.current = false;
       };
-    }, [mode, stake, round, handleJoinRoom, stopAllSounds, stopRecording, emitAck, token])
+    }, [mode, stake, handleJoinRoom, stopAllSounds, stopRecording, emitAck, token])
   );
 
   // ── Actual leave (called after confirmation) ────────────────────────
@@ -653,6 +659,7 @@ export default function SpinGameScreen() {
     setIsSpinning(false);
     setWinningSlice(null);
     setResultData(null);
+    joinAttemptedRef.current = false;
     refreshProfile();
     router.replace("/(authed)/home/gameplay");
   }, [round, emitAck, token, refreshProfile, router, stopAllSounds, stopRecording]);
@@ -681,6 +688,7 @@ export default function SpinGameScreen() {
     setResultData(null);
     setCountdown(0);
     if (countdownTimerRef.current) { clearInterval(countdownTimerRef.current); countdownTimerRef.current = null; }
+    joinAttemptedRef.current = true;
     handleJoinRoom(currentMode, currentStake);
   }, [round, mode, stake, betAmount, handleJoinRoom, stopSpinLoop]);
 
