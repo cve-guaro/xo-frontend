@@ -93,8 +93,6 @@ export default function ProfileScreen() {
   const [showReferralModal, setShowReferralModal] = useState(false);
   const [exitModalVisible, setExitModalVisible] = useState(false);
 
-  const [referralCode, setReferralCode] = useState("");
-  const [referralUrl, setReferralUrl] = useState("");
   const [referralEnabled, setReferralEnabled] = useState(true);
 
   // Fetch Referral Code
