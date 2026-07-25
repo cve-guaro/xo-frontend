@@ -122,22 +122,27 @@ class VoiceService {
       try {
         await this.rtcClient.join(this.appId, channelName, token || null, uid);
         this.isJoined = true;
+        console.log(`[VoiceService] Web client joined channel "${channelName}" as UID ${uid}`);
 
-        // Turn microphone on if requested
+        // Only publish AFTER join succeeds — prevents "haven't joined yet" error
         try {
           if (!this.localAudioTrack) {
             this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
           }
-          await this.rtcClient.publish([this.localAudioTrack]);
-          this.localAudioTrack.setEnabled(!this.muted);
-        } catch (micErr) {
-          console.warn("[VoiceService] Microphone access / publish notice:", micErr);
+          if (this.isJoined && this.rtcClient) {
+            await this.rtcClient.publish([this.localAudioTrack]);
+            this.localAudioTrack.setEnabled(!this.muted);
+          }
+        } catch (micErr: any) {
+          // Microphone access denied or publish failed — non-fatal
+          console.warn("[VoiceService] Microphone access / publish notice:", micErr?.message || micErr);
         }
 
-        console.log(`[VoiceService] Web client joined channel "${channelName}" as UID ${uid}`);
         return true;
-      } catch (err) {
-        console.error("[VoiceService] Web joinChannel error:", err);
+      } catch (err: any) {
+        // Join failed (network issue, Agora edge server unreachable)
+        console.warn("[VoiceService] Web joinChannel failed (will use socket fallback):", err?.message || err);
+        this.isJoined = false;
       }
     }
 

@@ -204,6 +204,7 @@ export default function SpinGameScreen() {
   const [mobilePlayersSheetVisible, setMobilePlayersSheetVisible] = useState(false);
   const [preSpinCountdown, setPreSpinCountdown] = useState<number | null>(null);
   const preSpinTimerRef = useRef<any>(null);
+  const countdownTimerRef = useRef<any>(null);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
 
   // ── Voice Chat State ───────────────────────────────────────────
@@ -398,6 +399,7 @@ export default function SpinGameScreen() {
           break;
         
         case "spin:countdown":
+          // Server countdown takes priority — sync client timer
           setCountdown(payload.secondsLeft);
           break;
 
@@ -552,20 +554,41 @@ export default function SpinGameScreen() {
       if (result.ok && result.data) {
         const state = result.data as RoundState;
         setRound(state);
-        setCountdown(state.countdown);
+        const serverCountdown = state.countdown || 0;
+        setCountdown(serverCountdown);
         setScreenState("waiting");
         setIsSpinning(false);
         setWinningSlice(null);
         setResultData(null);
 
-        // Join Agora voice channel
+        // Start a client-side countdown timer as resilient fallback
+        // The server's spin:countdown events will override this value
+        if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+        if (serverCountdown > 0) {
+          countdownTimerRef.current = setInterval(() => {
+            setCountdown(prev => {
+              if (prev <= 1) {
+                clearInterval(countdownTimerRef.current);
+                countdownTimerRef.current = null;
+                return 0;
+              }
+              return prev - 1;
+            });
+          }, 1000);
+        }
+
+        // Join Agora voice channel (fire and forget, don't block)
         const voiceUid = voiceService.stringToUid(user?.id || "");
-        voiceService.initialize(AGORA_APP_ID).then((initialized) => {
+        voiceService.initialize(AGORA_APP_ID).then(async (initialized) => {
           if (initialized) {
-            voiceService.joinChannel(state.roundId, voiceUid);
-            voiceService.setMute(true); // Default to muted
+            try {
+              await voiceService.joinChannel(state.roundId, voiceUid);
+              await voiceService.setMute(true); // Default to muted
+            } catch (e) {
+              console.warn("[SPIN] Voice join failed (non-critical):", e);
+            }
           }
-        });
+        }).catch(() => {});
         setMicMuted(true);
       } else {
         const errMsg = result.error === "INSUFFICIENT_BALANCE"
@@ -606,6 +629,7 @@ export default function SpinGameScreen() {
         stopAllSounds();
         voiceService.leaveChannel();
         stopRecording();
+        if (countdownTimerRef.current) { clearInterval(countdownTimerRef.current); countdownTimerRef.current = null; }
         const currentRound = roundRef.current;
         if (currentRound) {
           emitAck("spin:leave", { roundId: currentRound.roundId, token }).catch(() => {});
@@ -619,6 +643,7 @@ export default function SpinGameScreen() {
     setShowLeaveConfirm(false);
     stopAllSounds();
     stopRecording();
+    if (countdownTimerRef.current) { clearInterval(countdownTimerRef.current); countdownTimerRef.current = null; }
     voiceService.leaveChannel();
     if (round) {
       await emitAck("spin:leave", { roundId: round.roundId, token }).catch(() => {});
@@ -655,6 +680,7 @@ export default function SpinGameScreen() {
     setWinningSlice(null);
     setResultData(null);
     setCountdown(0);
+    if (countdownTimerRef.current) { clearInterval(countdownTimerRef.current); countdownTimerRef.current = null; }
     handleJoinRoom(currentMode, currentStake);
   }, [round, mode, stake, betAmount, handleJoinRoom, stopSpinLoop]);
 
