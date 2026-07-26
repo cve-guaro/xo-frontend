@@ -48,7 +48,7 @@ export default function ProfileScreen() {
   const isTablet = Platform.OS === "web" && width >= 768 && width < 1024;
   const isLargeScreen = isDesktop || isTablet;
 
-  const { user, token, language, refreshProfile, logout, switchLanguage } = useAuth();
+  const { user, token, language, refreshProfile, logout, switchLanguage, isSuperAdmin } = useAuth();
   const { isPlaying, toggleMusic } = useBackgroundMusic();
   const [notificationsVisible, setNotificationsVisible] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
