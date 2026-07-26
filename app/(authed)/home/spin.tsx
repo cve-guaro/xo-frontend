@@ -237,14 +237,17 @@ export default function SpinGameScreen() {
     return Date.now() - lastActive < 1000;
   }, [speakingUsers]);
 
-  const toggleMutePlayer = useCallback((userId: string) => {
+  const toggleMutePlayer = useCallback((targetUserId: string) => {
     setMutedPlayers(prev => {
       const next = new Set(prev);
-      if (next.has(userId)) {
-        next.delete(userId);
+      const isCurrentlyMuted = next.has(targetUserId);
+      const nextMuted = !isCurrentlyMuted;
+      if (isCurrentlyMuted) {
+        next.delete(targetUserId);
       } else {
-        next.add(userId);
+        next.add(targetUserId);
       }
+      voiceService.muteRemoteUser(targetUserId, nextMuted);
       return next;
     });
   }, []);

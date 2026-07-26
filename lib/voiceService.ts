@@ -264,10 +264,16 @@ class VoiceService {
     if (Platform.OS === "web" && this.rtcClient) {
       try {
         const remoteUsers = this.rtcClient.remoteUsers || [];
-        const user = remoteUsers.find((u: any) => String(u.uid) === String(numUid) || String(u.uid) === String(uid));
+        const user = remoteUsers.find((u: any) => 
+          String(u.uid) === String(numUid) || 
+          String(u.uid) === String(uid) ||
+          this.stringToUid(String(u.uid)) === numUid
+        );
         if (user && user.audioTrack) {
           user.audioTrack.setVolume(muted ? 0 : 100);
           console.log(`[VoiceService] Web remote user ${uid} volume set to: ${muted ? 0 : 100}`);
+        } else {
+          console.warn(`[VoiceService] Remote user ${uid} audio track not found among remote users:`, remoteUsers.map((u: any) => u.uid));
         }
       } catch (err) {
         console.warn(`[VoiceService] Web mute remote user ${uid} failed:`, err);

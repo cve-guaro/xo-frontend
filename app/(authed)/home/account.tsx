@@ -671,7 +671,7 @@ export default function ProfileScreen() {
         </View>
 
         {/* Mobile Admin Panel Button (visible to admins) */}
-        {(user?.role === 'admin' || user?.role === 'superadmin') && (
+        {(user?.role === 'admin' || user?.role === 'superadmin' || (user as any)?.is_superadmin) && (
           <TouchableOpacity onPress={() => router.push('/(authed)/admin' as any)} style={[s.profileLogoutBtn, { backgroundColor: 'rgba(6, 182, 212, 0.15)', borderColor: 'rgba(6, 182, 212, 0.4)', marginBottom: 10 }]}>
             <Ionicons name="shield-checkmark" size={18} color="#06b6d4" style={{ marginRight: 6 }} />
             <Text style={[s.profileLogoutBtnText, { color: '#06b6d4' }]}>OPEN ADMIN PANEL</Text>
@@ -682,6 +682,9 @@ export default function ProfileScreen() {
         <TouchableOpacity onPress={() => setExitModalVisible(true)} style={s.profileLogoutBtn}>
           <Text style={s.profileLogoutBtnText}>LOGOUT</Text>
         </TouchableOpacity>
+
+        {/* 60px Bottom Spacing so Logout and Admin buttons are fully scrollable and clickable on mobile */}
+        <View style={{ height: 60 }} />
       </ScrollView>
       <NotificationsPopover visible={notificationsVisible} onClose={() => setNotificationsVisible(false)} onUnreadCountChange={setUnreadCount} />
       

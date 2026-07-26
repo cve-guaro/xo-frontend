@@ -1070,10 +1070,10 @@ export default function GameRoom() {
         <Text style={{ position: 'absolute', bottom: '20%', right: '-15%', fontSize: 280, fontWeight: '900', color: '#00daf3', opacity: 0.02, transform: [{ rotate: '25deg' }] }}>O</Text>
       </View>
 
+      <FlashToast amount={parseInt(amountParam)} ref={toastRef} message="Match Found! 🎉" />
+
       <MainWrapper style={styles.safe}>
         <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
-
-          <FlashToast amount={parseInt(amountParam)} ref={toastRef} message="Match Found! 🎉" />
 
           {/* MAIN GAME LAYOUT */}
           <View style={[isDesktop && { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40, marginTop: 40 }]}>
