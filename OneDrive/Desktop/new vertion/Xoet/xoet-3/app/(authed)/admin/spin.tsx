@@ -408,31 +408,43 @@ export default function SpinAdminPage() {
             <Text style={s.emptyStateText}>No completed spin rounds yet</Text>
           </View>
         )}
-        {!spinHistoryLoading && spinHistory.map((round: any, i: number) => (
-          <View key={round.id || i} style={s.historyCard}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-              <View style={[s.historyStatusPill, { borderColor: round.status === 'paid' ? 'rgba(34,197,94,0.3)' : 'rgba(245,57,57,0.3)' }]}>
-                <Text style={{ color: round.status === 'paid' ? C.success : C.error, fontSize: 9, fontWeight: '800' }}>{round.status?.toUpperCase()}</Text>
+        {!spinHistoryLoading && spinHistory.map((round: any, i: number) => {
+          const isRealSpin = round.is_real_spin || (round.real_players > 0 && round.real_players === round.total_players);
+          const winnerName = round.winner_display_name || round.winner_username || '—';
+
+          return (
+            <View key={round.id || i} style={s.historyCard}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <View style={[s.historyStatusPill, { borderColor: round.status === 'paid' ? 'rgba(34,197,94,0.3)' : 'rgba(245,57,57,0.3)' }]}>
+                    <Text style={{ color: round.status === 'paid' ? C.success : C.error, fontSize: 9, fontWeight: '800' }}>{round.status?.toUpperCase()}</Text>
+                  </View>
+                  <View style={[s.historyStatusPill, { backgroundColor: isRealSpin ? 'rgba(34,197,94,0.1)' : 'rgba(245,158,11,0.1)', borderColor: isRealSpin ? 'rgba(34,197,94,0.3)' : 'rgba(245,158,11,0.3)' }]}>
+                    <Text style={{ color: isRealSpin ? C.success : '#f59e0b', fontSize: 9, fontWeight: '800' }}>{isRealSpin ? 'REAL SPIN' : 'BOT ASSISTED'}</Text>
+                  </View>
+                </View>
+                <Text style={{ color: C.onSurfaceVariant, fontSize: 10, fontWeight: '600' }}>{timeFmt(round.created_at)}</Text>
               </View>
-              <Text style={{ color: C.onSurfaceVariant, fontSize: 10, fontWeight: '600' }}>{timeFmt(round.created_at)}</Text>
-            </View>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-              <View>
-                <Text style={{ color: '#e2e8f0', fontSize: 13, fontWeight: '800' }}>Winner: {round.winner_username || '—'}</Text>
-                {round.winner_phone && <Text style={{ color: C.onSurfaceVariant, fontSize: 10 }}>{round.winner_phone}</Text>}
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <View>
+                  <Text style={{ color: '#e2e8f0', fontSize: 13, fontWeight: '800' }}>
+                    Winner: <Text style={{ color: round.winner_is_bot ? '#fbbf24' : '#38bdf8' }}>{winnerName}</Text>
+                  </Text>
+                  {round.winner_phone && <Text style={{ color: C.onSurfaceVariant, fontSize: 10 }}>{round.winner_phone}</Text>}
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={{ color: C.success, fontSize: 14, fontWeight: '900' }}>+{fmt((round.prize_amount || 0) / 100)} ETB</Text>
+                  <Text style={{ color: C.onSurfaceVariant, fontSize: 10 }}>Pot: {fmt((round.pot_amount || 0) / 100)} ETB</Text>
+                </View>
               </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text style={{ color: C.success, fontSize: 14, fontWeight: '900' }}>+{fmt((round.prize_amount || 0) / 100)} ETB</Text>
-                <Text style={{ color: C.onSurfaceVariant, fontSize: 10 }}>Pot: {fmt((round.pot_amount || 0) / 100)} ETB</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.04)' }}>
+                <Text style={{ color: C.onSurfaceVariant, fontSize: 11, fontWeight: '600' }}>Mode: <Text style={{ color: '#fff' }}>{round.mode_label || (round.config_id === 2 ? 'Rail Spin' : '5-Player Spin')}</Text></Text>
+                <Text style={{ color: C.onSurfaceVariant, fontSize: 11, fontWeight: '600' }}>Players: <Text style={{ color: '#fff' }}>{round.total_players || 5} Players ({round.real_players || 0} Real / {(round.total_players || 5) - (round.real_players || 0)} Bot)</Text></Text>
+                <Text style={{ color: C.onSurfaceVariant, fontSize: 11, fontWeight: '600' }}>Slot: <Text style={{ color: '#fff' }}>#{round.winning_slice ?? '—'}</Text></Text>
               </View>
             </View>
-            <View style={{ flexDirection: 'row', gap: 12, marginTop: 6 }}>
-              <Text style={{ color: C.onSurfaceVariant, fontSize: 10 }}>Config: {round.config_id}</Text>
-              <Text style={{ color: C.onSurfaceVariant, fontSize: 10 }}>Players: {round.real_players} real / {round.total_players} total</Text>
-              <Text style={{ color: C.onSurfaceVariant, fontSize: 10 }}>Slot: #{round.winning_slice ?? '—'}</Text>
-            </View>
-          </View>
-        ))}
+          );
+        })}
 
         {/* Pagination */}
         {!spinHistoryLoading && spinHistoryTotal > 10 && (
