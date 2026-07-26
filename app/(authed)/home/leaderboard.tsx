@@ -548,6 +548,13 @@ export default function LeaderboardScreen() {
                     </View>
                   </View>
 
+                  {/* Scrollable List Rows */}
+                  <ScrollView style={{ maxHeight: 380, marginTop: 14 }} nestedScrollEnabled showsVerticalScrollIndicator>
+                    <View style={{ gap: 10 }}>
+                    {loading && <ActivityIndicator color="#00daf3" style={{ marginVertical: 20 }} />}
+                    {!loading && leaderboard.length === 0 && (
+                      <Text style={s.emptyListText}>No rankings available yet.</Text>
+                    )}
                     {!loading && leaderboard.map((item, idx) => {
                       const isTop3 = item.rank <= 3;
                       const badgeBg = item.rank === 1 ? "#f5b642" : (item.rank === 2 ? "#b9cacb" : (item.rank === 3 ? "#fb923c" : "rgba(124, 58, 237, 0.15)"));
@@ -588,7 +595,7 @@ export default function LeaderboardScreen() {
                         </View>
                       );
                     })}
-                  </View>
+                    </View>
                   </ScrollView>
                 </View>
               </View>
