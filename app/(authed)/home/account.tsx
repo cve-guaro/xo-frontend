@@ -578,14 +578,16 @@ export default function ProfileScreen() {
                   </TouchableOpacity>
                 </View>
 
-                <View style={[s.card, { marginTop: 20 }]}>
-                  <Text style={s.sectionTitleSmall}>REFERRAL REWARDS</Text>
-                  <Text style={s.supportCardDesc}>Invite your friends to XO Ethiopia and earn a percentage reward on their wins and deposit bonuses!</Text>
-                  <TouchableOpacity onPress={() => setShowReferralModal(true)} style={[s.supportChannelBtn, { backgroundColor: "#f5b642" }]} activeOpacity={0.85}>
-                    <Ionicons name="gift" size={15} color="#0a0e1a" />
-                    <Text style={[s.supportChannelBtnText, { color: "#0a0e1a" }]}>VIEW REFERRALS</Text>
-                  </TouchableOpacity>
-                </View>
+                {referralEnabled && (
+                  <View style={[s.card, { marginTop: 20 }]}>
+                    <Text style={s.sectionTitleSmall}>REFERRAL REWARDS</Text>
+                    <Text style={s.supportCardDesc}>Invite your friends to XO Ethiopia and earn a percentage reward on their wins and deposit bonuses!</Text>
+                    <TouchableOpacity onPress={() => setShowReferralModal(true)} style={[s.supportChannelBtn, { backgroundColor: "#f5b642" }]} activeOpacity={0.85}>
+                      <Ionicons name="gift" size={15} color="#0a0e1a" />
+                      <Text style={[s.supportChannelBtnText, { color: "#0a0e1a" }]}>VIEW REFERRALS</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
             </View>
           </View>
@@ -671,7 +673,7 @@ export default function ProfileScreen() {
         </View>
 
         {/* Mobile Admin Panel Button (visible to admins) */}
-        {(user?.role === 'admin' || user?.role === 'superadmin' || (user as any)?.is_superadmin) && (
+        {(user?.role === 'admin' || user?.role === 'superadmin' || user?.role === 'maintenance' || user?.role === 'maintenance_admin' || (user as any)?.is_superadmin || isSuperAdmin) && (
           <TouchableOpacity onPress={() => router.push('/(authed)/admin' as any)} style={[s.profileLogoutBtn, { backgroundColor: 'rgba(6, 182, 212, 0.15)', borderColor: 'rgba(6, 182, 212, 0.4)', marginBottom: 10 }]}>
             <Ionicons name="shield-checkmark" size={18} color="#06b6d4" style={{ marginRight: 6 }} />
             <Text style={[s.profileLogoutBtnText, { color: '#06b6d4' }]}>OPEN ADMIN PANEL</Text>

@@ -13,24 +13,21 @@ import { API_URL } from "../config"; // e.g. https://api.yourapp.com
  */
 export const fixAvatarUrl = (url?: string | null) => {
   if (!url) return null;
+  let resolvedUrl = String(url).trim();
+  if (!resolvedUrl) return null;
   
-  let resolvedUrl = url;
-  if (url.startsWith('/')) {
-    resolvedUrl = `${API_URL}${url}`;
+  if (resolvedUrl.startsWith('/')) {
+    resolvedUrl = `${API_URL}${resolvedUrl}`;
   }
 
-  // Swap localhost:9001 or backend domain:9001 port for API_URL
-  if (resolvedUrl.includes(':9001')) {
+  // Swap any local development host (localhost:9001, localhost:2000, 127.0.0.1:9001, etc.) for API_URL
+  if (resolvedUrl.match(/https?:\/\/(localhost|127\.0\.0\.1)(:[0-9]+)?/i)) {
+    resolvedUrl = resolvedUrl.replace(/https?:\/\/(localhost|127\.0\.0\.1)(:[0-9]+)?/gi, API_URL);
+  }
+
+  // Also replace any residual :9001 port if API_URL does not use port 9001
+  if (resolvedUrl.includes(':9001') && !API_URL.includes(':9001')) {
     resolvedUrl = resolvedUrl.replace(/^https?:\/\/[^/]+:9001/, API_URL);
-  } else if (resolvedUrl.includes('localhost') || resolvedUrl.includes('127.0.0.1')) {
-    resolvedUrl = resolvedUrl.replace(/^https?:\/\/localhost[^/]*/, API_URL).replace(/^https?:\/\/127\.0\.0\.1[^/]*/, API_URL);
-  }
-
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    const hostname = window.location.hostname;
-    if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1') {
-      resolvedUrl = resolvedUrl.replace(/localhost/g, hostname).replace(/127\.0\.0\.1/g, hostname);
-    }
   }
 
   // Ensure HTTPS for production API calls
