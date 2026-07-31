@@ -205,7 +205,10 @@ export default function SpinGameScreen() {
   const [preSpinCountdown, setPreSpinCountdown] = useState<number | null>(null);
   const preSpinTimerRef = useRef<any>(null);
   const countdownTimerRef = useRef<any>(null);
-  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  // ── Rematch State ──────────────────────────────────────────────
+  const [rematchAvailable, setRematchAvailable] = useState<{ originalRoundId: string; timeoutMs: number; betAmount: number } | null>(null);
+  const [rematchAccepted, setRematchAccepted] = useState<boolean>(false);
+  const [rematchCount, setRematchCount] = useState<number>(0);
 
   // ── Voice Chat State ───────────────────────────────────────────
   const [micMuted, setMicMuted] = useState(true);
@@ -481,6 +484,33 @@ export default function SpinGameScreen() {
           setTimeout(() => refreshProfile(), 1500);
           break;
 
+        case "spin:rematch_available":
+          setRematchAvailable({
+            originalRoundId: payload.originalRoundId,
+            timeoutMs: payload.timeoutMs || 15000,
+            betAmount: payload.betAmount || 100,
+          });
+          setRematchAccepted(false);
+          setRematchCount(0);
+          break;
+
+        case "spin:rematch_status":
+          setRematchCount(payload.acceptedCount || 0);
+          break;
+
+        case "spin:rematch_started":
+          if (payload.data) {
+            setRound(payload.data as RoundState);
+            setScreenState("waiting");
+            setIsSpinning(false);
+            setWinningSlice(null);
+            setResultData(null);
+            setRematchAvailable(null);
+            setRematchAccepted(false);
+            setRematchCount(0);
+          }
+          break;
+
         case "spin:cancelled":
           stopSpinLoop();
           setError("Room cancelled: " + (payload.reason || "Not enough players"));
@@ -668,6 +698,32 @@ export default function SpinGameScreen() {
     refreshProfile();
     router.replace("/(authed)/home/gameplay");
   }, [round, emitAck, token, refreshProfile, router, stopAllSounds, stopRecording]);
+
+  // ── Rematch vote handler ──────────────────────────────────────────
+  const handleRematchClick = useCallback(async () => {
+    if (!rematchAvailable || !token) return;
+    try {
+      const result = await emitAck("spin:rematch_vote", {
+        roundId: rematchAvailable.originalRoundId,
+        accept: true,
+        token,
+      });
+      if (result.ok) {
+        setRematchAccepted(true);
+        if (result.acceptedCount !== undefined) {
+          setRematchCount(result.acceptedCount);
+        }
+      } else {
+        if (result.error === "INSUFFICIENT_BALANCE") {
+          setError("Not enough balance for 100 ETB rematch!");
+        } else {
+          setError("Rematch request failed.");
+        }
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to submit rematch vote.");
+    }
+  }, [rematchAvailable, token, emitAck]);
 
   // ── Leave room handler — shows confirmation popup ──────────────────
   const handleLeaveRoom = useCallback(() => {
@@ -1903,6 +1959,23 @@ export default function SpinGameScreen() {
 
             {/* Action Buttons */}
             <View style={ds.resultActions}>
+              {round?.mode === "5_PLAYER" && rematchAvailable && (
+                <TouchableOpacity
+                  onPress={handleRematchClick}
+                  disabled={rematchAccepted}
+                  style={[
+                    ds.resultPlayAgainBtn,
+                    { backgroundColor: rematchAccepted ? "#22c55e" : "#7c3aed", marginBottom: 10 },
+                  ]}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name={rematchAccepted ? "checkmark-circle" : "refresh-circle"} size={18} color="#fff" />
+                  <Text style={ds.resultPlayAgainText}>
+                    {rematchAccepted ? `ACCEPTED (${rematchCount})` : "REMATCH (100 ETB)"}
+                  </Text>
+                </TouchableOpacity>
+              )}
+
               <TouchableOpacity
                 onPress={handlePlayAgain}
                 style={[ds.resultPlayAgainBtn, isMyWin && { backgroundColor: "#ca8a04" }]}

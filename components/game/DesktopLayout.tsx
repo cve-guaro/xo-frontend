@@ -480,7 +480,7 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
                         fontFamily="Inter, sans-serif"
                         letterSpacing="-1.5"
                       >
-                        LUCKY SPIN
+                        XO SPIN
                       </SvgText>
                     </Svg>
                   </View>
@@ -1149,8 +1149,8 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
 
             <Text style={s.stakeModalDesc}>
               {isEN
-                ? "Select a preset chip or enter a custom stake amount to enter the multi-odds Lucky Spin room."
-                : "ቀድሞ የተቀመጠ ቺፕ ይምረጡ ወይም ብጁ የእንጨት መጠን ያስገቡ ወደ Lucky Spin ክፍል ለመግባት።"}
+                ? "Select a preset chip or enter a custom stake amount to enter the multi-odds XO Spin room."
+                : "ቀድሞ የተቀመጠ ቺፕ ይምረጡ ወይም ብጁ የእንጨት መጠን ያስገቡ ወደ XO Spin ክፍል ለመግባት።"}
             </Text>
 
             {spinError && (
