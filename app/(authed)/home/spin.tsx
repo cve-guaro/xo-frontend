@@ -202,6 +202,7 @@ export default function SpinGameScreen() {
   const [addAmount, setAddAmount] = useState(10);
   const [addLoading, setAddLoading] = useState(false);
   const [mobilePlayersSheetVisible, setMobilePlayersSheetVisible] = useState(false);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [preSpinCountdown, setPreSpinCountdown] = useState<number | null>(null);
   const preSpinTimerRef = useRef<any>(null);
   const countdownTimerRef = useRef<any>(null);
