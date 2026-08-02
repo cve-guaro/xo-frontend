@@ -416,10 +416,10 @@ export default function SpinGameScreen() {
           setRound(prev => {
             if (prev && prev.roundId !== payload.roundId) return prev;
             return {
-              ...(prev || { roundId: payload.roundId, mode: "RAIL", players: payload.players || [] }),
+              ...(prev || { roundId: payload.roundId, configId: 0, betAmount: 10, maxPlayers: 5, roomName: "Spin Room", countdown: 0, mode: "RAIL", players: payload.players || [] }),
               status: "locked",
               pot: payload.pot,
-            };
+            } as RoundState;
           });
           // Start 3-2-1 pre-spin countdown
           setPreSpinCountdown(3);
@@ -451,9 +451,9 @@ export default function SpinGameScreen() {
             if (prev && prev.roundId !== payload.roundId) return prev;
             playSpinLoop();
             return {
-              ...(prev || { roundId: payload.roundId, mode: "RAIL", players: [] }),
+              ...(prev || { roundId: payload.roundId, configId: 0, betAmount: 10, maxPlayers: 5, roomName: "Spin Room", countdown: 0, mode: "RAIL", players: [] }),
               status: "spinning",
-            };
+            } as RoundState;
           });
           break;
 
@@ -477,9 +477,9 @@ export default function SpinGameScreen() {
               }
             }
             return {
-              ...(prev || { roundId: payload.roundId, mode: "RAIL", players: [] }),
+              ...(prev || { roundId: payload.roundId, configId: 0, betAmount: 10, maxPlayers: 5, roomName: "Spin Room", countdown: 0, mode: "RAIL", players: [] }),
               status: "resolved",
-            };
+            } as RoundState;
           });
           // Refresh balance
           setTimeout(() => refreshProfile(), 1500);
@@ -606,6 +606,9 @@ export default function SpinGameScreen() {
               if (prev <= 1) {
                 clearInterval(countdownTimerRef.current);
                 countdownTimerRef.current = null;
+                // Resilient fallback: trigger spin if timer expires
+                setIsSpinning(true);
+                setScreenState("spinning");
                 return 0;
               }
               return prev - 1;
@@ -711,8 +714,8 @@ export default function SpinGameScreen() {
       });
       if (result.ok) {
         setRematchAccepted(true);
-        if (result.acceptedCount !== undefined) {
-          setRematchCount(result.acceptedCount);
+        if ((result as any).acceptedCount !== undefined) {
+          setRematchCount((result as any).acceptedCount);
         }
       } else {
         if (result.error === "INSUFFICIENT_BALANCE") {
@@ -858,6 +861,12 @@ export default function SpinGameScreen() {
     else if (screen === "admin") router.push("/admin" as any);
   };
 
+  const formatCountdown = useCallback((totalSec: number) => {
+    const mins = Math.floor(Math.max(0, totalSec) / 60);
+    const secs = Math.max(0, totalSec) % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  }, []);
+
   const is5Player = round?.mode === "5_PLAYER" || mode === "5_PLAYER";
   const isRail = round?.mode === "RAIL" || mode === "RAIL";
 
@@ -874,6 +883,25 @@ export default function SpinGameScreen() {
     }
     return base;
   }, [round, user?.id, user?.username, betAmount]);
+
+  // Deduplicate and aggregate stakes by userId so the same user NEVER appears twice in slices or seats
+  const displayPlayers = React.useMemo(() => {
+    const rawList = round ? round.players : previewPlayers;
+    const map = new Map<string, SpinPlayer>();
+    for (const p of rawList) {
+      if (!p || !p.userId) continue;
+      const existing = map.get(p.userId);
+      if (existing) {
+        map.set(p.userId, {
+          ...existing,
+          stake: (Number(existing.stake) || 0) + (Number(p.stake) || 0),
+        });
+      } else {
+        map.set(p.userId, { ...p });
+      }
+    }
+    return Array.from(map.values());
+  }, [round, previewPlayers]);
 
   const previewPot = React.useMemo(() => {
     if (round) return round.pot;
@@ -1516,7 +1544,7 @@ export default function SpinGameScreen() {
                   }}>
                     <Ionicons name="time-outline" size={16} color="#f5b642" />
                     <Text style={{ color: "#f5b642", fontSize: 18, fontWeight: "900", fontFamily: "Inter, sans-serif" }}>
-                      00 : {countdown.toString().padStart(2, '0')}
+                      {formatCountdown(countdown)}
                     </Text>
                   </View>
                 </View>
@@ -1630,7 +1658,7 @@ export default function SpinGameScreen() {
             <View style={{ flex: 1, alignItems: "center", justifyContent: "center", marginVertical: 6, position: "relative" }}>
               <SpinWheel
                 size={Math.min(screenW - 48, 320)}
-                players={round ? round.players : previewPlayers}
+                players={displayPlayers}
                 isSpinning={screenState === "spinning"}
                 winningSlice={winningSlice}
                 spinDuration={spinDuration}
@@ -1787,7 +1815,7 @@ export default function SpinGameScreen() {
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                 {/* Joined Players Profiles */}
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: "row", alignItems: "center", gap: 8 }} style={{ flex: 1, marginRight: 8 }}>
-                  {(round ? round.players : previewPlayers).map((p: any, idx: number) => {
+                  {displayPlayers.map((p: any, idx: number) => {
                     const borderColors = ["#ef4444", "#a78bfa", "#22c55e", "#00daf3", "#f5b642"];
                     const color = borderColors[idx % borderColors.length];
                     const rawName = p.username || "Player";

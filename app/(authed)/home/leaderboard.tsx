@@ -28,6 +28,7 @@ import PwaInstallModal from "../../../components/game/PwaInstallModal";
 import CongratulationsModal from "../../../components/CongratulationsModal";
 import { SlidingNumber } from "../../../components/game/SlidingNumber";
 import NotificationsPopover from "../../../components/NotificationsPopover";
+import { SkeletonRow } from "../../../components/SkeletonLoading";
 
 // ---- Types ----
 type LeaderboardUser = {
@@ -553,7 +554,14 @@ export default function LeaderboardScreen() {
                   {/* Scrollable List Rows */}
                   <ScrollView style={{ maxHeight: 380, marginTop: 14 }} nestedScrollEnabled showsVerticalScrollIndicator>
                     <View style={{ gap: 10 }}>
-                    {loading && <ActivityIndicator color="#00daf3" style={{ marginVertical: 20 }} />}
+                    {loading && (
+                      <View style={{ gap: 8 }}>
+                        <SkeletonRow />
+                        <SkeletonRow />
+                        <SkeletonRow />
+                        <SkeletonRow />
+                      </View>
+                    )}
                     {!loading && leaderboard.length === 0 && (
                       <Text style={s.emptyListText}>No rankings available yet.</Text>
                     )}

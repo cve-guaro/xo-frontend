@@ -26,6 +26,7 @@ import { useBackgroundMusic } from "../../../context/BackgroundMusicProvider";
 import LogoutConfirmation from "../../../components/LogoutConfirmation";
 import { SlidingNumber } from "../../../components/game/SlidingNumber";
 import NotificationsPopover from "../../../components/NotificationsPopover";
+import { SkeletonBox, SkeletonRow } from "../../../components/SkeletonLoading";
 
 // Formats membership date (e.g. "July 2026")
 function formatMemberSince(iso: string) {

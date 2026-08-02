@@ -27,6 +27,7 @@ import { useBackgroundMusic } from "../../../context/BackgroundMusicProvider";
 import PwaInstallModal from "../../../components/game/PwaInstallModal";
 import { SlidingNumber } from "../../../components/game/SlidingNumber";
 import NotificationsPopover from "../../../components/NotificationsPopover";
+import { SkeletonRow } from "../../../components/SkeletonLoading";
 
 // ---- Types ----
 type Move = { ts: string; user: string; index: number; symbol: "X" | "O" };
@@ -510,7 +511,14 @@ export default function GamesHistory() {
 
                 {/* Match Rows List */}
                 <View style={{ gap: 14 }}>
-                  {loading && <ActivityIndicator color="#00daf3" style={{ marginVertical: 20 }} />}
+                  {loading && (
+                    <View style={{ gap: 8 }}>
+                      <SkeletonRow />
+                      <SkeletonRow />
+                      <SkeletonRow />
+                      <SkeletonRow />
+                    </View>
+                  )}
                   {!loading && paginatedGames.length === 0 && (
                     <View style={s.emptyState}>
                       <Ionicons name="game-controller-outline" size={40} color="rgba(255,255,255,0.15)" style={{ marginBottom: 12 }} />

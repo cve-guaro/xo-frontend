@@ -82,25 +82,27 @@ export default function SpinWheel({
 
   // Trigger spin animation
   useEffect(() => {
-    if (isSpinning && winningSlice !== null && winningSlice !== undefined && !hasSpun) {
+    if ((isSpinning || status === "spinning") && !hasSpun) {
       setHasSpun(true);
+      const safeWinningSlice = (typeof winningSlice === "number" && winningSlice >= 0) ? winningSlice : 0;
 
       // Calculate final angle to land on the winning slice
       let sliceCenterAngle = 0;
       if (is5Player) {
         // Find winner seatIndex
-        const winner = players[winningSlice];
-        const winnerSeat = winner ? (winner.seatIndex ?? winningSlice) : winningSlice;
+        const winner = players[safeWinningSlice];
+        const winnerSeat = winner ? (winner.seatIndex ?? safeWinningSlice) : safeWinningSlice;
         sliceCenterAngle = winnerSeat * 72 + 36;
       } else if (hasStakes && totalStake > 0) {
         let accumulated = 0;
-        for (let i = 0; i < winningSlice; i++) {
+        const validSlice = Math.min(safeWinningSlice, players.length - 1);
+        for (let i = 0; i < validSlice; i++) {
           accumulated += (Number((players[i] as any).stake || 0) / totalStake) * 360;
         }
-        const winningAngle = (Number((players[winningSlice] as any).stake || 0) / totalStake) * 360;
+        const winningAngle = (Number((players[validSlice] as any).stake || 0) / totalStake) * 360;
         sliceCenterAngle = accumulated + winningAngle / 2;
       } else {
-        sliceCenterAngle = winningSlice * angleStep + angleStep / 2;
+        sliceCenterAngle = safeWinningSlice * angleStep + angleStep / 2;
       }
 
       const fullRotations = 5; // 5 full spins
