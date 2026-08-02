@@ -1259,8 +1259,9 @@ export default function Landing() {
               }}
               activeOpacity={0.8}
             >
+              <Ionicons name="aperture-outline" size={17} color={selectedTab === "SPIN" ? "#c084fc" : "#8b93a7"} />
               <Text style={{ color: selectedTab === "SPIN" ? "#c084fc" : "#8b93a7", fontSize: 13, fontWeight: "900" }}>
-                ⚡ SPIN
+                SPIN
               </Text>
             </TouchableOpacity>
 
@@ -1280,8 +1281,9 @@ export default function Landing() {
               }}
               activeOpacity={0.8}
             >
+              <Ionicons name="grid-outline" size={17} color={selectedTab === "XO_GAME" ? "#c084fc" : "#8b93a7"} />
               <Text style={{ color: selectedTab === "XO_GAME" ? "#c084fc" : "#8b93a7", fontSize: 13, fontWeight: "900" }}>
-                ❖ XO
+                XO
               </Text>
             </TouchableOpacity>
           </View>
@@ -1299,40 +1301,47 @@ export default function Landing() {
                 overflow: "hidden",
                 borderWidth: 1.5,
                 borderColor: "rgba(139, 92, 246, 0.3)",
-                position: "relative",
               }}
               imageStyle={{ borderRadius: 24, opacity: 0.8 }}
               resizeMode="cover"
             >
               <View style={[StyleSheet.absoluteFillObject, { backgroundColor: "rgba(12, 9, 30, 0.72)", borderRadius: 24 }]} />
 
-              {/* SPIN TO WIN Header Row */}
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", width: "100%", marginBottom: 16 }}>
+              {/* SPIN TO WIN Header Header */}
+              <View style={{ width: "100%", flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                 <View>
-                  <Text style={{ color: "#ffffff", fontSize: 20, fontWeight: "900", letterSpacing: 0.5 }}>
+                  <Text style={{ color: "#ffffff", fontSize: 20, fontWeight: "900", fontFamily: "Inter, sans-serif" }}>
                     SPIN TO WIN
                   </Text>
-                  <Text style={{ color: "#f5b642", fontSize: 14, fontWeight: "700", fontStyle: "italic", marginTop: 1 }}>
+                  <Text style={{ color: "#f5b642", fontSize: 12, fontWeight: "700", fontStyle: "italic", fontFamily: "Inter, sans-serif" }}>
                     Big rewards
                   </Text>
                 </View>
 
-                {/* 5 Players Pill Badge */}
-                <View style={{ backgroundColor: "rgba(139, 92, 246, 0.15)", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: "rgba(139, 92, 246, 0.3)", alignItems: "flex-end" }}>
+                {/* 5 Players Live Counter Badge */}
+                <TouchableOpacity
+                  onPress={openRoomSheet}
+                  style={{
+                    backgroundColor: "rgba(139, 92, 246, 0.2)",
+                    borderRadius: 14,
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    borderWidth: 1,
+                    borderColor: "rgba(139, 92, 246, 0.4)",
+                    alignItems: "center",
+                  }}
+                  activeOpacity={0.8}
+                >
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-                    <Ionicons name="people" size={12} color="#c084fc" />
-                    <Text style={{ color: "#c084fc", fontSize: 11, fontWeight: "900" }}>
-                      5 Players
-                    </Text>
+                    <Ionicons name="people" size={14} color="#a855f7" />
+                    <Text style={{ color: "#a855f7", fontSize: 12, fontWeight: "900" }}>5 Players</Text>
                   </View>
-                  <Text style={{ color: "#8b93a7", fontSize: 9.5, fontWeight: "700", marginTop: 2 }}>
-                    5 People Spin
-                  </Text>
-                </View>
+                  <Text style={{ color: "#8b93a7", fontSize: 9, fontWeight: "700" }}>5 People Spin</Text>
+                </TouchableOpacity>
               </View>
 
-              {/* Centered Golden Prize Wheel */}
-              <View style={{ width: 260, height: 260, position: "relative", alignItems: "center", justifyContent: "center", marginVertical: 4 }}>
+              {/* Spin Wheel Component */}
+              <View style={{ width: 260, height: 260, alignItems: "center", justifyContent: "center", marginVertical: 12, position: "relative" }}>
                 <Animated.View style={{ transform: [{ rotate: idleSpinRotate }], width: 260, height: 260 }}>
                   <SpinWheelSvg size={260} mode={spinMode} hidePointer={true} />
                 </Animated.View>
@@ -1415,13 +1424,13 @@ export default function Landing() {
                 >
                   <View style={{ flexDirection: "row" }}>
                     <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: "#7c3aed", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#fff" }}>
-                      <Text style={{ fontSize: 9 }}>👤</Text>
+                      <Ionicons name="person" size={11} color="#ffffff" />
                     </View>
                     <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: "#22c55e", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#fff", marginLeft: -8 }}>
-                      <Text style={{ fontSize: 9 }}>👤</Text>
+                      <Ionicons name="person" size={11} color="#ffffff" />
                     </View>
                     <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: "#22d3ee", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#fff", marginLeft: -8 }}>
-                      <Text style={{ fontSize: 9 }}>👤</Text>
+                      <Ionicons name="person" size={11} color="#ffffff" />
                     </View>
                   </View>
                   <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "900", letterSpacing: 0.8 }}>

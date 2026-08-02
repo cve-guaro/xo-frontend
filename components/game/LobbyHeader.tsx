@@ -57,7 +57,7 @@ export const LobbyHeader = memo(function LobbyHeader({
         },
       ]}
     >
-      {/* ── Top Bar: Avatar + Username + VIP Badge | APP, Lang, Notifications ── */}
+      {/* ── Top Bar: Avatar + Username + VIP Ribbon | APP, Lang, Notifications ── */}
       <View style={styles.headerTop}>
         {/* Left: User Profile Pill */}
         <TouchableOpacity
@@ -76,9 +76,9 @@ export const LobbyHeader = memo(function LobbyHeader({
               <Text style={styles.usernameText}>
                 {user?.username || "YaredDM"}
               </Text>
-              {/* VIP Crown Badge */}
+              {/* VIP Ribbon Badge */}
               <View style={styles.vipBadge}>
-                <Text style={styles.vipBadgeText}>👑</Text>
+                <Ionicons name="ribbon-outline" size={11} color="#f5b642" />
               </View>
             </View>
           </View>
@@ -134,7 +134,7 @@ export const LobbyHeader = memo(function LobbyHeader({
         </View>
       </View>
 
-      {/* ── Premium Total Balance Card (Glassmorphism + Wallet & Coins Graph) ── */}
+      {/* ── Sleek Total Balance Card (Flat Clean Dark Glass - No Heavy Shadows or 3D Graphics) ── */}
       <View style={styles.balanceCardContainer}>
         <LinearGradient
           colors={["#120f26", "#0c0a1b", "#140e2d"]}
@@ -142,13 +142,10 @@ export const LobbyHeader = memo(function LobbyHeader({
           end={{ x: 1, y: 1 }}
           style={styles.balanceCardGradient}
         >
-          {/* Subtle Ambient Purple Glow Background */}
-          <View style={styles.cardGlowOverlay} pointerEvents="none" />
-
           {/* Top Label & Refresh Row */}
           <View style={styles.balanceHeaderRow}>
             <View style={styles.balanceLabelWrap}>
-              <Text style={styles.balanceCrossIcon}>⚡</Text>
+              <Ionicons name="wallet-outline" size={15} color="#c084fc" />
               <Text style={styles.balanceLabel}>
                 {isEN ? "TOTAL BALANCE" : "ጠቅላላ ሂሳብ"}
               </Text>
@@ -166,7 +163,7 @@ export const LobbyHeader = memo(function LobbyHeader({
             </TouchableOpacity>
           </View>
 
-          {/* Middle Balance & Graphic Row */}
+          {/* Middle Balance Row */}
           <View style={styles.balanceMainRow}>
             {/* Left Column: Big Amount & Percentage Badge */}
             <View style={styles.balanceLeftCol}>
@@ -178,69 +175,10 @@ export const LobbyHeader = memo(function LobbyHeader({
 
               {/* +12.5% vs yesterday badge */}
               <View style={styles.changeBadge}>
-                <Text style={styles.changeBadgeIcon}>▲</Text>
+                <Ionicons name="caret-up" size={10} color="#22c55e" />
                 <Text style={styles.changeBadgeText}>+12.5%</Text>
                 <Text style={styles.changeBadgeSubText}>vs yesterday</Text>
               </View>
-            </View>
-
-            {/* Right Column: 3D Coins Stack + Wallet + Trend SVG */}
-            <View style={styles.balanceRightGraphic}>
-              <Svg width={110} height={70} viewBox="0 0 110 70">
-                <Defs>
-                  <SvgLinearGradient id="lineGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <Stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.3} />
-                    <Stop offset="100%" stopColor="#c084fc" stopOpacity={1} />
-                  </SvgLinearGradient>
-                  <SvgLinearGradient id="walletGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <Stop offset="0%" stopColor="#7c3aed" />
-                    <Stop offset="100%" stopColor="#4c1d95" />
-                  </SvgLinearGradient>
-                  <SvgLinearGradient id="goldCoinGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <Stop offset="0%" stopColor="#fde047" />
-                    <Stop offset="50%" stopColor="#eab308" />
-                    <Stop offset="100%" stopColor="#ca8a04" />
-                  </SvgLinearGradient>
-                </Defs>
-
-                {/* Rising Trend Line Path */}
-                <Path
-                  d="M 5 50 Q 30 45, 50 30 T 95 10"
-                  fill="none"
-                  stroke="url(#lineGrad)"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                />
-
-                {/* 3D Stack of Gold Coins */}
-                <G transform="translate(62, 28)">
-                  {/* Bottom Coin */}
-                  <Rect x="0" y="24" width="22" height="7" rx="3.5" fill="#ca8a04" />
-                  <Rect x="0" y="22" width="22" height="6" rx="3" fill="url(#goldCoinGrad)" />
-                  {/* Middle Coin */}
-                  <Rect x="0" y="16" width="22" height="7" rx="3.5" fill="#ca8a04" />
-                  <Rect x="0" y="14" width="22" height="6" rx="3" fill="url(#goldCoinGrad)" />
-                  {/* Top Coin */}
-                  <Rect x="0" y="8" width="22" height="7" rx="3.5" fill="#ca8a04" />
-                  <Rect x="0" y="6" width="22" height="6" rx="3" fill="url(#goldCoinGrad)" stroke="#fef08a" strokeWidth="0.5" />
-                </G>
-
-                <G transform="translate(80, 22)">
-                  {/* Side Coin Stack */}
-                  <Rect x="0" y="20" width="20" height="6" rx="3" fill="#ca8a04" />
-                  <Rect x="0" y="18" width="20" height="5" rx="2.5" fill="url(#goldCoinGrad)" />
-                  <Rect x="0" y="12" width="20" height="6" rx="3" fill="#ca8a04" />
-                  <Rect x="0" y="10" width="20" height="5" rx="2.5" fill="url(#goldCoinGrad)" stroke="#fef08a" strokeWidth="0.5" />
-                </G>
-
-                {/* Leather Purple Wallet */}
-                <G transform="translate(8, 12)">
-                  <Rect x="15" y="12" width="38" height="28" rx="7" fill="url(#walletGrad)" stroke="#a78bfa" strokeWidth="1" />
-                  <Rect x="15" y="10" width="38" height="6" rx="3" fill="#6d28d9" opacity={0.6} />
-                  {/* Wallet Gold Clasp */}
-                  <Circle cx="44" cy="26" r="3.5" fill="#fde047" stroke="#ca8a04" strokeWidth="1" />
-                </G>
-              </Svg>
             </View>
           </View>
         </LinearGradient>
@@ -361,15 +299,10 @@ const styles = StyleSheet.create({
 
   /* Balance Card */
   balanceCardContainer: {
-    borderRadius: 22,
+    borderRadius: 20,
     overflow: "hidden",
-    borderWidth: 1.5,
-    borderColor: "rgba(139, 92, 246, 0.25)",
-    shadowColor: "#7c3aed",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
   },
   balanceCardGradient: {
     paddingHorizontal: 18,
