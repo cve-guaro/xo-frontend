@@ -1384,8 +1384,8 @@ export default function Landing() {
                 </LinearGradient>
               </TouchableOpacity>
 
-              {/* 5 People Spin Capsule Button */}
-              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", width: "100%", marginTop: 14 }}>
+              {/* Centered & Clickable 5 People Spin Capsule Button */}
+              <View style={{ width: "100%", alignItems: "center", justifyContent: "center", marginTop: 16 }}>
                 <TouchableOpacity
                   onPress={() => {
                     haptics.tap();
@@ -1397,13 +1397,19 @@ export default function Landing() {
                   style={{
                     flexDirection: "row",
                     alignItems: "center",
-                    gap: 8,
-                    paddingVertical: 10,
-                    paddingHorizontal: 18,
-                    borderRadius: 20,
-                    borderWidth: 1.2,
-                    borderColor: "rgba(139, 92, 246, 0.4)",
-                    backgroundColor: "rgba(18, 14, 42, 0.8)",
+                    justifyContent: "center",
+                    gap: 10,
+                    paddingVertical: 12,
+                    paddingHorizontal: 24,
+                    borderRadius: 24,
+                    borderWidth: 1.5,
+                    borderColor: "#8b5cf6",
+                    backgroundColor: "rgba(18, 14, 42, 0.9)",
+                    shadowColor: "#8b5cf6",
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.4,
+                    shadowRadius: 10,
+                    elevation: 6,
                   }}
                   activeOpacity={0.8}
                 >
@@ -1418,30 +1424,9 @@ export default function Landing() {
                       <Text style={{ fontSize: 9 }}>👤</Text>
                     </View>
                   </View>
-                  <Text style={{ color: "#ffffff", fontSize: 12, fontWeight: "900", letterSpacing: 0.5 }}>
+                  <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "900", letterSpacing: 0.8 }}>
                     5 PEOPLE SPIN ›
                   </Text>
-                </TouchableOpacity>
-
-                {/* Floating Plus Button */}
-                <TouchableOpacity
-                  onPress={openRoomSheet}
-                  style={{
-                    width: 42,
-                    height: 42,
-                    borderRadius: 21,
-                    backgroundColor: "#8b5cf6",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    shadowColor: "#8b5cf6",
-                    shadowOffset: { width: 0, height: 4 },
-                    shadowOpacity: 0.4,
-                    shadowRadius: 8,
-                    elevation: 6,
-                  }}
-                  activeOpacity={0.85}
-                >
-                  <Ionicons name="add" size={24} color="#ffffff" />
                 </TouchableOpacity>
               </View>
             </ImageBackground>
@@ -1458,16 +1443,7 @@ export default function Landing() {
             />
           )}
 
-          {/* 5. Social Proof Statistics Card */}
-          <SocialProofCard
-            winnersCount={24}
-            totalWinningsFormatted="ETB 156,780"
-            winRate={winRate || 68}
-            isEN={isEN}
-          />
-
-          {/* 6. Live Activity Toast */}
-          <LiveWinToast message={currentWinAnnouncement || "Abel won ETB 2,500 • 2s ago"} />
+          <View style={{ height: 20 }} />
 
           <View style={{ height: 35 }} />
         </ScrollView>
