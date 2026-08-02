@@ -76,7 +76,7 @@ const SearchingView = memo(function SearchingView({ onCancel, isMatched, betMin 
 
   return (
     <View style={styles.container}>
-      {/* Clean Gradient Background & Ambient Floor Grid */}
+      {/* Clean Dark Background */}
       <View style={StyleSheet.absoluteFillObject}>
         <LinearGradient
           colors={["#050814", "#090d20", "#110a28", "#050814"]}
@@ -86,94 +86,85 @@ const SearchingView = memo(function SearchingView({ onCancel, isMatched, betMin 
         <View style={styles.gridOverlay} />
       </View>
 
-      {/* Floating Neon X & O Background Decors */}
-      <Animated.View style={[styles.floatingDeco, { top: '18%', left: '15%', transform: [{ translateY: floatY }] }]}>
-        <Text style={[styles.decoX, { color: 'rgba(0, 218, 243, 0.35)' }]}>✕</Text>
-      </Animated.View>
-      <Animated.View style={[styles.floatingDeco, { top: '22%', right: '18%', transform: [{ translateY: floatY }] }]}>
-        <Text style={[styles.decoO, { color: 'rgba(239, 68, 68, 0.35)' }]}>○</Text>
-      </Animated.View>
-      <Animated.View style={[styles.floatingDeco, { bottom: '25%', left: '12%', transform: [{ translateY: floatY }] }]}>
-        <Text style={[styles.decoO, { color: 'rgba(168, 85, 247, 0.35)' }]}>○</Text>
-      </Animated.View>
-      <Animated.View style={[styles.floatingDeco, { bottom: '28%', right: '14%', transform: [{ translateY: floatY }] }]}>
-        <Text style={[styles.decoX, { color: 'rgba(59, 130, 246, 0.35)' }]}>✕</Text>
-      </Animated.View>
-
-      {/* ── Player Status Card ── */}
-      <View style={[styles.playerCard, isDesktop && { maxWidth: 420 }]}>
-        <View style={styles.playerCardLeft}>
-          <View style={styles.avatarCircle}>
-            <Text style={styles.avatarText}>{userInitials}</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.playerCardName} numberOfLines={1}>{usernameDisplay}</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 }}>
-              <View style={styles.pulsingDot} />
-              <Text style={styles.playerCardStatus}>{isMatched ? 'MATCHED' : 'SEARCHING'}</Text>
+      {/* ── TOP SECTION: Player Status Card (At top, Flat border, No Shadows) ── */}
+      <View style={{ width: "100%", paddingTop: Platform.OS === 'ios' ? 36 : 12, zIndex: 10, alignItems: "center" }}>
+        <View style={[styles.playerCard, isDesktop && { maxWidth: 420 }]}>
+          <View style={styles.playerCardLeft}>
+            <View style={styles.avatarCircle}>
+              <Text style={styles.avatarText}>{userInitials}</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.playerCardName} numberOfLines={1}>{usernameDisplay}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 }}>
+                <View style={styles.pulsingDot} />
+                <Text style={styles.playerCardStatus}>{isMatched ? 'MATCHED' : 'SEARCHING'}</Text>
+              </View>
             </View>
           </View>
-        </View>
 
-        <View style={styles.playerCardDivider} />
+          <View style={styles.playerCardDivider} />
 
-        <View style={styles.playerCardRight}>
-          <Text style={styles.stakeVal}>{stakeDisplay}</Text>
-          <Text style={styles.stakeLabel}>WAGER STAKE</Text>
+          <View style={styles.playerCardRight}>
+            <Text style={styles.stakeVal}>{stakeDisplay}</Text>
+            <Text style={styles.stakeLabel}>WAGER STAKE</Text>
+          </View>
         </View>
       </View>
 
-      {/* ── Center Glowing Radar Arena ── */}
-      <View style={styles.orbContainer}>
-        {/* Outer Radar Rings */}
-        <Animated.View style={[
-          styles.radarRing,
-          { width: 280, height: 280, borderRadius: 140, borderColor: isMatched ? 'rgba(16, 185, 129, 0.4)' : 'rgba(0, 218, 243, 0.25)', opacity: fade1, transform: [{ scale: scale1 }] }
-        ]} />
-        <Animated.View style={[
-          styles.radarRing,
-          { width: 220, height: 220, borderRadius: 110, borderColor: isMatched ? 'rgba(52, 211, 153, 0.5)' : 'rgba(168, 85, 247, 0.35)', opacity: fade2, transform: [{ scale: scale2 }] }
-        ]} />
-        <View style={[styles.radarRingStatic, { width: 160, height: 160, borderRadius: 80 }]} />
+      {/* ── CENTER SECTION: Radar & Status Text (Centered in middle) ── */}
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", width: "100%", marginVertical: 10 }}>
+        {/* Center Glowing Radar Arena */}
+        <View style={styles.orbContainer}>
+          <Animated.View style={[
+            styles.radarRing,
+            { width: 280, height: 280, borderRadius: 140, borderColor: isMatched ? 'rgba(16, 185, 129, 0.4)' : 'rgba(0, 218, 243, 0.25)', opacity: fade1, transform: [{ scale: scale1 }] }
+          ]} />
+          <Animated.View style={[
+            styles.radarRing,
+            { width: 220, height: 220, borderRadius: 110, borderColor: isMatched ? 'rgba(52, 211, 153, 0.5)' : 'rgba(168, 85, 247, 0.35)', opacity: fade2, transform: [{ scale: scale2 }] }
+          ]} />
+          <View style={[styles.radarRingStatic, { width: 160, height: 160, borderRadius: 80 }]} />
 
-        {/* Central Core Search Orb */}
-        <LinearGradient
-          colors={isMatched ? ['#10b981', '#059669'] : ['#00daf3', '#0099ff']}
-          start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-          style={styles.coreOrb}
+          <LinearGradient
+            colors={isMatched ? ['#10b981', '#059669'] : ['#00daf3', '#0099ff']}
+            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+            style={styles.coreOrb}
+          >
+            <Ionicons name={isMatched ? 'checkmark' : 'search'} size={32} color={isMatched ? "#ffffff" : "#0c0e1a"} />
+          </LinearGradient>
+        </View>
+
+        {/* Status Text */}
+        <Text style={styles.statusTitle}>
+          {isMatched ? 'MATCH FOUND!' : 'FINDING OPPONENT...'}
+        </Text>
+
+        {/* Elapsed Timer Pill */}
+        <View style={styles.timerPill}>
+          <Ionicons name="time-outline" size={14} color="#00daf3" style={{ marginRight: 6 }} />
+          <Text style={styles.timerText}>{timeStr} elapsed</Text>
+        </View>
+      </View>
+
+      {/* ── BOTTOM SECTION: Cancel Button & Tip (Anchored at very bottom) ── */}
+      <View style={{ width: "100%", alignItems: "center", paddingBottom: Platform.OS === 'ios' ? 28 : 12, zIndex: 10 }}>
+        <TouchableOpacity 
+          onPress={onCancel} 
+          disabled={isMatched} 
+          style={[styles.cancelBtnWrap, isDesktop && { maxWidth: 360 }]} 
+          activeOpacity={0.8}
         >
-          <Ionicons name={isMatched ? 'checkmark' : 'search'} size={32} color={isMatched ? "#ffffff" : "#0c0e1a"} />
-        </LinearGradient>
-      </View>
+          <View style={styles.cancelBtnInner}>
+            <Ionicons name="close-circle" size={18} color="#ef4444" style={{ marginRight: 8 }} />
+            <Text style={styles.cancelBtnText}>CANCEL SEARCH</Text>
+          </View>
+        </TouchableOpacity>
 
-      {/* ── Status Text ── */}
-      <Text style={styles.statusTitle}>
-        {isMatched ? 'MATCH FOUND!' : 'FINDING OPPONENT...'}
-      </Text>
-
-      {/* ── Elapsed Timer Pill ── */}
-      <View style={styles.timerPill}>
-        <Ionicons name="time-outline" size={14} color="#00daf3" style={{ marginRight: 6 }} />
-        <Text style={styles.timerText}>{timeStr} elapsed</Text>
-      </View>
-
-      {/* ── Cancel Action Button ── */}
-      <TouchableOpacity 
-        onPress={onCancel} 
-        disabled={isMatched} 
-        style={[styles.cancelBtnWrap, isDesktop && { maxWidth: 360 }]} 
-        activeOpacity={0.8}
-      >
-        <View style={styles.cancelBtnInner}>
-          <Ionicons name="close-circle" size={18} color="#ef4444" style={{ marginRight: 8 }} />
-          <Text style={styles.cancelBtnText}>CANCEL SEARCH</Text>
+        {/* Bottom Tip */}
+        <View style={styles.tipRow}>
+          <Ionicons name="bulb-outline" size={14} color="#00daf3" style={{ marginRight: 6 }} />
+          <Text style={styles.tipText}>Tip: The more you play, the faster we find your perfect match!</Text>
         </View>
-      </TouchableOpacity>
-
-      {/* ── Bottom Tip ── */}
-      <View style={styles.tipRow}>
-        <Ionicons name="bulb-outline" size={14} color="#00daf3" style={{ marginRight: 6 }} />
-        <Text style={styles.tipText}>Tip: The more you play, the faster we find your perfect match!</Text>
       </View>
     </View>
   );
@@ -187,8 +178,8 @@ const styles = StyleSheet.create({
     width: '100%',
     minHeight: '100%',
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
     backgroundColor: '#050814',
     position: 'relative',
     overflow: 'hidden',
@@ -203,64 +194,17 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(0, 218, 243, 0.05)',
     backgroundColor: 'rgba(0, 218, 243, 0.015)',
   },
-  floatingDeco: {
-    position: 'absolute',
-    zIndex: 1,
-  },
-  decoX: {
-    fontSize: 26,
-    fontWeight: '900',
-  },
-  decoO: {
-    fontSize: 26,
-    fontWeight: '900',
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-    zIndex: 10,
-  },
-  headerCross: {
-    color: '#ef4444',
-    fontSize: 16,
-    fontWeight: '900',
-    marginRight: 8,
-  },
-  headerCircle: {
-    color: '#00daf3',
-    fontSize: 16,
-    fontWeight: '900',
-    marginLeft: 4,
-  },
-  headerTitleMain: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: '900',
-    letterSpacing: 2,
-  },
-  headerTitleSub: {
-    color: '#a855f7',
-    fontSize: 18,
-    fontWeight: '900',
-    letterSpacing: 2,
-  },
   playerCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(12, 18, 38, 0.75)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(0, 218, 243, 0.25)',
-    borderRadius: 22,
+    backgroundColor: 'rgba(12, 18, 38, 0.85)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 12,
     width: '100%',
-    marginBottom: 30,
     zIndex: 10,
-    shadowColor: '#00daf3',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
   },
   playerCardLeft: {
     flexDirection: 'row',
