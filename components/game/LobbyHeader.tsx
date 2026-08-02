@@ -6,6 +6,7 @@ import {
   Animated,
   StyleSheet,
   Platform,
+  Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -179,6 +180,14 @@ export const LobbyHeader = memo(function LobbyHeader({
                 <Text style={styles.changeBadgeText}>+12.5%</Text>
                 <Text style={styles.changeBadgeSubText}>vs yesterday</Text>
               </View>
+            </View>
+
+            {/* Right Column: Transparent 3D Wallet with Cash & Gold Coins Image */}
+            <View style={{ justifyContent: "center", alignItems: "center", paddingRight: 4 }}>
+              <Image
+                source={require("../../assets/images/3d-wallet.png")}
+                style={{ width: 90, height: 75, resizeMode: "contain" }}
+              />
             </View>
           </View>
         </LinearGradient>

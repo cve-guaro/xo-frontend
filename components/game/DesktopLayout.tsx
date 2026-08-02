@@ -657,59 +657,12 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
                       </Text>
                     </View>
 
-                    {/* Right Graphic: Mini Wheel Illustration with 5 Avatar Orbs around it */}
-                    <View style={{ width: 104, height: 104, alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-                      {/* Outer Glow Ring */}
-                      <View style={{
-                        position: 'absolute',
-                        width: 90, height: 90, borderRadius: 45,
-                        borderWidth: 2, borderColor: 'rgba(139, 92, 246, 0.35)',
-                        backgroundColor: 'rgba(139, 92, 246, 0.1)',
-                      }} />
-
-                      {/* Star Pin Badge at Top */}
-                      <View style={{
-                        position: 'absolute',
-                        top: 2,
-                        zIndex: 5,
-                        backgroundColor: '#f5b642',
-                        width: 20, height: 20, borderRadius: 10,
-                        alignItems: 'center', justifyContent: 'center',
-                        shadowColor: '#f5b642', shadowRadius: 6, shadowOpacity: 0.8, elevation: 6,
-                      }}>
-                        <Ionicons name="star" size={11} color="#000" />
-                      </View>
-
-                      {/* Mini Wheel Body */}
-                      <View style={{
-                        width: 60, height: 60, borderRadius: 30,
-                        backgroundColor: '#1e1b4b',
-                        borderWidth: 3, borderColor: '#a78bfa',
-                        alignItems: 'center', justifyContent: 'center',
-                        overflow: 'hidden',
-                        position: 'relative',
-                      }}>
-                        {/* Slice colors */}
-                        <View style={{ position: 'absolute', top: 0, left: 0, width: 30, height: 30, backgroundColor: '#8b5cf6' }} />
-                        <View style={{ position: 'absolute', top: 0, right: 0, width: 30, height: 30, backgroundColor: '#22c55e' }} />
-                        <View style={{ position: 'absolute', bottom: 0, left: 0, width: 30, height: 30, backgroundColor: '#00daf3' }} />
-                        <View style={{ position: 'absolute', bottom: 0, right: 0, width: 30, height: 30, backgroundColor: '#f97316' }} />
-                        <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: '#f5b642', borderWidth: 2, borderColor: '#fff', zIndex: 3 }} />
-                      </View>
-
-                      {/* 4 Avatar Orbs orbiting around mini wheel */}
-                      <View style={{ position: 'absolute', top: 10, left: 6, width: 16, height: 16, borderRadius: 8, backgroundColor: '#a78bfa', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#fff' }}>
-                        <Ionicons name="person" size={8} color="#fff" />
-                      </View>
-                      <View style={{ position: 'absolute', top: 10, right: 6, width: 16, height: 16, borderRadius: 8, backgroundColor: '#38bdf8', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#fff' }}>
-                        <Ionicons name="person" size={8} color="#fff" />
-                      </View>
-                      <View style={{ position: 'absolute', bottom: 10, left: 6, width: 16, height: 16, borderRadius: 8, backgroundColor: '#fbbf24', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#fff' }}>
-                        <Ionicons name="person" size={8} color="#fff" />
-                      </View>
-                      <View style={{ position: 'absolute', bottom: 10, right: 6, width: 16, height: 16, borderRadius: 8, backgroundColor: '#34d399', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#fff' }}>
-                        <Ionicons name="person" size={8} color="#fff" />
-                      </View>
+                    {/* Right Graphic: Transparent 3D 5-Player Spin Illustration (3d-5p-spin.png) */}
+                    <View style={{ width: 130, height: 110, alignItems: 'center', justifyContent: 'center' }}>
+                      <Image
+                        source={require("../../assets/images/3d-5p-spin.png")}
+                        style={{ width: 130, height: 110, resizeMode: "contain" }}
+                      />
                     </View>
                   </View>
 
