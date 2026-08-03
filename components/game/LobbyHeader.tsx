@@ -183,10 +183,10 @@ export const LobbyHeader = memo(function LobbyHeader({
             </View>
 
             {/* Right Column: Transparent 3D Wallet with Cash & Gold Coins Image */}
-            <View style={{ justifyContent: "center", alignItems: "center", paddingRight: 4 }}>
+            <View style={{ justifyContent: "center", alignItems: "center", paddingRight: 2 }}>
               <Image
                 source={require("../../assets/images/3d-wallet.png")}
-                style={{ width: 90, height: 75, resizeMode: "contain" }}
+                style={{ width: 118, height: 98, resizeMode: "contain" }}
               />
             </View>
           </View>

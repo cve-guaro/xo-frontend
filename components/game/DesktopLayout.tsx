@@ -658,10 +658,10 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
                     </View>
 
                     {/* Right Graphic: Transparent 3D 5-Player Spin Illustration (3d-5p-spin.png) */}
-                    <View style={{ width: 130, height: 110, alignItems: 'center', justifyContent: 'center' }}>
+                    <View style={{ width: 175, height: 145, alignItems: 'center', justifyContent: 'center' }}>
                       <Image
                         source={require("../../assets/images/3d-5p-spin.png")}
-                        style={{ width: 130, height: 110, resizeMode: "contain" }}
+                        style={{ width: 175, height: 145, resizeMode: "contain" }}
                       />
                     </View>
                   </View>
