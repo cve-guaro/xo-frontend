@@ -36,6 +36,14 @@ class VoiceService {
   private appId = AGORA_APP_ID || "ba52d09d3e204851af7ddbe4340b38a2";
   private joinRetryCount = 0;
   private maxJoinRetries = 2;
+  private speakingListeners: Array<(speakers: string[]) => void> = [];
+
+  onSpeaking(callback: (speakers: string[]) => void) {
+    this.speakingListeners.push(callback);
+    return () => {
+      this.speakingListeners = this.speakingListeners.filter(fn => fn !== callback);
+    };
+  }
 
   async fetchToken(roomId: string, uid: string | number): Promise<{ token: string; channel: string; uid: any } | null> {
     try {
@@ -70,6 +78,12 @@ class VoiceService {
         }
 
         this.rtcClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+
+        this.rtcClient.enableAudioVolumeIndicator();
+        this.rtcClient.on("volume-indicator", (volumes: any[]) => {
+          const activeSpeakers = volumes.filter(v => v.level > 5).map(v => String(v.uid));
+          this.speakingListeners.forEach(fn => fn(activeSpeakers));
+        });
 
         // Listen for remote users publishing audio
         this.rtcClient.on("user-published", async (user: any, mediaType: string) => {

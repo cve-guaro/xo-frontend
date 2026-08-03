@@ -15,6 +15,7 @@ import PromotionPopup from "../../../components/PromotionPopup";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import NotificationsPopover from "../../../components/NotificationsPopover";
+import SpinWheel from "../../../components/game/SpinWheel";
 import { useAudioPlayer } from "expo-audio";
 import { LinearGradient } from "expo-linear-gradient";
 import Svg, { Circle, Path, G, Text as SvgText, Defs, RadialGradient, Stop, LinearGradient as SvgLinearGradient } from "react-native-svg";
@@ -1341,24 +1342,8 @@ export default function Landing() {
               </View>
 
               {/* Spin Wheel Component */}
-              <View style={{ width: 260, height: 260, alignItems: "center", justifyContent: "center", marginVertical: 12, position: "relative" }}>
-                <Animated.View style={{ transform: [{ rotate: idleSpinRotate }], width: 260, height: 260 }}>
-                  <SpinWheelSvg size={260} mode={spinMode} hidePointer={true} />
-                </Animated.View>
-
-                {/* Golden Arrow Pointer at top center (12 o'clock) */}
-                <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center" }} pointerEvents="none">
-                  <Svg width={260} height={260} viewBox="0 0 260 260">
-                    <G transform={`rotate(180, 130, ${130 - 104 * 1.02})`}>
-                      <Path
-                        d={`M 130 ${130 - 104 * 1.02} L ${130 - 12} ${130 - 104 * 1.16} L ${130 + 12} ${130 - 104 * 1.16} Z`}
-                        fill="#f5b642"
-                        stroke="#c59b27"
-                        strokeWidth={1.5}
-                      />
-                    </G>
-                  </Svg>
-                </View>
+              <View style={{ width: 260, height: 260, alignItems: "center", justifyContent: "center", marginVertical: 12 }}>
+                <SpinWheel size={260} players={[]} isSpinning={false} status="idle" mode={spinMode} />
               </View>
 
               {/* SPIN NOW! Big Neon CTA Button */}

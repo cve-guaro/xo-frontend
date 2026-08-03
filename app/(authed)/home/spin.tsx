@@ -218,6 +218,14 @@ export default function SpinGameScreen() {
   const [preJoinRoom, setPreJoinRoom] = useState<any | null>(null);
   const [mutedPlayers, setMutedPlayers] = useState<Set<string>>(new Set());
   const [masterSpeakerMuted, setMasterSpeakerMuted] = useState(false);
+  const [speakingUserIds, setSpeakingUserIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    const unsub = voiceService.onSpeaking((speakers) => {
+      setSpeakingUserIds(speakers);
+    });
+    return () => unsub();
+  }, []);
   const [speakingUsers, setSpeakingUsers] = useState<Record<string, number>>({});
 
   const mutedPlayersRef = useRef<Set<string>>(new Set());
@@ -1071,6 +1079,7 @@ export default function SpinGameScreen() {
                     onSpinComplete={handleSpinComplete}
                     status={round ? round.status : "waiting"}
                     mode="5_PLAYER"
+                    speakingUserIds={speakingUserIds}
                   />
                 </View>
 
@@ -1387,6 +1396,7 @@ export default function SpinGameScreen() {
                     onSpinComplete={handleSpinComplete}
                     status={round ? round.status : "waiting"}
                     mode="RAIL"
+                    speakingUserIds={speakingUserIds}
                   />
                 </View>
 
@@ -1665,6 +1675,7 @@ export default function SpinGameScreen() {
                 onSpinComplete={handleSpinComplete}
                 status={round ? round.status : "waiting"}
                 mode={is5Player ? "5_PLAYER" : "RAIL"}
+                speakingUserIds={speakingUserIds}
               />
 
               {/* Glowing Stage Pedestal ring under wheel base in 5-player mode */}

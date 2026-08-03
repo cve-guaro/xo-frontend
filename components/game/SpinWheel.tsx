@@ -23,6 +23,7 @@ type SpinWheelProps = {
   onSpinComplete?: () => void;
   status: "waiting" | "locked" | "spinning" | "resolved" | "paid" | "cancelled" | "idle";
   mode?: "5_PLAYER" | "RAIL";
+  speakingUserIds?: string[];
 };
 
 // Slice colors — vibrant, distinguishable
@@ -66,6 +67,7 @@ export default function SpinWheel({
   onSpinComplete,
   status,
   mode = "RAIL",
+  speakingUserIds = [],
 }: SpinWheelProps) {
   const rotation = useRef(new Animated.Value(0)).current;
   const [hasSpun, setHasSpun] = useState(false);
@@ -235,7 +237,9 @@ export default function SpinWheel({
 
               // Include stake percentage or ETB amount under name if RAIL mode
               let details = "";
+              let isSpeaking = false;
               if (player) {
+                isSpeaking = Array.isArray(speakingUserIds) && speakingUserIds.some(id => String(id) === String(player.userId));
                 const stakeVal = Number((player as any).stake || (is5Player ? 100 : 0));
                 if (is5Player) {
                   details = `${stakeVal} ETB (20%)`;
@@ -259,13 +263,13 @@ export default function SpinWheel({
                     <SvgText
                       x={textPos.x}
                       y={textPos.y - (details ? 6 : 0)}
-                      fill="#ffffff"
+                      fill={isSpeaking ? "#34d399" : "#ffffff"}
                       fontSize={Math.min(size * 0.038, 13)}
-                      fontWeight="800"
+                      fontWeight="900"
                       textAnchor="middle"
                       alignmentBaseline="middle"
                     >
-                      {displayName}
+                      {displayName} {isSpeaking ? "🔊" : ""}
                     </SvgText>
                   )}
                   {!!details && (

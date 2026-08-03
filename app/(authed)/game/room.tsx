@@ -1350,13 +1350,13 @@ export default function GameRoom() {
             outcome={result.outcome}
             amount={result.amount}
             onHome={goHome}
-            onPlayAgain={result.outcome === 'lose' ? handlePlayAgain : undefined}
+            onPlayAgain={handlePlayAgain}
             onSendEmoji={(emoji) => {
               send("send_emoji", { matchId, emoji });
               setFloatingEmoji(emoji);
               setTimeout(() => setFloatingEmoji(null), 3000);
             }}
-            insufficientBalance={result.outcome === 'lose' && (Number(user?.available_balance ?? 0) + Number(user?.bonus_balance ?? 0)) < Number(params?.amount ?? 0)}
+            insufficientBalance={(Number(user?.available_balance ?? 0) + Number(user?.bonus_balance ?? 0)) < Number(params?.amount ?? 0)}
           />
 
           <RematchOfferModal
@@ -1366,6 +1366,26 @@ export default function GameRoom() {
             onAccept={handleAcceptRematch}
             onDecline={handleDeclineRematch}
           />
+
+          {waitingForRematch && (
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99999, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.65)' }}>
+              <View style={{ width: '94%', maxWidth: 480, backgroundColor: 'rgba(13, 16, 32, 0.98)', borderRadius: 24, padding: 24, borderWidth: 1.5, borderColor: '#00e5ff', alignItems: 'center', shadowColor: '#00e5ff', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.4, shadowRadius: 20, elevation: 20 }}>
+                <ActivityIndicator size="large" color="#00e5ff" style={{ marginBottom: 16 }} />
+                <Text style={{ color: '#fff', fontSize: 17, fontWeight: '900', textAlign: 'center', marginBottom: 6 }}>
+                  {language === 'am' ? 'ተጋጣሚውን በመጠበቅ ላይ...' : 'Waiting for opponent to accept rematch...'}
+                </Text>
+                <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, textAlign: 'center', marginBottom: 20 }}>
+                  {language === 'am' ? 'እባክዎን ይጠብቁ' : 'Offer sent! Waiting for response...'}
+                </Text>
+                <TouchableOpacity
+                  onPress={handleCancelRematch}
+                  style={{ paddingVertical: 12, paddingHorizontal: 28, borderRadius: 16, backgroundColor: 'rgba(255,107,107,0.15)', borderWidth: 1, borderColor: '#ff6b6b' }}
+                >
+                  <Text style={{ color: '#ff6b6b', fontWeight: '900', fontSize: 14 }}>{language === 'am' ? 'ሰርዝ' : 'Cancel Request'}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
 
           <LeaveGameConfirmation
             visible={leaveConfirmVisible}
@@ -1477,63 +1497,63 @@ function RematchOfferModal({
   if (!visible) return null;
 
   return (
-    <View style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 9999, alignItems: 'center', paddingTop: 60 }}>
+    <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99999, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
       <Animated.View style={{
         transform: [{ translateY: slideAnim }],
         opacity: opacityAnim,
-        width: '90%',
-        maxWidth: 360,
-        backgroundColor: 'rgba(15, 17, 30, 0.95)',
-        borderRadius: 20,
-        padding: 18,
-        borderWidth: 1,
-        borderColor: 'rgba(0, 229, 255, 0.3)',
+        width: '94%',
+        maxWidth: 480,
+        backgroundColor: 'rgba(13, 16, 32, 0.98)',
+        borderRadius: 24,
+        padding: 22,
+        borderWidth: 1.5,
+        borderColor: 'rgba(0, 229, 255, 0.4)',
         shadowColor: '#00e5ff',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 16,
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.4,
+        shadowRadius: 20,
         elevation: 20,
       }}>
         {/* Header */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 10 }}>
-          <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0, 229, 255, 0.15)', alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="game-controller" size={18} color="#00e5ff" />
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 12 }}>
+          <View style={{ width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(0, 229, 255, 0.15)', borderWidth: 1, borderColor: 'rgba(0, 229, 255, 0.3)', alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="game-controller" size={22} color="#00e5ff" />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: '#fff', fontSize: 15, fontWeight: '900' }}>
+            <Text style={{ color: '#fff', fontSize: 16, fontWeight: '900', letterSpacing: 0.3 }}>
               {fromName || 'Opponent'} wants a rematch!
             </Text>
-            <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '700' }}>
-              Same stake: ETB {Number(amount || 0).toLocaleString()}
+            <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: '700', marginTop: 2 }}>
+              Same stake: <Text style={{ color: '#00e5ff', fontWeight: '900' }}>ETB {Number(amount || 0).toLocaleString()}</Text>
             </Text>
           </View>
           {/* Timer */}
           <View style={{
-            width: 40, height: 40, borderRadius: 20,
+            width: 44, height: 44, borderRadius: 22,
             backgroundColor: countdown <= 3 ? 'rgba(255,107,107,0.2)' : 'rgba(0,229,255,0.1)',
             borderWidth: 2,
             borderColor: countdown <= 3 ? '#ff6b6b' : '#00e5ff',
             alignItems: 'center', justifyContent: 'center',
           }}>
-            <Text style={{ color: countdown <= 3 ? '#ff6b6b' : '#00e5ff', fontSize: 16, fontWeight: '900' }}>
+            <Text style={{ color: countdown <= 3 ? '#ff6b6b' : '#00e5ff', fontSize: 17, fontWeight: '900' }}>
               {countdown}
             </Text>
           </View>
         </View>
 
         {/* Action buttons */}
-        <View style={{ flexDirection: 'row', gap: 10 }}>
+        <View style={{ flexDirection: 'row', gap: 12 }}>
           <TouchableOpacity
             onPress={onDecline}
-            style={{ flex: 1, padding: 12, borderRadius: 14, backgroundColor: 'rgba(255,107,107,0.12)', borderWidth: 1, borderColor: 'rgba(255,107,107,0.25)', alignItems: 'center' }}
+            style={{ flex: 1, paddingVertical: 14, borderRadius: 16, backgroundColor: 'rgba(255,107,107,0.12)', borderWidth: 1, borderColor: 'rgba(255,107,107,0.3)', alignItems: 'center', justifyContent: 'center' }}
           >
-            <Text style={{ color: '#ff6b6b', fontWeight: '900', fontSize: 13 }}>❌ Nah</Text>
+            <Text style={{ color: '#ff6b6b', fontWeight: '900', fontSize: 14, letterSpacing: 0.5 }}>Nah, skip</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={onAccept}
-            style={{ flex: 1, padding: 12, borderRadius: 14, backgroundColor: 'rgba(0,229,255,0.15)', borderWidth: 1, borderColor: 'rgba(0,229,255,0.3)', alignItems: 'center' }}
+            style={{ flex: 1, paddingVertical: 14, borderRadius: 16, backgroundColor: '#00e5ff', alignItems: 'center', justifyContent: 'center', shadowColor: '#00e5ff', shadowOpacity: 0.4, shadowRadius: 10, elevation: 6 }}
           >
-            <Text style={{ color: '#00e5ff', fontWeight: '900', fontSize: 13 }}>✅ Let's Go!</Text>
+            <Text style={{ color: '#0a0d1a', fontWeight: '900', fontSize: 15, letterSpacing: 0.5 }}>⚡ Let's Go!</Text>
           </TouchableOpacity>
         </View>
       </Animated.View>
