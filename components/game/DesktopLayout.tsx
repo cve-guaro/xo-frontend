@@ -597,7 +597,7 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
                   borderRadius: 24,
                   borderWidth: 1.5,
                   borderColor: 'rgba(99, 102, 241, 0.35)',
-                  padding: 18,
+                  padding: 22,
                   shadowColor: '#8b5cf6',
                   shadowOffset: { width: 0, height: 8 },
                   shadowOpacity: 0.25,
@@ -605,6 +605,7 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
                   elevation: 10,
                   position: 'relative',
                   overflow: 'hidden',
+                  minHeight: 260,
                 }}>
                   {/* Header row: MULTIPLAYER badge on left, LIVE indicator on right */}
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
@@ -640,28 +641,28 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
                   </View>
 
                   {/* Main content row: Title & text on left, Mini Wheel Illustration on right */}
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 16 }}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ color: '#ffffff', fontSize: 20, fontWeight: '900', letterSpacing: 0.5, fontFamily: 'Inter, sans-serif' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14, marginBottom: 18 }}>
+                    <View style={{ flex: 1, minWidth: 110 }}>
+                      <Text style={{ color: '#ffffff', fontSize: 24, fontWeight: '900', letterSpacing: 0.5, fontFamily: 'Inter, sans-serif' }}>
                         5-PLAYER
                       </Text>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: -2 }}>
-                        <Text style={{ color: '#00daf3', fontSize: 24, fontWeight: '900', letterSpacing: 1, fontFamily: 'Inter, sans-serif' }}>
+                        <Text style={{ color: '#00daf3', fontSize: 30, fontWeight: '900', letterSpacing: 1, fontFamily: 'Inter, sans-serif' }}>
                           SPIN
                         </Text>
-                        <Ionicons name="people" size={22} color="#a78bfa" />
+                        <Ionicons name="people" size={24} color="#a78bfa" />
                       </View>
 
-                      <Text style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 10, marginTop: 6, lineHeight: 15, fontFamily: 'Inter, sans-serif' }}>
+                      <Text style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 11, marginTop: 8, lineHeight: 16, fontFamily: 'Inter, sans-serif' }}>
                         Join other players online.{'\n'}Win proportional odds.
                       </Text>
                     </View>
 
                     {/* Right Graphic: Transparent 3D 5-Player Spin Illustration (3d-5p-spin.png) */}
-                    <View style={{ width: 175, height: 145, alignItems: 'center', justifyContent: 'center' }}>
+                    <View style={{ width: 200, height: 170, alignItems: 'center', justifyContent: 'center' }}>
                       <Image
                         source={require("../../assets/images/3d-5p-spin.png")}
-                        style={{ width: 175, height: 145, resizeMode: "contain" }}
+                        style={{ width: 200, height: 170, resizeMode: "contain" }}
                       />
                     </View>
                   </View>
