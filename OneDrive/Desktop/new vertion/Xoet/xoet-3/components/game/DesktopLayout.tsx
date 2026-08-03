@@ -480,7 +480,7 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
                         fontFamily="Inter, sans-serif"
                         letterSpacing="-1.5"
                       >
-                        LUCKY SPIN
+                        XO SPIN
                       </SvgText>
                     </Svg>
                   </View>
@@ -597,7 +597,7 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
                   borderRadius: 24,
                   borderWidth: 1.5,
                   borderColor: 'rgba(99, 102, 241, 0.35)',
-                  padding: 18,
+                  padding: 22,
                   shadowColor: '#8b5cf6',
                   shadowOffset: { width: 0, height: 8 },
                   shadowOpacity: 0.25,
@@ -605,6 +605,7 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
                   elevation: 10,
                   position: 'relative',
                   overflow: 'hidden',
+                  minHeight: 260,
                 }}>
                   {/* Header row: MULTIPLAYER badge on left, LIVE indicator on right */}
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
@@ -640,76 +641,29 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
                   </View>
 
                   {/* Main content row: Title & text on left, Mini Wheel Illustration on right */}
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 16 }}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ color: '#ffffff', fontSize: 20, fontWeight: '900', letterSpacing: 0.5, fontFamily: 'Inter, sans-serif' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14, marginBottom: 18 }}>
+                    <View style={{ flex: 1, minWidth: 110 }}>
+                      <Text style={{ color: '#ffffff', fontSize: 24, fontWeight: '900', letterSpacing: 0.5, fontFamily: 'Inter, sans-serif' }}>
                         5-PLAYER
                       </Text>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: -2 }}>
-                        <Text style={{ color: '#00daf3', fontSize: 24, fontWeight: '900', letterSpacing: 1, fontFamily: 'Inter, sans-serif' }}>
+                        <Text style={{ color: '#00daf3', fontSize: 30, fontWeight: '900', letterSpacing: 1, fontFamily: 'Inter, sans-serif' }}>
                           SPIN
                         </Text>
-                        <Ionicons name="people" size={22} color="#a78bfa" />
+                        <Ionicons name="people" size={24} color="#a78bfa" />
                       </View>
 
-                      <Text style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 10, marginTop: 6, lineHeight: 15, fontFamily: 'Inter, sans-serif' }}>
+                      <Text style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 11, marginTop: 8, lineHeight: 16, fontFamily: 'Inter, sans-serif' }}>
                         Join other players online.{'\n'}Win proportional odds.
                       </Text>
                     </View>
 
-                    {/* Right Graphic: Mini Wheel Illustration with 5 Avatar Orbs around it */}
-                    <View style={{ width: 104, height: 104, alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-                      {/* Outer Glow Ring */}
-                      <View style={{
-                        position: 'absolute',
-                        width: 90, height: 90, borderRadius: 45,
-                        borderWidth: 2, borderColor: 'rgba(139, 92, 246, 0.35)',
-                        backgroundColor: 'rgba(139, 92, 246, 0.1)',
-                      }} />
-
-                      {/* Star Pin Badge at Top */}
-                      <View style={{
-                        position: 'absolute',
-                        top: 2,
-                        zIndex: 5,
-                        backgroundColor: '#f5b642',
-                        width: 20, height: 20, borderRadius: 10,
-                        alignItems: 'center', justifyContent: 'center',
-                        shadowColor: '#f5b642', shadowRadius: 6, shadowOpacity: 0.8, elevation: 6,
-                      }}>
-                        <Ionicons name="star" size={11} color="#000" />
-                      </View>
-
-                      {/* Mini Wheel Body */}
-                      <View style={{
-                        width: 60, height: 60, borderRadius: 30,
-                        backgroundColor: '#1e1b4b',
-                        borderWidth: 3, borderColor: '#a78bfa',
-                        alignItems: 'center', justifyContent: 'center',
-                        overflow: 'hidden',
-                        position: 'relative',
-                      }}>
-                        {/* Slice colors */}
-                        <View style={{ position: 'absolute', top: 0, left: 0, width: 30, height: 30, backgroundColor: '#8b5cf6' }} />
-                        <View style={{ position: 'absolute', top: 0, right: 0, width: 30, height: 30, backgroundColor: '#22c55e' }} />
-                        <View style={{ position: 'absolute', bottom: 0, left: 0, width: 30, height: 30, backgroundColor: '#00daf3' }} />
-                        <View style={{ position: 'absolute', bottom: 0, right: 0, width: 30, height: 30, backgroundColor: '#f97316' }} />
-                        <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: '#f5b642', borderWidth: 2, borderColor: '#fff', zIndex: 3 }} />
-                      </View>
-
-                      {/* 4 Avatar Orbs orbiting around mini wheel */}
-                      <View style={{ position: 'absolute', top: 10, left: 6, width: 16, height: 16, borderRadius: 8, backgroundColor: '#a78bfa', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#fff' }}>
-                        <Ionicons name="person" size={8} color="#fff" />
-                      </View>
-                      <View style={{ position: 'absolute', top: 10, right: 6, width: 16, height: 16, borderRadius: 8, backgroundColor: '#38bdf8', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#fff' }}>
-                        <Ionicons name="person" size={8} color="#fff" />
-                      </View>
-                      <View style={{ position: 'absolute', bottom: 10, left: 6, width: 16, height: 16, borderRadius: 8, backgroundColor: '#fbbf24', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#fff' }}>
-                        <Ionicons name="person" size={8} color="#fff" />
-                      </View>
-                      <View style={{ position: 'absolute', bottom: 10, right: 6, width: 16, height: 16, borderRadius: 8, backgroundColor: '#34d399', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#fff' }}>
-                        <Ionicons name="person" size={8} color="#fff" />
-                      </View>
+                    {/* Right Graphic: Transparent 3D 5-Player Spin Illustration (3d-5p-spin.png) */}
+                    <View style={{ width: 200, height: 170, alignItems: 'center', justifyContent: 'center' }}>
+                      <Image
+                        source={require("../../assets/images/3d-5p-spin.png")}
+                        style={{ width: 200, height: 170, resizeMode: "contain" }}
+                      />
                     </View>
                   </View>
 
@@ -1149,8 +1103,8 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
 
             <Text style={s.stakeModalDesc}>
               {isEN
-                ? "Select a preset chip or enter a custom stake amount to enter the multi-odds Lucky Spin room."
-                : "ቀድሞ የተቀመጠ ቺፕ ይምረጡ ወይም ብጁ የእንጨት መጠን ያስገቡ ወደ Lucky Spin ክፍል ለመግባት።"}
+                ? "Select a preset chip or enter a custom stake amount to enter the multi-odds XO Spin room."
+                : "ቀድሞ የተቀመጠ ቺፕ ይምረጡ ወይም ብጁ የእንጨት መጠን ያስገቡ ወደ XO Spin ክፍል ለመግባት።"}
             </Text>
 
             {spinError && (
