@@ -654,7 +654,7 @@ export default function GamesHistory() {
                       })
                     )
                   ) : (
-                    <>
+                    <View style={{ gap: 14 }}>
                       {loading && (
                         <View style={{ gap: 8 }}>
                           <SkeletonRow />
@@ -719,7 +719,8 @@ export default function GamesHistory() {
                           </View>
                         );
                       })}
-                    </>
+                    </View>
+                  )}
                 </View>
 
                 {/* Pagination Controls */}
