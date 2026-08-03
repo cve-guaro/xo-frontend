@@ -74,7 +74,7 @@ export default function SpinWheel({
 
   const cx = size / 2;
   const cy = size / 2;
-  const r = size * 0.40;
+  const r = size * 0.44;
   const is5Player = mode === "5_PLAYER";
   const playerCount = is5Player ? 5 : Math.max(players.length, 1);
   const angleStep = 360 / playerCount;
@@ -136,25 +136,7 @@ export default function SpinWheel({
 
   return (
     <View style={[styles.container, { width: size, height: size }]}>
-      {/* Base Pedestal / Stand supporting the wheel (Image 2 design) */}
-      <View style={{ position: "absolute", bottom: -(size * 0.08), zIndex: 0, alignItems: "center" }}>
-        <Svg width={size * 0.48} height={size * 0.22} viewBox="0 0 100 50">
-          <Defs>
-            <LinearGradient id="standGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <Stop offset="0%" stopColor="#1e1b4b" />
-              <Stop offset="50%" stopColor="#0f0e26" />
-              <Stop offset="100%" stopColor="#060512" />
-            </LinearGradient>
-            <LinearGradient id="standBorderGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-              <Stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.8} />
-              <Stop offset="50%" stopColor="#f5b642" stopOpacity={0.9} />
-              <Stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.8} />
-            </LinearGradient>
-          </Defs>
-          <Path d="M 20 0 L 80 0 L 95 45 Q 98 50 90 50 L 10 50 Q 2 50 5 45 Z" fill="url(#standGrad)" stroke="url(#standBorderGrad)" strokeWidth="1.5" />
-          <Path d="M 25 5 L 75 5 L 87 43 L 13 43 Z" fill="none" stroke="rgba(139, 92, 246, 0.2)" strokeWidth="1" />
-        </Svg>
-      </View>
+
 
       {/* Ambient glow */}
       <View

@@ -112,7 +112,7 @@ const MatchFoundToast = React.forwardRef<MatchFoundToastHandle, Props>(
 
     return (
       <Modal transparent visible={visible} animationType="none" statusBarTranslucent>
-        <View style={[styles.overlay, Platform.OS === 'web' && { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999999 } as any]} pointerEvents="none">
+        <View style={[styles.overlay, Platform.OS === 'web' && { position: 'fixed' } as any]} pointerEvents="none">
           <Animated.View style={[styles.cardShadow, { opacity, transform: [{ translateY }, { scale }] }]}>
             <View style={styles.cardWrap}>
               {/* Keep your look, but remove extra overlays/strokes to cut draw cost */}
@@ -187,11 +187,18 @@ export default MatchFoundToast;
 
 const styles = StyleSheet.create({
   overlay: {
-    flex: 1,
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: "100%",
+    height: "100%",
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 18,
-    backgroundColor: "rgba(0,0,0,0.42)",
+    backgroundColor: "rgba(0,0,0,0.65)",
+    zIndex: 999999,
   },
 
   cardShadow: {

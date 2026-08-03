@@ -1342,8 +1342,8 @@ export default function Landing() {
               </View>
 
               {/* Spin Wheel Component */}
-              <View style={{ width: 260, height: 260, alignItems: "center", justifyContent: "center", marginVertical: 12 }}>
-                <SpinWheel size={260} players={[]} isSpinning={false} status="idle" mode={spinMode} />
+              <View style={{ width: 300, height: 300, alignItems: "center", justifyContent: "center", marginVertical: 12 }}>
+                <SpinWheel size={300} players={[]} isSpinning={false} status="idle" mode={spinMode} />
               </View>
 
               {/* SPIN NOW! Big Neon CTA Button */}
