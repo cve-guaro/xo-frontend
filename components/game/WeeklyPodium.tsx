@@ -130,7 +130,7 @@ export const WeeklyPodium = memo(function WeeklyPodium({
   return (
     <View style={styles.mainCard}>
       <LinearGradient
-        colors={["#14131A", "#1B1A24"]}
+        colors={["rgba(13, 15, 34, 0.95)", "rgba(18, 14, 42, 0.98)"]}
         style={StyleSheet.absoluteFill}
       />
 
@@ -168,22 +168,22 @@ export const WeeklyPodium = memo(function WeeklyPodium({
         {renderPodiumSpot({
           rank: 2,
           prize: 300,
-          color: "#94a3b8",
-          barH: 52,
+          color: "#22d3ee",
+          barH: 54,
           label: "2nd",
         })}
         {renderPodiumSpot({
           rank: 1,
           prize: 500,
-          color: "#f59e0b",
-          barH: 72,
+          color: "#f5b642",
+          barH: 76,
           label: "1st",
         })}
         {renderPodiumSpot({
           rank: 3,
           prize: 200,
-          color: "#c2410c",
-          barH: 42,
+          color: "#f97316",
+          barH: 44,
           label: "3rd",
         })}
       </View>
@@ -199,60 +199,83 @@ export const WeeklyPodium = memo(function WeeklyPodium({
           styles.playBtn,
           {
             marginTop: 20,
-            borderRadius: 16,
+            borderRadius: 22,
             overflow: "hidden",
             transform: [{ scale: hovered && !isBanned ? 1.02 : 1 }],
             shadowColor: "#00daf3",
             shadowOffset: { width: 0, height: 6 },
-            shadowOpacity: hovered && !isBanned ? 0.5 : 0.35,
-            shadowRadius: 12,
+            shadowOpacity: hovered && !isBanned ? 0.6 : 0.4,
+            shadowRadius: 14,
+            elevation: 8,
           },
         ]}
       >
         <LinearGradient
-          colors={isBanned ? ["#3a2020", "#2a1515"] : ["#00daf3", "#00daf3"]}
+          colors={isBanned ? ["#3a2020", "#2a1515"] : ["#00daf3", "#00b4d8"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.playInner}
         >
           <Ionicons
-            name={isBanned ? "lock-closed" : "flash-outline"}
+            name={isBanned ? "lock-closed" : "flash"}
             size={20}
-            color={isBanned ? "#fff" : "#000"}
+            color={isBanned ? "#fff" : "#060d1a"}
           />
-          <Text style={[styles.playText, { color: isBanned ? "#fff" : "#000" }]}>
+          <Text style={[styles.playText, { color: isBanned ? "#fff" : "#060d1a" }]}>
             {isBanned ? (isEN ? "SUSPENDED" : "ታግዷል") : t("play_now")}
           </Text>
         </LinearGradient>
       </WebPressable>
 
-      {/* Play with Friend Button */}
-      <WebPressable
-        onPress={() => setFriendModalVisible(true)}
-        style={({ hovered }: { pressed: boolean; hovered: boolean }) => [
-          styles.playBtn,
-          {
-            marginTop: 10,
-            backgroundColor: "transparent",
-            borderWidth: 1.5,
-            borderColor: "#3b82f6",
-            borderRadius: 16,
-            transform: [{ scale: hovered ? 1.02 : 1 }],
-          },
-        ]}
-      >
-        <View style={styles.playInner}>
-          <Ionicons
-            name="people-outline"
-            size={20}
-            color="#fff"
-            style={{ marginRight: 8 }}
-          />
-          <Text style={[styles.playText, { color: "#fff" }]}>
-            {isEN ? "PLAY WITH FRIEND" : "ከጓደኛ ጋር ይጫወቱ"}
-          </Text>
-        </View>
-      </WebPressable>
+      {/* Play with Friend Button with cyan + badge */}
+      <View style={{ position: "relative", width: "100%", marginTop: 12 }}>
+        <WebPressable
+          onPress={() => setFriendModalVisible(true)}
+          style={({ hovered }: { pressed: boolean; hovered: boolean }) => [
+            styles.playBtn,
+            {
+              backgroundColor: "rgba(18, 14, 42, 0.9)",
+              borderWidth: 1.5,
+              borderColor: "rgba(0, 218, 243, 0.4)",
+              borderRadius: 22,
+              transform: [{ scale: hovered ? 1.02 : 1 }],
+            },
+          ]}
+        >
+          <View style={[styles.playInner, { paddingRight: 48 }]}>
+            <Ionicons
+              name="people-outline"
+              size={20}
+              color="#fff"
+              style={{ marginRight: 8 }}
+            />
+            <Text style={[styles.playText, { color: "#fff", letterSpacing: 0.8 }]}>
+              {isEN ? "PLAY WITH FRIEND" : "ከጓደኛ ጋር ይጫወቱ"}
+            </Text>
+          </View>
+        </WebPressable>
+        <TouchableOpacity
+          onPress={() => setFriendModalVisible(true)}
+          style={{
+            position: "absolute",
+            right: 6,
+            top: 5,
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            backgroundColor: "#00daf3",
+            alignItems: "center",
+            justifyContent: "center",
+            shadowColor: "#00daf3",
+            shadowOpacity: 0.5,
+            shadowRadius: 6,
+            elevation: 4,
+          }}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="add" size={24} color="#060d1a" />
+        </TouchableOpacity>
+      </View>
 
       {isBanned && (
         <Text style={styles.suspendedText}>
@@ -283,13 +306,13 @@ export const WeeklyPodium = memo(function WeeklyPodium({
 
 const styles = StyleSheet.create({
   mainCard: {
-    marginTop: 12,
+    marginTop: 16,
     borderRadius: 24,
-    padding: 16,
+    padding: 18,
     overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "#27272a",
-    backgroundColor: "#18181b",
+    borderWidth: 1.5,
+    borderColor: "rgba(139, 92, 246, 0.3)",
+    backgroundColor: "#0d0f22",
   },
   header: {
     flexDirection: "row",
