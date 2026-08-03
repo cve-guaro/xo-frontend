@@ -66,33 +66,57 @@ export default function SpinHistoryPage() {
         </View>
       ) : (
         <View style={{ gap: 12 }}>
-          {spinHistory.map((round: any, i: number) => (
-            <View key={round.id || i} style={s.historyCard}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-                <View style={[s.historyStatusPill, { borderColor: round.status === 'paid' ? 'rgba(34,197,94,0.3)' : 'rgba(245,57,57,0.3)' }]}>
-                  <Text style={{ color: round.status === 'paid' ? C.success : C.error, fontSize: 9, fontWeight: '800' }}>{round.status?.toUpperCase()}</Text>
-                </View>
-                <Text style={{ color: C.onSurfaceVariant, fontSize: 11, fontWeight: '600' }}>{timeFmt(round.created_at)}</Text>
-              </View>
+          {spinHistory.map((round: any, i: number) => {
+            const pot = Number(round.pot_amount || 0);
+            const prize = Number(round.prize_amount || 0);
+            const houseCut = Math.max(0, pot - prize);
+            let playersArr = [];
+            try {
+              playersArr = typeof round.players_json === 'string' ? JSON.parse(round.players_json) : (round.players_json || []);
+            } catch (_) { playersArr = []; }
 
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <View>
-                  <Text style={{ color: '#e2e8f0', fontSize: 14, fontWeight: '800' }}>Winner: {round.winner_username || '—'}</Text>
-                  {round.winner_phone && <Text style={{ color: C.onSurfaceVariant, fontSize: 11, marginTop: 2 }}>{round.winner_phone}</Text>}
+            return (
+              <View key={round.id || i} style={s.historyCard}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8, alignItems: 'center' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <View style={[s.historyStatusPill, { borderColor: round.status === 'paid' ? 'rgba(34,197,94,0.3)' : 'rgba(245,57,57,0.3)' }]}>
+                      <Text style={{ color: round.status === 'paid' ? C.success : C.error, fontSize: 9, fontWeight: '800' }}>{round.status?.toUpperCase()}</Text>
+                    </View>
+                    <Text style={{ color: '#00daf3', fontSize: 11, fontWeight: '800' }}>{round.mode_label || (round.config_id === 2 ? 'Rail Spin' : '5-Player Spin')}</Text>
+                  </View>
+                  <Text style={{ color: C.onSurfaceVariant, fontSize: 11, fontWeight: '600' }}>{timeFmt(round.created_at)}</Text>
                 </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={{ color: C.success, fontSize: 15, fontWeight: '900' }}>+{fmt((round.prize_amount || 0) / 100)} ETB</Text>
-                  <Text style={{ color: C.onSurfaceVariant, fontSize: 11, marginTop: 2 }}>Pot: {fmt((round.pot_amount || 0) / 100)} ETB</Text>
-                </View>
-              </View>
 
-              <View style={{ flexDirection: 'row', gap: 16, borderTopWidth: 1, borderTopColor: C.outlineVariant, paddingTop: 8, marginTop: 4 }}>
-                <Text style={{ color: C.onSurfaceVariant, fontSize: 11 }}>Config ID: <Text style={{ color: '#fff' }}>{round.config_id}</Text></Text>
-                <Text style={{ color: C.onSurfaceVariant, fontSize: 11 }}>Players: <Text style={{ color: '#fff' }}>{round.real_players} real / {round.total_players} total</Text></Text>
-                <Text style={{ color: C.onSurfaceVariant, fontSize: 11 }}>Winning Slice: <Text style={{ color: C.secondary }}>#{round.winning_slice ?? '—'}</Text></Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <View>
+                    <Text style={{ color: '#e2e8f0', fontSize: 14, fontWeight: '800' }}>Winner: {round.winner_display_name || round.winner_username || '—'}</Text>
+                    {round.winner_phone && <Text style={{ color: C.onSurfaceVariant, fontSize: 11, marginTop: 2 }}>{round.winner_phone}</Text>}
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={{ color: C.success, fontSize: 15, fontWeight: '900' }}>+{fmt(prize)} ETB</Text>
+                    <Text style={{ color: C.onSurfaceVariant, fontSize: 11, marginTop: 2 }}>Pot: {fmt(pot)} ETB | Cut: {fmt(houseCut)} ETB</Text>
+                  </View>
+                </View>
+
+                <View style={{ flexDirection: 'row', gap: 16, borderTopWidth: 1, borderTopColor: C.outlineVariant, paddingTop: 8, marginTop: 4, flexWrap: 'wrap' }}>
+                  <Text style={{ color: C.onSurfaceVariant, fontSize: 11 }}>Players: <Text style={{ color: '#fff' }}>{round.real_players} real / {round.total_players} total</Text></Text>
+                  <Text style={{ color: C.onSurfaceVariant, fontSize: 11 }}>Winning Slice: <Text style={{ color: C.secondary }}>#{round.winning_slice ?? '—'}</Text></Text>
+                </View>
+
+                {playersArr.length > 0 && (
+                  <View style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                    {playersArr.map((p: any, pIdx: number) => (
+                      <View key={pIdx} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.04)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 }}>
+                        <Text style={{ color: p.username === round.winner_display_name ? '#34d399' : '#e2e8f0', fontSize: 10, fontWeight: '700' }}>
+                          {p.username || `Player ${pIdx + 1}`} {p.isBot ? '(Bot)' : ''}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
               </View>
-            </View>
-          ))}
+            );
+          })}
 
           {/* Pagination */}
           {spinHistoryTotal > 10 && (

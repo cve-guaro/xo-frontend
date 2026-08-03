@@ -650,6 +650,8 @@ export default function LeaderboardScreen() {
     );
   }
 
+  const [isScrolledPastTop, setIsScrolledPastTop] = useState(false);
+
   // ─── MOBILE VIEW LAYOUT ───
   return (
     <View style={s.rootContainer}>
@@ -664,61 +666,131 @@ export default function LeaderboardScreen() {
         <View style={{ width: 40 }} />
       </View>
 
-      <FlatList
-        data={leaderboard}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}
-        ListHeaderComponent={() => (
-          <View style={{ marginTop: 16 }}>
-            {/* Countdown at top of mobile list */}
-            <View style={{ marginBottom: 20 }}>
-              <CountdownTimer secondsRemaining={secondsRemaining} isEN={isEN} />
-            </View>
-
-            {/* Mobile Podium */}
-            <View style={[s.podiumRow, { marginHorizontal: 0, marginBottom: 24 }]}>
-              {podiumData.map((item, idx) => {
-                const isWinner = item.rank === 1;
-                const blockH = isWinner ? 120 : 90;
-                const initials = item.username ? item.username.slice(0, 2).toUpperCase() : "PL";
-                return (
-                  <View key={item.id || idx} style={s.podiumSpotContainer}>
-                    <View style={s.podiumPlayerDetails}>
-                      <View style={[s.podiumAvatarCircle, { width: isWinner ? 48 : 38, height: isWinner ? 48 : 38 }]}>
-                        <Text style={[s.podiumAvatarText, { fontSize: isWinner ? 12 : 10 }]}>{initials}</Text>
-                      </View>
-                      <Text style={[s.podiumPlayerName, { fontSize: 11 }]} numberOfLines={1}>{item.username}</Text>
-                      <Text style={{ color: "#f5b642", fontSize: 10, fontWeight: "800", marginTop: 2 }}>{item.wins} Wins</Text>
-                    </View>
-                    <View style={[s.podiumBlock, { height: blockH, backgroundColor: isWinner ? "#7c3aed" : "#1e243d", paddingVertical: 8 }]}>
-                      <Text style={[s.podiumNumberText, { fontSize: isWinner ? 24 : 18 }]}>{item.rank}</Text>
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
+      {/* Sticky Compact Header (Image 5 right side style) - shown when user scrolls past top section */}
+      {isScrolledPastTop && (
+        <View style={{
+          position: 'absolute',
+          top: 60,
+          left: 0,
+          right: 0,
+          zIndex: 100,
+          backgroundColor: '#0c0f24',
+          borderBottomWidth: 1,
+          borderBottomColor: 'rgba(255,255,255,0.08)',
+          paddingHorizontal: 16,
+          paddingVertical: 10,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.3,
+          shadowRadius: 8,
+          elevation: 10,
+        }}>
+          {/* Left: Compact Timer (Image 5 style) */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={{ color: '#00daf3', fontSize: 13, fontWeight: '900', fontFamily: 'Inter, sans-serif' }}>
+              {String(Math.floor(secondsRemaining / 86400)).padStart(2, '0')} : {String(Math.floor((secondsRemaining % 86400) / 3600)).padStart(2, '0')} : {String(Math.floor((secondsRemaining % 3600) / 60)).padStart(2, '0')} : {String(secondsRemaining % 60).padStart(2, '0')}
+            </Text>
           </View>
-        )}
-        renderItem={({ item }) => {
-          const isTop3 = item.rank <= 3;
-          const badgeBg = item.rank === 1 ? "#f5b642" : (item.rank === 2 ? "#b9cacb" : (item.rank === 3 ? "#fb923c" : "rgba(255,255,255,0.06)"));
-          const badgeTextCol = isTop3 ? "#0a0e1a" : "rgba(255,255,255,0.4)";
-          return (
-            <View style={s.rankRowContainer as any}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-                <View style={[s.rankBadge as any, { width: 28, height: 28, borderRadius: 14, backgroundColor: badgeBg }]}>
-                  <Text style={[s.rankBadgeText as any, { color: badgeTextCol, fontSize: 12 }]}>{item.rank}</Text>
+
+          {/* Right: Compact Top 3 Badges (Image 5 style) */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            {podiumData.slice(0, 3).map((p, idx) => {
+              const badgeBg = p.rank === 1 ? '#7c3aed' : '#1e243d';
+              const nameText = p.username ? p.username.slice(0, 5) : 'User';
+              return (
+                <View key={p.id || idx} style={{
+                  paddingHorizontal: 8,
+                  paddingVertical: 4,
+                  borderRadius: 12,
+                  backgroundColor: badgeBg,
+                  borderWidth: 1,
+                  borderColor: 'rgba(255,255,255,0.1)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  minWidth: 42,
+                }}>
+                  <Text style={{ color: '#fff', fontSize: 9, fontWeight: '800' }} numberOfLines={1}>{nameText}</Text>
+                  <Text style={{ color: '#00daf3', fontSize: 8, fontWeight: '900' }}>#{p.rank}</Text>
                 </View>
-                <View>
-                  <Text style={s.rankRowName as any}>{item.username}</Text>
-                  <Text style={s.rankRowStats as any}>{item.wins} wins battles won</Text>
-                </View>
+              );
+            })}
+          </View>
+        </View>
+      )}
+
+      {loading ? (
+        <View style={{ paddingHorizontal: 20, paddingTop: 20, gap: 10 }}>
+          <SkeletonRow />
+          <SkeletonRow />
+          <SkeletonRow />
+          <SkeletonRow />
+          <SkeletonRow />
+        </View>
+      ) : (
+        <FlatList
+          data={leaderboard}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40, paddingTop: isScrolledPastTop ? 60 : 0 }}
+          onScroll={(e) => {
+            const offsetY = e.nativeEvent.contentOffset.y;
+            setIsScrolledPastTop(offsetY > 180);
+          }}
+          scrollEventThrottle={16}
+          ListHeaderComponent={() => (
+            <View style={{ marginTop: 16 }}>
+              {/* Countdown at top of mobile list */}
+              <View style={{ marginBottom: 20 }}>
+                <CountdownTimer secondsRemaining={secondsRemaining} isEN={isEN} />
               </View>
-              <Text style={{ color: "#22d3ee", fontWeight: "900", fontSize: 13 }}>{(item.winAmount !== undefined && item.winAmount !== null ? item.winAmount : item.wins * 50).toLocaleString()} ETB</Text>
+
+              {/* Mobile Podium */}
+              <View style={[s.podiumRow, { marginHorizontal: 0, marginBottom: 24 }]}>
+                {podiumData.map((item, idx) => {
+                  const isWinner = item.rank === 1;
+                  const blockH = isWinner ? 120 : 90;
+                  const initials = item.username ? item.username.slice(0, 2).toUpperCase() : "PL";
+                  return (
+                    <View key={item.id || idx} style={s.podiumSpotContainer}>
+                      <View style={s.podiumPlayerDetails}>
+                        <View style={[s.podiumAvatarCircle, { width: isWinner ? 48 : 38, height: isWinner ? 48 : 38 }]}>
+                          <Text style={[s.podiumAvatarText, { fontSize: isWinner ? 12 : 10 }]}>{initials}</Text>
+                        </View>
+                        <Text style={[s.podiumPlayerName, { fontSize: 11 }]} numberOfLines={1}>{item.username}</Text>
+                        <Text style={{ color: "#f5b642", fontSize: 10, fontWeight: "800", marginTop: 2 }}>{item.wins} Wins</Text>
+                      </View>
+                      <View style={[s.podiumBlock, { height: blockH, backgroundColor: isWinner ? "#7c3aed" : "#1e243d", paddingVertical: 8 }]}>
+                        <Text style={[s.podiumNumberText, { fontSize: isWinner ? 24 : 18 }]}>{item.rank}</Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
             </View>
-          );
-        }}
-      />
+          )}
+          renderItem={({ item }) => {
+            const isTop3 = item.rank <= 3;
+            const badgeBg = item.rank === 1 ? "#f5b642" : (item.rank === 2 ? "#b9cacb" : (item.rank === 3 ? "#fb923c" : "rgba(255,255,255,0.06)"));
+            const badgeTextCol = isTop3 ? "#0a0e1a" : "rgba(255,255,255,0.4)";
+            return (
+              <View style={[s.rankRowContainer as any, { marginBottom: 8 }]}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                  <View style={[s.rankBadge as any, { width: 28, height: 28, borderRadius: 14, backgroundColor: badgeBg }]}>
+                    <Text style={[s.rankBadgeText as any, { color: badgeTextCol, fontSize: 12 }]}>{item.rank}</Text>
+                  </View>
+                  <View>
+                    <Text style={s.rankRowName as any}>{item.username}</Text>
+                    <Text style={s.rankRowStats as any}>{item.wins} wins battles won</Text>
+                  </View>
+                </View>
+                <Text style={{ color: "#22d3ee", fontWeight: "900", fontSize: 13 }}>{(item.winAmount !== undefined && item.winAmount !== null ? item.winAmount : item.wins * 50).toLocaleString()} ETB</Text>
+              </View>
+            );
+          }}
+        />
+      )}
       <NotificationsPopover visible={notificationsVisible} onClose={() => setNotificationsVisible(false)} onUnreadCountChange={setUnreadCount} />
     </View>
   );

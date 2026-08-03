@@ -251,12 +251,15 @@ const LOSE_BADGE = ["rgba(255,107,107,0.95)", "rgba(244,63,94,0.85)"] as const;
 // ------------------ Styles ------------------
 const styles = StyleSheet.create({
   container: {
+    ...StyleSheet.absoluteFillObject,
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.65)",
+    backgroundColor: "rgba(0,0,0,0.72)",
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 24,
+    zIndex: 999999,
+    ...(Platform.OS === 'web' ? { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh' } as any : {}),
   },
 
   card: { borderRadius: 26, overflow: "visible" },

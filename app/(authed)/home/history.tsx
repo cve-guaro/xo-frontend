@@ -126,6 +126,9 @@ export default function GamesHistory() {
   const [games, setGames] = useState<Game[]>([]);
 
   // Page States
+  const [gameType, setGameType] = useState<"xo" | "spin">("xo");
+  const [spinHistory, setSpinHistory] = useState<any[]>([]);
+  const [spinLoading, setSpinLoading] = useState(false);
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "win" | "loss">("all");
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -164,9 +167,28 @@ export default function GamesHistory() {
     }
   }, [token, selectedGameId]);
 
+  const fetchSpinHistory = useCallback(async () => {
+    if (!token) return;
+    try {
+      setSpinLoading(true);
+      const res = await fetch(`${API_URL}/spin/history?limit=50`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSpinHistory(data.history || []);
+      }
+    } catch (e) {
+      console.error('[SPIN_HISTORY_ERR]', e);
+    } finally {
+      setSpinLoading(false);
+    }
+  }, [token]);
+
   useEffect(() => {
     fetchHistory();
-  }, [fetchHistory]);
+    fetchSpinHistory();
+  }, [fetchHistory, fetchSpinHistory]);
 
   const summary = useMemo(() => {
     const wins = user?.total_wins || 0;
@@ -433,36 +455,83 @@ export default function GamesHistory() {
 
               {/* 2. CENTER COLUMN */}
               <View style={s.centerColumn}>
+                {/* Game Type Mode Tabs */}
+                <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+                  <TouchableOpacity
+                    onPress={() => setGameType('xo')}
+                    activeOpacity={0.85}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 8,
+                      paddingHorizontal: 20,
+                      paddingVertical: 10,
+                      borderRadius: 16,
+                      backgroundColor: gameType === 'xo' ? '#7c3aed' : 'rgba(255,255,255,0.04)',
+                      borderWidth: 1,
+                      borderColor: gameType === 'xo' ? '#7c3aed' : 'rgba(255,255,255,0.08)',
+                    }}
+                  >
+                    <Ionicons name="game-controller" size={16} color={gameType === 'xo' ? '#fff' : '#8b93a7'} />
+                    <Text style={{ color: gameType === 'xo' ? '#fff' : '#8b93a7', fontSize: 13, fontWeight: '800', fontFamily: 'Inter, sans-serif' }}>
+                      XO TIC-TAC-TOE
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={() => setGameType('spin')}
+                    activeOpacity={0.85}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 8,
+                      paddingHorizontal: 20,
+                      paddingVertical: 10,
+                      borderRadius: 16,
+                      backgroundColor: gameType === 'spin' ? '#7c3aed' : 'rgba(255,255,255,0.04)',
+                      borderWidth: 1,
+                      borderColor: gameType === 'spin' ? '#7c3aed' : 'rgba(255,255,255,0.08)',
+                    }}
+                  >
+                    <Ionicons name="disc-outline" size={16} color={gameType === 'spin' ? '#fff' : '#8b93a7'} />
+                    <Text style={{ color: gameType === 'spin' ? '#fff' : '#8b93a7', fontSize: 13, fontWeight: '800', fontFamily: 'Inter, sans-serif' }}>
+                      5-PLAYER SPIN
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
                 {/* Title and Filter Row */}
                 <View style={s.titleRowContainer}>
                   <View>
-                    <Text style={s.mainTitle}>MATCH HISTORY</Text>
-                    <Text style={s.subTitle}>Analyze your performance and past matches</Text>
+                    <Text style={s.mainTitle}>{gameType === 'xo' ? 'XO MATCH HISTORY' : 'SPIN WHEEL HISTORY'}</Text>
+                    <Text style={s.subTitle}>{gameType === 'xo' ? 'Analyze your performance and past XO matches' : 'Review your past Spin rounds, entry pots, and winners'}</Text>
                   </View>
 
                   {/* Filter Dropdown */}
-                  <View style={{ zIndex: 100 }}>
-                    <TouchableOpacity onPress={() => setDropdownOpen(!dropdownOpen)} style={s.filterDropdown} activeOpacity={0.85}>
-                      <Ionicons name="funnel-outline" size={14} color="#8b93a7" style={{ marginRight: 6 }} />
-                      <Text style={s.filterDropdownText}>
-                        {filter === "all" ? "All Games" : (filter === "win" ? "Victory" : "Defeat")}
-                      </Text>
-                      <Ionicons name={dropdownOpen ? "chevron-up" : "chevron-down"} size={14} color="#8b93a7" />
-                    </TouchableOpacity>
-                    {dropdownOpen && (
-                      <View style={s.dropdownMenu}>
-                        <TouchableOpacity onPress={() => { setFilter("all"); setDropdownOpen(false); setCurrentPage(1); }} style={s.dropdownItem}>
-                          <Text style={s.dropdownItemText}>All Games</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={() => { setFilter("win"); setDropdownOpen(false); setCurrentPage(1); }} style={s.dropdownItem}>
-                          <Text style={s.dropdownItemText}>Victory</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={() => { setFilter("loss"); setDropdownOpen(false); setCurrentPage(1); }} style={s.dropdownItem}>
-                          <Text style={s.dropdownItemText}>Defeat</Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
-                  </View>
+                  {gameType === 'xo' && (
+                    <View style={{ zIndex: 100 }}>
+                      <TouchableOpacity onPress={() => setDropdownOpen(!dropdownOpen)} style={s.filterDropdown} activeOpacity={0.85}>
+                        <Ionicons name="funnel-outline" size={14} color="#8b93a7" style={{ marginRight: 6 }} />
+                        <Text style={s.filterDropdownText}>
+                          {filter === "all" ? "All Games" : (filter === "win" ? "Victory" : "Defeat")}
+                        </Text>
+                        <Ionicons name={dropdownOpen ? "chevron-up" : "chevron-down"} size={14} color="#8b93a7" />
+                      </TouchableOpacity>
+                      {dropdownOpen && (
+                        <View style={s.dropdownMenu}>
+                          <TouchableOpacity onPress={() => { setFilter("all"); setDropdownOpen(false); setCurrentPage(1); }} style={s.dropdownItem}>
+                            <Text style={s.dropdownItemText}>All Games</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity onPress={() => { setFilter("win"); setDropdownOpen(false); setCurrentPage(1); }} style={s.dropdownItem}>
+                            <Text style={s.dropdownItemText}>Victory</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity onPress={() => { setFilter("loss"); setDropdownOpen(false); setCurrentPage(1); }} style={s.dropdownItem}>
+                            <Text style={s.dropdownItemText}>Defeat</Text>
+                          </TouchableOpacity>
+                        </View>
+                      )}
+                    </View>
+                  )}
                 </View>
 
                 {/* Stats Row */}
@@ -511,44 +580,148 @@ export default function GamesHistory() {
 
                 {/* Match Rows List */}
                 <View style={{ gap: 14 }}>
-                  {loading && (
-                    <View style={{ gap: 8 }}>
-                      <SkeletonRow />
-                      <SkeletonRow />
-                      <SkeletonRow />
-                      <SkeletonRow />
-                    </View>
-                  )}
-                  {!loading && paginatedGames.length === 0 && (
-                    <View style={s.emptyState}>
-                      <Ionicons name="game-controller-outline" size={40} color="rgba(255,255,255,0.15)" style={{ marginBottom: 12 }} />
-                      <Text style={s.emptyStateText}>{isEN ? "No matches found matching this filter." : "በዚህ ማጣሪያ የተጫወቱት ጨዋታ የለም።"}</Text>
-                    </View>
-                  )}
-                  {paginatedGames.map((game) => {
-                    const isWin = game.is_winner === true ||
-                      (game.is_winner === undefined && game.winner != null && String(game.winner).toLowerCase() === String(myId || '').toLowerCase());
-                    const isSelected = selectedGameId === game.id;
-                    const statusColor = isWin ? "#22c55e" : "#ef4444";
-                    const statusText = isWin ? "VICTORY" : "DEFEAT";
-                    const statusIconName = isWin ? "trophy" : "skull";
-                    const isPlayerX = game.players && game.players[0] === myId;
-                    const myMark = isPlayerX ? "X" : "O";
-                    const oppMark = myMark === "X" ? "O" : "X";
-                    const opponentName = isPlayerX ? game.po_name || "Opponent" : game.px_name || "Opponent";
-                    const duration = getDuration(game.created_at, game.finished_at);
-                    const roomId = `XO-${game.id.slice(-4).toUpperCase()}`;
+                  {gameType === 'spin' ? (
+                    spinLoading ? (
+                      <View style={{ gap: 8 }}>
+                        <SkeletonRow />
+                        <SkeletonRow />
+                        <SkeletonRow />
+                      </View>
+                    ) : spinHistory.length === 0 ? (
+                      <View style={s.emptyState}>
+                        <Ionicons name="disc-outline" size={40} color="rgba(255,255,255,0.15)" style={{ marginBottom: 12 }} />
+                        <Text style={s.emptyStateText}>{isEN ? "No spin history found." : "ምንም የስፒን ጨዋታ ታሪክ የለም።"}</Text>
+                      </View>
+                    ) : (
+                      spinHistory.map((item: any, idx: number) => {
+                        const isWin = item.is_winner;
+                        const statusColor = isWin ? "#34d399" : "#ef4444";
+                        const modeLabel = item.mode_label || (item.config_id === 2 ? "Rail Spin" : "5-Player Spin");
+                        const pot = Number(item.pot_amount || 0);
+                        const prize = Number(item.prize_amount || 0);
+                        const houseCut = Number(item.house_cut || Math.max(0, pot - prize));
+                        const playersList = Array.isArray(item.players) ? item.players : [];
 
-                    return (
-                      <View 
-                        key={game.id} 
-                        style={[s.matchCardContainer, isSelected && s.matchCardContainerSelected]}
-                      >
-                        {/* Side Bar color indicator */}
-                        <View style={[s.matchIndicatorBar, { backgroundColor: statusColor }]} />
+                        return (
+                          <View key={item.round_id || idx} style={[s.matchCardContainer, { padding: 16 }]}>
+                            <View style={[s.matchIndicatorBar, { backgroundColor: statusColor }]} />
+                            
+                            {/* Top row */}
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                <View style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, backgroundColor: isWin ? 'rgba(52,211,153,0.15)' : 'rgba(239,68,68,0.15)', borderWidth: 1, borderColor: isWin ? 'rgba(52,211,153,0.3)' : 'rgba(239,68,68,0.3)' }}>
+                                  <Text style={{ color: statusColor, fontSize: 11, fontWeight: '900' }}>{isWin ? 'VICTORY' : 'DEFEAT'}</Text>
+                                </View>
+                                <Text style={{ color: '#00daf3', fontSize: 12, fontWeight: '800' }}>{modeLabel.toUpperCase()}</Text>
+                              </View>
+                              <Text style={{ color: '#8b93a7', fontSize: 11, fontWeight: '600' }}>{formatWhen(item.created_at)}</Text>
+                            </View>
 
-                        <TouchableOpacity 
-                          onPress={() => handleSelectGame(game.id)}
+                            {/* Prize & Pot details */}
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, backgroundColor: 'rgba(255,255,255,0.02)', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)' }}>
+                              <View>
+                                <Text style={{ color: '#8b93a7', fontSize: 10, fontWeight: '700' }}>WINNER: <Text style={{ color: '#fff', fontWeight: '800' }}>{item.winner_name || '—'}</Text></Text>
+                                <Text style={{ color: '#8b93a7', fontSize: 10, fontWeight: '700', marginTop: 2 }}>ENTRY FEE: <Text style={{ color: '#22d3ee', fontWeight: '800' }}>{item.bet_amount || 100} ETB</Text></Text>
+                              </View>
+                              <View style={{ alignItems: 'flex-end' }}>
+                                <Text style={{ color: isWin ? '#34d399' : '#fff', fontSize: 14, fontWeight: '900' }}>
+                                  {isWin ? `+${prize} ETB` : `Prize: ${prize} ETB`}
+                                </Text>
+                                <Text style={{ color: '#8b93a7', fontSize: 10, marginTop: 2 }}>
+                                  Pot: {pot} ETB | House Cut: {houseCut} ETB
+                                </Text>
+                              </View>
+                            </View>
+
+                            {/* Player Seats List */}
+                            {playersList.length > 0 && (
+                              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingTop: 4 }}>
+                                {playersList.map((p: any, pIdx: number) => {
+                                  const isWinnerPlayer = p.username === item.winner_name;
+                                  return (
+                                    <View key={pIdx} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: isWinnerPlayer ? 'rgba(52,211,153,0.1)' : 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: isWinnerPlayer ? 'rgba(52,211,153,0.3)' : 'rgba(255,255,255,0.06)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 }}>
+                                      <Ionicons name={isWinnerPlayer ? "trophy" : "person"} size={11} color={isWinnerPlayer ? "#34d399" : "#8b93a7"} />
+                                      <Text style={{ color: isWinnerPlayer ? "#34d399" : "#e2e8f0", fontSize: 10, fontWeight: "700" }}>
+                                        {p.username || `Player ${pIdx + 1}`} {p.isBot ? "(Bot)" : ""}
+                                      </Text>
+                                    </View>
+                                  );
+                                })}
+                              </View>
+                            )}
+                          </View>
+                        );
+                      })
+                    )
+                  ) : (
+                    <>
+                      {loading && (
+                        <View style={{ gap: 8 }}>
+                          <SkeletonRow />
+                          <SkeletonRow />
+                          <SkeletonRow />
+                          <SkeletonRow />
+                        </View>
+                      )}
+                      {!loading && paginatedGames.length === 0 && (
+                        <View style={s.emptyState}>
+                          <Ionicons name="game-controller-outline" size={40} color="rgba(255,255,255,0.15)" style={{ marginBottom: 12 }} />
+                          <Text style={s.emptyStateText}>{isEN ? "No matches found matching this filter." : "በዚህ ማጣሪያ የተጫወቱት ጨዋታ የለም።"}</Text>
+                        </View>
+                      )}
+                      {paginatedGames.map((game) => {
+                        const isWin = game.is_winner === true ||
+                          (game.is_winner === undefined && game.winner != null && String(game.winner).toLowerCase() === String(myId || '').toLowerCase());
+                        const isSelected = selectedGameId === game.id;
+                        const statusColor = isWin ? "#22c55e" : "#ef4444";
+                        const statusText = isWin ? "VICTORY" : "DEFEAT";
+                        const statusIconName = isWin ? "trophy" : "skull";
+                        const isPlayerX = game.players && game.players[0] === myId;
+                        const myMark = isPlayerX ? "X" : "O";
+                        const oppMark = myMark === "X" ? "O" : "X";
+                        const opponentName = isPlayerX ? game.po_name || "Opponent" : game.px_name || "Opponent";
+                        const duration = getDuration(game.created_at, game.finished_at);
+                        const roomId = `XO-${game.id.slice(-4).toUpperCase()}`;
+
+                        return (
+                          <View 
+                            key={game.id} 
+                            style={[s.matchCardContainer, isSelected && s.matchCardContainerSelected]}
+                          >
+                            {/* Side Bar color indicator */}
+                            <View style={[s.matchIndicatorBar, { backgroundColor: statusColor }]} />
+
+                            <TouchableOpacity 
+                              onPress={() => handleSelectGame(game.id)}
+                              activeOpacity={0.9}
+                              style={s.matchHeaderRow}
+                            >
+                              <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                                <Ionicons name={statusIconName} size={16} color={statusColor} />
+                                <View>
+                                  <Text style={[s.matchResultText, { color: statusColor }]}>
+                                    {statusText} <Text style={{ color: "#8b93a7", fontSize: 13, fontWeight: "600" }}>vs {opponentName}</Text>
+                                  </Text>
+                                </View>
+                              </View>
+
+                              <View style={{ flexDirection: "row", alignItems: "center", gap: 24 }}>
+                                <View style={s.modeBadge}>
+                                  <Text style={s.modeBadgeText}>
+                                    {game.bet_amount >= 1000 ? "LEGEND" : (game.bet_amount >= 100 ? "PRO" : "STARTER")}
+                                  </Text>
+                                </View>
+                                <Text style={s.betAmountText}>ETB {game.bet_amount}</Text>
+                                <Text style={s.dateText}>{formatWhen(game.created_at)}</Text>
+                                <Ionicons name="chevron-forward" size={16} color="#8b93a7" />
+                              </View>
+                            </TouchableOpacity>
+                          </View>
+                        );
+                      })}
+                    </>
+                  )}
+                </View>
                           activeOpacity={0.9}
                           style={s.matchHeaderRow}
                         >
