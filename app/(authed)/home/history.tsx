@@ -720,34 +720,6 @@ export default function GamesHistory() {
                         );
                       })}
                     </>
-                  )}
-                </View>
-                          activeOpacity={0.9}
-                          style={s.matchHeaderRow}
-                        >
-                          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-                            <Ionicons name={statusIconName} size={16} color={statusColor} />
-                            <View>
-                              <Text style={[s.matchResultText, { color: statusColor }]}>
-                                {statusText} <Text style={{ color: "#8b93a7", fontSize: 13, fontWeight: "600" }}>vs {opponentName}</Text>
-                              </Text>
-                            </View>
-                          </View>
-
-                          <View style={{ flexDirection: "row", alignItems: "center", gap: 24 }}>
-                            <View style={s.modeBadge}>
-                              <Text style={s.modeBadgeText}>
-                                {game.bet_amount >= 1000 ? "LEGEND" : (game.bet_amount >= 100 ? "PRO" : "STARTER")}
-                              </Text>
-                            </View>
-                            <Text style={s.betAmountText}>ETB {game.bet_amount}</Text>
-                            <Text style={s.dateText}>{formatWhen(game.created_at)}</Text>
-                            <Ionicons name="chevron-forward" size={16} color="#8b93a7" />
-                          </View>
-                        </TouchableOpacity>
-                      </View>
-                    );
-                  })}
                 </View>
 
                 {/* Pagination Controls */}
