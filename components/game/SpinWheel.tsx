@@ -226,16 +226,14 @@ export default function SpinWheel({
                 player = players[idx];
               }
 
-              // Abbreviate name to fit
+              // Abbreviate name to fit (or show 20% Bonus preview when empty)
               const displayName = player
                 ? player.username.length > 8
                   ? player.username.slice(0, 7) + "…"
                   : player.username
-                : is5Player
-                ? "" // Blank slice if empty slot in 5-player
-                : `Slot ${idx + 1}`;
+                : "20%";
 
-              // Include stake percentage or ETB amount under name if RAIL mode
+              // Include stake percentage or ETB amount under name
               let details = "";
               let isSpeaking = false;
               if (player) {
@@ -249,6 +247,8 @@ export default function SpinWheel({
                 } else {
                   details = `${stakeVal} ETB`;
                 }
+              } else {
+                details = "Bonus";
               }
 
               return (
@@ -310,9 +310,20 @@ export default function SpinWheel({
           </G>
 
           {/* Center 3D gold hub */}
-          <Circle cx={cx} cy={cy} r={r * 0.19} fill="url(#goldGrad)" />
-          <Circle cx={cx} cy={cy} r={r * 0.15} fill="url(#centerHubGrad)" stroke="#78350f" strokeWidth={1} />
-          <Circle cx={cx} cy={cy} r={r * 0.06} fill="#ffffff" opacity={0.3} />
+          <Circle cx={cx} cy={cy} r={r * 0.22} fill="url(#goldGrad)" />
+          <Circle cx={cx} cy={cy} r={r * 0.18} fill="url(#centerHubGrad)" stroke="#78350f" strokeWidth={1.5} />
+          <SvgText
+            x={cx}
+            y={cy + 1}
+            fill="#f5b642"
+            fontSize={Math.max(size * 0.045, 11)}
+            fontWeight="900"
+            textAnchor="middle"
+            alignmentBaseline="middle"
+            letterSpacing={0.5}
+          >
+            SPIN
+          </SvgText>
         </Svg>
       </Animated.View>
 

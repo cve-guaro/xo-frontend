@@ -160,11 +160,7 @@ const SearchingView = memo(function SearchingView({ onCancel, isMatched, betMin 
           </View>
         </TouchableOpacity>
 
-        {/* Bottom Tip */}
-        <View style={styles.tipRow}>
-          <Ionicons name="bulb-outline" size={14} color="#00daf3" style={{ marginRight: 6 }} />
-          <Text style={styles.tipText}>Tip: The more you play, the faster we find your perfect match!</Text>
-        </View>
+
       </View>
     </View>
   );

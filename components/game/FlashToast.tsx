@@ -195,8 +195,8 @@ const styles = StyleSheet.create({
   },
 
   cardShadow: {
-    width: 332,
-    maxWidth: 380,
+    width: "88%",
+    maxWidth: 340,
     borderRadius: 26,
     overflow: "visible",
     shadowColor: "#000",

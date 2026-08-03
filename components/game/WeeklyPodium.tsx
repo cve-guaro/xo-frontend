@@ -227,55 +227,33 @@ export const WeeklyPodium = memo(function WeeklyPodium({
         </LinearGradient>
       </WebPressable>
 
-      {/* Play with Friend Button with cyan + badge */}
-      <View style={{ position: "relative", width: "100%", marginTop: 12 }}>
-        <WebPressable
-          onPress={() => setFriendModalVisible(true)}
-          style={({ hovered }: { pressed: boolean; hovered: boolean }) => [
-            styles.playBtn,
-            {
-              backgroundColor: "rgba(18, 14, 42, 0.9)",
-              borderWidth: 1.5,
-              borderColor: "rgba(0, 218, 243, 0.4)",
-              borderRadius: 22,
-              transform: [{ scale: hovered ? 1.02 : 1 }],
-            },
-          ]}
-        >
-          <View style={[styles.playInner, { paddingRight: 48 }]}>
-            <Ionicons
-              name="people-outline"
-              size={20}
-              color="#fff"
-              style={{ marginRight: 8 }}
-            />
-            <Text style={[styles.playText, { color: "#fff", letterSpacing: 0.8 }]}>
-              {isEN ? "PLAY WITH FRIEND" : "ከጓደኛ ጋር ይጫወቱ"}
-            </Text>
-          </View>
-        </WebPressable>
-        <TouchableOpacity
-          onPress={() => setFriendModalVisible(true)}
-          style={{
-            position: "absolute",
-            right: 6,
-            top: 5,
-            width: 40,
-            height: 40,
-            borderRadius: 20,
-            backgroundColor: "#00daf3",
-            alignItems: "center",
-            justifyContent: "center",
-            shadowColor: "#00daf3",
-            shadowOpacity: 0.5,
-            shadowRadius: 6,
-            elevation: 4,
-          }}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="add" size={24} color="#060d1a" />
-        </TouchableOpacity>
-      </View>
+      {/* Play with Friend Button */}
+      <WebPressable
+        onPress={() => setFriendModalVisible(true)}
+        style={({ hovered }: { pressed: boolean; hovered: boolean }) => [
+          styles.playBtn,
+          {
+            marginTop: 12,
+            backgroundColor: "rgba(18, 14, 42, 0.9)",
+            borderWidth: 1.5,
+            borderColor: "rgba(0, 218, 243, 0.4)",
+            borderRadius: 22,
+            transform: [{ scale: hovered ? 1.02 : 1 }],
+          },
+        ]}
+      >
+        <View style={styles.playInner}>
+          <Ionicons
+            name="people-outline"
+            size={20}
+            color="#fff"
+            style={{ marginRight: 8 }}
+          />
+          <Text style={[styles.playText, { color: "#fff", letterSpacing: 0.8 }]}>
+            {isEN ? "PLAY WITH FRIEND" : "ከጓደኛ ጋር ይጫወቱ"}
+          </Text>
+        </View>
+      </WebPressable>
 
       {isBanned && (
         <Text style={styles.suspendedText}>
