@@ -27,7 +27,7 @@ export default function AdminSettings() {
   const { t, token, user, language, switchLanguage, isSuperAdmin, showAlert } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState('Promotional Campaigns');
+  const [activeTab, setActiveTab] = useState('Security Protocols');
   
   const [maintenance, setMaintenance] = useState(false);
   const [bonusActive, setBonusActive] = useState(false); // ← FIXED: was missing, causing crash
@@ -311,17 +311,17 @@ export default function AdminSettings() {
       <View style={[styles.pageHeader, isMobile && { flexDirection: 'column', alignItems: 'flex-start', gap: 16 }]}>
         <View>
           <Text style={[styles.pageTitle, isMobile && { fontSize: 24 }]}>{(t as any)('System Configuration')}</Text>
-          <Text style={styles.pageSub}>{(t as any)('Manage core variables, environment states, and access protocols.')}</Text>
+          <Text style={styles.pageSub}>{(t as any)('Manage security thresholds, financial limits, and administrator account settings.')}</Text>
         </View>
         <TouchableOpacity style={[styles.saveBtn, saving && { opacity: 0.7 }, isMobile && { width: '100%' as any, justifyContent: 'center' }]} onPress={handleSave} disabled={saving}>
           {saving ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="save-outline" size={16} color="#fff" />}
-          <Text style={styles.saveTxt}>{(t as any)('Apply Global Configuration')}</Text>
+          <Text style={styles.saveTxt}>{(t as any)('Save Settings')}</Text>
         </TouchableOpacity>
       </View>
 
       <View style={{ marginBottom: 32 }}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-           {['Promotional Campaigns', 'Security Protocols', 'Financial Operations', 'Admin Profile'].map(tab => (
+           {['Security Protocols', 'Financial Operations', 'Admin Profile'].map(tab => (
               <TouchableOpacity 
                  key={tab} 
                  onPress={() => setActiveTab(tab)}

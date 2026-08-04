@@ -369,7 +369,7 @@ export default function AdminUsers() {
     setGenericModal({
       visible: true,
       title: t("Permanent Deletion"),
-      message: t("PERMANENT ACTION: Are you sure you want to erase this user from existence?"),
+      message: t("Are you sure you want to permanently delete this user account?"),
       confirmText: t("DELETE"),
       onConfirm: performDelete,
       isDestructive: true,
@@ -398,15 +398,15 @@ export default function AdminUsers() {
           <View style={{ zIndex: 30 }}>
             <View style={[styles.tableHeader, isMobile && { flexDirection: 'column', alignItems: 'flex-start', gap: 12, padding: 16 }]}>
               <View>
-                <Text style={[styles.tableTitle, isMobile && { fontSize: 16 }]}>Player Matrix</Text>
-                {!isMobile && <Text style={styles.tableSub}>Live surveillance of active gaming entities</Text>}
+                <Text style={[styles.tableTitle, isMobile && { fontSize: 16 }]}>User Directory</Text>
+                {!isMobile && <Text style={styles.tableSub}>Manage registered user accounts, balances, and permissions</Text>}
               </View>
               <TouchableOpacity 
                 style={{ backgroundColor: C.secondary, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}
                 onPress={() => setCreateModalVisible(true)}
               >
                 <Ionicons name="add-circle" size={18} color="#0c0c1f" />
-                <Text style={{ color: '#0c0c1f', fontWeight: '800', fontSize: 12 }}>New Entity</Text>
+                <Text style={{ color: '#0c0c1f', fontWeight: '800', fontSize: 12 }}>Add User</Text>
               </TouchableOpacity>
             </View>
 
@@ -493,8 +493,8 @@ export default function AdminUsers() {
 
             {!isMobile && (
               <View style={[styles.thead]}>
-                <Text style={[styles.th, { flex: 0.9 }]}>Entity ID</Text>
-                <Text style={[styles.th, { flex: 2 }]}>User Identity</Text>
+                <Text style={[styles.th, { flex: 0.9 }]}>User ID</Text>
+                <Text style={[styles.th, { flex: 2 }]}>User Account</Text>
                 <Text style={[styles.th, { flex: 1 }]}>Balance (ETB)</Text>
                 <Text style={[styles.th, { flex: 0.9 }]}>Status</Text>
                 <Text style={[styles.th, { flex: 1 }]}>Last Active</Text>
@@ -505,10 +505,11 @@ export default function AdminUsers() {
 
           <AnimatedList
             items={loading ? [] : filtered}
+            onItemSelect={(u: User) => router.push(`/admin/user-detail?id=${u.id}` as any)}
             renderItem={(u: User, i: number, isSelected: boolean) => (
               <View style={[styles.row, isSelected && styles.rowSelected, isMobile && { flexDirection: 'column', alignItems: 'flex-start', padding: 16, gap: 12 }]}>
                 {isMobile ? (
-                  <>
+                  <TouchableOpacity onPress={() => router.push(`/admin/user-detail?id=${u.id}` as any)} style={{ width: '100%', gap: 12 }}>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
                       <View style={[styles.tdUser, { flex: undefined }]}>
                         <View style={[styles.avatar, { backgroundColor: u.banned ? 'rgba(138,22,50,0.2)' : 'rgba(34,34,70,0.8)', borderColor: u.banned ? 'rgba(253,111,133,0.3)' : 'rgba(166,140,255,0.3)' }]}>
@@ -535,7 +536,7 @@ export default function AdminUsers() {
                         <Text style={styles.tdTime} numberOfLines={1}>{u.created_at ? timeSince(u.created_at) : '—'}</Text>
                       </View>
                     </View>
-                  </>
+                  </TouchableOpacity>
                 ) : (
                   <>
                     <Text style={styles.tdId}>#{u.id.slice(0,8).toUpperCase()}</Text>
@@ -556,7 +557,7 @@ export default function AdminUsers() {
                     </View>
                     <Text style={styles.tdTime} numberOfLines={1}>{u.created_at ? timeSince(u.created_at) : '—'}</Text>
                     <View style={styles.tdActions}>
-                      <TouchableOpacity style={styles.viewBtn} onPress={() => setSelected(u)}>
+                      <TouchableOpacity style={styles.viewBtn} onPress={() => router.push(`/admin/user-detail?id=${u.id}` as any)}>
                         <Ionicons name="chevron-forward" size={16} color="#7c4dff" />
                       </TouchableOpacity>
                     </View>
@@ -564,7 +565,6 @@ export default function AdminUsers() {
                 )}
               </View>
             )}
-            onItemSelect={(u: User) => handleSelectUser(u)}
             initialSelectedIndex={filtered.findIndex(u => u.id === selected?.id)}
             className="user-matrix-list"
           />

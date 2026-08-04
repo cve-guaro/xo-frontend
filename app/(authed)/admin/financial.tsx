@@ -205,7 +205,7 @@ export default function FinancialDashboard() {
           <View style={[st.kpiIcon, { backgroundColor: 'rgba(166,140,255,0.12)' }]}>
             <Ionicons name="wallet" size={20} color={C.primary} />
           </View>
-          <Text style={st.kpiLabel}>TOTAL PLATFORM AMOUNT</Text>
+          <Text style={st.kpiLabel}>TOTAL PLATFORM BALANCE</Text>
           <ACount value={d.totalPlatformAmount || 0} style={st.kpiValue} suffix=" ETB" />
           <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
             <View>
@@ -241,10 +241,10 @@ export default function FinancialDashboard() {
           <View style={[st.kpiIcon, { backgroundColor: 'rgba(52,211,153,0.12)' }]}>
             <Ionicons name="trending-up" size={20} color="#34d399" />
           </View>
-          <Text style={st.kpiLabel}>PURE PLATFORM PROFIT</Text>
+          <Text style={st.kpiLabel}>GROSS PLATFORM PROFIT</Text>
           <ACount value={d.purePlatformProfit || 0} style={[st.kpiValue, { color: '#34d399' }]} suffix=" ETB" />
           <Text style={{ color: '#64748b', fontSize: 10, marginTop: 4 }}>
-            10-20% commission × {fmt(d.totalGamesFinished || 0)} games
+            Commission earned from {fmt(d.totalGamesFinished || 0)} game rounds
           </Text>
         </View>
 
@@ -252,7 +252,7 @@ export default function FinancialDashboard() {
           <View style={[st.kpiIcon, { backgroundColor: d.netPlatformProfit >= 0 ? 'rgba(52,211,153,0.12)' : 'rgba(248,113,113,0.12)' }]}>
             <Ionicons name="analytics" size={20} color={d.netPlatformProfit >= 0 ? '#34d399' : '#f87171'} />
           </View>
-          <Text style={st.kpiLabel}>NET PROFIT (AFTER DEDUCTIONS)</Text>
+          <Text style={st.kpiLabel}>NET PLATFORM PROFIT</Text>
           <ACount value={d.netPlatformProfit || 0} style={[st.kpiValue, { color: d.netPlatformProfit >= 0 ? '#34d399' : '#f87171' }]} suffix=" ETB" />
           <Text style={{ color: '#f87171', fontSize: 10, marginTop: 4 }}>
             -{profitImpactPct}% deducted ({fmtK(profitImpactTotal)})
@@ -431,21 +431,36 @@ export default function FinancialDashboard() {
       <View style={st.tableCard}>
         {activeTab === 'bonuses' && (
           <View>
-            <View style={st.tableHeader}>
-              <Text style={[st.thCell, { flex: 2 }]}>User</Text>
-              <Text style={[st.thCell, { flex: 1.5 }]}>Amount</Text>
-              <Text style={[st.thCell, { flex: 3 }]}>Reason</Text>
-              <Text style={[st.thCell, { flex: 1.5, textAlign: 'right' }]}>Date</Text>
-            </View>
-            {(d.recentBonuses || []).map((b: any, i: number) => (
-              <View key={i} style={st.tableRow}>
-                <Text style={[st.tdCell, { flex: 2 }]}>{b.username || '—'}</Text>
-                <Text style={[st.tdCell, { flex: 1.5, color: '#fbbf24', fontWeight: '700' as any }]}>{fmt(b.amount)} ETB</Text>
-                <Text style={[st.tdCell, { flex: 3, color: '#64748b' }]} numberOfLines={1}>{b.reason || '—'}</Text>
-                <Text style={[st.tdCell, { flex: 1.5, textAlign: 'right', color: '#475569' }]}>
-                  {b.created_at && !isNaN(new Date(b.created_at).getTime()) ? new Date(b.created_at).toLocaleDateString() : '—'}
-                </Text>
+            {!isMobile && (
+              <View style={st.tableHeader}>
+                <Text style={[st.thCell, { flex: 2 }]}>User</Text>
+                <Text style={[st.thCell, { flex: 1.5 }]}>Amount</Text>
+                <Text style={[st.thCell, { flex: 3 }]}>Reason</Text>
+                <Text style={[st.thCell, { flex: 1.5, textAlign: 'right' }]}>Date</Text>
               </View>
+            )}
+            {(d.recentBonuses || []).map((b: any, i: number) => (
+              isMobile ? (
+                <View key={i} style={{ padding: 14, backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 12, marginBottom: 8, borderWidth: 1, borderColor: C.outlineVariant, gap: 6 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>{b.username || '—'}</Text>
+                    <Text style={{ color: '#fbbf24', fontSize: 13, fontWeight: '800' }}>{fmt(b.amount)} ETB</Text>
+                  </View>
+                  <Text style={{ color: C.onSurfaceVariant, fontSize: 11 }}>{b.reason || '—'}</Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, alignSelf: 'flex-end' }}>
+                    {b.created_at && !isNaN(new Date(b.created_at).getTime()) ? new Date(b.created_at).toLocaleDateString() : '—'}
+                  </Text>
+                </View>
+              ) : (
+                <View key={i} style={st.tableRow}>
+                  <Text style={[st.tdCell, { flex: 2 }]}>{b.username || '—'}</Text>
+                  <Text style={[st.tdCell, { flex: 1.5, color: '#fbbf24', fontWeight: '700' as any }]}>{fmt(b.amount)} ETB</Text>
+                  <Text style={[st.tdCell, { flex: 3, color: '#64748b' }]} numberOfLines={1}>{b.reason || '—'}</Text>
+                  <Text style={[st.tdCell, { flex: 1.5, textAlign: 'right', color: '#475569' }]}>
+                    {b.created_at && !isNaN(new Date(b.created_at).getTime()) ? new Date(b.created_at).toLocaleDateString() : '—'}
+                  </Text>
+                </View>
+              )
             ))}
             {(!d.recentBonuses || d.recentBonuses.length === 0) && (
               <Text style={{ color: '#475569', fontSize: 11, textAlign: 'center', padding: 30 }}>No bonus records</Text>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, ScrollView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useAuth } from '../context/authContext';
 import { API_URL } from '../config';
 import User360View from './User360View';
@@ -113,9 +114,11 @@ export default function AdminGlobalSearch() {
     }
   };
 
+  const router = useRouter();
+
   const handleSelectUser = (user: any) => {
-    setSelectedUser(user);
-    fetchUser360(user.id);
+    setModalVisible(false);
+    router.push(`/admin/user-detail?id=${user.id}` as any);
   };
 
   return (

@@ -1381,7 +1381,7 @@ export default function SpinGameScreen() {
                 <View style={ds.countdownBox}>
                   <Text style={ds.countdownLabel}>SPIN ENDS IN</Text>
                   <Text style={ds.countdownTime}>
-                    00:{countdown.toString().padStart(2, '0')}
+                    {formatCountdown(countdown)}
                   </Text>
                 </View>
 

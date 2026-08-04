@@ -207,8 +207,8 @@ export default function AdminOverview() {
   }, [token, timeframe]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-  // Auto-refresh every 2s
-  useEffect(() => { const id = setInterval(() => fetchData(), 2000); return () => clearInterval(id); }, [fetchData]);
+  // Auto-refresh every 15s to optimize mobile performance
+  useEffect(() => { const id = setInterval(() => fetchData(), 15000); return () => clearInterval(id); }, [fetchData]);
 
   const d = useMemo(() => {
     const s = stats || {};

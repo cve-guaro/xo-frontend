@@ -185,8 +185,8 @@ export default function AdminLogs() {
       <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
         <View style={[styles.pageHeader, isMobile && { flexDirection: 'column', alignItems: 'flex-start', gap: 16 }]}>
           <View>
-            <Text style={[styles.pageTitle, isMobile && { fontSize: 24 }]}>{t('match_archive')}</Text>
-            {!isMobile && <Text style={styles.pageSub}>Analyzing the quantum sequence of every interaction within the Abyss.</Text>}
+            <Text style={[styles.pageTitle, isMobile && { fontSize: 24 }]}>XO Game Logs</Text>
+            {!isMobile && <Text style={styles.pageSub}>Detailed log and move replay viewer for XO game matches.</Text>}
           </View>
           <View style={[styles.headerBtns, isMobile && { width: '100%' as any }]}>
             <TouchableOpacity 

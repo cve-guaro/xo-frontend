@@ -82,6 +82,20 @@ export default function SpinWheel({
   const hasStakes = !is5Player && players.some(p => (p as any).stake && (p as any).stake > 0);
   const totalStake = !is5Player ? players.reduce((sum, p) => sum + Number((p as any).stake || 0), 0) : 0;
 
+  // Pre-calculate slices cleanly to prevent render mutation glitches
+  const slices = React.useMemo(() => {
+    let currentAngle = 0;
+    return Array.from({ length: playerCount }).map((_, idx) => {
+      const startAngle = currentAngle;
+      const angle = (hasStakes && totalStake > 0)
+        ? (Number((players[idx] as any)?.stake || 0) / totalStake) * 360
+        : angleStep;
+      const endAngle = startAngle + angle;
+      currentAngle = endAngle;
+      return { idx, startAngle, angle, endAngle };
+    });
+  }, [playerCount, hasStakes, totalStake, players, angleStep]);
+
   // Trigger spin animation
   useEffect(() => {
     if ((isSpinning || status === "spinning") && !hasSpun) {
@@ -107,13 +121,13 @@ export default function SpinWheel({
         sliceCenterAngle = safeWinningSlice * angleStep + angleStep / 2;
       }
 
-      const fullRotations = 5; // 5 full spins
+      const fullRotations = 6; // 6 smooth rotations
       const targetAngle = fullRotations * 360 + (360 - sliceCenterAngle);
 
       Animated.timing(rotation, {
         toValue: targetAngle,
         duration: spinDuration,
-        easing: Easing.bezier(0.15, 0.85, 0.25, 1), // fast start, slow end
+        easing: Easing.bezier(0.1, 0.85, 0.15, 1), // ultra-smooth fast start, gradual deceleration
         useNativeDriver: Platform.OS !== "web",
       }).start(() => {
         onSpinComplete?.();
@@ -131,8 +145,6 @@ export default function SpinWheel({
     inputRange: [0, 360],
     outputRange: ["0deg", "360deg"],
   });
-
-  let accumulatedAngle = 0;
 
   return (
     <View style={[styles.container, { width: size, height: size }]}>
@@ -159,6 +171,7 @@ export default function SpinWheel({
           width: size,
           height: size,
           zIndex: 2,
+          ...(Platform.OS === "web" ? ({ willChange: "transform" } as any) : {}),
         }}
       >
         <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
@@ -189,13 +202,7 @@ export default function SpinWheel({
 
           {/* Slices */}
           <G>
-            {Array.from({ length: playerCount }).map((_, idx) => {
-              const startAngle = accumulatedAngle;
-              const angle = (hasStakes && totalStake > 0)
-                ? (Number((players[idx] as any).stake || 0) / totalStake) * 360
-                : angleStep;
-              const endAngle = startAngle + angle;
-              accumulatedAngle = endAngle;
+            {slices.map(({ idx, startAngle, angle, endAngle }) => {
 
               const textAngle = startAngle + angle / 2;
               const textPos = polarToCartesian(cx, cy, r * 0.60, textAngle);

@@ -490,7 +490,7 @@ export default function LeaderboardScreen() {
                     const blockH = isWinner ? 110 : (isThird ? 75 : 90);
                     const blockColor = isWinner ? "#7c3aed" : "#1e243d";
                     const winAmt = (item as any).winAmount !== undefined && (item as any).winAmount !== null ? (item as any).winAmount : item.wins * 50;
-                    const winnings = `${Number(winAmt).toLocaleString()} ETB`;
+                    const winnings = `${item.wins} Wins`;
                     const initials = item.username ? item.username.slice(0, 2).toUpperCase() : "ME";
 
                     return (
@@ -570,7 +570,7 @@ export default function LeaderboardScreen() {
                       const badgeBg = item.rank === 1 ? "#f5b642" : (item.rank === 2 ? "#b9cacb" : (item.rank === 3 ? "#fb923c" : "rgba(124, 58, 237, 0.15)"));
                       const badgeTextCol = isTop3 ? "#0a0e1a" : "#8b5cf6";
                       const winAmt = item.winAmount !== undefined && item.winAmount !== null ? item.winAmount : item.wins * 50;
-                      const winnings = `${Number(winAmt).toLocaleString()} ETB`;
+                      const winnings = `${item.wins} Wins`;
                       const totalGamesCount = item.total || Math.round(item.wins * 1.5);
                       const isMe = item.isMe;
 
@@ -598,9 +598,9 @@ export default function LeaderboardScreen() {
                             </View>
                           </View>
 
-                          {/* PNL */}
+                          {/* PNL / Wins */}
                           <View style={{ alignItems: "flex-end" }}>
-                            <Text style={s.rankRowPnlLabel}>Pnl.</Text>
+                            <Text style={s.rankRowPnlLabel}>Wins</Text>
                             <Text style={s.rankRowPnlVal}>{winnings}</Text>
                           </View>
                         </View>
@@ -785,7 +785,7 @@ export default function LeaderboardScreen() {
                     <Text style={s.rankRowStats as any}>{item.wins} wins battles won</Text>
                   </View>
                 </View>
-                <Text style={{ color: "#22d3ee", fontWeight: "900", fontSize: 13 }}>{(item.winAmount !== undefined && item.winAmount !== null ? item.winAmount : item.wins * 50).toLocaleString()} ETB</Text>
+                <Text style={{ color: "#22d3ee", fontWeight: "900", fontSize: 13 }}>{item.wins} Wins</Text>
               </View>
             );
           }}

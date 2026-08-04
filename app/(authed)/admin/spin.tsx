@@ -14,7 +14,7 @@ import {
   Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../../context/authContext';
 import { API_URL } from '../../../config';
 import { AdminTheme as C } from './_layout';
@@ -30,9 +30,11 @@ const timeFmt = (d: string) => {
 export default function SpinAdminPage() {
   const { token, isSuperAdmin, showAlert } = useAuth();
   const router = useRouter();
+  const params = useLocalSearchParams();
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
 
+  const [activeTab, setActiveTab] = useState<'overview' | 'rooms' | 'history' | 'leaderboard' | 'moderation'>((params.tab as any) || 'overview');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [railBotsEnabled, setRailBotsEnabled] = useState(true);
@@ -289,8 +291,8 @@ export default function SpinAdminPage() {
             <Ionicons name="arrow-back" size={18} color={C.primary} />
           </TouchableOpacity>
           <View>
-            <Text style={s.headerTitle}>Spin Game Dashboard</Text>
-            <Text style={s.headerSub}>BOT MANAGEMENT & ACTIVE ROOM VISITS</Text>
+            <Text style={s.headerTitle}>Spin Hub</Text>
+            <Text style={s.headerSub}>SPIN GAME MANAGEMENT, LIVE LOBBIES & MATCH LOGS</Text>
           </View>
         </View>
 
@@ -308,169 +310,234 @@ export default function SpinAdminPage() {
           }}
         >
           <Ionicons name="home" size={16} color="#fff" />
-          <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800', fontFamily: 'Inter' }}>
-            Back to Home Page
+          <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>
+            Back to Home
           </Text>
         </TouchableOpacity>
       </View>
 
-      {/* Global Config Card */}
-      <View style={[s.card, { marginBottom: 24 }]}>
-        <Text style={s.sectionLabel}>GLOBAL SETTINGS</Text>
-        {loading ? (
-          <ActivityIndicator color={C.primary} />
-        ) : (
-          <View style={s.switchRow}>
-            <View style={{ flex: 1, paddingRight: 16 }}>
-              <Text style={s.cardTitle}>Spin Game Active</Text>
-              <Text style={s.cardSubTitle}>
-                Enable or disable the Spin game for all users. When disabled, new players cannot join spin lobbies.
+      {/* Sub-Tab Navigation Bar */}
+      <View style={{ marginBottom: 24 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+          {[
+            { id: 'overview', label: 'Overview', icon: 'grid-outline' },
+            { id: 'rooms', label: 'Live Rooms', icon: 'game-controller-outline' },
+            { id: 'history', label: 'Match History', icon: 'time-outline' },
+            { id: 'leaderboard', label: 'Leaderboard', icon: 'podium-outline' },
+            { id: 'moderation', label: 'Moderation', icon: 'shield-outline' },
+          ].map(tab => (
+            <TouchableOpacity
+              key={tab.id}
+              onPress={() => setActiveTab(tab.id as any)}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 8,
+                paddingHorizontal: 16,
+                paddingVertical: 10,
+                borderRadius: 12,
+                backgroundColor: activeTab === tab.id ? C.primary : 'rgba(255,255,255,0.03)',
+                borderWidth: 1,
+                borderColor: activeTab === tab.id ? C.primaryContainer : C.outlineVariant,
+              }}
+            >
+              <Ionicons name={tab.icon as any} size={16} color={activeTab === tab.id ? '#0c0c1f' : '#e5e3ff'} />
+              <Text style={{ color: activeTab === tab.id ? '#0c0c1f' : '#e5e3ff', fontSize: 13, fontWeight: '800' }}>
+                {tab.label}
               </Text>
-            </View>
-            <Switch
-              value={spinGameActive}
-              disabled={saving}
-              onValueChange={(v) => updateToggleSetting('spin_game_enabled', v, setSpinGameActive)}
-              trackColor={{ false: 'rgba(68,68,107,0.4)', true: 'rgba(117,81,255,0.3)' }}
-              thumbColor={spinGameActive ? C.primary : '#f4f3f4'}
-            />
-          </View>
-        )}
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       </View>
 
-      {/* Dynamic Grid Layout containing Rail and 5-Player columns */}
-      <View style={{ flexDirection: isMobile ? 'column' : 'row', gap: 24, marginBottom: 24 }}>
-        {renderStatsColumn('Rail Spin Mode', spinStats?.rail, railBotsEnabled, setRailBotsEnabled, 'spin_rail_bots_enabled')}
-        {renderStatsColumn('5-Player Spin Mode', spinStats?.fivePlayer, fivepBotsEnabled, setFivepBotsEnabled, 'spin_5p_bots_enabled', true)}
-      </View>
-
-      {/* Live Spin Rooms list */}
-      <View style={{ marginBottom: 24 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-          <Text style={s.sectionLabel}>LIVE SPIN LOBBIES ({spinLive.length})</Text>
-          <TouchableOpacity onPress={fetchSpinLive} style={s.refreshBtnSmall}>
-            <Ionicons name="refresh" size={12} color="#fff" />
-            <Text style={s.refreshBtnTextSmall}>Refresh</Text>
-          </TouchableOpacity>
-        </View>
-        {spinLive.length === 0 ? (
-          <View style={s.emptyState}>
-            <Ionicons name="game-controller-outline" size={24} color="rgba(255,255,255,0.1)" />
-            <Text style={s.emptyStateText}>No Spin Wheel lobbies are running. Lobbies spin up dynamically when players enter.</Text>
-          </View>
-        ) : (
-          <View style={{ gap: 12 }}>
-            {spinLive.map((room: any, i: number) => (
-              <View key={room.roundId || i} style={s.liveRoomCard}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <View style={[s.breakdownStatusDot, { backgroundColor: room.status === 'waiting' ? '#fbbf24' : room.status === 'spinning' ? C.success : C.secondary }]} />
-                    <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>{room.roomName || room.mode}</Text>
-                  </View>
-                  <View style={s.liveStatusBadge}>
-                    <Text style={{ color: room.status === 'waiting' ? '#fbbf24' : C.success, fontSize: 9, fontWeight: '800' }}>{room.status?.toUpperCase()}</Text>
-                  </View>
-                </View>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-                  <Text style={{ color: C.onSurfaceVariant, fontSize: 12 }}>Players: <Text style={{ color: '#fff', fontWeight: '700' }}>{room.realPlayersCount}/{room.maxPlayers}</Text> (bots: {room.botsCount})</Text>
-                  <Text style={{ color: C.onSurfaceVariant, fontSize: 12 }}>Pot: <Text style={{ color: C.success, fontWeight: '700' }}>{fmt(room.pot / 100)} ETB</Text></Text>
-                  {room.countdown > 0 && <Text style={{ color: C.onSurfaceVariant, fontSize: 12 }}>Timer: <Text style={{ color: '#fbbf24', fontWeight: '700' }}>{room.countdown}s</Text></Text>}
-                </View>
-                {room.players && room.players.length > 0 && (
-                  <View style={{ marginTop: 8, gap: 4 }}>
-                    {room.players.map((p: any, pi: number) => (
-                      <View key={pi} style={s.livePlayerRow}>
-                        <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: '600' }}>#{p.seatIndex + 1}</Text>
-                        <Text style={{ color: p.isBot ? 'rgba(255,255,255,0.4)' : '#fff', fontSize: 11, fontWeight: '700', flex: 1 }}>{p.username}{p.isBot ? ' (Bot)' : ''}</Text>
-                        <Text style={{ color: C.success, fontSize: 11, fontWeight: '700' }}>{fmt(p.stake / 100)} ETB</Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-              </View>
-            ))}
-          </View>
-        )}
-      </View>
-
-      {/* Completed Spin Rounds History */}
-      <View style={{ marginBottom: 24 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-          <Text style={s.sectionLabel}>SPIN HISTORY LOG ({spinHistoryTotal})</Text>
-          <TouchableOpacity onPress={() => fetchSpinHistory(spinHistoryPage)} style={s.refreshBtnSmall}>
-            <Ionicons name="refresh" size={12} color="#fff" />
-            <Text style={s.refreshBtnTextSmall}>Refresh</Text>
-          </TouchableOpacity>
-        </View>
-        {spinHistoryLoading && <ActivityIndicator color={C.primary} style={{ marginVertical: 20 }} />}
-        {!spinHistoryLoading && spinHistory.length === 0 && (
-          <View style={s.emptyState}>
-            <Text style={s.emptyStateText}>No completed spin rounds yet</Text>
-          </View>
-        )}
-        {!spinHistoryLoading && spinHistory.map((round: any, i: number) => {
-          const isRealSpin = round.is_real_spin || (round.real_players > 0 && round.real_players === round.total_players);
-          const winnerName = round.winner_display_name || round.winner_username || '—';
-
-          return (
-            <View key={round.id || i} style={s.historyCard}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <View style={[s.historyStatusPill, { borderColor: round.status === 'paid' ? 'rgba(34,197,94,0.3)' : 'rgba(245,57,57,0.3)' }]}>
-                    <Text style={{ color: round.status === 'paid' ? C.success : C.error, fontSize: 9, fontWeight: '800' }}>{round.status?.toUpperCase()}</Text>
-                  </View>
-                  <View style={[s.historyStatusPill, { backgroundColor: isRealSpin ? 'rgba(34,197,94,0.1)' : 'rgba(245,158,11,0.1)', borderColor: isRealSpin ? 'rgba(34,197,94,0.3)' : 'rgba(245,158,11,0.3)' }]}>
-                    <Text style={{ color: isRealSpin ? C.success : '#f59e0b', fontSize: 9, fontWeight: '800' }}>{isRealSpin ? 'REAL SPIN' : 'BOT ASSISTED'}</Text>
-                  </View>
-                </View>
-                <Text style={{ color: C.onSurfaceVariant, fontSize: 10, fontWeight: '600' }}>{timeFmt(round.created_at)}</Text>
-              </View>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                <View>
-                  <Text style={{ color: '#e2e8f0', fontSize: 13, fontWeight: '800' }}>
-                    Winner: <Text style={{ color: round.winner_is_bot ? '#fbbf24' : '#38bdf8' }}>{winnerName}</Text>
+      {/* --- OVERVIEW TAB --- */}
+      {activeTab === 'overview' && (
+        <>
+          {/* Global Config Card */}
+          <View style={[s.card, { marginBottom: 24 }]}>
+            <Text style={s.sectionLabel}>GLOBAL SETTINGS</Text>
+            {loading ? (
+              <ActivityIndicator color={C.primary} />
+            ) : (
+              <View style={s.switchRow}>
+                <View style={{ flex: 1, paddingRight: 16 }}>
+                  <Text style={s.cardTitle}>Spin Game Active</Text>
+                  <Text style={s.cardSubTitle}>
+                    Enable or disable the Spin game for all users. When disabled, new players cannot join spin lobbies.
                   </Text>
-                  {round.winner_phone && <Text style={{ color: C.onSurfaceVariant, fontSize: 10 }}>{round.winner_phone}</Text>}
                 </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={{ color: C.success, fontSize: 14, fontWeight: '900' }}>+{fmt((round.prize_amount || 0) / 100)} ETB</Text>
-                  <Text style={{ color: C.onSurfaceVariant, fontSize: 10 }}>Pot: {fmt((round.pot_amount || 0) / 100)} ETB</Text>
-                </View>
+                <Switch
+                  value={spinGameActive}
+                  disabled={saving}
+                  onValueChange={(v) => updateToggleSetting('spin_game_enabled', v, setSpinGameActive)}
+                  trackColor={{ false: 'rgba(68,68,107,0.4)', true: 'rgba(117,81,255,0.3)' }}
+                  thumbColor={spinGameActive ? C.primary : '#f4f3f4'}
+                />
               </View>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.04)' }}>
-                <Text style={{ color: C.onSurfaceVariant, fontSize: 11, fontWeight: '600' }}>Mode: <Text style={{ color: '#fff' }}>{round.mode_label || (round.config_id === 2 ? 'Rail Spin' : '5-Player Spin')}</Text></Text>
-                <Text style={{ color: C.onSurfaceVariant, fontSize: 11, fontWeight: '600' }}>Players: <Text style={{ color: '#fff' }}>{round.total_players || 5} Players ({round.real_players || 0} Real / {(round.total_players || 5) - (round.real_players || 0)} Bot)</Text></Text>
-                <Text style={{ color: C.onSurfaceVariant, fontSize: 11, fontWeight: '600' }}>Slot: <Text style={{ color: '#fff' }}>#{round.winning_slice ?? '—'}</Text></Text>
-              </View>
-            </View>
-          );
-        })}
+            )}
+          </View>
 
-        {/* Pagination */}
-        {!spinHistoryLoading && spinHistoryTotal > 10 && (
-          <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 12, marginTop: 16 }}>
-            <TouchableOpacity
-              disabled={spinHistoryPage === 0}
-              onPress={() => fetchSpinHistory(spinHistoryPage - 1)}
-              style={[s.pageBtn, spinHistoryPage === 0 && { opacity: 0.3 }]}
-            >
-              <Ionicons name="chevron-back" size={14} color={C.primary} />
-              <Text style={s.pageBtnText}>Previous</Text>
-            </TouchableOpacity>
-            <View style={{ justifyContent: 'center' }}>
-              <Text style={{ color: C.onSurfaceVariant, fontSize: 11, fontWeight: '700' }}>Page {spinHistoryPage + 1} of {Math.ceil(spinHistoryTotal / 10)}</Text>
-            </View>
-            <TouchableOpacity
-              disabled={(spinHistoryPage + 1) * 10 >= spinHistoryTotal}
-              onPress={() => fetchSpinHistory(spinHistoryPage + 1)}
-              style={[s.pageBtn, (spinHistoryPage + 1) * 10 >= spinHistoryTotal && { opacity: 0.3 }]}
-            >
-              <Text style={s.pageBtnText}>Next</Text>
-              <Ionicons name="chevron-forward" size={14} color={C.primary} />
+          {/* Dynamic Grid Layout containing Rail and 5-Player columns */}
+          <View style={{ flexDirection: isMobile ? 'column' : 'row', gap: 24, marginBottom: 24 }}>
+            {renderStatsColumn('Rail Spin Mode', spinStats?.rail, railBotsEnabled, setRailBotsEnabled, 'spin_rail_bots_enabled')}
+            {renderStatsColumn('5-Player Spin Mode', spinStats?.fivePlayer, fivepBotsEnabled, setFivepBotsEnabled, 'spin_5p_bots_enabled', true)}
+          </View>
+        </>
+      )}
+
+      {/* --- LIVE ROOMS TAB --- */}
+      {(activeTab === 'overview' || activeTab === 'rooms') && (
+        <View style={{ marginBottom: 24 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <Text style={s.sectionLabel}>LIVE SPIN LOBBIES ({spinLive.length})</Text>
+            <TouchableOpacity onPress={fetchSpinLive} style={s.refreshBtnSmall}>
+              <Ionicons name="refresh" size={12} color="#fff" />
+              <Text style={s.refreshBtnTextSmall}>Refresh</Text>
             </TouchableOpacity>
           </View>
-        )}
-      </View>
+          {spinLive.length === 0 ? (
+            <View style={s.emptyState}>
+              <Ionicons name="game-controller-outline" size={24} color="rgba(255,255,255,0.1)" />
+              <Text style={s.emptyStateText}>No Spin Wheel lobbies are running. Lobbies spin up dynamically when players enter.</Text>
+            </View>
+          ) : (
+            <View style={{ gap: 12 }}>
+              {spinLive.map((room: any, i: number) => (
+                <View key={room.roundId || i} style={s.liveRoomCard}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <View style={[s.breakdownStatusDot, { backgroundColor: room.status === 'waiting' ? '#fbbf24' : room.status === 'spinning' ? C.success : C.secondary }]} />
+                      <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>{room.roomName || room.mode}</Text>
+                    </View>
+                    <View style={s.liveStatusBadge}>
+                      <Text style={{ color: room.status === 'waiting' ? '#fbbf24' : C.success, fontSize: 9, fontWeight: '800' }}>{room.status?.toUpperCase()}</Text>
+                    </View>
+                  </View>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+                    <Text style={{ color: C.onSurfaceVariant, fontSize: 12 }}>Players: <Text style={{ color: '#fff', fontWeight: '700' }}>{room.realPlayersCount}/{room.maxPlayers}</Text> (bots: {room.botsCount})</Text>
+                    <Text style={{ color: C.onSurfaceVariant, fontSize: 12 }}>Pot: <Text style={{ color: C.success, fontWeight: '700' }}>{fmt(room.pot / 100)} ETB</Text></Text>
+                    {room.countdown > 0 && <Text style={{ color: C.onSurfaceVariant, fontSize: 12 }}>Timer: <Text style={{ color: '#fbbf24', fontWeight: '700' }}>{room.countdown}s</Text></Text>}
+                  </View>
+                  {room.players && room.players.length > 0 && (
+                    <View style={{ marginTop: 8, gap: 4 }}>
+                      {room.players.map((p: any, pi: number) => (
+                        <View key={pi} style={s.livePlayerRow}>
+                          <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: '600' }}>#{p.seatIndex + 1}</Text>
+                          <Text style={{ color: p.isBot ? 'rgba(255,255,255,0.4)' : '#fff', fontSize: 11, fontWeight: '700', flex: 1 }}>{p.username}{p.isBot ? ' (Bot)' : ''}</Text>
+                          <Text style={{ color: C.success, fontSize: 11, fontWeight: '700' }}>{fmt(p.stake / 100)} ETB</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* --- MATCH HISTORY TAB --- */}
+      {(activeTab === 'overview' || activeTab === 'history') && (
+        <View style={{ marginBottom: 24 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <Text style={s.sectionLabel}>SPIN HISTORY LOG ({spinHistoryTotal})</Text>
+            <TouchableOpacity onPress={() => fetchSpinHistory(spinHistoryPage)} style={s.refreshBtnSmall}>
+              <Ionicons name="refresh" size={12} color="#fff" />
+              <Text style={s.refreshBtnTextSmall}>Refresh</Text>
+            </TouchableOpacity>
+          </View>
+          {spinHistoryLoading && <ActivityIndicator color={C.primary} style={{ marginVertical: 20 }} />}
+          {!spinHistoryLoading && spinHistory.length === 0 && (
+            <View style={s.emptyState}>
+              <Text style={s.emptyStateText}>No completed spin rounds yet</Text>
+            </View>
+          )}
+          {!spinHistoryLoading && spinHistory.map((round: any, i: number) => {
+            const isRealSpin = round.is_real_spin || (round.real_players > 0 && round.real_players === round.total_players);
+            const winnerName = round.winner_display_name || round.winner_username || '—';
+
+            return (
+              <View key={round.id || i} style={s.historyCard}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <View style={[s.historyStatusPill, { borderColor: round.status === 'paid' ? 'rgba(34,197,94,0.3)' : 'rgba(245,57,57,0.3)' }]}>
+                      <Text style={{ color: round.status === 'paid' ? C.success : C.error, fontSize: 9, fontWeight: '800' }}>{round.status?.toUpperCase()}</Text>
+                    </View>
+                    <View style={[s.historyStatusPill, { backgroundColor: isRealSpin ? 'rgba(34,197,94,0.1)' : 'rgba(245,158,11,0.1)', borderColor: isRealSpin ? 'rgba(34,197,94,0.3)' : 'rgba(245,158,11,0.3)' }]}>
+                      <Text style={{ color: isRealSpin ? C.success : '#f59e0b', fontSize: 9, fontWeight: '800' }}>{isRealSpin ? 'REAL SPIN' : 'BOT ASSISTED'}</Text>
+                    </View>
+                  </View>
+                  <Text style={{ color: C.onSurfaceVariant, fontSize: 10, fontWeight: '600' }}>{timeFmt(round.created_at)}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <View>
+                    <Text style={{ color: '#e2e8f0', fontSize: 13, fontWeight: '800' }}>
+                      Winner: <Text style={{ color: round.winner_is_bot ? '#fbbf24' : '#38bdf8' }}>{winnerName}</Text>
+                    </Text>
+                    {round.winner_phone && <Text style={{ color: C.onSurfaceVariant, fontSize: 10 }}>{round.winner_phone}</Text>}
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={{ color: C.success, fontSize: 14, fontWeight: '900' }}>+{fmt((round.prize_amount || 0) / 100)} ETB</Text>
+                    <Text style={{ color: C.onSurfaceVariant, fontSize: 10 }}>Pot: {fmt((round.pot_amount || 0) / 100)} ETB</Text>
+                  </View>
+                </View>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.04)' }}>
+                  <Text style={{ color: C.onSurfaceVariant, fontSize: 11, fontWeight: '600' }}>Mode: <Text style={{ color: '#fff' }}>{round.mode_label || (round.config_id === 2 ? 'Rail Spin' : '5-Player Spin')}</Text></Text>
+                  <Text style={{ color: C.onSurfaceVariant, fontSize: 11, fontWeight: '600' }}>Players: <Text style={{ color: '#fff' }}>{round.total_players || 5} Players ({round.real_players || 0} Real / {(round.total_players || 5) - (round.real_players || 0)} Bot)</Text></Text>
+                  <Text style={{ color: C.onSurfaceVariant, fontSize: 11, fontWeight: '600' }}>Slot: <Text style={{ color: '#fff' }}>#{round.winning_slice ?? '—'}</Text></Text>
+                </View>
+              </View>
+            );
+          })}
+
+          {/* Pagination */}
+          {!spinHistoryLoading && spinHistoryTotal > 10 && (
+            <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 12, marginTop: 16 }}>
+              <TouchableOpacity
+                disabled={spinHistoryPage === 0}
+                onPress={() => fetchSpinHistory(spinHistoryPage - 1)}
+                style={[s.pageBtn, spinHistoryPage === 0 && { opacity: 0.3 }]}
+              >
+                <Ionicons name="chevron-back" size={14} color={C.primary} />
+                <Text style={s.pageBtnText}>Previous</Text>
+              </TouchableOpacity>
+              <View style={{ justifyContent: 'center' }}>
+                <Text style={{ color: C.onSurfaceVariant, fontSize: 11, fontWeight: '700' }}>Page {spinHistoryPage + 1} of {Math.ceil(spinHistoryTotal / 10)}</Text>
+              </View>
+              <TouchableOpacity
+                disabled={(spinHistoryPage + 1) * 10 >= spinHistoryTotal}
+                onPress={() => fetchSpinHistory(spinHistoryPage + 1)}
+                style={[s.pageBtn, (spinHistoryPage + 1) * 10 >= spinHistoryTotal && { opacity: 0.3 }]}
+              >
+                <Text style={s.pageBtnText}>Next</Text>
+                <Ionicons name="chevron-forward" size={14} color={C.primary} />
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* --- LEADERBOARD TAB --- */}
+      {activeTab === 'leaderboard' && (
+        <View style={s.emptyState}>
+          <Ionicons name="podium-outline" size={48} color={C.primary} style={{ marginBottom: 16 }} />
+          <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700', marginBottom: 8 }}>Leaderboard System Coming Soon</Text>
+          <Text style={{ color: C.onSurfaceVariant, fontSize: 13, textAlign: 'center', lineHeight: 20, maxWidth: 440 }}>
+            High roller rankings, win streaks, and total accumulated earnings for Spin Wheel will be listed here.
+          </Text>
+        </View>
+      )}
+
+      {/* --- MODERATION TAB --- */}
+      {activeTab === 'moderation' && (
+        <View style={s.emptyState}>
+          <Ionicons name="shield-outline" size={48} color={C.secondary} style={{ marginBottom: 16 }} />
+          <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700', marginBottom: 8 }}>Moderation Panel Under Construction</Text>
+          <Text style={{ color: C.onSurfaceVariant, fontSize: 13, textAlign: 'center', lineHeight: 20, maxWidth: 440 }}>
+            Backend routes and database schemas for wheel configuration weights, bot frequency settings, and slice multipliers are currently under development. Check back shortly.
+          </Text>
+        </View>
+      )}
 
       {/* Confirm Action Dialog */}
       <Modal transparent visible={confirmState.visible} animationType="fade">

@@ -201,11 +201,7 @@ export default function AdminLayout() {
   ];
 
   const spinGroup = [
-    { icon: 'color-palette', label: 'Spin Dashboard', path: '/admin/spin' },
-    { icon: 'options', label: 'Spin Rooms', path: '/admin/spin-rooms' },
-    { icon: 'podium', label: 'Spin Leaderboard', path: '/admin/spin-leaderboard' },
-    { icon: 'time', label: 'Spin History', path: '/admin/spin-history' },
-    { icon: 'shield', label: 'Spin Moderation', path: '/admin/spin-moderation' },
+    { icon: 'color-palette', label: 'Spin Hub', path: '/admin/spin' },
   ];
 
   const bottomTabItems = [

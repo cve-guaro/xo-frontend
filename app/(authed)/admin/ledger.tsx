@@ -164,7 +164,7 @@ export default function AdminLedger() {
         <View style={[styles.pageHeader, isMobile && { flexDirection: 'column', alignItems: 'flex-start', gap: 12, padding: 16 }]}>
           <View>
             <Text style={[styles.pageTitle, isMobile && { fontSize: 20 }]}>{t('financial_ledger')}</Text>
-            {!isMobile && <Text style={styles.pageSub}>Manage real-time liquidity and user transaction requests across the abyss.</Text>}
+            {!isMobile && <Text style={styles.pageSub}>Manage user deposit and withdrawal transaction requests and wallet activity.</Text>}
           </View>
           {/* Tabs */}
           <View style={styles.tabContainer}>
@@ -500,7 +500,7 @@ export default function AdminLedger() {
                     </View>
                   </View>
 
-                  <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '800', textTransform: 'uppercase', marginBottom: 16 }}>Execution Commands</Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '800', textTransform: 'uppercase', marginBottom: 16 }}>Actions</Text>
                   
                   {reviewData.transaction.status?.toUpperCase() === 'PENDING' || reviewData.transaction.status?.toUpperCase() === 'PENDING_MANUAL' ? (
                     <>

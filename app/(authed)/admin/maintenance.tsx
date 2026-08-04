@@ -183,7 +183,7 @@ export default function Maintenance() {
       <View style={s.header}>
         <View>
           <Text style={s.pageTitle}>System Maintenance</Text>
-          <Text style={s.pageSubtitle}>Manage feature toggles and emergency lockdowns</Text>
+          <Text style={s.pageSubtitle}>System operational toggles, maintenance mode, and emergency access</Text>
         </View>
       </View>
 
@@ -194,7 +194,7 @@ export default function Maintenance() {
             <View style={[s.iconBg, { backgroundColor: isEmergencyLocked ? 'rgba(253,111,133,0.2)' : 'rgba(166,140,255,0.2)' }]}>
               <Ionicons name="warning" size={20} color={isEmergencyLocked ? C.error : C.primary} />
             </View>
-            <Text style={[s.cardTitle, isEmergencyLocked && { color: C.error, textShadowColor: 'rgba(253,111,133,0.5)', textShadowRadius: 10 }]}>Emergency Lockdown</Text>
+            <Text style={[s.cardTitle, isEmergencyLocked && { color: C.error, textShadowColor: 'rgba(253,111,133,0.5)', textShadowRadius: 10 }]}>Emergency Maintenance Lockout</Text>
           </View>
           <Switch
             value={isEmergencyLocked}
