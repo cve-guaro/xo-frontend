@@ -70,6 +70,7 @@ export default function SpinWheel({
   speakingUserIds = [],
 }: SpinWheelProps) {
   const rotation = useRef(new Animated.Value(0)).current;
+  const idleLoopAnim = useRef(new Animated.Value(0)).current;
   const [hasSpun, setHasSpun] = useState(false);
 
   const cx = size / 2;
@@ -95,6 +96,29 @@ export default function SpinWheel({
       return { idx, startAngle, angle, endAngle };
     });
   }, [playerCount, hasStakes, totalStake, players, angleStep]);
+
+  // Infinite slow looping rotation animation for home page preview / idle state
+  useEffect(() => {
+    let loop: Animated.CompositeAnimation | null = null;
+    if (!isSpinning && status !== "spinning" && status !== "locked" && status !== "resolved") {
+      idleLoopAnim.setValue(0);
+      loop = Animated.loop(
+        Animated.timing(idleLoopAnim, {
+          toValue: 360,
+          duration: 18000, // smooth 18-second continuous loop
+          easing: Easing.linear,
+          useNativeDriver: Platform.OS !== "web",
+        })
+      );
+      loop.start();
+    } else {
+      idleLoopAnim.setValue(0);
+    }
+
+    return () => {
+      loop?.stop();
+    };
+  }, [isSpinning, status, idleLoopAnim]);
 
   // Trigger spin animation
   useEffect(() => {
@@ -141,33 +165,16 @@ export default function SpinWheel({
     }
   }, [isSpinning, winningSlice, status, players, hasStakes, totalStake, angleStep, is5Player]);
 
-  const rotateInterpolation = rotation.interpolate({
-    inputRange: [0, 360],
-    outputRange: ["0deg", "360deg"],
-  });
+  const activeRotateStyle = (isSpinning || status === "spinning" || status === "locked" || status === "resolved")
+    ? rotation.interpolate({ inputRange: [0, 360], outputRange: ["0deg", "360deg"] })
+    : idleLoopAnim.interpolate({ inputRange: [0, 360], outputRange: ["0deg", "360deg"] });
 
   return (
     <View style={[styles.container, { width: size, height: size }]}>
-
-
-      {/* Ambient glow */}
-      <View
-        style={[
-          styles.glow,
-          {
-            width: size * 1.3,
-            height: size * 1.3,
-            borderRadius: size * 0.65,
-            top: -(size * 0.15),
-            left: -(size * 0.15),
-          },
-        ]}
-      />
-
       {/* Animated wheel */}
       <Animated.View
         style={{
-          transform: [{ rotate: rotateInterpolation }],
+          transform: [{ rotate: activeRotateStyle }],
           width: size,
           height: size,
           zIndex: 2,
@@ -197,9 +204,6 @@ export default function SpinWheel({
               <Stop offset="100%" stopColor="#854d0e" />
             </LinearGradient>
           </Defs>
-
-          <Circle cx={cx} cy={cy} r={r * 1.3} fill="url(#spinGlow)" />
-
           {/* Slices */}
           <G>
             {slices.map(({ idx, startAngle, angle, endAngle }) => {

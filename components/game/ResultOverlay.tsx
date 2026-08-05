@@ -71,6 +71,7 @@ function ResultOverlay({ visible, outcome, amount, onHome, onPlayAgain, onSendEm
   const isWin = outcome === "win";
   const appear = useRef(new Animated.Value(0)).current;
   const [canContinue, setCanContinue] = useState(false);
+  const [countdown, setCountdown] = useState(3);
 
   const ui = useMemo<UiMeta>(() => (isWin ? UI_WIN(amount) : UI_LOSE(amount)), [isWin, amount]);
 
@@ -79,6 +80,8 @@ function ResultOverlay({ visible, outcome, amount, onHome, onPlayAgain, onSendEm
     if (!visible) {
       appear.stopAnimation();
       appear.setValue(0);
+      setCanContinue(false);
+      setCountdown(3);
       return;
     }
 
@@ -88,6 +91,7 @@ function ResultOverlay({ visible, outcome, amount, onHome, onPlayAgain, onSendEm
     appear.stopAnimation();
     appear.setValue(0);
     setCanContinue(false);
+    setCountdown(3);
 
     Animated.timing(appear, {
       toValue: 1,
@@ -96,12 +100,19 @@ function ResultOverlay({ visible, outcome, amount, onHome, onPlayAgain, onSendEm
       useNativeDriver: true,
     }).start();
 
-    // Enable buttons after 2.5 seconds
-    const timer = setTimeout(() => {
-      setCanContinue(true);
-    }, 2500);
+    // Enable buttons after 3 seconds with live countdown
+    const interval = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          setCanContinue(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
 
-    return () => clearTimeout(timer);
+    return () => clearInterval(interval);
   }, [visible, appear]);
 
   const cardAnimStyle = useMemo(
@@ -170,18 +181,19 @@ function ResultOverlay({ visible, outcome, amount, onHome, onPlayAgain, onSendEm
                     <LinearGradient colors={ui.primaryGrad} style={styles.btn}>
                       <Ionicons name="home-outline" size={18} color="#0c0c1f" />
                       <Text style={styles.btnText}>{ui.primaryText}</Text>
-                      {!canContinue && <Text style={{ color: 'rgba(12,12,31,0.6)', fontSize: 11, marginLeft: 'auto' }}>(2.5s)</Text>}
+                      {!canContinue && <Text style={{ color: 'rgba(12,12,31,0.6)', fontSize: 11, marginLeft: 'auto', fontWeight: '800' }}>({countdown}s)</Text>}
                       {canContinue && <Ionicons name="chevron-forward" size={16} color="#0c0c1f" style={{ marginLeft: 'auto' }} />}
                     </LinearGradient>
                   </TouchableOpacity>
 
-                  {/* Play Again / Rematch Button (for both winner and loser if provided) */}
+                  {/* Play Again / Rematch Button */}
                   {onPlayAgain && (
                     <View>
                       <TouchableOpacity onPress={insufficientBalance ? undefined : onPlayAgain} disabled={!canContinue || insufficientBalance} activeOpacity={0.92} style={[styles.btnWrap, (!canContinue || insufficientBalance) && { opacity: 0.45 }]}>
                         <LinearGradient colors={["rgba(255,255,255,0.1)", "rgba(255,255,255,0.05)"]} style={[styles.btn, { borderWidth: 1, borderColor: insufficientBalance ? "rgba(255,75,75,0.3)" : "rgba(255,255,255,0.15)" }]}>
                           <Ionicons name="refresh-outline" size={18} color="#fff" />
                           <Text style={[styles.btnText, { color: '#fff' }]}>Run It Back! 🔥</Text>
+                          {!canContinue && <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, marginLeft: 'auto', fontWeight: '800' }}>({countdown}s)</Text>}
                         </LinearGradient>
                       </TouchableOpacity>
                       {insufficientBalance && (
