@@ -601,7 +601,7 @@ const styles = StyleSheet.create({
   },
   tabBar: { flexDirection: 'row', gap: 4 },
   tabBtn: { paddingHorizontal: 28, paddingVertical: 12, borderRadius: 12 },
-  tabBtnActive: { backgroundColor: C.primary, shadowColor: C.primary, shadowRadius: 12, shadowOpacity: 0.2 },
+  tabBtnActive: { backgroundColor: '#7c3aed' },
   tabText: { color: C.onSurfaceVariant, fontSize: 14, fontWeight: '700' },
   tabTextActive: { color: '#ffffff' },
 

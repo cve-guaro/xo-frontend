@@ -201,13 +201,14 @@ export default function FinancialDashboard() {
 
       {/* ═══ Top KPI Cards ═══ */}
       <View style={[st.kpiRow, isMobile && { flexDirection: 'column' }]}>
-        <View style={[st.kpiCard, { borderColor: 'rgba(0, 218, 243, 0.3)' }]}>
-          <View style={[st.kpiIcon, { backgroundColor: 'rgba(166,140,255,0.12)' }]}>
-            <Ionicons name="wallet" size={20} color={C.primary} />
+        {/* Card 1: Violet */}
+        <View style={[st.kpiCard, { borderColor: C.border }]}>
+          <View style={[st.kpiIcon, { backgroundColor: 'rgba(124, 58, 237, 0.15)' }]}>
+            <Ionicons name="wallet" size={20} color="#7c3aed" />
           </View>
           <Text style={st.kpiLabel}>TOTAL PLATFORM BALANCE</Text>
           <ACount value={d.totalPlatformAmount || 0} style={st.kpiValue} suffix=" ETB" />
-          <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+          <View style={{ flexDirection: 'row', gap: 12, marginTop: 8, marginBottom: 8 }}>
             <View>
               <Text style={st.kpiMini}>Available</Text>
               <Text style={st.kpiMiniVal}>{fmtK(d.totalAvailable || 0)}</Text>
@@ -218,43 +219,52 @@ export default function FinancialDashboard() {
             </View>
             <View>
               <Text style={st.kpiMini}>Bonus</Text>
-              <Text style={[st.kpiMiniVal, { color: '#fbbf24' }]}>{fmtK(d.totalBonus || 0)}</Text>
+              <Text style={[st.kpiMiniVal, { color: '#f5b642' }]}>{fmtK(d.totalBonus || 0)}</Text>
             </View>
+          </View>
+          {/* Proportional 3-way balance split bar */}
+          <View style={{ height: 4, backgroundColor: 'rgba(31, 37, 64, 0.6)', borderRadius: 2, flexDirection: 'row', overflow: 'hidden', width: '100%' }}>
+            <View style={{ flex: Math.max(1, d.totalAvailable || 0), backgroundColor: '#7c3aed' }} />
+            <View style={{ flex: Math.max(1, d.totalWithdrawable || 0), backgroundColor: '#22d3ee' }} />
+            <View style={{ flex: Math.max(1, d.totalBonus || 0), backgroundColor: '#f5b642' }} />
           </View>
         </View>
 
-        <View style={[st.kpiCard, { borderColor: 'rgba(0,218,243,0.3)' }]}>
-          <View style={[st.kpiIcon, { backgroundColor: 'rgba(0,218,243,0.12)' }]}>
-            <Ionicons name="card" size={20} color={C.secondary} />
+        {/* Card 2: Cyan */}
+        <View style={[st.kpiCard, { borderColor: C.border }]}>
+          <View style={[st.kpiIcon, { backgroundColor: 'rgba(34, 211, 238, 0.15)' }]}>
+            <Ionicons name="card" size={20} color="#22d3ee" />
           </View>
           <Text style={st.kpiLabel}>CHAPA BALANCE</Text>
-          <ACount value={d.chapaBalance || 0} style={[st.kpiValue, { color: C.secondary }]} suffix=" ETB" />
+          <ACount value={d.chapaBalance || 0} style={[st.kpiValue, { color: '#22d3ee' }]} suffix=" ETB" />
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 }}>
-            <View style={[st.statusDot, { backgroundColor: d.chapaBalance > 0 ? '#34d399' : '#f87171' }]} />
-            <Text style={{ color: '#64748b', fontSize: 10, fontWeight: '600' as any }}>
+            <View style={[st.statusDot, { backgroundColor: d.chapaBalance > 0 ? '#22c55e' : '#ef4444' }]} />
+            <Text style={{ color: '#94a3b8', fontSize: 10, fontWeight: '600' as any }}>
               {d.chapaBalance > 0 ? 'Connected & Active' : 'Low Balance'}
             </Text>
           </View>
         </View>
 
-        <View style={[st.kpiCard, { borderColor: 'rgba(52,211,153,0.3)' }]}>
-          <View style={[st.kpiIcon, { backgroundColor: 'rgba(52,211,153,0.12)' }]}>
-            <Ionicons name="trending-up" size={20} color="#34d399" />
+        {/* Card 3: Gold */}
+        <View style={[st.kpiCard, { borderColor: C.border }]}>
+          <View style={[st.kpiIcon, { backgroundColor: 'rgba(245, 182, 66, 0.15)' }]}>
+            <Ionicons name="trending-up" size={20} color="#f5b642" />
           </View>
           <Text style={st.kpiLabel}>GROSS PLATFORM PROFIT</Text>
-          <ACount value={d.purePlatformProfit || 0} style={[st.kpiValue, { color: '#34d399' }]} suffix=" ETB" />
-          <Text style={{ color: '#64748b', fontSize: 10, marginTop: 4 }}>
+          <ACount value={d.purePlatformProfit || 0} style={[st.kpiValue, { color: '#f5b642' }]} suffix=" ETB" />
+          <Text style={{ color: '#94a3b8', fontSize: 10, marginTop: 4 }}>
             Commission earned from {fmt(d.totalGamesFinished || 0)} game rounds
           </Text>
         </View>
 
-        <View style={[st.kpiCard, { borderColor: d.netPlatformProfit >= 0 ? 'rgba(52,211,153,0.3)' : 'rgba(248,113,113,0.3)' }]}>
-          <View style={[st.kpiIcon, { backgroundColor: d.netPlatformProfit >= 0 ? 'rgba(52,211,153,0.12)' : 'rgba(248,113,113,0.12)' }]}>
-            <Ionicons name="analytics" size={20} color={d.netPlatformProfit >= 0 ? '#34d399' : '#f87171'} />
+        {/* Card 4: Green */}
+        <View style={[st.kpiCard, { borderColor: C.border }]}>
+          <View style={[st.kpiIcon, { backgroundColor: d.netPlatformProfit >= 0 ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)' }]}>
+            <Ionicons name="analytics" size={20} color={d.netPlatformProfit >= 0 ? '#22c55e' : '#ef4444'} />
           </View>
           <Text style={st.kpiLabel}>NET PLATFORM PROFIT</Text>
-          <ACount value={d.netPlatformProfit || 0} style={[st.kpiValue, { color: d.netPlatformProfit >= 0 ? '#34d399' : '#f87171' }]} suffix=" ETB" />
-          <Text style={{ color: '#f87171', fontSize: 10, marginTop: 4 }}>
+          <ACount value={d.netPlatformProfit || 0} style={[st.kpiValue, { color: d.netPlatformProfit >= 0 ? '#22c55e' : '#ef4444' }]} suffix=" ETB" />
+          <Text style={{ color: '#ef4444', fontSize: 10, marginTop: 4 }}>
             -{profitImpactPct}% deducted ({fmtK(profitImpactTotal)})
           </Text>
         </View>
@@ -533,31 +543,30 @@ export default function FinancialDashboard() {
 const st = StyleSheet.create({
   container: { flex: 1, backgroundColor: 'transparent', padding: 20, paddingTop: 24 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
-  title: { fontSize: 24, fontWeight: '900', color: '#fff', letterSpacing: 1 },
+  title: { fontSize: 24, fontWeight: '900', color: '#ffffff', letterSpacing: 1 },
   subtitle: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '600', marginTop: 2 },
-  tfSelector: { flexDirection: 'row', gap: 3, padding: 3, backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  tfSelector: { flexDirection: 'row', gap: 3, padding: 3, backgroundColor: C.surfaceContainerLowest, borderRadius: 10, borderWidth: 1, borderColor: C.border },
   tfOpt: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 8 },
   tfText: { fontSize: 9, fontWeight: '700', letterSpacing: 1, color: C.onSurfaceVariant },
-  refreshBtn: { backgroundColor: C.secondary, width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  refreshBtn: { backgroundColor: C.primary, width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
 
   // KPI Cards
   kpiRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
   kpiCard: {
-    flex: 1, backgroundColor: 'rgba(24, 24, 27, 0.65)', borderWidth: 1, borderRadius: 20, padding: 20,
-    shadowColor: C.primary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 24, elevation: 10,
+    flex: 1, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, borderRadius: 16, padding: 20,
   },
   kpiIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
   kpiLabel: { color: C.onSurfaceVariant, fontSize: 9, fontWeight: '800', letterSpacing: 1.5, marginBottom: 6 },
-  kpiValue: { color: '#fff', fontSize: 22, fontWeight: '900', letterSpacing: -0.5 },
-  kpiMini: { color: '#475569', fontSize: 9, fontWeight: '600' },
-  kpiMiniVal: { color: '#94a3b8', fontSize: 12, fontWeight: '800' },
+  kpiValue: { color: '#ffffff', fontSize: 22, fontWeight: '900', letterSpacing: -0.5 },
+  kpiMini: { color: '#94a3b8', fontSize: 9, fontWeight: '600' },
+  kpiMiniVal: { color: '#ffffff', fontSize: 12, fontWeight: '800' },
   statusDot: { width: 6, height: 6, borderRadius: 3 },
 
   // Today row
   todayRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
   todayCard: {
     flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: 'rgba(24, 24, 27, 0.65)', borderWidth: 1, borderColor: 'rgba(166,140,255,0.15)',
+    backgroundColor: C.surface, borderWidth: 1, borderColor: C.border,
     borderRadius: 16, padding: 16,
   },
   todayIcon: { width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
@@ -567,38 +576,38 @@ const st = StyleSheet.create({
   // Charts
   chartsRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
   chartCard: {
-    backgroundColor: 'rgba(24, 24, 27, 0.65)', borderWidth: 1, borderColor: 'rgba(39, 39, 42, 0.6)',
-    borderRadius: 20, padding: 20, overflow: 'hidden',
+    backgroundColor: C.surface, borderWidth: 1, borderColor: C.border,
+    borderRadius: 16, padding: 20, overflow: 'hidden',
   },
-  chartTitle: { color: '#fff', fontSize: 12, fontWeight: '900', letterSpacing: 0.5 },
+  chartTitle: { color: '#ffffff', fontSize: 12, fontWeight: '900', letterSpacing: 0.5 },
   chartSub: { color: C.onSurfaceVariant, fontSize: 9, fontWeight: '600', marginTop: 2 },
   chartTotal: { fontSize: 16, fontWeight: '900' },
 
   // Drill-down
   drillPanel: {
-    backgroundColor: 'rgba(23,23,50,0.8)', borderWidth: 1, borderColor: 'rgba(0, 218, 243, 0.3)',
+    backgroundColor: C.surface, borderWidth: 1, borderColor: C.border,
     borderRadius: 16, padding: 20, marginBottom: 16,
   },
-  drillTitle: { color: '#fff', fontSize: 14, fontWeight: '800' },
-  drillHeader: { flexDirection: 'row', paddingVertical: 8, borderBottomWidth: 1, borderColor: 'rgba(166,140,255,0.15)' },
+  drillTitle: { color: '#ffffff', fontSize: 14, fontWeight: '800' },
+  drillHeader: { flexDirection: 'row', paddingVertical: 8, borderBottomWidth: 1, borderColor: C.border },
   drillCell: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
-  drillRow: { flexDirection: 'row', paddingVertical: 10, borderBottomWidth: 1, borderColor: 'rgba(166,140,255,0.08)' },
+  drillRow: { flexDirection: 'row', paddingVertical: 10, borderBottomWidth: 1, borderColor: C.border },
   drillCellVal: { color: '#e2e8f0', fontSize: 12, fontWeight: '600' },
 
   // Section titles
-  sectionTitle: { color: '#fff', fontSize: 16, fontWeight: '900', letterSpacing: 0.5, marginBottom: 4, marginTop: 8 },
+  sectionTitle: { color: '#ffffff', fontSize: 16, fontWeight: '900', letterSpacing: 0.5, marginBottom: 4, marginTop: 8 },
   sectionSub: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '600', marginBottom: 16 },
 
   // Impact cards
   impactRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
   impactCard: {
-    flex: 1, backgroundColor: 'rgba(24, 24, 27, 0.65)', borderWidth: 1, borderRadius: 16, padding: 16,
+    flex: 1, backgroundColor: C.surface, borderWidth: 1, borderRadius: 16, padding: 16,
   },
   impactIcon: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   impactLabel: { color: '#94a3b8', fontSize: 10, fontWeight: '700', flex: 1 },
   impactVal: { fontSize: 18, fontWeight: '900' },
-  impactMeta: { color: '#475569', fontSize: 9, fontWeight: '600' },
-  impactBar: { height: 3, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 2, marginTop: 8 },
+  impactMeta: { color: '#94a3b8', fontSize: 9, fontWeight: '600' },
+  impactBar: { height: 3, backgroundColor: 'rgba(31, 37, 64, 0.6)', borderRadius: 2, marginTop: 8 },
   impactBarFill: { height: 3, borderRadius: 2 },
 
   // Tabs
@@ -606,19 +615,19 @@ const st = StyleSheet.create({
   tab: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10,
-    backgroundColor: 'rgba(24, 24, 27, 0.65)', borderWidth: 1, borderColor: 'rgba(166,140,255,0.15)',
+    backgroundColor: C.surface, borderWidth: 1, borderColor: C.border,
   },
-  tabActive: { backgroundColor: C.primary, borderColor: C.primary },
+  tabActive: { backgroundColor: '#7c3aed', borderColor: '#7c3aed' },
   tabText: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '600' },
 
   // Tables
   tableCard: {
-    backgroundColor: 'rgba(24, 24, 27, 0.5)', borderWidth: 1, borderColor: 'rgba(166,140,255,0.15)',
+    backgroundColor: C.surface, borderWidth: 1, borderColor: C.border,
     borderRadius: 16, padding: 16, marginBottom: 20,
   },
-  tableHeader: { flexDirection: 'row', paddingVertical: 8, borderBottomWidth: 1, borderColor: 'rgba(39, 39, 42, 0.6)' },
-  thCell: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
-  tableRow: { flexDirection: 'row', paddingVertical: 10, borderBottomWidth: 1, borderColor: 'rgba(166,140,255,0.06)', alignItems: 'center' },
+  tableHeader: { flexDirection: 'row', paddingVertical: 10, borderBottomWidth: 1, borderColor: C.border },
+  thCell: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '800', letterSpacing: 0.5, textTransform: 'uppercase' },
+  tableRow: { flexDirection: 'row', paddingVertical: 12, borderBottomWidth: 1, borderColor: C.border, alignItems: 'center' },
   tdCell: { color: '#e2e8f0', fontSize: 12, fontWeight: '500' },
   typeBadge: { borderWidth: 1, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
 });

@@ -242,9 +242,26 @@ export default function AdminOverview() {
     if (!d.graphData?.length) return;
     setChartData({
       labels: d.graphData.map((i: any) => i.date),
-      datasets: [{ label: 'Wallet Net Position (ETB)', fill: true, backgroundColor: 'rgba(117, 81, 255, 0.08)', borderColor: '#7551FF', tension: 0.4, borderWidth: 2, pointRadius: 3, pointBackgroundColor: '#7551FF', data: d.graphData.map((i: any) => i.profit) }]
+      datasets: [{
+        label: 'Wallet Net Position (ETB)',
+        fill: true,
+        backgroundColor: 'rgba(124, 58, 237, 0.1)',
+        borderColor: '#7c3aed',
+        tension: 0.4,
+        borderWidth: 2.5,
+        pointRadius: 3,
+        pointBackgroundColor: '#7c3aed',
+        data: d.graphData.map((i: any) => i.profit)
+      }]
     });
-    setChartOptions({ maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#475569', font: { size: 10 } }, grid: { display: false } }, y: { ticks: { color: '#475569', font: { size: 10 }, callback: (v: number) => fmtK(v) }, grid: { color: 'rgba(255,255,255,0.04)' } } } });
+    setChartOptions({
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { display: false } },
+        y: { ticks: { color: '#94a3b8', font: { size: 10 }, callback: (v: number) => fmtK(v) }, grid: { color: 'rgba(31, 37, 64, 0.6)' } }
+      }
+    });
   }, [d.graphData]);
 
   useEffect(() => {
@@ -252,11 +269,18 @@ export default function AdminOverview() {
     setUserChartData({
       labels: d.newUserGraphData.map((i: any) => i.date),
       datasets: [
-        { label: 'New Users', backgroundColor: 'rgba(0,163,255,0.6)', borderRadius: 6, data: d.newUserGraphData.map((i: any) => i.count) },
-        { label: 'DAU', backgroundColor: 'rgba(16,185,129,0.6)', borderRadius: 6, data: d.newUserGraphData.map((i: any) => i.dau || 0) },
+        { label: 'New Users', backgroundColor: '#7c3aed', borderRadius: 6, data: d.newUserGraphData.map((i: any) => i.count) },
+        { label: 'DAU', backgroundColor: '#22d3ee', borderRadius: 6, data: d.newUserGraphData.map((i: any) => i.dau || 0) },
       ]
     });
-    setUserChartOptions({ maintainAspectRatio: false, plugins: { legend: { labels: { color: '#94a3b8', font: { size: 10 } } } }, scales: { x: { ticks: { color: '#475569', font: { size: 10 } }, grid: { display: false } }, y: { ticks: { color: '#475569', stepSize: 1 }, grid: { color: 'rgba(255,255,255,0.04)' } } } });
+    setUserChartOptions({
+      maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#94a3b8', font: { size: 10 } } } },
+      scales: {
+        x: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { display: false } },
+        y: { ticks: { color: '#94a3b8', stepSize: 1 }, grid: { color: 'rgba(31, 37, 64, 0.6)' } }
+      }
+    });
   }, [d.newUserGraphData, d.dau]);
 
   const combinedBreakdown = useMemo(() => {
@@ -345,73 +369,82 @@ export default function AdminOverview() {
 
       {/* ═══ Top Metric Cards (responsive flex wrap) ═══ */}
       <View style={[st.topGrid, isMobile && { flexDirection: 'column' }]}>
+        {/* Card 1: Violet */}
         <View style={[st.metricCard, !isMobile && width < 1280 && { flexBasis: '47%' }]}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
-              <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(117, 81, 255, 0.1)', alignItems: 'center', justifyContent: 'center' }}>
-                <Ionicons name="wallet" size={20} color="#7551FF" />
+              <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(124, 58, 237, 0.15)', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="wallet" size={20} color="#7c3aed" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={st.metricLabel} numberOfLines={2}>TOTAL VOLUME (ETB)</Text>
                 <ACount value={d.volume24h} style={st.metricValue} />
               </View>
             </View>
-            {!isMobile && width >= 1280 && <Sparkline data={[10, 15, 8, 12, 20, 16, 25]} color="#7551FF" width={70} height={30} />}
+            {!isMobile && width >= 1280 && <Sparkline data={[10, 15, 8, 12, 20, 16, 25]} color="#7c3aed" width={70} height={30} />}
           </View>
         </View>
 
+        {/* Card 2: Cyan */}
         <View style={[st.metricCard, !isMobile && width < 1280 && { flexBasis: '47%' }]}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
-              <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(106, 210, 255, 0.1)', alignItems: 'center', justifyContent: 'center' }}>
-                <Ionicons name="swap-horizontal" size={20} color="#6AD2FF" />
+              <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(34, 211, 238, 0.15)', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="swap-horizontal" size={20} color="#22d3ee" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={st.metricLabel} numberOfLines={2}>DEPOSITS vs WITHDRAWALS</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
-                  <Text style={[st.metricValue, { color: '#34d399', fontSize: 18 }]}>{fmtK(d.depositsToday)}</Text>
-                  <Text style={{ color: '#475569', fontSize: 12, fontWeight: '700' }}>/</Text>
-                  <Text style={[st.metricValue, { color: '#f87171', fontSize: 14 }]}>{fmtK(d.withdrawalsToday)}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4, marginBottom: 4 }}>
+                  <Text style={[st.metricValue, { color: '#22c55e', fontSize: 18 }]}>{fmtK(d.depositsToday)}</Text>
+                  <Text style={{ color: '#94a3b8', fontSize: 12, fontWeight: '700' }}>/</Text>
+                  <Text style={[st.metricValue, { color: '#ef4444', fontSize: 14 }]}>{fmtK(d.withdrawalsToday)}</Text>
+                </View>
+                {/* Thin rounded proportional split bar */}
+                <View style={{ height: 4, backgroundColor: 'rgba(31, 37, 64, 0.6)', borderRadius: 2, flexDirection: 'row', overflow: 'hidden', width: '100%' }}>
+                  <View style={{ flex: Math.max(1, d.depositsToday), backgroundColor: '#22c55e' }} />
+                  <View style={{ flex: Math.max(1, d.withdrawalsToday), backgroundColor: '#ef4444' }} />
                 </View>
               </View>
             </View>
-            {!isMobile && width >= 1280 && <Sparkline data={[12, 10, 20, 18, 15, 25, 20, 30]} color="#6AD2FF" width={70} height={30} />}
+            {!isMobile && width >= 1280 && <Sparkline data={[12, 10, 20, 18, 15, 25, 20, 30]} color="#22d3ee" width={70} height={30} />}
           </View>
         </View>
 
+        {/* Card 3: Gold */}
         <View style={[st.metricCard, !isMobile && width < 1280 && { flexBasis: '47%' }]}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
-              <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(34, 197, 94, 0.1)', alignItems: 'center', justifyContent: 'center' }}>
-                <Ionicons name="game-controller" size={20} color="#22c55e" />
+              <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(245, 182, 66, 0.15)', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="game-controller" size={20} color="#f5b642" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={st.metricLabel} numberOfLines={2}>ACTIVE MATCHES</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <ACount value={d.activeMatches} style={st.metricValue} />
-                  <View style={[st.trendBadge, { backgroundColor: 'rgba(167,139,250,0.1)', borderColor: 'rgba(167,139,250,0.2)', paddingHorizontal: 6, paddingVertical: 1 }]}><Text style={[st.trendText, { color: '#a78bfa', fontSize: 8 }]}>{d.onlineUsers} Online</Text></View>
+                  <View style={[st.trendBadge, { backgroundColor: 'rgba(245, 182, 66, 0.15)', borderColor: 'rgba(245, 182, 66, 0.3)', paddingHorizontal: 6, paddingVertical: 1 }]}><Text style={[st.trendText, { color: '#f5b642', fontSize: 8 }]}>{d.onlineUsers} Online</Text></View>
                 </View>
               </View>
             </View>
-            {!isMobile && width >= 1280 && <Sparkline data={[5, 8, 6, 10, 8, 12, 10, 15]} color="#22c55e" width={70} height={30} />}
+            {!isMobile && width >= 1280 && <Sparkline data={[5, 8, 6, 10, 8, 12, 10, 15]} color="#f5b642" width={70} height={30} />}
           </View>
         </View>
 
+        {/* Card 4: Green */}
         <View style={[st.metricCard, !isMobile && width < 1280 && { flexBasis: '47%' }]}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
-              <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(234, 179, 8, 0.1)', alignItems: 'center', justifyContent: 'center' }}>
-                <Ionicons name="cash" size={20} color="#eab308" />
+              <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(34, 197, 94, 0.15)', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="cash" size={20} color="#22c55e" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={st.metricLabel} numberOfLines={2}>GROSS GAMING REVENUE</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
-                  <ACount value={d.ggr} prefix="" style={[st.metricValue, { color: '#34d399' }]} />
-                  <Text style={{ color: '#475569', fontSize: 9, fontWeight: '700' }}>ETB</Text>
+                  <ACount value={d.ggr} prefix="" style={[st.metricValue, { color: '#22c55e' }]} />
+                  <Text style={{ color: '#94a3b8', fontSize: 9, fontWeight: '700' }}>ETB</Text>
                 </View>
               </View>
             </View>
-            {!isMobile && width >= 1280 && <Sparkline data={[10, 12, 15, 18, 22, 28, 35]} color="#eab308" width={70} height={30} />}
+            {!isMobile && width >= 1280 && <Sparkline data={[10, 12, 15, 18, 22, 28, 35]} color="#22c55e" width={70} height={30} />}
           </View>
         </View>
       </View>
@@ -759,44 +792,44 @@ export default function AdminOverview() {
 const st = StyleSheet.create({
   container: { flex: 1, backgroundColor: 'transparent', padding: 20, paddingTop: 32 },
   // Alert
-  alertBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'rgba(245,158,11,0.06)', borderWidth: 1, borderColor: 'rgba(245,158,11,0.3)', borderRadius: 16, padding: 16, marginBottom: 24, shadowColor: '#f59e0b', shadowOpacity: 0.2, shadowRadius: 15, elevation: 5 },
+  alertBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'rgba(245,158,11,0.06)', borderWidth: 1, borderColor: 'rgba(245,158,11,0.3)', borderRadius: 16, padding: 16, marginBottom: 24 },
   alertIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(245,158,11,0.15)', alignItems: 'center', justifyContent: 'center' },
-  alertTitle: { color: '#fff', fontSize: 13, fontWeight: '700', letterSpacing: 1 },
+  alertTitle: { color: '#ffffff', fontSize: 13, fontWeight: '700', letterSpacing: 1 },
   alertSub: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '500', marginTop: 2 },
-  alertBtn: { backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12 },
-  alertBtnText: { color: '#0a0f1c', fontSize: 11, fontWeight: '700' },
+  alertBtn: { backgroundColor: '#ffffff', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12 },
+  alertBtnText: { color: '#0d1220', fontSize: 11, fontWeight: '700' },
   // Header
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 },
-  title: { fontSize: 24, fontWeight: '700', color: '#fff', letterSpacing: -0.5 },
+  title: { fontSize: 24, fontWeight: '700', color: '#ffffff', letterSpacing: -0.5 },
   subtitle: { color: C.onSurfaceVariant, fontSize: 13, fontWeight: '500', marginTop: 2 },
   statusBadge: { backgroundColor: 'rgba(34,197,94,0.06)', borderWidth: 1, borderColor: 'rgba(34,197,94,0.2)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.success, shadowColor: C.success, shadowOpacity: 0.8, shadowRadius: 6 },
+  statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.success },
   statusText: { color: C.success, fontSize: 10, fontWeight: '700', letterSpacing: 1.5 },
-  refreshBtn: { backgroundColor: C.primary, width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center', shadowColor: C.primary, shadowOpacity: 0.4, shadowRadius: 8, elevation: 5 },
+  refreshBtn: { backgroundColor: C.primary, width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   // Top metric cards
   topGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginBottom: 20 },
-  metricCard: { flex: 1, minWidth: 220, backgroundColor: C.surface, borderWidth: 1, borderColor: C.outlineVariant, borderRadius: 20, padding: 20, justifyContent: 'space-between', minHeight: 110, ...(Platform.OS === 'web' ? { boxShadow: '14px 17px 40px 4px rgba(112, 144, 176, 0.08)' } as any : { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 16, elevation: 6 }) },
+  metricCard: { flex: 1, minWidth: 220, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, borderRadius: 16, padding: 20, justifyContent: 'space-between', minHeight: 110 },
   metricLabel: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '700', letterSpacing: 0.5, marginBottom: 4, textTransform: 'uppercase', flexWrap: 'wrap' },
-  metricValue: { color: '#fff', fontSize: 26, fontWeight: '700', letterSpacing: -0.5 },
+  metricValue: { color: '#ffffff', fontSize: 26, fontWeight: '700', letterSpacing: -0.5 },
   trendBadge: { backgroundColor: 'rgba(34,197,94,0.08)', borderWidth: 1, borderColor: 'rgba(34,197,94,0.2)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
   trendText: { color: C.success, fontSize: 10, fontWeight: '700' },
   // Bento rows
   bentoRow: { flexDirection: 'row', gap: 16, marginBottom: 20 },
-  chartCard: { backgroundColor: C.surface, borderWidth: 1, borderColor: C.outlineVariant, borderRadius: 24, padding: 24, overflow: 'hidden', ...(Platform.OS === 'web' ? { boxShadow: '14px 17px 40px 4px rgba(112, 144, 176, 0.08)' } as any : { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 16, elevation: 6 }) },
-  chartTitle: { color: '#fff', fontSize: 13, fontWeight: '700', letterSpacing: 0.5 },
+  chartCard: { backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, borderRadius: 16, padding: 24, overflow: 'hidden' },
+  chartTitle: { color: '#ffffff', fontSize: 13, fontWeight: '700', letterSpacing: 0.5 },
   chartSub: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '500', marginTop: 2 },
-  tfSelector: { flexDirection: 'row', gap: 4, padding: 3, backgroundColor: C.surfaceContainerLowest, borderRadius: 12, borderWidth: 1, borderColor: C.outlineVariant },
-  tfOpt: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },
+  tfSelector: { flexDirection: 'row', gap: 4, padding: 3, backgroundColor: C.surfaceContainerLowest, borderRadius: 10, borderWidth: 1, borderColor: C.border },
+  tfOpt: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
   tfText: { fontSize: 10, fontWeight: '700', letterSpacing: 1, color: C.onSurfaceVariant },
   // Bottom panels
-  panelCard: { backgroundColor: C.surface, borderWidth: 1, borderColor: C.outlineVariant, borderRadius: 24, padding: 24, ...(Platform.OS === 'web' ? { boxShadow: '14px 17px 40px 4px rgba(112, 144, 176, 0.08)' } as any : { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 16, elevation: 6 }) },
-  panelTitle: { color: '#fff', fontSize: 12, fontWeight: '700', letterSpacing: 1, marginBottom: 16, textTransform: 'uppercase' },
-  txRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderColor: C.outlineVariant },
+  panelCard: { backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, borderRadius: 16, padding: 24 },
+  panelTitle: { color: '#ffffff', fontSize: 12, fontWeight: '700', letterSpacing: 1, marginBottom: 16, textTransform: 'uppercase' },
+  txRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderColor: C.border },
   txIcon: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   statusPill: { borderWidth: 1, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, marginTop: 2 },
-  pendingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderColor: C.outlineVariant },
-  goBtn: { backgroundColor: C.lightPrimary, borderWidth: 1, borderColor: 'rgba(117,81,255,0.2)', paddingVertical: 10, borderRadius: 12, alignItems: 'center', marginTop: 8 },
+  pendingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderColor: C.border },
+  goBtn: { backgroundColor: C.lightPrimary, borderWidth: 1, borderColor: 'rgba(124,58,237,0.3)', paddingVertical: 10, borderRadius: 12, alignItems: 'center', marginTop: 8 },
   goBtnText: { color: C.primary, fontSize: 12, fontWeight: '700' },
-  healthRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: C.surfaceContainerLowest, borderWidth: 1, borderColor: C.outlineVariant, borderRadius: 14, padding: 12 },
-  healthDot: { width: 8, height: 8, borderRadius: 4, shadowOpacity: 0.8, shadowRadius: 6 },
+  healthRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: C.surfaceContainerLowest, borderWidth: 1, borderColor: C.border, borderRadius: 12, padding: 12 },
+  healthDot: { width: 8, height: 8, borderRadius: 4 },
 });

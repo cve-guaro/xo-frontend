@@ -336,13 +336,13 @@ export default function SpinAdminPage() {
                 paddingHorizontal: 16,
                 paddingVertical: 10,
                 borderRadius: 12,
-                backgroundColor: activeTab === tab.id ? C.primary : 'rgba(255,255,255,0.03)',
+                backgroundColor: activeTab === tab.id ? '#7c3aed' : C.surface,
                 borderWidth: 1,
-                borderColor: activeTab === tab.id ? C.primaryContainer : C.outlineVariant,
+                borderColor: activeTab === tab.id ? '#7c3aed' : C.border,
               }}
             >
-              <Ionicons name={tab.icon as any} size={16} color={activeTab === tab.id ? '#0c0c1f' : '#e5e3ff'} />
-              <Text style={{ color: activeTab === tab.id ? '#0c0c1f' : '#e5e3ff', fontSize: 13, fontWeight: '800' }}>
+              <Ionicons name={tab.icon as any} size={16} color={activeTab === tab.id ? '#ffffff' : C.onSurfaceVariant} />
+              <Text style={{ color: activeTab === tab.id ? '#ffffff' : C.onSurfaceVariant, fontSize: 13, fontWeight: '800' }}>
                 {tab.label}
               </Text>
             </TouchableOpacity>
@@ -565,58 +565,56 @@ const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: 'transparent', padding: 24, paddingTop: 20 },
   headerBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 },
   backCircle: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.lightPrimary, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { color: '#fff', fontSize: 20, fontWeight: '700', letterSpacing: -0.5 },
+  headerTitle: { color: '#ffffff', fontSize: 20, fontWeight: '700', letterSpacing: -0.5 },
   headerSub: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '600', letterSpacing: 1.5, marginTop: 2 },
   card: {
     backgroundColor: C.surface,
-    borderRadius: 20,
+    borderRadius: 16,
     padding: 24,
     borderWidth: 1,
-    borderColor: C.outlineVariant,
-    ...(Platform.OS === 'web' ? { boxShadow: '14px 17px 40px 4px rgba(112, 144, 176, 0.08)' } as any : {}),
+    borderColor: C.border,
   },
-  cardTitle: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  cardTitle: { color: '#ffffff', fontSize: 16, fontWeight: '700' },
   cardSubTitle: { color: C.onSurfaceVariant, fontSize: 13, lineHeight: 18, marginTop: 4 },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  sectionLabel: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '700', letterSpacing: 1.5, marginBottom: 12 },
+  sectionLabel: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '700', letterSpacing: 1.5, marginBottom: 12, textTransform: 'uppercase' },
   
   // input/save fields
-  inputRow: { flex: 1, backgroundColor: C.surfaceContainerLowest, borderRadius: 14, borderWidth: 1, borderColor: C.outlineVariant, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12 },
-  input: { flex: 1, color: '#fff', padding: 12, fontSize: 14 },
-  saveBtn: { backgroundColor: C.primary, paddingHorizontal: 20, justifyContent: 'center', borderRadius: 14 },
-  saveBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  inputRow: { flex: 1, backgroundColor: C.surfaceContainerLowest, borderRadius: 12, borderWidth: 1, borderColor: C.border, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12 },
+  input: { flex: 1, color: '#ffffff', padding: 12, fontSize: 14 },
+  saveBtn: { backgroundColor: C.primary, paddingHorizontal: 20, justifyContent: 'center', borderRadius: 12 },
+  saveBtnText: { color: '#ffffff', fontSize: 13, fontWeight: '700' },
 
   // Cost widgets
   costGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   costBox: {
     flex: 1,
     minWidth: 120,
-    backgroundColor: C.surfaceContainerLow,
-    borderRadius: 16,
+    backgroundColor: C.surface,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: C.outlineVariant,
+    borderColor: C.border,
     padding: 16,
   },
   costBoxLabel: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '500' },
-  costBoxVal: { color: '#fff', fontSize: 20, fontWeight: '700', marginTop: 6 },
+  costBoxVal: { color: '#ffffff', fontSize: 20, fontWeight: '700', marginTop: 6 },
   
   // Analytics
   refreshBtnSmall: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: C.primary, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
-  refreshBtnTextSmall: { color: '#fff', fontSize: 11, fontWeight: '800' },
+  refreshBtnTextSmall: { color: '#ffffff', fontSize: 11, fontWeight: '800' },
   analyticsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   analyticsCard: {
     width: Platform.OS === 'web' ? '31%' : '47%',
     backgroundColor: C.surface,
-    borderRadius: 16,
+    borderRadius: 14,
     padding: 16,
     borderWidth: 1,
-    borderColor: C.outlineVariant,
-    ...(Platform.OS === 'web' ? { boxShadow: '14px 17px 40px 4px rgba(112, 144, 176, 0.04)' } as any : {}),
+    borderColor: C.border,
   },
   analyticsIconWrap: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
-  analyticsValue: { color: '#fff', fontSize: 16, fontWeight: '900', marginBottom: 2 },
+  analyticsValue: { color: '#ffffff', fontSize: 16, fontWeight: '900', marginBottom: 2 },
   analyticsLabel: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
-  roundsBreakdownBox: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.surfaceContainerLowest, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, borderWidth: 1, borderColor: C.outlineVariant },
+  roundsBreakdownBox: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.surfaceContainerLowest, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, borderWidth: 1, borderColor: C.border },
   breakdownStatusDot: { width: 8, height: 8, borderRadius: 4 },
   
   // Lobbies list
@@ -625,30 +623,30 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
-    backgroundColor: C.surfaceContainerLowest,
+    backgroundColor: C.surface,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: C.outlineVariant,
+    borderColor: C.border,
   },
   emptyStateText: { color: C.onSurfaceVariant, fontSize: 12, textAlign: 'center', lineHeight: 18 },
-  liveRoomCard: { backgroundColor: C.surface, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: C.outlineVariant },
-  liveStatusBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 0.5, borderColor: C.outlineVariant, alignSelf: 'flex-start' },
+  liveRoomCard: { backgroundColor: C.surface, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: C.border },
+  liveStatusBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 0.5, borderColor: C.border, alignSelf: 'flex-start' },
   livePlayerRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, backgroundColor: C.surfaceContainerLowest },
 
   // History list
-  historyCard: { backgroundColor: C.surface, borderRadius: 16, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: C.outlineVariant },
+  historyCard: { backgroundColor: C.surface, borderRadius: 16, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: C.border },
   historyStatusPill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, alignSelf: 'flex-start' },
-  pageBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: C.surface, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: C.outlineVariant },
+  pageBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: C.surface, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: C.border },
   pageBtnText: { color: C.primary, fontSize: 12, fontWeight: '700' },
 
   // Confirm Modal
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(11,20,55,0.85)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  modalContent: { backgroundColor: C.surface, borderRadius: 24, width: '100%', maxWidth: 450, borderWidth: 1, borderColor: C.outlineVariant, padding: 24, alignItems: 'center' },
-  modalTitle: { color: '#fff', fontSize: 16, fontWeight: '700', marginBottom: 8 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(13,18,32,0.85)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  modalContent: { backgroundColor: C.surface, borderRadius: 20, width: '100%', maxWidth: 450, borderWidth: 1, borderColor: C.border, padding: 24, alignItems: 'center' },
+  modalTitle: { color: '#ffffff', fontSize: 16, fontWeight: '700', marginBottom: 8 },
   modalMessage: { color: C.onSurfaceVariant, fontSize: 13, textAlign: 'center', marginBottom: 20 },
   modalActions: { flexDirection: 'row', gap: 12, width: '100%' },
-  modalCancelBtn: { flex: 1, backgroundColor: C.surfaceContainerLowest, paddingVertical: 12, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: C.outlineVariant },
-  modalCancelBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  modalCancelBtn: { flex: 1, backgroundColor: C.surfaceContainerLowest, paddingVertical: 12, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: C.border },
+  modalCancelBtnText: { color: '#ffffff', fontSize: 13, fontWeight: '700' },
   modalConfirmBtn: { flex: 1, backgroundColor: C.primary, paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
   modalConfirmBtnText: { color: '#ffffff', fontSize: 13, fontWeight: '700' },
 });

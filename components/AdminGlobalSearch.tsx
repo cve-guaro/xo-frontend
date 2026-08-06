@@ -7,18 +7,18 @@ import { API_URL } from '../config';
 import User360View from './User360View';
 
 const C = {
-  primary: '#00daf3',
-  primaryContainer: '#00a3ff',
-  secondary: '#00daf3',
-  background: '#0c0c1f',
-  surface: '#0B0B1E',
-  surfaceContainerLow: '#111128',
-  surfaceContainer: '#171732',
-  onSurface: '#e5e3ff',
-  onSurfaceVariant: '#a8a7d4',
-  outlineVariant: 'rgba(68,68,107,0.3)',
-  error: '#fd6f85',
-  success: '#4CAF50',
+  primary: '#7c3aed',
+  primaryContainer: '#6d28d9',
+  secondary: '#22d3ee',
+  background: '#0d1220',
+  surface: '#13182c',
+  surfaceContainerLow: '#101526',
+  surfaceContainer: '#171d33',
+  onSurface: '#f4f4f5',
+  onSurfaceVariant: '#94a3b8',
+  outlineVariant: '#1f2540',
+  error: '#ef4444',
+  success: '#22c55e',
 };
 
 export default function AdminGlobalSearch() {

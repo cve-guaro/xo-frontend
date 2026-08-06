@@ -260,7 +260,7 @@ export default function AdminLogs() {
           <View style={[styles.statCard, isMobile && { minWidth: '47%' as any }, glass({ backgroundColor: '#0f0f11', borderRadius: 20, padding: 24, borderLeftWidth: 4, borderLeftColor: 'rgba(0,218,243,0.3)' })]}>
             <Text style={styles.statLabel}>{t('system_health')}</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 16 }}>
-              <View style={[styles.healthDot, { backgroundColor: C.secondary, shadowColor: C.secondary, shadowRadius: 8, shadowOpacity: 1 }]} />
+              <View style={[styles.healthDot, { backgroundColor: C.secondary }]} />
               <Text style={[styles.statVal, { fontSize: 18 }]}>{t('NOMINAL')}</Text>
             </View>
           </View>
@@ -440,7 +440,7 @@ const styles = StyleSheet.create({
   tableTitle: { color: '#fff', fontSize: 20, fontWeight: '900', letterSpacing: 0.5 },
   liveIndicator: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.secondary },
   liveTxt: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1 },
-  searchBox: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: 'rgba(0,0,0,0.3)', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(0, 218, 243, 0.3)', width: 260, shadowColor: C.primary, shadowOpacity: 0.2, shadowRadius: 10 },
+  searchBox: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.surfaceContainerLowest, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: C.border, width: 260 },
   searchInput: { flex: 1, color: '#fff', fontSize: 13, fontWeight: '600' },
   colRow: { 
     flexDirection: 'row', paddingHorizontal: 24, paddingVertical: 14, alignItems: 'center',

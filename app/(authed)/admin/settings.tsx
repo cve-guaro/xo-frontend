@@ -1041,23 +1041,23 @@ export default function AdminSettings() {
 
       {/* Custom Confirmation Modal */}
       <Modal transparent visible={confirmModal.visible} animationType="fade">
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' }}>
-          <View style={{ width: 340, backgroundColor: '#0f0f11', borderRadius: 16, padding: 24, borderWidth: 1, borderColor: 'rgba(0,218,243,0.3)', shadowColor: '#00ccff', shadowOpacity: 0.1, shadowRadius: 20 }}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(13,18,32,0.85)', justifyContent: 'center', alignItems: 'center' }}>
+          <View style={{ width: 340, backgroundColor: C.surface, borderRadius: 16, padding: 24, borderWidth: 1, borderColor: C.border }}>
             <View style={{ alignItems: 'center', marginBottom: 16 }}>
-              <Ionicons name="warning-outline" size={40} color={confirmModal.action ? '#00daf3' : '#fd6f85'} />
+              <Ionicons name="warning-outline" size={40} color={confirmModal.action ? '#7c3aed' : '#ef4444'} />
             </View>
-            <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold', textAlign: 'center', marginBottom: 8 }}>
+            <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: 'bold', textAlign: 'center', marginBottom: 8 }}>
               {confirmModal.action ? 'Enable Giveaway?' : 'Disable Giveaway?'}
             </Text>
-            <Text style={{ color: '#a8a7d4', fontSize: 13, textAlign: 'center', marginBottom: 24 }}>
+            <Text style={{ color: C.onSurfaceVariant, fontSize: 13, textAlign: 'center', marginBottom: 24 }}>
               Are you sure you want to turn {confirmModal.action ? 'ON' : 'OFF'} the Welcome Bonus engine? This will immediately take effect.
             </Text>
             <View style={{ flexDirection: 'row', gap: 12 }}>
-              <TouchableOpacity style={{ flex: 1, paddingVertical: 12, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, alignItems: 'center' }} onPress={() => setConfirmModal({ visible: false, action: false })}>
-                <Text style={{ color: '#fff', fontWeight: 'bold' }}>Cancel</Text>
+              <TouchableOpacity style={{ flex: 1, paddingVertical: 12, backgroundColor: C.surfaceContainerLowest, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: C.border }} onPress={() => setConfirmModal({ visible: false, action: false })}>
+                <Text style={{ color: '#ffffff', fontWeight: 'bold' }}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={{ flex: 1, paddingVertical: 12, backgroundColor: confirmModal.action ? '#00ccff' : '#fd6f85', borderRadius: 8, alignItems: 'center' }} onPress={confirmBonusToggle}>
-                <Text style={{ color: '#000', fontWeight: 'bold' }}>Confirm</Text>
+              <TouchableOpacity style={{ flex: 1, paddingVertical: 12, backgroundColor: confirmModal.action ? '#7c3aed' : '#ef4444', borderRadius: 8, alignItems: 'center' }} onPress={confirmBonusToggle}>
+                <Text style={{ color: '#ffffff', fontWeight: 'bold' }}>Confirm</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1066,8 +1066,8 @@ export default function AdminSettings() {
 
       {/* Security Protocols Documentation Modal */}
       <Modal transparent visible={showSecurityInfo} animationType="slide">
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-          <View style={{ width: '100%', maxWidth: 500, backgroundColor: '#0f0f11', borderRadius: 16, padding: 32, borderWidth: 1, borderColor: 'rgba(253,111,133,0.3)', shadowColor: 'rgba(253,111,133,0.5)', shadowOpacity: 0.2, shadowRadius: 30 }}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(13,18,32,0.85)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <View style={{ width: '100%', maxWidth: 500, backgroundColor: C.surface, borderRadius: 16, padding: 32, borderWidth: 1, borderColor: C.border }}>
             <View style={{ alignItems: 'center', marginBottom: 24 }}>
               <Ionicons name="shield-checkmark" size={48} color={'#fd6f85'} />
               <Text style={{ color: '#fff', fontSize: 24, fontWeight: 'bold', marginTop: 12 }}>Security Protocols</Text>
@@ -1180,12 +1180,12 @@ const styles = StyleSheet.create({
   formLabel: { color: 'rgba(168,167,212,0.8)', fontSize: 12, fontWeight: '800', marginBottom: 8, textTransform: 'uppercase' },
   formInput: { backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(68,68,107,0.4)', borderRadius: 12, height: 50, paddingHorizontal: 16, color: '#fff', fontSize: 15 },
   
-  typeBtn: { flex: 1, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(39, 39, 42, 0.6)' },
-  typeBtnActive: { backgroundColor: C.primary, borderColor: C.primary },
-  typeBtnTxt: { color: '#a8a7d4', fontSize: 11, fontWeight: '900' },
+  typeBtn: { flex: 1, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: C.surfaceContainerLowest, borderWidth: 1, borderColor: C.border },
+  typeBtnActive: { backgroundColor: '#7c3aed', borderColor: '#7c3aed' },
+  typeBtnTxt: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '900' },
   
-  submitBtn: { backgroundColor: C.secondary, height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginTop: 20, shadowColor: C.secondary, shadowOpacity: 0.2, shadowRadius: 15 },
-  submitBtnTxt: { color: '#000', fontSize: 16, fontWeight: '900' },
+  submitBtn: { backgroundColor: '#7c3aed', height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginTop: 20 },
+  submitBtnTxt: { color: '#ffffff', fontSize: 16, fontWeight: '900' },
 
   claimRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(39, 39, 42, 0.2)' },
   claimUser: { color: '#fff', fontSize: 14, fontWeight: '700' },
