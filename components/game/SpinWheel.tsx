@@ -145,8 +145,9 @@ export default function SpinWheel({
         sliceCenterAngle = safeWinningSlice * angleStep + angleStep / 2;
       }
 
-      const fullRotations = 6; // 6 smooth rotations
-      const targetAngle = fullRotations * 360 + (360 - sliceCenterAngle);
+      const fullRotations = 6; // 6 smooth decelerating rotations
+      const finalStopAngle = ((270 - sliceCenterAngle) % 360 + 360) % 360;
+      const targetAngle = fullRotations * 360 + finalStopAngle;
 
       Animated.timing(rotation, {
         toValue: targetAngle,

@@ -1,4 +1,4 @@
-// components/NotificationsPopover.tsx
+// components/NotificationsPopover.tsx — Dark Brand Theme Notifications Popover & Mobile Bottom Sheet
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
@@ -187,19 +187,22 @@ export default function NotificationsPopover({
     <Modal
       visible={visible}
       transparent
-      animationType="fade"
+      animationType={isMobile ? "slide" : "fade"}
       onRequestClose={onClose}
     >
-      <Pressable style={s.overlay} onPress={onClose}>
+      <Pressable style={[s.overlay, isMobile && s.overlayMobile]} onPress={onClose}>
         <Pressable
           style={[s.popoverCard, isMobile ? s.mobileCard : s.desktopCard]}
           onPress={(e) => e.stopPropagation()}
         >
+          {/* Top Grab Handle (Mobile Sheet) */}
+          {isMobile && <View style={s.bottomSheetHandle} />}
+
           {/* Top Header */}
           <View style={s.headerRow}>
             <View style={s.headerTitleWrap}>
               <TouchableOpacity onPress={onClose} style={s.closeCircle}>
-                <Ionicons name="arrow-back" size={18} color="#0F172A" />
+                <Ionicons name={isMobile ? "chevron-down" : "arrow-back"} size={18} color="#FFFFFF" />
               </TouchableOpacity>
               <Text style={s.headerTitle}>{isEN ? "Notifications" : "ማሳወቂያዎች"}</Text>
             </View>
@@ -214,17 +217,17 @@ export default function NotificationsPopover({
           {/* Search & Tabs Row */}
           <View style={s.searchRow}>
             <View style={s.searchWrap}>
-              <Ionicons name="search-outline" size={16} color="#94A3B8" style={{ marginRight: 6 }} />
+              <Ionicons name="search-outline" size={16} color="#8B93A7" style={{ marginRight: 6 }} />
               <TextInput
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 placeholder={isEN ? "Search..." : "ፈልግ..."}
-                placeholderTextColor="#94A3B8"
+                placeholderTextColor="#64748B"
                 style={s.searchInput}
               />
               {searchQuery ? (
                 <TouchableOpacity onPress={() => setSearchQuery('')}>
-                  <Ionicons name="close-circle" size={16} color="#94A3B8" />
+                  <Ionicons name="close-circle" size={16} color="#8B93A7" />
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -259,7 +262,7 @@ export default function NotificationsPopover({
             <ScrollView
               style={{ flex: 1 }}
               contentContainerStyle={s.listContainer}
-              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchNotifications(true)} tintColor="#2563EB" />}
+              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchNotifications(true)} tintColor="#7C3AED" />}
               showsVerticalScrollIndicator={false}
             >
               {(['Today', 'Yesterday', 'Earlier'] as const).map(groupKey => {
@@ -286,7 +289,7 @@ export default function NotificationsPopover({
               {filteredNotifications.length === 0 && (
                 <View style={s.emptyWrap}>
                   <View style={s.emptyCircle}>
-                    <Ionicons name="notifications-outline" size={28} color="#94A3B8" />
+                    <Ionicons name="notifications-outline" size={28} color="#8B93A7" />
                   </View>
                   <Text style={s.emptyTitle}>{isEN ? "No notifications yet" : "ምንም ማሳወቂያዎች የሉም"}</Text>
                   <Text style={s.emptySubtitle}>{isEN ? "We'll notify you when wins, game invites, or deposits arrive." : "ማሳወቂያዎች እዚህ ይታያሉ።"}</Text>
@@ -308,18 +311,18 @@ function NotificationItem({ n, isLast, markRead }: { n: any; isLast: boolean; ma
     const ttl = (title || '').toLowerCase();
 
     if (t.includes('spin') || ttl.includes('spin')) {
-      return { icon: 'disc-outline', bg: '#EEF2FF', iconColor: '#6366F1', badgeIcon: 'arrow-up', badgeBg: '#10B981' };
+      return { icon: 'disc-outline', bg: 'rgba(99, 102, 241, 0.15)', iconColor: '#818CF8', badgeIcon: 'arrow-up', badgeBg: '#10B981' };
     }
     if (t.includes('xo') || ttl.includes('xo') || t.includes('game')) {
-      return { icon: 'game-controller-outline', bg: '#F0FDF4', iconColor: '#16A34A', badgeIcon: 'trophy', badgeBg: '#F59E0B' };
+      return { icon: 'game-controller-outline', bg: 'rgba(34, 197, 94, 0.15)', iconColor: '#4ADE80', badgeIcon: 'trophy', badgeBg: '#F59E0B' };
     }
     if (t.includes('deposit') || t.includes('wallet') || ttl.includes('balance') || ttl.includes('wallet')) {
-      return { icon: 'wallet-outline', bg: '#F1F5F9', iconColor: '#475569', badgeIcon: 'add', badgeBg: '#2563EB' };
+      return { icon: 'wallet-outline', bg: 'rgba(56, 189, 248, 0.15)', iconColor: '#38BDF8', badgeIcon: 'add', badgeBg: '#2563EB' };
     }
     if (t.includes('referral') || t.includes('bonus')) {
-      return { icon: 'gift-outline', bg: '#FEF3C7', iconColor: '#D97706', badgeIcon: 'star', badgeBg: '#D97706' };
+      return { icon: 'gift-outline', bg: 'rgba(245, 158, 11, 0.15)', iconColor: '#FBBF24', badgeIcon: 'star', badgeBg: '#D97706' };
     }
-    return { icon: 'notifications-outline', bg: '#F8FAFC', iconColor: '#64748B', badgeIcon: 'paper-plane', badgeBg: '#3B82F6' };
+    return { icon: 'notifications-outline', bg: 'rgba(255, 255, 255, 0.06)', iconColor: '#A78BFA', badgeIcon: 'paper-plane', badgeBg: '#7C3AED' };
   };
 
   const info = getIconInfo(n.type, n.title);
@@ -356,34 +359,50 @@ function NotificationItem({ n, isLast, markRead }: { n: any; isLast: boolean; ma
 const s = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    backgroundColor: 'rgba(10, 14, 26, 0.75)',
     justifyContent: 'center',
     alignItems: 'center',
   },
+  overlayMobile: {
+    justifyContent: 'flex-end',
+  },
   popoverCard: {
-    backgroundColor: '#FAFAFA',
-    borderRadius: 28,
+    backgroundColor: '#0D1021',
+    borderWidth: 1,
+    borderColor: '#1E2442',
     overflow: 'hidden',
-    shadowColor: '#0F172A',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.5,
     shadowRadius: 24,
-    elevation: 12,
+    elevation: 14,
   },
   mobileCard: {
-    width: '92%',
-    maxWidth: 420,
+    width: '100%',
+    maxHeight: '88%',
     height: '84%',
-    maxHeight: 680,
-    padding: 16,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    padding: 18,
   },
   desktopCard: {
     position: 'absolute',
-    top: 60,
+    top: 64,
     right: 32,
     width: 440,
-    height: 600,
+    height: 620,
+    borderRadius: 28,
     padding: 20,
+  },
+  bottomSheetHandle: {
+    width: 38,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignSelf: 'center',
+    marginBottom: 12,
   },
   headerRow: {
     flexDirection: 'row',
@@ -400,12 +419,12 @@ const s = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
-    color: '#0F172A',
+    color: '#FFFFFF',
     fontSize: 22,
     fontWeight: '800',
     letterSpacing: -0.5,
@@ -414,10 +433,12 @@ const s = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 14,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: 'rgba(124, 58, 237, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(124, 58, 237, 0.4)',
   },
   markAllText: {
-    color: '#2563EB',
+    color: '#A78BFA',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -431,16 +452,16 @@ const s = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
     borderRadius: 16,
     paddingHorizontal: 12,
     height: 38,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   searchInput: {
     flex: 1,
-    color: '#0F172A',
+    color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '500',
   },
@@ -452,16 +473,16 @@ const s = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   tabPillActive: {
-    backgroundColor: '#0F172A',
-    borderColor: '#0F172A',
+    backgroundColor: '#7C3AED',
+    borderColor: '#7C3AED',
   },
   tabText: {
-    color: '#64748B',
+    color: '#94A3B8',
     fontSize: 11,
     fontWeight: '700',
   },
@@ -475,24 +496,21 @@ const s = StyleSheet.create({
     marginBottom: 16,
   },
   groupHeaderTitle: {
-    color: '#475569',
-    fontSize: 13,
-    fontWeight: '700',
+    color: '#8B93A7',
+    fontSize: 12,
+    fontWeight: '800',
     marginBottom: 8,
     marginLeft: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
   },
   groupCardContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#161A36',
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 4,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
-    shadowColor: '#64748B',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
+    borderColor: '#1E2442',
   },
   itemRow: {
     flexDirection: 'row',
@@ -501,7 +519,7 @@ const s = StyleSheet.create({
   },
   itemBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: 'rgba(255, 255, 255, 0.04)',
   },
   avatarCircle: {
     width: 42,
@@ -523,7 +541,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: '#FFFFFF',
+    borderColor: '#161A36',
   },
   itemContent: {
     flex: 1,
@@ -535,29 +553,29 @@ const s = StyleSheet.create({
     marginBottom: 2,
   },
   itemTitle: {
-    color: '#0F172A',
+    color: '#E2E8F0',
     fontSize: 14,
     fontWeight: '600',
     flex: 1,
   },
   itemTitleUnread: {
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#FFFFFF',
   },
   unreadDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#2563EB',
+    backgroundColor: '#00E5FF',
     marginLeft: 6,
   },
   itemMessage: {
-    color: '#64748B',
+    color: '#94A3B8',
     fontSize: 12,
     lineHeight: 17,
   },
   itemTime: {
-    color: '#94A3B8',
+    color: '#64748B',
     fontSize: 10,
     fontWeight: '500',
     marginTop: 4,
@@ -572,19 +590,19 @@ const s = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
   },
   emptyTitle: {
-    color: '#0F172A',
+    color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '800',
     marginBottom: 4,
   },
   emptySubtitle: {
-    color: '#64748B',
+    color: '#8B93A7',
     fontSize: 12,
     textAlign: 'center',
     lineHeight: 18,
