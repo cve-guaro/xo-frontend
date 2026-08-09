@@ -174,51 +174,6 @@ type RoundState = {
 // ── Screen states ──────────────────────────────────────────────────────────
 type ScreenState = "browse" | "waiting" | "spinning" | "result";
 
-function SpeakingWaveAnimation() {
-  const bar1 = React.useRef(new Animated.Value(3)).current;
-  const bar2 = React.useRef(new Animated.Value(12)).current;
-  const bar3 = React.useRef(new Animated.Value(6)).current;
-
-  React.useEffect(() => {
-    const anim1 = Animated.loop(
-      Animated.sequence([
-        Animated.timing(bar1, { toValue: 14, duration: 240, useNativeDriver: false }),
-        Animated.timing(bar1, { toValue: 3, duration: 240, useNativeDriver: false }),
-      ])
-    );
-    const anim2 = Animated.loop(
-      Animated.sequence([
-        Animated.timing(bar2, { toValue: 4, duration: 200, useNativeDriver: false }),
-        Animated.timing(bar2, { toValue: 16, duration: 200, useNativeDriver: false }),
-      ])
-    );
-    const anim3 = Animated.loop(
-      Animated.sequence([
-        Animated.timing(bar3, { toValue: 12, duration: 280, useNativeDriver: false }),
-        Animated.timing(bar3, { toValue: 2, duration: 280, useNativeDriver: false }),
-      ])
-    );
-
-    anim1.start();
-    anim2.start();
-    anim3.start();
-
-    return () => {
-      anim1.stop();
-      anim2.stop();
-      anim3.stop();
-    };
-  }, [bar1, bar2, bar3]);
-
-  return (
-    <View style={{ flexDirection: "row", alignItems: "flex-end", height: 16, gap: 2, marginLeft: 6 }}>
-      <Animated.View style={{ width: 3, height: bar1, backgroundColor: "#22c55e", borderRadius: 1.5 }} />
-      <Animated.View style={{ width: 3, height: bar2, backgroundColor: "#22c55e", borderRadius: 1.5 }} />
-      <Animated.View style={{ width: 3, height: bar3, backgroundColor: "#22c55e", borderRadius: 1.5 }} />
-    </View>
-  );
-}
-
 export default function SpinGameScreen() {
   const router = useRouter();
   const { width: screenW } = useWindowDimensions();
