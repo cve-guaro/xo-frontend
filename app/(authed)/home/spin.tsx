@@ -220,7 +220,7 @@ export default function SpinGameScreen() {
 
   const handleSpinComplete = useCallback(() => {
     stopSpinLoop();
-    setScreenState(prev => (prev === "spinning" ? "result" : prev));
+    setIsSpinning(false);
   }, [stopSpinLoop]);
 
   const stopAllSounds = useCallback(() => {
@@ -799,12 +799,6 @@ export default function SpinGameScreen() {
   // ── Leave room handler — shows confirmation popup ──────────────────
   const handleLeaveRoom = useCallback(() => {
     setShowLeaveConfirm(true);
-  }, []);
-
-  // ── Spin complete handler ────────────────────────────────────────────
-  const handleSpinComplete = useCallback(() => {
-    // Animation done — result will come from server
-    setIsSpinning(false);
   }, []);
 
   // ── Play again handler ───────────────────────────────────────────────
