@@ -546,6 +546,7 @@ export default function AuthedLayout() {
       <MatchmakingGate />
       <GlobalNotiGate />
       <NotificationsPopover visible={notificationsVisible} onClose={() => setNotificationsVisible(false)} onUnreadCountChange={setUnreadCount} />
+      <WelcomeBonusModal visible={welcomeBonusVisible} onClose={handleCloseWelcomeBonus} />
       <View style={{ flex: 1, backgroundColor: '#0a0a14', padding: showResponsiveLayout && !isAdminRoute && !isGameplayRoute && !isHistoryRoute && !isLeaderboardRoute && !isAccountRoute && !isSpinRoute && !isTransactionsRoute ? 16 : 0 }}>
         {isAdminRoute || isGameplayRoute || isHistoryRoute || isLeaderboardRoute || isAccountRoute || isSpinRoute || isTransactionsRoute || isGameRoute ? (
           <Slot />

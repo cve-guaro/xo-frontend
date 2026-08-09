@@ -1065,15 +1065,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { sessionToken, deepLink } = await initRes.json();
 
       // 2) Open Telegram
-      const canOpen = await Linking.canOpenURL(deepLink);
-      if (canOpen) {
-        await Linking.openURL(deepLink);
-      } else {
-        // Fallback: open in browser (works on web)
+      try {
+        if (Platform.OS === 'web' && typeof window !== 'undefined') {
+          window.open(deepLink, '_blank');
+        } else {
+          await Linking.openURL(deepLink);
+        }
+      } catch (openErr) {
         if (Platform.OS === 'web') {
           window.open(deepLink, '_blank');
         } else {
-          throw new Error('Telegram is not installed. Please install Telegram first.');
+          await Linking.openURL(deepLink).catch(() => {});
         }
       }
 

@@ -186,8 +186,8 @@ function ResultOverlay({ visible, outcome, amount, onHome, onPlayAgain, onSendEm
                     </LinearGradient>
                   </TouchableOpacity>
 
-                  {/* Play Again / Rematch Button */}
-                  {onPlayAgain && (
+                  {/* Play Again / Rematch Button (LOSER ONLY) */}
+                  {onPlayAgain && !isWin && (
                     <View>
                       <TouchableOpacity onPress={insufficientBalance ? undefined : onPlayAgain} disabled={!canContinue || insufficientBalance} activeOpacity={0.92} style={[styles.btnWrap, (!canContinue || insufficientBalance) && { opacity: 0.45 }]}>
                         <LinearGradient colors={["rgba(255,255,255,0.1)", "rgba(255,255,255,0.05)"]} style={[styles.btn, { borderWidth: 1, borderColor: insufficientBalance ? "rgba(255,75,75,0.3)" : "rgba(255,255,255,0.15)" }]}>

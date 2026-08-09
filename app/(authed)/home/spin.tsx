@@ -103,6 +103,51 @@ function CelebrationConfetti() {
   );
 }
 
+// ── Animated Voice Equalizer Wave ─────────────────────────────────────────
+function SpeakingWaveAnimation() {
+  const bar1 = useRef(new Animated.Value(4)).current;
+  const bar2 = useRef(new Animated.Value(12)).current;
+  const bar3 = useRef(new Animated.Value(8)).current;
+  const bar4 = useRef(new Animated.Value(16)).current;
+
+  useEffect(() => {
+    const createLoop = (anim: Animated.Value, min: number, max: number, duration: number) => {
+      return Animated.loop(
+        Animated.sequence([
+          Animated.timing(anim, { toValue: max, duration, useNativeDriver: false }),
+          Animated.timing(anim, { toValue: min, duration, useNativeDriver: false }),
+        ])
+      );
+    };
+
+    const anim1 = createLoop(bar1, 4, 18, 250);
+    const anim2 = createLoop(bar2, 3, 16, 320);
+    const anim3 = createLoop(bar3, 5, 20, 280);
+    const anim4 = createLoop(bar4, 4, 14, 350);
+
+    anim1.start();
+    anim2.start();
+    anim3.start();
+    anim4.start();
+
+    return () => {
+      anim1.stop();
+      anim2.stop();
+      anim3.stop();
+      anim4.stop();
+    };
+  }, [bar1, bar2, bar3, bar4]);
+
+  return (
+    <View style={{ flexDirection: "row", alignItems: "flex-end", height: 18, gap: 2, marginLeft: 6 }}>
+      <Animated.View style={{ width: 3, height: bar1, backgroundColor: "#22c55e", borderRadius: 2 }} />
+      <Animated.View style={{ width: 3, height: bar2, backgroundColor: "#22c55e", borderRadius: 2 }} />
+      <Animated.View style={{ width: 3, height: bar3, backgroundColor: "#22c55e", borderRadius: 2 }} />
+      <Animated.View style={{ width: 3, height: bar4, backgroundColor: "#22c55e", borderRadius: 2 }} />
+    </View>
+  );
+}
+
 // ── Types ──────────────────────────────────────────────────────────────────
 type SpinPlayer = {
   userId: string;

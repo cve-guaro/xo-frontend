@@ -96,6 +96,30 @@ export default function ProfileScreen() {
 
   const [referralEnabled, setReferralEnabled] = useState(true);
 
+  // Auto-open Edit Profile Modal for new or incomplete users
+  useEffect(() => {
+    if (user) {
+      const isMissing = !user.username || !user.display_name || user.new_user;
+      if (isMissing) {
+        setEditUsername(user.username || "");
+        setEditDisplayName(user.display_name || user.username || "");
+        setEditModalVisible(true);
+      }
+    }
+  }, [user]);
+
+  const handleAttemptCloseEditModal = () => {
+    const isMissing = !user?.username || !user?.display_name || user?.new_user;
+    if (isMissing) {
+      toast.warning(
+        isEN ? "Profile Required" : "መገለጫ መሙላት ግዴታ ነው",
+        isEN ? "Please fill in your Username and Display Name to complete your profile." : "እባክዎን የተጠቃሚ ስም እና የሚታይ ስም ይሙሉ"
+      );
+      return;
+    }
+    setEditModalVisible(false);
+  };
+
   // Fetch Referral Code
   useEffect(() => {
     if (token) {
@@ -697,7 +721,7 @@ export default function ProfileScreen() {
           <View style={s.dialogCard}>
             <View style={s.dialogHeader}>
               <Text style={s.dialogTitle}>{isEN ? "Edit Profile" : "መገለጫ አርትዕ"}</Text>
-              <TouchableOpacity onPress={() => setEditModalVisible(false)}>
+              <TouchableOpacity onPress={handleAttemptCloseEditModal}>
                 <Ionicons name="close" size={20} color="#8b93a7" />
               </TouchableOpacity>
             </View>
@@ -709,7 +733,7 @@ export default function ProfileScreen() {
               <TextInput value={editDisplayName} onChangeText={setEditDisplayName} style={s.dialogInput} placeholder={isEN ? "Display Name" : "የሚታይ ስም"} placeholderTextColor="rgba(255,255,255,0.2)" />
             </View>
             <View style={s.dialogFooter}>
-              <TouchableOpacity onPress={() => setEditModalVisible(false)} style={s.cancelBtn}>
+              <TouchableOpacity onPress={handleAttemptCloseEditModal} style={s.cancelBtn}>
                 <Text style={s.cancelBtnText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={handleSaveProfile} style={s.saveBtn} disabled={savingProfile}>
