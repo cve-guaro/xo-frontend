@@ -1,4 +1,4 @@
-// app/(authed)/admin/xo-controls.tsx — XO specific controls
+// app/(authed)/admin/xo-controls.tsx — XO specific controls with 3-Switch Granular Locks
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
@@ -16,6 +16,7 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '../../../context/authContext';
 import { API_URL } from '../../../config';
 import { AdminTheme as C } from './_layout';
+import { SkeletonRow } from '../../../components/SkeletonLoading';
 
 const fmt = (n: number) => Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -27,8 +28,12 @@ export default function XOControlsPage() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [roomsLocked, setRoomsLocked] = useState(false);
-  
+
+  // 3 Granular XO Lock Switches
+  const [xoLockAll, setXoLockAll] = useState(false);
+  const [xoLockRooms, setXoLockRooms] = useState(false);
+  const [xoLockFriends, setXoLockFriends] = useState(false);
+
   // Live queue stats state
   const [liveStats, setLiveStats] = useState<any>({
     roomStats: {},
@@ -45,21 +50,28 @@ export default function XOControlsPage() {
       if (res.ok) {
         const data = await res.json();
         const config = data.config || data;
-        setRoomsLocked(config.rooms_locked === true || config.rooms_locked === 'true');
+        const lockAll = config.xo_lock_all === true || config.xo_lock_all === 'true' || config.rooms_locked === true || config.rooms_locked === 'true';
+        setXoLockAll(lockAll);
+        setXoLockRooms(config.xo_lock_rooms === true || config.xo_lock_rooms === 'true');
+        setXoLockFriends(config.xo_lock_friends === true || config.xo_lock_friends === 'true');
       }
     } catch (e) {
       console.error('[XO Controls] Fetch settings config failed:', e);
     }
   }, [token]);
 
-  // Toggle Rooms Lock
-  const toggleRoomsLock = async (value: boolean) => {
+  // Toggle Granular XO Lock Switch
+  const toggleXoLockSetting = async (key: string, value: boolean, setter: (val: boolean) => void) => {
     if (!isSuperAdmin) {
-      showAlert('Access Denied', 'Only Super Admins can lock/unlock game rooms.');
+      showAlert('Access Denied', 'Only Super Admins can update system lock controls.');
       return;
     }
     setSaving(true);
     try {
+      const payload: any = { [key]: value };
+      if (key === 'xo_lock_all') {
+        payload.rooms_locked = value; // Keep backward compatibility
+      }
       const res = await fetch(`${API_URL}/admin/settings`, {
         method: 'PATCH',
         headers: {
@@ -67,13 +79,13 @@ export default function XOControlsPage() {
           Authorization: `Bearer ${token}`,
           'x-platform': 'web'
         },
-        body: JSON.stringify({ rooms_locked: value })
+        body: JSON.stringify(payload)
       });
       if (res.ok) {
-        setRoomsLocked(value);
-        showAlert('Rooms Locked State Updated', `Game rooms are now ${value ? 'LOCKED' : 'UNLOCKED'}.`);
+        setter(value);
+        showAlert('XO Lock Controls Updated', `${key.replace(/_/g, ' ').toUpperCase()} is now ${value ? 'LOCKED' : 'UNLOCKED'}.`);
       } else {
-        showAlert('Error', 'Failed to update rooms lock state.');
+        showAlert('Error', 'Failed to update lock configuration.');
       }
     } catch (e) {
       showAlert('Error', 'Failed to contact settings server.');
@@ -124,19 +136,19 @@ export default function XOControlsPage() {
     let searching = 0;
     let liveMatches = 0;
     bets.forEach(b => {
-      const item = combinedBreakdown[b];
-      if (item) {
-        searching += item.searching || 0;
-        liveMatches += item.liveMatches || 0;
+      if (combinedBreakdown[b]) {
+        searching += combinedBreakdown[b].searching;
+        liveMatches += combinedBreakdown[b].liveMatches;
       }
     });
     return { searching, liveMatches };
   };
 
-  const renderBetBreakdown = (breakdown: any, betsToShow: number[]) => {
+  const renderBetBreakdown = (bets: number[]) => {
+    const breakdown = combinedBreakdown;
     return (
-      <View style={{ gap: 8 }}>
-        {betsToShow.map(bet => {
+      <View style={{ marginTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)', paddingTop: 10 }}>
+        {bets.map(bet => {
           const item = breakdown[bet] || { searching: 0, liveMatches: 0 };
           return (
             <View key={bet} style={s.betRow}>
@@ -166,32 +178,86 @@ export default function XOControlsPage() {
           </TouchableOpacity>
           <View>
             <Text style={s.headerTitle}>XO Game Controls</Text>
-            <Text style={s.headerSub}>MATCHMAKING & ROOM REGULATION</Text>
+            <Text style={s.headerSub}>MATCHMAKING & 3-SWITCH GRANULAR ROOM REGULATION</Text>
           </View>
         </View>
       </View>
 
-      {/* Game Rooms Lock Switch */}
-      <View style={[s.card, { borderColor: roomsLocked ? 'rgba(239,68,68,0.3)' : C.outlineVariant, borderTopWidth: 4, borderTopColor: roomsLocked ? C.error : C.primary, marginBottom: 24 }]}>
-        <View style={s.switchRow}>
-          <View style={{ flex: 1, paddingRight: 16 }}>
-            <Text style={[s.cardTitle, roomsLocked && { color: C.error }]}>Game Rooms Emergency Lock</Text>
-            <Text style={s.cardSubTitle}>When ON, all matchmaking lobbies (10 ETB up to 10k ETB) are globally disabled. Ongoing matches will not be disrupted.</Text>
+      {/* 3-Switch Granular XO Lock Controls */}
+      <View style={s.lockSectionCard}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+          <Ionicons name="lock-closed" size={20} color={xoLockAll ? C.error : C.primary} />
+          <View>
+            <Text style={s.sectionHeaderTitle}>XO 3-SWITCH LOCK CONTROL PANEL</Text>
+            <Text style={s.sectionHeaderSub}>Manage global emergency locks for matchmaking rooms and friend requests.</Text>
           </View>
-          <Switch
-            value={roomsLocked}
-            disabled={!isSuperAdmin || saving}
-            onValueChange={toggleRoomsLock}
-            trackColor={{ false: 'rgba(68,68,107,0.4)', true: 'rgba(253,111,133,0.3)' }}
-            thumbColor={roomsLocked ? C.error : '#f4f3f4'}
-          />
+        </View>
+
+        <View style={{ gap: 14 }}>
+          {/* Switch 1: Lock ALL XO */}
+          <View style={[s.switchRowBox, xoLockAll && s.switchRowBoxActive]}>
+            <View style={{ flex: 1, paddingRight: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={[s.switchTitle, xoLockAll && { color: C.error }]}>Switch 1: Lock ALL XO Games</Text>
+                {xoLockAll && <View style={s.activeLockBadge}><Text style={s.activeLockText}>LOCKED</Text></View>}
+              </View>
+              <Text style={s.switchDesc}>Locks BOTH public matchmaking rooms AND direct friend requests globally.</Text>
+            </View>
+            <Switch
+              value={xoLockAll}
+              disabled={!isSuperAdmin || saving}
+              onValueChange={(val) => toggleXoLockSetting('xo_lock_all', val, setXoLockAll)}
+              trackColor={{ false: 'rgba(68,68,107,0.4)', true: 'rgba(239,68,68,0.35)' }}
+              thumbColor={xoLockAll ? C.error : '#f4f3f4'}
+            />
+          </View>
+
+          {/* Switch 2: Lock Rooms Only */}
+          <View style={[s.switchRowBox, xoLockRooms && s.switchRowBoxActive]}>
+            <View style={{ flex: 1, paddingRight: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={[s.switchTitle, xoLockRooms && { color: '#f59e0b' }]}>Switch 2: Lock Rooms Only</Text>
+                {xoLockRooms && <View style={[s.activeLockBadge, { backgroundColor: 'rgba(245,158,11,0.2)' }]}><Text style={[s.activeLockText, { color: '#f59e0b' }]}>LOCKED</Text></View>}
+              </View>
+              <Text style={s.switchDesc}>Locks public matchmaking lobbies only. Direct friend requests remain open.</Text>
+            </View>
+            <Switch
+              value={xoLockRooms}
+              disabled={!isSuperAdmin || saving}
+              onValueChange={(val) => toggleXoLockSetting('xo_lock_rooms', val, setXoLockRooms)}
+              trackColor={{ false: 'rgba(68,68,107,0.4)', true: 'rgba(245,158,11,0.35)' }}
+              thumbColor={xoLockRooms ? '#f59e0b' : '#f4f3f4'}
+            />
+          </View>
+
+          {/* Switch 3: Lock Friend Requests Only */}
+          <View style={[s.switchRowBox, xoLockFriends && s.switchRowBoxActive]}>
+            <View style={{ flex: 1, paddingRight: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={[s.switchTitle, xoLockFriends && { color: '#38bdf8' }]}>Switch 3: Lock Friend Requests Only</Text>
+                {xoLockFriends && <View style={[s.activeLockBadge, { backgroundColor: 'rgba(56,189,248,0.2)' }]}><Text style={[s.activeLockText, { color: '#38bdf8' }]}>LOCKED</Text></View>}
+              </View>
+              <Text style={s.switchDesc}>Locks direct 1v1 friend challenges. Matchmaking rooms remain open.</Text>
+            </View>
+            <Switch
+              value={xoLockFriends}
+              disabled={!isSuperAdmin || saving}
+              onValueChange={(val) => toggleXoLockSetting('xo_lock_friends', val, setXoLockFriends)}
+              trackColor={{ false: 'rgba(68,68,107,0.4)', true: 'rgba(56,189,248,0.35)' }}
+              thumbColor={xoLockFriends ? '#38bdf8' : '#f4f3f4'}
+            />
+          </View>
         </View>
       </View>
 
       {/* Live Queues */}
       <Text style={s.sectionLabel}>LIVE QUEUES & ACTIVE MATCHES</Text>
       {loading ? (
-        <ActivityIndicator color={C.primary} style={{ marginVertical: 30 }} />
+        <View style={{ gap: 12, marginVertical: 16 }}>
+          <SkeletonRow />
+          <SkeletonRow />
+          <SkeletonRow />
+        </View>
       ) : (
         <View style={{ gap: 16 }}>
           {/* Room 1 */}
@@ -199,13 +265,23 @@ export default function XOControlsPage() {
             const r1Totals = getRoomTotals([10, 25, 50, 100]);
             return (
               <View style={s.card}>
-                <View style={s.cardHeader}>
-                  <Text style={s.cardTitle}>Room 1 - Beginner (10-100 ETB)</Text>
-                  <View style={s.livePill}>
-                    <Text style={s.livePillText}>{r1Totals.searching} active searchers</Text>
+                <View style={s.roomHeader}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <View style={[s.statusDot, { backgroundColor: '#38bdf8' }]} />
+                    <Text style={s.cardTitle}>Room 1 — Beginner (10 - 100 ETB)</Text>
                   </View>
                 </View>
-                {renderBetBreakdown(combinedBreakdown, [10, 25, 50, 100])}
+                <View style={s.statsGrid}>
+                  <View style={s.statBox}>
+                    <Text style={s.statLabel}>Searching Players</Text>
+                    <Text style={[s.statVal, { color: C.secondary }]}>{r1Totals.searching}</Text>
+                  </View>
+                  <View style={s.statBox}>
+                    <Text style={s.statLabel}>Live Matches</Text>
+                    <Text style={[s.statVal, { color: '#a78bfa' }]}>{r1Totals.liveMatches}</Text>
+                  </View>
+                </View>
+                {renderBetBreakdown([10, 25, 50, 100])}
               </View>
             );
           })()}
@@ -215,138 +291,208 @@ export default function XOControlsPage() {
             const r2Totals = getRoomTotals([100, 250, 500, 1000]);
             return (
               <View style={s.card}>
-                <View style={s.cardHeader}>
-                  <Text style={s.cardTitle}>Room 2 - Intermediate (100-1000 ETB)</Text>
-                  <View style={s.livePill}>
-                    <Text style={s.livePillText}>{r2Totals.searching} active searchers</Text>
+                <View style={s.roomHeader}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <View style={[s.statusDot, { backgroundColor: C.secondary }]} />
+                    <Text style={s.cardTitle}>Room 2 — Intermediate (100 - 1,000 ETB)</Text>
                   </View>
                 </View>
-                {renderBetBreakdown(combinedBreakdown, [100, 250, 500, 1000])}
+                <View style={s.statsGrid}>
+                  <View style={s.statBox}>
+                    <Text style={s.statLabel}>Searching Players</Text>
+                    <Text style={[s.statVal, { color: C.secondary }]}>{r2Totals.searching}</Text>
+                  </View>
+                  <View style={s.statBox}>
+                    <Text style={s.statLabel}>Live Matches</Text>
+                    <Text style={[s.statVal, { color: '#a78bfa' }]}>{r2Totals.liveMatches}</Text>
+                  </View>
+                </View>
+                {renderBetBreakdown([100, 250, 500, 1000])}
               </View>
             );
           })()}
 
           {/* Room 3 */}
           {(() => {
-            const r3Totals = getRoomTotals([1000, 2500, 5000, 10000]);
+            const r3Totals = getRoomTotals([1000, 2500, 5000, 7500, 10000]);
             return (
               <View style={s.card}>
-                <View style={s.cardHeader}>
-                  <Text style={s.cardTitle}>Room 3 - Advanced (1000-10000 ETB)</Text>
-                  <View style={s.livePill}>
-                    <Text style={s.livePillText}>{r3Totals.searching} active searchers</Text>
+                <View style={s.roomHeader}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <View style={[s.statusDot, { backgroundColor: '#f59e0b' }]} />
+                    <Text style={s.cardTitle}>Room 3 — Advanced (1,000 - 10,000 ETB)</Text>
                   </View>
                 </View>
-                {renderBetBreakdown(combinedBreakdown, [1000, 2500, 5000, 10000])}
+                <View style={s.statsGrid}>
+                  <View style={s.statBox}>
+                    <Text style={s.statLabel}>Searching Players</Text>
+                    <Text style={[s.statVal, { color: C.secondary }]}>{r3Totals.searching}</Text>
+                  </View>
+                  <View style={s.statBox}>
+                    <Text style={s.statLabel}>Live Matches</Text>
+                    <Text style={[s.statVal, { color: '#a78bfa' }]}>{r3Totals.liveMatches}</Text>
+                  </View>
+                </View>
+                {renderBetBreakdown([1000, 2500, 5000, 7500, 10000])}
               </View>
             );
           })()}
         </View>
       )}
-
-      {/* Shadow Banned List */}
-      <View style={{ marginTop: 24 }}>
-        <Text style={s.sectionLabel}>SHADOW BANNED COOLDOWNS (3-MIN SPEED LIMIT BANS)</Text>
-        {loading ? (
-          <ActivityIndicator color={C.primary} style={{ marginVertical: 30 }} />
-        ) : (!liveStats.shadowBanned || liveStats.shadowBanned.length === 0) ? (
-          <View style={s.emptyState}>
-            <Text style={{ color: C.onSurfaceVariant, fontSize: 13, fontWeight: '600' }}>No users currently speed restricted.</Text>
-          </View>
-        ) : (
-          <View style={{ gap: 8 }}>
-            {liveStats.shadowBanned.map((sb: any, i: number) => (
-              <View key={sb.userId + i} style={s.banCard}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <Text style={{ color: C.error, fontSize: 13, fontWeight: '800' }}>
-                    {sb.username || sb.number || 'User'}
-                  </Text>
-                  <View style={s.timeBadge}>
-                    <Text style={{ color: C.error, fontSize: 10, fontWeight: '800' }}>
-                      {Math.floor(sb.expiresIn / 60)}m {sb.expiresIn % 60}s LEFT
-                    </Text>
-                  </View>
-                </View>
-                <Text style={{ color: C.onSurfaceVariant, fontSize: 11 }}>Stake Range: {sb.rangeKey} ETB</Text>
-                <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 9, marginTop: 4 }}>User ID: {sb.userId}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-      </View>
     </ScrollView>
   );
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: 'transparent', padding: 24, paddingTop: 20 },
-  headerBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 },
-  backCircle: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.lightPrimary, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { color: '#fff', fontSize: 20, fontWeight: '700', letterSpacing: -0.5, fontFamily: 'Inter' },
-  headerSub: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '600', letterSpacing: 1.5, marginTop: 2, fontFamily: 'Inter' },
-  card: {
-    backgroundColor: C.surface,
-    borderRadius: 20,
+  container: {
+    flex: 1,
+    backgroundColor: C.background,
     padding: 24,
+  },
+  headerBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 24,
+  },
+  backCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: C.surfaceContainer,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: C.outlineVariant,
-    ...(Platform.OS === 'web' ? { boxShadow: '14px 17px 40px 4px rgba(112, 144, 176, 0.08)' } as any : {}),
   },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-    flexWrap: 'wrap',
-    gap: 8,
+  headerTitle: {
+    color: '#fff',
+    fontSize: 22,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
-  cardTitle: { color: '#fff', fontSize: 16, fontWeight: '700', fontFamily: 'Inter' },
-  cardSubTitle: { color: C.onSurfaceVariant, fontSize: 13, lineHeight: 18, marginTop: 4, fontFamily: 'Inter' },
-  switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  sectionLabel: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '700', letterSpacing: 1.5, marginBottom: 12, textTransform: 'uppercase', fontFamily: 'Inter' },
-  livePill: {
-    backgroundColor: C.lightPrimary,
-    borderColor: 'rgba(117, 81, 255, 0.3)',
+  headerSub: {
+    color: C.onSurfaceVariant,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    marginTop: 2,
+  },
+  lockSectionCard: {
+    backgroundColor: 'rgba(17,17,25,0.8)',
+    borderRadius: 24,
+    padding: 20,
     borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    borderColor: C.outlineVariant,
+    marginBottom: 24,
   },
-  livePillText: { color: C.primary, fontSize: 11, fontWeight: '700', fontFamily: 'Inter' },
+  sectionHeaderTitle: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  sectionHeaderSub: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 11,
+    marginTop: 2,
+  },
+  switchRowBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.02)',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  switchRowBoxActive: {
+    backgroundColor: 'rgba(239,68,68,0.04)',
+    borderColor: 'rgba(239,68,68,0.2)',
+  },
+  switchTitle: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  switchDesc: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 11,
+    marginTop: 4,
+    lineHeight: 16,
+  },
+  activeLockBadge: {
+    backgroundColor: 'rgba(239,68,68,0.2)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  activeLockText: {
+    color: C.error,
+    fontSize: 9,
+    fontWeight: '900',
+  },
+  sectionLabel: {
+    color: C.onSurfaceVariant,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    marginBottom: 12,
+  },
+  card: {
+    backgroundColor: 'rgba(17,17,25,0.7)',
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: C.outlineVariant,
+  },
+  roomHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  cardTitle: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  statusDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  statBox: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.02)',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.04)',
+  },
+  statLabel: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  statVal: {
+    fontSize: 18,
+    fontWeight: '900',
+    marginTop: 4,
+  },
   betRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: C.surfaceContainerLowest,
-    padding: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: C.outlineVariant,
+    paddingVertical: 6,
   },
-  betStake: { color: '#fff', fontSize: 13, fontWeight: '700', fontFamily: 'Inter' },
-  emptyState: {
-    padding: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: C.surfaceContainerLowest,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: C.outlineVariant,
-  },
-  banCard: {
-    backgroundColor: C.surface,
-    borderRadius: 20,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: C.outlineVariant,
-    ...(Platform.OS === 'web' ? { boxShadow: '14px 17px 40px 4px rgba(112, 144, 176, 0.04)' } as any : {}),
-  },
-  timeBadge: {
-    backgroundColor: 'rgba(245,57,57,0.1)',
-    borderColor: 'rgba(245,57,57,0.2)',
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+  betStake: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
   },
 });
