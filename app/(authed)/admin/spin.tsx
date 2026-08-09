@@ -542,7 +542,7 @@ export default function SpinAdminPage() {
                   </View>
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
                     <Text style={{ color: C.onSurfaceVariant, fontSize: 12 }}>Players: <Text style={{ color: '#fff', fontWeight: '700' }}>{room.realPlayersCount}/{room.maxPlayers}</Text> (bots: {room.botsCount})</Text>
-                    <Text style={{ color: C.onSurfaceVariant, fontSize: 12 }}>Pot: <Text style={{ color: C.success, fontWeight: '700' }}>{fmt(room.pot / 100)} ETB</Text></Text>
+                    <Text style={{ color: C.onSurfaceVariant, fontSize: 12 }}>Pot: <Text style={{ color: C.success, fontWeight: '700' }}>{fmt(room.pot)} ETB</Text></Text>
                     {room.countdown > 0 && <Text style={{ color: C.onSurfaceVariant, fontSize: 12 }}>Timer: <Text style={{ color: '#fbbf24', fontWeight: '700' }}>{room.countdown}s</Text></Text>}
                   </View>
                   {room.players && room.players.length > 0 && (
@@ -551,7 +551,7 @@ export default function SpinAdminPage() {
                         <View key={pi} style={s.livePlayerRow}>
                           <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: '600' }}>#{p.seatIndex + 1}</Text>
                           <Text style={{ color: p.isBot ? 'rgba(255,255,255,0.4)' : '#fff', fontSize: 11, fontWeight: '700', flex: 1 }}>{p.username}{p.isBot ? ' (Bot)' : ''}</Text>
-                          <Text style={{ color: C.success, fontSize: 11, fontWeight: '700' }}>{fmt(p.stake / 100)} ETB</Text>
+                          <Text style={{ color: C.success, fontSize: 11, fontWeight: '700' }}>{fmt(p.stake)} ETB</Text>
                         </View>
                       ))}
                     </View>

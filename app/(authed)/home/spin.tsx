@@ -129,6 +129,51 @@ type RoundState = {
 // ── Screen states ──────────────────────────────────────────────────────────
 type ScreenState = "browse" | "waiting" | "spinning" | "result";
 
+function SpeakingWaveAnimation() {
+  const bar1 = React.useRef(new Animated.Value(3)).current;
+  const bar2 = React.useRef(new Animated.Value(12)).current;
+  const bar3 = React.useRef(new Animated.Value(6)).current;
+
+  React.useEffect(() => {
+    const anim1 = Animated.loop(
+      Animated.sequence([
+        Animated.timing(bar1, { toValue: 14, duration: 240, useNativeDriver: false }),
+        Animated.timing(bar1, { toValue: 3, duration: 240, useNativeDriver: false }),
+      ])
+    );
+    const anim2 = Animated.loop(
+      Animated.sequence([
+        Animated.timing(bar2, { toValue: 4, duration: 200, useNativeDriver: false }),
+        Animated.timing(bar2, { toValue: 16, duration: 200, useNativeDriver: false }),
+      ])
+    );
+    const anim3 = Animated.loop(
+      Animated.sequence([
+        Animated.timing(bar3, { toValue: 12, duration: 280, useNativeDriver: false }),
+        Animated.timing(bar3, { toValue: 2, duration: 280, useNativeDriver: false }),
+      ])
+    );
+
+    anim1.start();
+    anim2.start();
+    anim3.start();
+
+    return () => {
+      anim1.stop();
+      anim2.stop();
+      anim3.stop();
+    };
+  }, [bar1, bar2, bar3]);
+
+  return (
+    <View style={{ flexDirection: "row", alignItems: "flex-end", height: 16, gap: 2, marginLeft: 6 }}>
+      <Animated.View style={{ width: 3, height: bar1, backgroundColor: "#22c55e", borderRadius: 1.5 }} />
+      <Animated.View style={{ width: 3, height: bar2, backgroundColor: "#22c55e", borderRadius: 1.5 }} />
+      <Animated.View style={{ width: 3, height: bar3, backgroundColor: "#22c55e", borderRadius: 1.5 }} />
+    </View>
+  );
+}
+
 export default function SpinGameScreen() {
   const router = useRouter();
   const { width: screenW } = useWindowDimensions();
@@ -169,11 +214,17 @@ export default function SpinGameScreen() {
   const stopSpinLoop = useCallback(() => {
     try {
       spinLoopSound.pause();
+      spinLoopSound.currentTime = 0;
     } catch (e) { console.warn("stopSpinLoop error:", e); }
   }, [spinLoopSound]);
 
+  const handleSpinComplete = useCallback(() => {
+    stopSpinLoop();
+    setScreenState(prev => (prev === "spinning" ? "result" : prev));
+  }, [stopSpinLoop]);
+
   const stopAllSounds = useCallback(() => {
-    try { spinLoopSound.pause(); } catch (e) {}
+    try { spinLoopSound.pause(); spinLoopSound.currentTime = 0; } catch (e) {}
     try { winSound.pause(); } catch (e) {}
     try { loseSound.pause(); } catch (e) {}
     try { addMoneySound.pause(); } catch (e) {}
@@ -2090,12 +2141,7 @@ export default function SpinGameScreen() {
                     <View style={{ flex: 1, marginLeft: 12 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                         <Text style={ds.drawerPlayerName}>{isSelf ? "You (" + (p.username || "Zara") + ")" : p.username || "Zara"}</Text>
-                        {isSpeaking && (
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(34, 197, 94, 0.15)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
-                            <Ionicons name="volume-high" size={12} color="#22c55e" />
-                            <Text style={{ color: '#22c55e', fontSize: 10, fontWeight: '800' }}>Speaking</Text>
-                          </View>
-                        )}
+                        {isSpeaking && <SpeakingWaveAnimation />}
                       </View>
                       <Text style={[ds.drawerPlayerStake, { color }]}>{p.stake || 100} ETB</Text>
                     </View>
