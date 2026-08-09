@@ -156,6 +156,7 @@ export default function LeaderboardScreen() {
   const [previousWeekWin, setPreviousWeekWin] = useState<PreviousWeekWin>(null);
   const [showCongrats, setShowCongrats] = useState(false);
   const [totalParticipants, setTotalParticipants] = useState(1200);
+  const [isLeaderboardDisabled, setIsLeaderboardDisabled] = useState(false);
 
   // Timeframe filters
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -176,6 +177,11 @@ export default function LeaderboardScreen() {
       });
       if (res.ok) {
         const data = await res.json();
+        if (data.enabled === false) {
+          setIsLeaderboardDisabled(true);
+          return;
+        }
+        setIsLeaderboardDisabled(false);
         setWeeklyPrizes(data.prizes || []);
         setSecondsRemaining(data.secondsRemaining || 0);
         setTotalParticipants(data.total || 1200);
@@ -199,6 +205,11 @@ export default function LeaderboardScreen() {
       });
       if (res.ok) {
         const data = await res.json();
+        if (data.enabled === false) {
+          setIsLeaderboardDisabled(true);
+          return;
+        }
+        setIsLeaderboardDisabled(false);
         setLeaderboard(data.leaderboard || []);
         setTop3(data.top3 || []);
         setMyRank(data.myRank || null);
@@ -453,6 +464,42 @@ export default function LeaderboardScreen() {
 
               {/* 2. CENTER COLUMN */}
               <View style={s.centerColumn}>
+                {isLeaderboardDisabled ? (
+                  <View style={{
+                    backgroundColor: "#161b2e",
+                    borderRadius: 16,
+                    padding: 32,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderWidth: 1,
+                    borderColor: "rgba(245, 158, 11, 0.3)",
+                    marginTop: 20,
+                  }}>
+                    <Ionicons name="construct-outline" size={54} color="#f59e0b" style={{ marginBottom: 16 }} />
+                    <Text style={{ color: "#fff", fontSize: 20, fontWeight: "700", marginBottom: 8, textAlign: "center" }}>
+                      Leaderboard Under Maintenance
+                    </Text>
+                    <Text style={{ color: "#94a3b8", fontSize: 14, textAlign: "center", maxWidth: 420, lineHeight: 22, marginBottom: 24 }}>
+                      The Leaderboard feature is temporarily offline for maintenance. Your wins continue to be tracked in real-time and rankings will resume shortly.
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => { fetchWeeklyMetadata(); fetchLeaderboardData(); }}
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        backgroundColor: "#f59e0b",
+                        paddingHorizontal: 20,
+                        paddingVertical: 12,
+                        borderRadius: 10,
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="refresh" size={16} color="#000" style={{ marginRight: 8 }} />
+                      <Text style={{ color: "#000", fontWeight: "700", fontSize: 14 }}>Refresh Status</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <>
                 {/* Title and Filter Row */}
                 <View style={s.titleRowContainer}>
                   <View>
@@ -609,6 +656,8 @@ export default function LeaderboardScreen() {
                     </View>
                   </ScrollView>
                 </View>
+                </>
+                )}
               </View>
 
               {/* 3. RIGHT SIDEBAR — GIVEAWAY resetting details */}

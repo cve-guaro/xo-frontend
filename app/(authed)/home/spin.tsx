@@ -206,6 +206,7 @@ export default function SpinGameScreen() {
   const [preSpinCountdown, setPreSpinCountdown] = useState<number | null>(null);
   const preSpinTimerRef = useRef<any>(null);
   const countdownTimerRef = useRef<any>(null);
+  const targetEndTimeRef = useRef<number | null>(null);
   // ── Rematch State ──────────────────────────────────────────────
   const [rematchAvailable, setRematchAvailable] = useState<{ originalRoundId: string; timeoutMs: number; betAmount: number } | null>(null);
   const [rematchAccepted, setRematchAccepted] = useState<boolean>(false);
@@ -415,10 +416,17 @@ export default function SpinGameScreen() {
           });
           break;
         
-        case "spin:countdown":
-          // Server countdown takes priority — sync client timer
-          setCountdown(payload.secondsLeft);
+        case "spin:countdown": {
+          // Server countdown takes priority — sync target end timestamp smoothly
+          const sec = payload.secondsLeft;
+          const newTarget = Date.now() + sec * 1000;
+          if (!targetEndTimeRef.current || Math.abs(newTarget - targetEndTimeRef.current) > 1500) {
+            targetEndTimeRef.current = newTarget;
+          }
+          const rem = Math.max(0, Math.ceil((targetEndTimeRef.current - Date.now()) / 1000));
+          setCountdown(rem);
           break;
+        }
 
         case "spin:locked":
           setRound(prev => {
@@ -605,23 +613,23 @@ export default function SpinGameScreen() {
         setWinningSlice(null);
         setResultData(null);
 
-        // Start a client-side countdown timer as resilient fallback
-        // The server's spin:countdown events will override this value
+        // Start a smooth client-side countdown timer based on target timestamp
+        targetEndTimeRef.current = Date.now() + serverCountdown * 1000;
         if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
         if (serverCountdown > 0) {
           countdownTimerRef.current = setInterval(() => {
-            setCountdown(prev => {
-              if (prev <= 1) {
-                clearInterval(countdownTimerRef.current);
-                countdownTimerRef.current = null;
-                // Resilient fallback: trigger spin if timer expires
-                setIsSpinning(true);
-                setScreenState("spinning");
-                return 0;
-              }
-              return prev - 1;
-            });
-          }, 1000);
+            if (!targetEndTimeRef.current) return;
+            const rem = Math.max(0, Math.ceil((targetEndTimeRef.current - Date.now()) / 1000));
+            setCountdown(rem);
+            if (rem <= 0) {
+              clearInterval(countdownTimerRef.current);
+              countdownTimerRef.current = null;
+              targetEndTimeRef.current = null;
+              // Resilient fallback: trigger spin if timer expires
+              setIsSpinning(true);
+              setScreenState("spinning");
+            }
+          }, 300);
         }
 
         // Join Agora voice channel (fire and forget, don't block)

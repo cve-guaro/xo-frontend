@@ -263,9 +263,10 @@ export default function Maintenance() {
       </View>
 
       <View style={s.card}>
-        <Text style={s.cardTitle}>Social Features</Text>
-        <Text style={s.cardDesc}>Manage leaderboards and social elements.</Text>
-        <FeatureRow title="Leaderboard" desc="Show the global leaderboard to users." featureKey="feature_leaderboard" />
+        <Text style={s.cardTitle}>Social & Competition Features</Text>
+        <Text style={s.cardDesc}>Manage leaderboards, rewards, and social elements.</Text>
+        <FeatureRow title="Master Leaderboard Active" desc="Master switch. When OFF, leaderboard is disabled, UI shows maintenance state, and auto-payout cron is paused." featureKey="leaderboard_enabled" warning={true} />
+        <FeatureRow title="Leaderboard Feature" desc="Show the global leaderboard tab to users." featureKey="feature_leaderboard" />
       </View>
 
     </ScrollView>
