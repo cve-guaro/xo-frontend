@@ -107,12 +107,12 @@ export default function AnimatedList<T>({
           scrollbar-width: none;
         }
         .item {
-          padding: 12px;
-          background-color: rgba(23, 23, 50, 0.4);
-          border-radius: 12px;
-          margin-bottom: 0.75rem;
+          padding: 0;
+          background-color: transparent;
+          border-radius: 0;
+          margin-bottom: 0;
           transition: background-color 0.2s ease, border-color 0.2s ease;
-          border: 1px solid rgba(255, 255, 255, 0.05);
+          border: none;
         }
         .item.selected {
           background-color: rgba(166, 140, 255, 0.08);

@@ -369,7 +369,7 @@ export default function AdminUsers() {
     setGenericModal({
       visible: true,
       title: t("Permanent Deletion"),
-      message: t("PERMANENT ACTION: Are you sure you want to erase this user from existence?"),
+      message: t("Are you sure you want to permanently delete this user account?"),
       confirmText: t("DELETE"),
       onConfirm: performDelete,
       isDestructive: true,
@@ -398,15 +398,15 @@ export default function AdminUsers() {
           <View style={{ zIndex: 30 }}>
             <View style={[styles.tableHeader, isMobile && { flexDirection: 'column', alignItems: 'flex-start', gap: 12, padding: 16 }]}>
               <View>
-                <Text style={[styles.tableTitle, isMobile && { fontSize: 16 }]}>Player Matrix</Text>
-                {!isMobile && <Text style={styles.tableSub}>Live surveillance of active gaming entities</Text>}
+                <Text style={[styles.tableTitle, isMobile && { fontSize: 16 }]}>User Directory</Text>
+                {!isMobile && <Text style={styles.tableSub}>Manage registered user accounts, balances, and permissions</Text>}
               </View>
               <TouchableOpacity 
                 style={{ backgroundColor: C.secondary, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}
                 onPress={() => setCreateModalVisible(true)}
               >
                 <Ionicons name="add-circle" size={18} color="#0c0c1f" />
-                <Text style={{ color: '#0c0c1f', fontWeight: '800', fontSize: 12 }}>New Entity</Text>
+                <Text style={{ color: '#0c0c1f', fontWeight: '800', fontSize: 12 }}>Add User</Text>
               </TouchableOpacity>
             </View>
 
@@ -493,8 +493,8 @@ export default function AdminUsers() {
 
             {!isMobile && (
               <View style={[styles.thead]}>
-                <Text style={[styles.th, { flex: 0.9 }]}>Entity ID</Text>
-                <Text style={[styles.th, { flex: 2 }]}>User Identity</Text>
+                <Text style={[styles.th, { flex: 0.9 }]}>User ID</Text>
+                <Text style={[styles.th, { flex: 2 }]}>User Account</Text>
                 <Text style={[styles.th, { flex: 1 }]}>Balance (ETB)</Text>
                 <Text style={[styles.th, { flex: 0.9 }]}>Status</Text>
                 <Text style={[styles.th, { flex: 1 }]}>Last Active</Text>
@@ -505,10 +505,11 @@ export default function AdminUsers() {
 
           <AnimatedList
             items={loading ? [] : filtered}
+            onItemSelect={(u: User) => router.push(`/admin/user-detail?id=${u.id}` as any)}
             renderItem={(u: User, i: number, isSelected: boolean) => (
               <View style={[styles.row, isSelected && styles.rowSelected, isMobile && { flexDirection: 'column', alignItems: 'flex-start', padding: 16, gap: 12 }]}>
                 {isMobile ? (
-                  <>
+                  <TouchableOpacity onPress={() => router.push(`/admin/user-detail?id=${u.id}` as any)} style={{ width: '100%', gap: 12 }}>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
                       <View style={[styles.tdUser, { flex: undefined }]}>
                         <View style={[styles.avatar, { backgroundColor: u.banned ? 'rgba(138,22,50,0.2)' : 'rgba(34,34,70,0.8)', borderColor: u.banned ? 'rgba(253,111,133,0.3)' : 'rgba(166,140,255,0.3)' }]}>
@@ -535,7 +536,7 @@ export default function AdminUsers() {
                         <Text style={styles.tdTime} numberOfLines={1}>{u.created_at ? timeSince(u.created_at) : '—'}</Text>
                       </View>
                     </View>
-                  </>
+                  </TouchableOpacity>
                 ) : (
                   <>
                     <Text style={styles.tdId}>#{u.id.slice(0,8).toUpperCase()}</Text>
@@ -556,7 +557,7 @@ export default function AdminUsers() {
                     </View>
                     <Text style={styles.tdTime} numberOfLines={1}>{u.created_at ? timeSince(u.created_at) : '—'}</Text>
                     <View style={styles.tdActions}>
-                      <TouchableOpacity style={styles.viewBtn} onPress={() => setSelected(u)}>
+                      <TouchableOpacity style={styles.viewBtn} onPress={() => router.push(`/admin/user-detail?id=${u.id}` as any)}>
                         <Ionicons name="chevron-forward" size={16} color="#7c4dff" />
                       </TouchableOpacity>
                     </View>
@@ -564,7 +565,6 @@ export default function AdminUsers() {
                 )}
               </View>
             )}
-            onItemSelect={(u: User) => handleSelectUser(u)}
             initialSelectedIndex={filtered.findIndex(u => u.id === selected?.id)}
             className="user-matrix-list"
           />
@@ -888,7 +888,7 @@ export default function AdminUsers() {
       {/* Generic Centered Confirm Modal */}
       <Modal transparent visible={genericModal.visible} animationType="fade">
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-          <View style={{ width: '100%', maxWidth: 360, backgroundColor: '#0f0f11', borderRadius: 24, padding: 28, borderWidth: 1, borderColor: genericModal.isDestructive ? 'rgba(253,111,133,0.3)' : 'rgba(166,140,255,0.3)', shadowColor: genericModal.isDestructive ? '#fd6f85' : '#7c4dff', shadowOpacity: 0.2, shadowRadius: 30 }}>
+          <View style={{ width: '100%', maxWidth: 360, backgroundColor: C.surface, borderRadius: 20, padding: 28, borderWidth: 1, borderColor: genericModal.isDestructive ? 'rgba(239,68,68,0.3)' : C.border }}>
             <View style={{ alignItems: 'center', marginBottom: 20 }}>
                <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: genericModal.isDestructive ? 'rgba(253,111,133,0.1)' : 'rgba(166,140,255,0.1)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: genericModal.isDestructive ? 'rgba(253,111,133,0.2)' : 'rgba(166,140,255,0.2)' }}>
                   <Ionicons name={genericModal.isDestructive ? "warning" : "information-circle"} size={32} color={genericModal.isDestructive ? C.error : C.primary} />
@@ -899,7 +899,7 @@ export default function AdminUsers() {
             
             <View style={{ gap: 12 }}>
                <TouchableOpacity 
-                 style={{ backgroundColor: genericModal.isDestructive ? C.error : C.primary, paddingVertical: 16, borderRadius: 16, alignItems: 'center', shadowColor: genericModal.isDestructive ? C.error : C.primary, shadowOpacity: 0.3, shadowRadius: 10 }} 
+                 style={{ backgroundColor: genericModal.isDestructive ? C.error : C.primary, paddingVertical: 16, borderRadius: 16, alignItems: 'center' }} 
                  onPress={genericModal.onConfirm}
                >
                   <Text style={{ color: '#fff', fontWeight: '900', fontSize: 14 }}>{genericModal.confirmText}</Text>
@@ -992,34 +992,33 @@ const styles = StyleSheet.create({
     maxWidth: 800,
     maxHeight: '90%',
     backgroundColor: C.surface,
-    borderRadius: 24,
+    borderRadius: 20,
     padding: 24,
     borderWidth: 1,
-    borderColor: C.outlineVariant,
-    ...(Platform.OS === 'web' ? { boxShadow: '14px 17px 40px 4px rgba(112, 144, 176, 0.08)' } as any : {})
+    borderColor: C.border,
   },
-  userModalBox: { width: '100%', maxWidth: 480, padding: 28, borderRadius: 28, borderWidth: 1, borderColor: C.outlineVariant, backgroundColor: C.surface, maxHeight: '90%', ...(Platform.OS === 'web' ? { boxShadow: '14px 17px 40px 4px rgba(112, 144, 176, 0.08)' } as any : {}) },
+  userModalBox: { width: '100%', maxWidth: 480, padding: 28, borderRadius: 20, borderWidth: 1, borderColor: C.border, backgroundColor: C.surface, maxHeight: '90%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  modalTitle: { color: '#fff', fontSize: 18, fontWeight: '700', fontFamily: 'Inter' },
-  inputField: { backgroundColor: C.surfaceContainerLowest, color: '#fff', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: C.outlineVariant, fontSize: 13, fontFamily: 'Inter' },
+  modalTitle: { color: '#ffffff', fontSize: 18, fontWeight: '700', fontFamily: 'Inter' },
+  inputField: { backgroundColor: C.surfaceContainerLowest, color: '#ffffff', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: C.border, fontSize: 13, fontFamily: 'Inter' },
   saveBtn: { backgroundColor: C.primary, padding: 14, borderRadius: 12, alignItems: 'center', marginTop: 12 },
-  saveBtnText: { color: '#fff', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, fontFamily: 'Inter' },
+  saveBtnText: { color: '#ffffff', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, fontFamily: 'Inter' },
   formLabel: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '700', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1, fontFamily: 'Inter' },
   sectionCard: { padding: 12, borderRadius: 14, backgroundColor: C.surfaceContainerLowest },
   sectionTitle: { color: C.onSurfaceVariant, fontSize: 9, fontWeight: '700', textTransform: 'uppercase', marginBottom: 10, letterSpacing: 0.5, fontFamily: 'Inter' },
   prizeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  prizeItem: { flex: 1, minWidth: '45%', backgroundColor: C.surfaceContainerLow, padding: 8, borderRadius: 8, borderWidth: 1, borderColor: C.outlineVariant },
-  prizeAmt: { color: '#fff', fontSize: 10, fontWeight: '700', fontFamily: 'Inter' },
+  prizeItem: { flex: 1, minWidth: '45%', backgroundColor: C.surfaceContainerLow, padding: 8, borderRadius: 8, borderWidth: 1, borderColor: C.border },
+  prizeAmt: { color: '#ffffff', fontSize: 10, fontWeight: '700', fontFamily: 'Inter' },
   prizeCount: { color: C.secondary, fontSize: 12, fontWeight: '700', marginTop: 2, fontFamily: 'Inter' },
-  txRowSmall: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: C.outlineVariant },
+  txRowSmall: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: C.border },
   txType: { color: 'rgba(255,255,255,0.8)', fontSize: 10, fontWeight: '700', fontFamily: 'Inter' },
   txDate: { color: C.onSurfaceVariant, fontSize: 9, marginTop: 1, fontFamily: 'Inter' },
   txAmtSmall: { fontSize: 11, fontWeight: '700', fontFamily: 'Inter' },
   emptySubText: { color: C.onSurfaceVariant, fontSize: 10, textAlign: 'center', paddingVertical: 8, fontFamily: 'Inter' },
   rolePickerRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   pickerLabel: { color: C.onSurfaceVariant, fontSize: 12, fontWeight: '600', fontFamily: 'Inter' },
-  roleBtn: { flex: 1, padding: 8, borderRadius: 8, borderWidth: 1, borderColor: C.outlineVariant, alignItems: 'center' },
-  roleBtnActive: { backgroundColor: C.primary, borderColor: C.primary },
+  roleBtn: { flex: 1, padding: 8, borderRadius: 8, borderWidth: 1, borderColor: C.border, alignItems: 'center' },
+  roleBtnActive: { backgroundColor: '#7c3aed', borderColor: '#7c3aed' },
   roleBtnText: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '700', fontFamily: 'Inter' },
   paginationRow: { 
     flexDirection: 'row', 
@@ -1027,9 +1026,9 @@ const styles = StyleSheet.create({
     alignItems: 'center', 
     padding: 20, 
     marginTop: 8,
-    borderRadius: 20,
+    borderRadius: 16,
     borderWidth: 1, 
-    borderColor: C.outlineVariant,
+    borderColor: C.border,
     backgroundColor: C.surface
   },
   paginationInfo: { color: C.onSurfaceVariant, fontSize: 12, fontWeight: '700', fontFamily: 'Inter' },
@@ -1042,7 +1041,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6, 
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(117,81,255,0.3)'
+    borderColor: 'rgba(124,58,237,0.3)'
   },
-  pageBtnText: { color: '#fff', fontSize: 12, fontWeight: '700', fontFamily: 'Inter' },
+  pageBtnText: { color: '#ffffff', fontSize: 12, fontWeight: '700', fontFamily: 'Inter' },
 });

@@ -158,6 +158,7 @@ export default function WaitingScreen() {
           if (stopped || navigatedRef.current) return;
           if (msg?.type === "match_found") {
             setIsMatched(true);
+            setInternalError(null);
             const { matchId, symbol, opponentUsername, opponentAvatar, houseCutPercent, timerDuration, betAmount: bkAmount, youAre } = msg.payload || {};
 
             const safeMatchId = String(matchId || "");
@@ -180,11 +181,15 @@ export default function WaitingScreen() {
             } as any);
           } else if (msg?.type === "queue_timeout") {
             setQueued(false); setTimeoutModal(true);
+          } else if (msg?.type === "error" && (msg?.payload?.message?.includes("INSUFFICIENT_BALANCE") || msg?.payload?.code === "INSUFFICIENT_BALANCE")) {
+            setInternalError("Insufficient balance to join this room. Please top up your wallet.");
           }
         });
       } catch (err: any) {
         console.error("[WAITING] Catastrophic failure:", err);
-        setInternalError(err.message || "Matchmaking initialization failed.");
+        if (String(err?.message || "").includes("INSUFFICIENT_BALANCE")) {
+          setInternalError("Insufficient balance to join this room. Please top up your wallet.");
+        }
       }
     })();
     return () => { stopped = true; unsubRef.current?.(); };
@@ -198,14 +203,25 @@ export default function WaitingScreen() {
     return (
       <View style={{ flex: 1, backgroundColor: '#060814', justifyContent: 'center', alignItems: 'center', padding: 32 }}>
         <Ionicons name="alert-circle" size={48} color="#fd6f85" />
-        <Text style={{ color: '#fff', fontSize: 18, fontWeight: '800', marginTop: 16 }}>Something went wrong</Text>
-        <Text style={{ color: 'rgba(255,255,255,0.4)', textAlign: 'center', marginTop: 8 }}>{internalError}</Text>
-        <TouchableOpacity
-          onPress={() => router.replace('/home/gameplay')}
-          style={{ marginTop: 24, backgroundColor: 'rgba(255,255,255,0.1)', paddingVertical: 12, paddingHorizontal: 24, borderRadius: 12 }}
-        >
-          <Text style={{ color: '#fff', fontWeight: '700' }}>Back to Home</Text>
-        </TouchableOpacity>
+        <Text style={{ color: '#fff', fontSize: 18, fontWeight: '800', marginTop: 16 }}>Matchmaking Notice</Text>
+        <Text style={{ color: 'rgba(255,255,255,0.6)', textAlign: 'center', marginTop: 8 }}>{internalError}</Text>
+        <View style={{ flexDirection: 'row', gap: 12, marginTop: 24 }}>
+          {internalError.includes("balance") && (
+            <TouchableOpacity
+              onPress={() => setDepositVisible(true)}
+              style={{ backgroundColor: '#06b6d4', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 12 }}
+            >
+              <Text style={{ color: '#fff', fontWeight: '800' }}>Deposit Funds</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            onPress={() => { cancelFind?.().catch(() => {}); router.replace('/home/gameplay'); }}
+            style={{ backgroundColor: 'rgba(255,255,255,0.1)', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 12 }}
+          >
+            <Text style={{ color: '#fff', fontWeight: '700' }}>Back to Home</Text>
+          </TouchableOpacity>
+        </View>
+        <WebDepositModal visible={depositVisible} onClose={() => setDepositVisible(false)} user={user} token={token || undefined} onSuccess={refreshProfile} />
       </View>
     );
   }

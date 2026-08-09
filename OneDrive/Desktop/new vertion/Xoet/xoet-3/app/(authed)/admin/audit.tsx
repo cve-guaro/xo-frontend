@@ -98,8 +98,8 @@ export default function AdminAudit() {
       <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
         <View style={[styles.pageHeader, isMobile && { flexDirection: 'column', alignItems: 'flex-start', gap: 16 }]}>
           <View>
-            <Text style={styles.pageTitle}>{t('audit_trail')}</Text>
-            <Text style={styles.pageSub}>{t('audit_subtitle')}</Text>
+            <Text style={styles.pageTitle}>System Audit Logs</Text>
+            <Text style={styles.pageSub}>Record of administrative actions and security audit trails</Text>
           </View>
           <TouchableOpacity style={styles.refreshBtn} onPress={() => { setLoading(true); fetchLogs(); }}>
             <Ionicons name="sync" size={18} color="#fff" />
@@ -123,54 +123,84 @@ export default function AdminAudit() {
             </View>
           </View>
 
-          <ScrollView horizontal={isMobile} showsHorizontalScrollIndicator={isMobile}>
-            <View style={isMobile ? { minWidth: 800 } : { flex: 1 }}>
-              <View style={[styles.colRow, { backgroundColor: 'rgba(24, 24, 27, 0.5)' }]}>
-                <Text style={[styles.colHead, { flex: 1.2 }]}>{t('admin_label')}</Text>
-                <Text style={[styles.colHead, { flex: 1 }]}>{t('action_label')}</Text>
-                <Text style={[styles.colHead, { flex: 1.2 }]}>{t('target_label')}</Text>
-                <Text style={[styles.colHead, { flex: 2 }]}>{t('context_label')}</Text>
-                <Text style={[styles.colHead, { flex: 1, textAlign: 'right' }]}>{t('timestamp')}</Text>
-              </View>
-
+          {isMobile ? (
+            <View style={{ padding: 12 }}>
               <AnimatedList
                 items={loading ? [] : paginatedLogs}
                 renderItem={(l: AuditLog) => {
                   const actionColor = getActionColor(l.action);
                   return (
-                    <View key={l.id} style={styles.tableRow}>
-                      <View style={{ flex: 1.2 }}>
-                        <Text style={styles.adminName}>{l.admin_name || 'System'}</Text>
-                        <Text style={styles.adminNum}>{l.admin_number || 'Internal'}</Text>
-                      </View>
-
-                      <View style={{ flex: 1 }}>
+                    <View key={l.id} style={{ backgroundColor: 'rgba(255,255,255,0.02)', padding: 14, borderRadius: 12, marginBottom: 8, borderWidth: 1, borderColor: C.outlineVariant, gap: 8 }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <View>
+                          <Text style={styles.adminName}>{l.admin_name || 'System'}</Text>
+                          <Text style={styles.adminNum}>{l.admin_number || 'Internal'}</Text>
+                        </View>
                         <Text style={[styles.actionPill, { color: actionColor, borderColor: actionColor + '44', backgroundColor: actionColor + '11' }]}>
                           {(l.action || 'system').toUpperCase().replace('_', ' ')}
                         </Text>
                       </View>
-
-                      <Text style={[styles.targetName, { flex: 1.2 }]} numberOfLines={1}>
-                        {l.target_name || 'System'}
-                      </Text>
-
-                      <Text style={[styles.details, { flex: 2 }]} numberOfLines={2}>
-                        {formatDetails(l.details)}
-                      </Text>
-
-                      <Text style={[styles.timeAgo, { flex: 1, textAlign: 'right' }]}>
-                        {timeSince(l.created_at)}
-                      </Text>
+                      <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>Target: {l.target_name || 'System'}</Text>
+                      <Text style={{ color: C.onSurfaceVariant, fontSize: 11 }}>{formatDetails(l.details)}</Text>
+                      <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, alignSelf: 'flex-end' }}>{timeSince(l.created_at)}</Text>
                     </View>
                   );
                 }}
                 showGradients={false}
               />
-
               {loading && <ActivityIndicator color={C.primary} style={{ marginVertical: 40 }} />}
               {!loading && paginatedLogs.length === 0 && <Text style={styles.emptyText}>{t('no_data')}</Text>}
             </View>
-          </ScrollView>
+          ) : (
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={{ flex: 1 }}>
+                <View style={[styles.colRow, { backgroundColor: 'rgba(24, 24, 27, 0.5)' }]}>
+                  <Text style={[styles.colHead, { flex: 1.2 }]}>Admin User</Text>
+                  <Text style={[styles.colHead, { flex: 1 }]}>Action</Text>
+                  <Text style={[styles.colHead, { flex: 1.2 }]}>Target Item</Text>
+                  <Text style={[styles.colHead, { flex: 2 }]}>Audit Context</Text>
+                  <Text style={[styles.colHead, { flex: 1, textAlign: 'right' }]}>{t('timestamp')}</Text>
+                </View>
+
+                <AnimatedList
+                  items={loading ? [] : paginatedLogs}
+                  renderItem={(l: AuditLog) => {
+                    const actionColor = getActionColor(l.action);
+                    return (
+                      <View key={l.id} style={styles.tableRow}>
+                        <View style={{ flex: 1.2 }}>
+                          <Text style={styles.adminName}>{l.admin_name || 'System'}</Text>
+                          <Text style={styles.adminNum}>{l.admin_number || 'Internal'}</Text>
+                        </View>
+
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.actionPill, { color: actionColor, borderColor: actionColor + '44', backgroundColor: actionColor + '11' }]}>
+                            {(l.action || 'system').toUpperCase().replace('_', ' ')}
+                          </Text>
+                        </View>
+
+                        <Text style={[styles.targetName, { flex: 1.2 }]} numberOfLines={1}>
+                          {l.target_name || 'System'}
+                        </Text>
+
+                        <Text style={[styles.details, { flex: 2 }]} numberOfLines={2}>
+                          {formatDetails(l.details)}
+                        </Text>
+
+                        <Text style={[styles.timeAgo, { flex: 1, textAlign: 'right' }]}>
+                          {timeSince(l.created_at)}
+                        </Text>
+                      </View>
+                    );
+                  }}
+                  showGradients={false}
+                />
+
+                {loading && <ActivityIndicator color={C.primary} style={{ marginVertical: 40 }} />}
+                {!loading && paginatedLogs.length === 0 && <Text style={styles.emptyText}>{t('no_data')}</Text>}
+              </View>
+            </ScrollView>
+          )}
 
           {/* Pagination */}
           <View style={styles.pagination}>

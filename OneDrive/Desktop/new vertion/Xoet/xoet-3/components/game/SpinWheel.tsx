@@ -23,6 +23,7 @@ type SpinWheelProps = {
   onSpinComplete?: () => void;
   status: "waiting" | "locked" | "spinning" | "resolved" | "paid" | "cancelled" | "idle";
   mode?: "5_PLAYER" | "RAIL";
+  speakingUserIds?: string[];
 };
 
 // Slice colors — vibrant, distinguishable
@@ -66,13 +67,15 @@ export default function SpinWheel({
   onSpinComplete,
   status,
   mode = "RAIL",
+  speakingUserIds = [],
 }: SpinWheelProps) {
   const rotation = useRef(new Animated.Value(0)).current;
+  const idleLoopAnim = useRef(new Animated.Value(0)).current;
   const [hasSpun, setHasSpun] = useState(false);
 
   const cx = size / 2;
   const cy = size / 2;
-  const r = size * 0.40;
+  const r = size * 0.44;
   const is5Player = mode === "5_PLAYER";
   const playerCount = is5Player ? 5 : Math.max(players.length, 1);
   const angleStep = 360 / playerCount;
@@ -80,36 +83,75 @@ export default function SpinWheel({
   const hasStakes = !is5Player && players.some(p => (p as any).stake && (p as any).stake > 0);
   const totalStake = !is5Player ? players.reduce((sum, p) => sum + Number((p as any).stake || 0), 0) : 0;
 
+  // Pre-calculate slices cleanly to prevent render mutation glitches
+  const slices = React.useMemo(() => {
+    let currentAngle = 0;
+    return Array.from({ length: playerCount }).map((_, idx) => {
+      const startAngle = currentAngle;
+      const angle = (hasStakes && totalStake > 0)
+        ? (Number((players[idx] as any)?.stake || 0) / totalStake) * 360
+        : angleStep;
+      const endAngle = startAngle + angle;
+      currentAngle = endAngle;
+      return { idx, startAngle, angle, endAngle };
+    });
+  }, [playerCount, hasStakes, totalStake, players, angleStep]);
+
+  // Infinite slow looping rotation animation for home page preview / idle state
+  useEffect(() => {
+    let loop: Animated.CompositeAnimation | null = null;
+    if (!isSpinning && status !== "spinning" && status !== "locked" && status !== "resolved") {
+      idleLoopAnim.setValue(0);
+      loop = Animated.loop(
+        Animated.timing(idleLoopAnim, {
+          toValue: 360,
+          duration: 18000, // smooth 18-second continuous loop
+          easing: Easing.linear,
+          useNativeDriver: Platform.OS !== "web",
+        })
+      );
+      loop.start();
+    } else {
+      idleLoopAnim.setValue(0);
+    }
+
+    return () => {
+      loop?.stop();
+    };
+  }, [isSpinning, status, idleLoopAnim]);
+
   // Trigger spin animation
   useEffect(() => {
-    if (isSpinning && winningSlice !== null && winningSlice !== undefined && !hasSpun) {
+    if ((isSpinning || status === "spinning") && !hasSpun) {
       setHasSpun(true);
+      const safeWinningSlice = (typeof winningSlice === "number" && winningSlice >= 0) ? winningSlice : 0;
 
       // Calculate final angle to land on the winning slice
       let sliceCenterAngle = 0;
       if (is5Player) {
         // Find winner seatIndex
-        const winner = players[winningSlice];
-        const winnerSeat = winner ? (winner.seatIndex ?? winningSlice) : winningSlice;
+        const winner = players[safeWinningSlice];
+        const winnerSeat = winner ? (winner.seatIndex ?? safeWinningSlice) : safeWinningSlice;
         sliceCenterAngle = winnerSeat * 72 + 36;
       } else if (hasStakes && totalStake > 0) {
         let accumulated = 0;
-        for (let i = 0; i < winningSlice; i++) {
+        const validSlice = Math.min(safeWinningSlice, players.length - 1);
+        for (let i = 0; i < validSlice; i++) {
           accumulated += (Number((players[i] as any).stake || 0) / totalStake) * 360;
         }
-        const winningAngle = (Number((players[winningSlice] as any).stake || 0) / totalStake) * 360;
+        const winningAngle = (Number((players[validSlice] as any).stake || 0) / totalStake) * 360;
         sliceCenterAngle = accumulated + winningAngle / 2;
       } else {
-        sliceCenterAngle = winningSlice * angleStep + angleStep / 2;
+        sliceCenterAngle = safeWinningSlice * angleStep + angleStep / 2;
       }
 
-      const fullRotations = 5; // 5 full spins
+      const fullRotations = 6; // 6 smooth rotations
       const targetAngle = fullRotations * 360 + (360 - sliceCenterAngle);
 
       Animated.timing(rotation, {
         toValue: targetAngle,
         duration: spinDuration,
-        easing: Easing.bezier(0.15, 0.85, 0.25, 1), // fast start, slow end
+        easing: Easing.bezier(0.1, 0.85, 0.15, 1), // ultra-smooth fast start, gradual deceleration
         useNativeDriver: Platform.OS !== "web",
       }).start(() => {
         onSpinComplete?.();
@@ -123,56 +165,20 @@ export default function SpinWheel({
     }
   }, [isSpinning, winningSlice, status, players, hasStakes, totalStake, angleStep, is5Player]);
 
-  const rotateInterpolation = rotation.interpolate({
-    inputRange: [0, 360],
-    outputRange: ["0deg", "360deg"],
-  });
-
-  let accumulatedAngle = 0;
+  const activeRotateStyle = (isSpinning || status === "spinning" || status === "locked" || status === "resolved")
+    ? rotation.interpolate({ inputRange: [0, 360], outputRange: ["0deg", "360deg"] })
+    : idleLoopAnim.interpolate({ inputRange: [0, 360], outputRange: ["0deg", "360deg"] });
 
   return (
     <View style={[styles.container, { width: size, height: size }]}>
-      {/* Base Pedestal / Stand supporting the wheel (Image 2 design) */}
-      <View style={{ position: "absolute", bottom: -(size * 0.08), zIndex: 0, alignItems: "center" }}>
-        <Svg width={size * 0.48} height={size * 0.22} viewBox="0 0 100 50">
-          <Defs>
-            <LinearGradient id="standGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <Stop offset="0%" stopColor="#1e1b4b" />
-              <Stop offset="50%" stopColor="#0f0e26" />
-              <Stop offset="100%" stopColor="#060512" />
-            </LinearGradient>
-            <LinearGradient id="standBorderGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-              <Stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.8} />
-              <Stop offset="50%" stopColor="#f5b642" stopOpacity={0.9} />
-              <Stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.8} />
-            </LinearGradient>
-          </Defs>
-          <Path d="M 20 0 L 80 0 L 95 45 Q 98 50 90 50 L 10 50 Q 2 50 5 45 Z" fill="url(#standGrad)" stroke="url(#standBorderGrad)" strokeWidth="1.5" />
-          <Path d="M 25 5 L 75 5 L 87 43 L 13 43 Z" fill="none" stroke="rgba(139, 92, 246, 0.2)" strokeWidth="1" />
-        </Svg>
-      </View>
-
-      {/* Ambient glow */}
-      <View
-        style={[
-          styles.glow,
-          {
-            width: size * 1.3,
-            height: size * 1.3,
-            borderRadius: size * 0.65,
-            top: -(size * 0.15),
-            left: -(size * 0.15),
-          },
-        ]}
-      />
-
       {/* Animated wheel */}
       <Animated.View
         style={{
-          transform: [{ rotate: rotateInterpolation }],
+          transform: [{ rotate: activeRotateStyle }],
           width: size,
           height: size,
           zIndex: 2,
+          ...(Platform.OS === "web" ? ({ willChange: "transform" } as any) : {}),
         }}
       >
         <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
@@ -198,18 +204,9 @@ export default function SpinWheel({
               <Stop offset="100%" stopColor="#854d0e" />
             </LinearGradient>
           </Defs>
-
-          <Circle cx={cx} cy={cy} r={r * 1.3} fill="url(#spinGlow)" />
-
           {/* Slices */}
           <G>
-            {Array.from({ length: playerCount }).map((_, idx) => {
-              const startAngle = accumulatedAngle;
-              const angle = (hasStakes && totalStake > 0)
-                ? (Number((players[idx] as any).stake || 0) / totalStake) * 360
-                : angleStep;
-              const endAngle = startAngle + angle;
-              accumulatedAngle = endAngle;
+            {slices.map(({ idx, startAngle, angle, endAngle }) => {
 
               const textAngle = startAngle + angle / 2;
               const textPos = polarToCartesian(cx, cy, r * 0.60, textAngle);
@@ -222,18 +219,18 @@ export default function SpinWheel({
                 player = players[idx];
               }
 
-              // Abbreviate name to fit
+              // Abbreviate name to fit (or show 20% Bonus preview when empty)
               const displayName = player
                 ? player.username.length > 8
                   ? player.username.slice(0, 7) + "…"
                   : player.username
-                : is5Player
-                ? "" // Blank slice if empty slot in 5-player
-                : `Slot ${idx + 1}`;
+                : "20%";
 
-              // Include stake percentage or ETB amount under name if RAIL mode
+              // Include stake percentage or ETB amount under name
               let details = "";
+              let isSpeaking = false;
               if (player) {
+                isSpeaking = Array.isArray(speakingUserIds) && speakingUserIds.some(id => String(id) === String(player.userId));
                 const stakeVal = Number((player as any).stake || (is5Player ? 100 : 0));
                 if (is5Player) {
                   details = `${stakeVal} ETB (20%)`;
@@ -243,6 +240,8 @@ export default function SpinWheel({
                 } else {
                   details = `${stakeVal} ETB`;
                 }
+              } else {
+                details = "Bonus";
               }
 
               return (
@@ -257,13 +256,13 @@ export default function SpinWheel({
                     <SvgText
                       x={textPos.x}
                       y={textPos.y - (details ? 6 : 0)}
-                      fill="#ffffff"
+                      fill={isSpeaking ? "#34d399" : "#ffffff"}
                       fontSize={Math.min(size * 0.038, 13)}
-                      fontWeight="800"
+                      fontWeight="900"
                       textAnchor="middle"
                       alignmentBaseline="middle"
                     >
-                      {displayName}
+                      {displayName} {isSpeaking ? "🔊" : ""}
                     </SvgText>
                   )}
                   {!!details && (
@@ -304,9 +303,20 @@ export default function SpinWheel({
           </G>
 
           {/* Center 3D gold hub */}
-          <Circle cx={cx} cy={cy} r={r * 0.19} fill="url(#goldGrad)" />
-          <Circle cx={cx} cy={cy} r={r * 0.15} fill="url(#centerHubGrad)" stroke="#78350f" strokeWidth={1} />
-          <Circle cx={cx} cy={cy} r={r * 0.06} fill="#ffffff" opacity={0.3} />
+          <Circle cx={cx} cy={cy} r={r * 0.22} fill="url(#goldGrad)" />
+          <Circle cx={cx} cy={cy} r={r * 0.18} fill="url(#centerHubGrad)" stroke="#78350f" strokeWidth={1.5} />
+          <SvgText
+            x={cx}
+            y={cy + 1}
+            fill="#f5b642"
+            fontSize={Math.max(size * 0.045, 11)}
+            fontWeight="900"
+            textAnchor="middle"
+            alignmentBaseline="middle"
+            letterSpacing={0.5}
+          >
+            SPIN
+          </SvgText>
         </Svg>
       </Animated.View>
 

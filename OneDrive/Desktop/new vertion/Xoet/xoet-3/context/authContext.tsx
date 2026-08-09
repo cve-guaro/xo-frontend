@@ -1133,7 +1133,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           } catch {
             // Network error during poll — just retry on next interval
           }
-        }, 2000);
+        }, 600);
       });
     } catch (err: any) {
       await playErrorSound();

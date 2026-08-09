@@ -272,7 +272,7 @@ export default function DepositScreen() {
         await refreshProfile?.();
         toast.push("Payment completed", "success");
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-        router.back();
+        router.replace("/(authed)/home/gameplay");
         return;
       }
     } catch (err: any) {

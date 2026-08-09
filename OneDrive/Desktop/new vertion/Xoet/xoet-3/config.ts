@@ -4,8 +4,9 @@
 import { Platform } from 'react-native';
 
 const getApiUrl = () => {
-  if (process.env.EXPO_PUBLIC_API_URL) {
-    return process.env.EXPO_PUBLIC_API_URL;
+  const envUrl = process.env.EXPO_PUBLIC_API_URL;
+  if (envUrl && !envUrl.includes('onrender.com') && !envUrl.includes('render.com')) {
+    return envUrl;
   }
   if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location) {
     const hostname = window.location.hostname;

@@ -92,13 +92,7 @@ export default function AdminControls() {
   const [history, setHistory] = useState<any[]>([]);
   const [historyTotal, setHistoryTotal] = useState(0);
 
-  // ----------------------------------------------------
-  // 3. TICKER STATE
-  // ----------------------------------------------------
-  const [tickerEntries, setTickerEntries] = useState<any[]>([]);
-  const [tickerUsername, setTickerUsername] = useState('');
-  const [tickerAmount, setTickerAmount] = useState('');
-  const [tickerResult, setTickerResult] = useState<any>(null);
+
 
   // ----------------------------------------------------
   // 4. REFUNDS STATE
@@ -212,74 +206,7 @@ export default function AdminControls() {
     finally { setSending(false); }
   }, [token, targetPhone, notifTitle, notifMessage, notifType, fetchHistory]);
 
-  // Leaderboard functions removed (real data only)
 
-  // Fetch Ticker Entries
-  const fetchTicker = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`${API_URL}/admin/leaderboard/fake-ticker`, {
-        headers: { Authorization: `Bearer ${token}`, 'x-platform': 'web' },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setTickerEntries(data.entries || []);
-      }
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
-  }, [token]);
-
-  // Add Ticker Entry
-  const handleAddTicker = async () => {
-    if (!tickerUsername.trim() || !tickerAmount.trim()) return;
-    const confirmed = await showConfirmModal(`Add ticker entry for ${tickerUsername.trim()}?`);
-    if (!confirmed) return;
-    setTickerResult(null);
-    try {
-      const res = await fetch(`${API_URL}/admin/leaderboard/fake-ticker`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'x-platform': 'web',
-        },
-        body: JSON.stringify({
-          username: tickerUsername.trim(),
-          amount: Number(tickerAmount) || 0,
-        }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setTickerResult({ ok: true, message: `Added ticker entry for ${tickerUsername}` });
-        setTickerUsername('');
-        setTickerAmount('');
-        fetchTicker();
-      } else {
-        setTickerResult({ ok: false, error: data.error });
-      }
-    } catch (e: any) {
-      setTickerResult({ ok: false, error: e.message });
-    }
-  };
-
-  // Delete Ticker Entry
-  const handleDeleteTicker = async (id: number) => {
-    const confirmed = await showConfirmModal('Delete this ticker entry?');
-    if (!confirmed) return;
-    try {
-      const res = await fetch(`${API_URL}/admin/leaderboard/fake-ticker/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}`, 'x-platform': 'web' },
-      });
-      if (res.ok) {
-        fetchTicker();
-      } else {
-        showAlert('Error', 'Failed to delete ticker entry');
-      }
-    } catch (e) {
-      showAlert('Error', 'Network error deleting ticker entry');
-    }
-  };
 
   // Fetch Refunds
   const fetchRefunds = useCallback(async () => {
@@ -342,9 +269,8 @@ export default function AdminControls() {
 
   useEffect(() => {
     if (tab === 'notifications') fetchHistory();
-    if (tab === 'ticker') fetchTicker();
     if (tab === 'refunds') fetchRefunds();
-  }, [tab, fetchHistory, fetchTicker, fetchRefunds]);
+  }, [tab, fetchHistory, fetchRefunds]);
 
   const applyTemplate = (t: typeof TEMPLATES[0]) => {
     setNotifTitle(t.title);

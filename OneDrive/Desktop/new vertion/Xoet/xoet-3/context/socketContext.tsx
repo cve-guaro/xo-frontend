@@ -315,16 +315,17 @@ export function SocketProvider({
   );
 
   const cancelFind = useCallback(async () => {
+    setIsSearching(false);
     const s = sockRef.current;
     if (!s || !s.connected) {
-      setIsSearching((prev) => (prev === false ? prev : false));
       return { ok: true };
     }
 
     const tk = tokenRef.current;
-    const res = await emitAck("cancel_find_match", { token: tk });
+    try {
+      await emitAck("cancel_find_match", { token: tk });
+    } catch {}
 
-    if (res.ok) setIsSearching((prev) => (prev === false ? prev : false));
     return { ok: true };
   }, [emitAck]);
 

@@ -202,9 +202,15 @@ export default function SpinGameScreen() {
   const [addAmount, setAddAmount] = useState(10);
   const [addLoading, setAddLoading] = useState(false);
   const [mobilePlayersSheetVisible, setMobilePlayersSheetVisible] = useState(false);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [preSpinCountdown, setPreSpinCountdown] = useState<number | null>(null);
   const preSpinTimerRef = useRef<any>(null);
-  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const countdownTimerRef = useRef<any>(null);
+  const targetEndTimeRef = useRef<number | null>(null);
+  // ── Rematch State ──────────────────────────────────────────────
+  const [rematchAvailable, setRematchAvailable] = useState<{ originalRoundId: string; timeoutMs: number; betAmount: number } | null>(null);
+  const [rematchAccepted, setRematchAccepted] = useState<boolean>(false);
+  const [rematchCount, setRematchCount] = useState<number>(0);
 
   // ── Voice Chat State ───────────────────────────────────────────
   const [micMuted, setMicMuted] = useState(true);
@@ -213,10 +219,20 @@ export default function SpinGameScreen() {
   const [preJoinRoom, setPreJoinRoom] = useState<any | null>(null);
   const [mutedPlayers, setMutedPlayers] = useState<Set<string>>(new Set());
   const [masterSpeakerMuted, setMasterSpeakerMuted] = useState(false);
+  const [speakingUserIds, setSpeakingUserIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    const unsub = voiceService.onSpeaking((speakers) => {
+      setSpeakingUserIds(speakers);
+    });
+    return () => unsub();
+  }, []);
   const [speakingUsers, setSpeakingUsers] = useState<Record<string, number>>({});
 
   const mutedPlayersRef = useRef<Set<string>>(new Set());
   const masterSpeakerMutedRef = useRef(false);
+  const [mutedRemoteUsers, setMutedRemoteUsers] = useState<Record<string, boolean>>({});
+  const [allRemoteMuted, setAllRemoteMuted] = useState(false);
   const mediaRecorderRef = useRef<any>(null);
   const streamRef = useRef<any>(null);
 
@@ -234,14 +250,17 @@ export default function SpinGameScreen() {
     return Date.now() - lastActive < 1000;
   }, [speakingUsers]);
 
-  const toggleMutePlayer = useCallback((userId: string) => {
+  const toggleMutePlayer = useCallback((targetUserId: string) => {
     setMutedPlayers(prev => {
       const next = new Set(prev);
-      if (next.has(userId)) {
-        next.delete(userId);
+      const isCurrentlyMuted = next.has(targetUserId);
+      const nextMuted = !isCurrentlyMuted;
+      if (isCurrentlyMuted) {
+        next.delete(targetUserId);
       } else {
-        next.add(userId);
+        next.add(targetUserId);
       }
+      voiceService.muteRemoteUser(targetUserId, nextMuted);
       return next;
     });
   }, []);
@@ -397,18 +416,26 @@ export default function SpinGameScreen() {
           });
           break;
         
-        case "spin:countdown":
-          setCountdown(payload.secondsLeft);
+        case "spin:countdown": {
+          // Server countdown takes priority — sync target end timestamp smoothly
+          const sec = payload.secondsLeft;
+          const newTarget = Date.now() + sec * 1000;
+          if (!targetEndTimeRef.current || Math.abs(newTarget - targetEndTimeRef.current) > 1500) {
+            targetEndTimeRef.current = newTarget;
+          }
+          const rem = Math.max(0, Math.ceil((targetEndTimeRef.current - Date.now()) / 1000));
+          setCountdown(rem);
           break;
+        }
 
         case "spin:locked":
           setRound(prev => {
             if (prev && prev.roundId !== payload.roundId) return prev;
             return {
-              ...(prev || { roundId: payload.roundId, mode: "RAIL", players: payload.players || [] }),
+              ...(prev || { roundId: payload.roundId, configId: 0, betAmount: 10, maxPlayers: 5, roomName: "Spin Room", countdown: 0, mode: "RAIL", players: payload.players || [] }),
               status: "locked",
               pot: payload.pot,
-            };
+            } as RoundState;
           });
           // Start 3-2-1 pre-spin countdown
           setPreSpinCountdown(3);
@@ -440,9 +467,9 @@ export default function SpinGameScreen() {
             if (prev && prev.roundId !== payload.roundId) return prev;
             playSpinLoop();
             return {
-              ...(prev || { roundId: payload.roundId, mode: "RAIL", players: [] }),
+              ...(prev || { roundId: payload.roundId, configId: 0, betAmount: 10, maxPlayers: 5, roomName: "Spin Room", countdown: 0, mode: "RAIL", players: [] }),
               status: "spinning",
-            };
+            } as RoundState;
           });
           break;
 
@@ -466,12 +493,39 @@ export default function SpinGameScreen() {
               }
             }
             return {
-              ...(prev || { roundId: payload.roundId, mode: "RAIL", players: [] }),
+              ...(prev || { roundId: payload.roundId, configId: 0, betAmount: 10, maxPlayers: 5, roomName: "Spin Room", countdown: 0, mode: "RAIL", players: [] }),
               status: "resolved",
-            };
+            } as RoundState;
           });
           // Refresh balance
           setTimeout(() => refreshProfile(), 1500);
+          break;
+
+        case "spin:rematch_available":
+          setRematchAvailable({
+            originalRoundId: payload.originalRoundId,
+            timeoutMs: payload.timeoutMs || 15000,
+            betAmount: payload.betAmount || 100,
+          });
+          setRematchAccepted(false);
+          setRematchCount(0);
+          break;
+
+        case "spin:rematch_status":
+          setRematchCount(payload.acceptedCount || 0);
+          break;
+
+        case "spin:rematch_started":
+          if (payload.data) {
+            setRound(payload.data as RoundState);
+            setScreenState("waiting");
+            setIsSpinning(false);
+            setWinningSlice(null);
+            setResultData(null);
+            setRematchAvailable(null);
+            setRematchAccepted(false);
+            setRematchCount(0);
+          }
           break;
 
         case "spin:cancelled":
@@ -552,20 +606,44 @@ export default function SpinGameScreen() {
       if (result.ok && result.data) {
         const state = result.data as RoundState;
         setRound(state);
-        setCountdown(state.countdown);
+        const serverCountdown = state.countdown || 0;
+        setCountdown(serverCountdown);
         setScreenState("waiting");
         setIsSpinning(false);
         setWinningSlice(null);
         setResultData(null);
 
-        // Join Agora voice channel
+        // Start a smooth client-side countdown timer based on target timestamp
+        targetEndTimeRef.current = Date.now() + serverCountdown * 1000;
+        if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+        if (serverCountdown > 0) {
+          countdownTimerRef.current = setInterval(() => {
+            if (!targetEndTimeRef.current) return;
+            const rem = Math.max(0, Math.ceil((targetEndTimeRef.current - Date.now()) / 1000));
+            setCountdown(rem);
+            if (rem <= 0) {
+              clearInterval(countdownTimerRef.current);
+              countdownTimerRef.current = null;
+              targetEndTimeRef.current = null;
+              // Resilient fallback: trigger spin if timer expires
+              setIsSpinning(true);
+              setScreenState("spinning");
+            }
+          }, 300);
+        }
+
+        // Join Agora voice channel (fire and forget, don't block)
         const voiceUid = voiceService.stringToUid(user?.id || "");
-        voiceService.initialize(AGORA_APP_ID).then((initialized) => {
+        voiceService.initialize(AGORA_APP_ID).then(async (initialized) => {
           if (initialized) {
-            voiceService.joinChannel(state.roundId, voiceUid);
-            voiceService.setMute(true); // Default to muted
+            try {
+              await voiceService.joinChannel(state.roundId, voiceUid);
+              await voiceService.setMute(true); // Default to muted
+            } catch (e) {
+              console.warn("[SPIN] Voice join failed (non-critical):", e);
+            }
           }
-        });
+        }).catch(() => {});
         setMicMuted(true);
       } else {
         const errMsg = result.error === "INSUFFICIENT_BALANCE"
@@ -591,14 +669,19 @@ export default function SpinGameScreen() {
   // Keep a ref to the current round so cleanup can access it without stale closure
   const roundRef = useRef<RoundState | null>(null);
   useEffect(() => { roundRef.current = round; }, [round]);
+  const joinAttemptedRef = useRef(false);
 
   // ── Auto-join room when screen comes into focus & cleanup audio on leave ──
   useFocusEffect(
     useCallback(() => {
-      if (mode === "5_PLAYER" && !round) {
-        handleJoinRoom("5_PLAYER");
-      } else if (mode === "RAIL" && stake && !round) {
-        handleJoinRoom("RAIL", Number(stake));
+      if (!joinAttemptedRef.current) {
+        if (mode === "5_PLAYER" && !roundRef.current) {
+          joinAttemptedRef.current = true;
+          handleJoinRoom("5_PLAYER");
+        } else if (mode === "RAIL" && stake && !roundRef.current) {
+          joinAttemptedRef.current = true;
+          handleJoinRoom("RAIL", Number(stake));
+        }
       }
 
       return () => {
@@ -606,12 +689,14 @@ export default function SpinGameScreen() {
         stopAllSounds();
         voiceService.leaveChannel();
         stopRecording();
+        if (countdownTimerRef.current) { clearInterval(countdownTimerRef.current); countdownTimerRef.current = null; }
         const currentRound = roundRef.current;
         if (currentRound) {
           emitAck("spin:leave", { roundId: currentRound.roundId, token }).catch(() => {});
         }
+        joinAttemptedRef.current = false;
       };
-    }, [mode, stake, round, handleJoinRoom, stopAllSounds, stopRecording, emitAck, token])
+    }, [mode, stake, handleJoinRoom, stopAllSounds, stopRecording, emitAck, token])
   );
 
   // ── Actual leave (called after confirmation) ────────────────────────
@@ -619,6 +704,7 @@ export default function SpinGameScreen() {
     setShowLeaveConfirm(false);
     stopAllSounds();
     stopRecording();
+    if (countdownTimerRef.current) { clearInterval(countdownTimerRef.current); countdownTimerRef.current = null; }
     voiceService.leaveChannel();
     if (round) {
       await emitAck("spin:leave", { roundId: round.roundId, token }).catch(() => {});
@@ -628,9 +714,36 @@ export default function SpinGameScreen() {
     setIsSpinning(false);
     setWinningSlice(null);
     setResultData(null);
+    joinAttemptedRef.current = false;
     refreshProfile();
     router.replace("/(authed)/home/gameplay");
   }, [round, emitAck, token, refreshProfile, router, stopAllSounds, stopRecording]);
+
+  // ── Rematch vote handler ──────────────────────────────────────────
+  const handleRematchClick = useCallback(async () => {
+    if (!rematchAvailable || !token) return;
+    try {
+      const result = await emitAck("spin:rematch_vote", {
+        roundId: rematchAvailable.originalRoundId,
+        accept: true,
+        token,
+      });
+      if (result.ok) {
+        setRematchAccepted(true);
+        if ((result as any).acceptedCount !== undefined) {
+          setRematchCount((result as any).acceptedCount);
+        }
+      } else {
+        if (result.error === "INSUFFICIENT_BALANCE") {
+          setError("Not enough balance for 100 ETB rematch!");
+        } else {
+          setError("Rematch request failed.");
+        }
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to submit rematch vote.");
+    }
+  }, [rematchAvailable, token, emitAck]);
 
   // ── Leave room handler — shows confirmation popup ──────────────────
   const handleLeaveRoom = useCallback(() => {
@@ -655,6 +768,8 @@ export default function SpinGameScreen() {
     setWinningSlice(null);
     setResultData(null);
     setCountdown(0);
+    if (countdownTimerRef.current) { clearInterval(countdownTimerRef.current); countdownTimerRef.current = null; }
+    joinAttemptedRef.current = true;
     handleJoinRoom(currentMode, currentStake);
   }, [round, mode, stake, betAmount, handleJoinRoom, stopSpinLoop]);
 
@@ -762,6 +877,12 @@ export default function SpinGameScreen() {
     else if (screen === "admin") router.push("/admin" as any);
   };
 
+  const formatCountdown = useCallback((totalSec: number) => {
+    const mins = Math.floor(Math.max(0, totalSec) / 60);
+    const secs = Math.max(0, totalSec) % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  }, []);
+
   const is5Player = round?.mode === "5_PLAYER" || mode === "5_PLAYER";
   const isRail = round?.mode === "RAIL" || mode === "RAIL";
 
@@ -778,6 +899,25 @@ export default function SpinGameScreen() {
     }
     return base;
   }, [round, user?.id, user?.username, betAmount]);
+
+  // Deduplicate and aggregate stakes by userId so the same user NEVER appears twice in slices or seats
+  const displayPlayers = React.useMemo(() => {
+    const rawList = round ? round.players : previewPlayers;
+    const map = new Map<string, SpinPlayer>();
+    for (const p of rawList) {
+      if (!p || !p.userId) continue;
+      const existing = map.get(p.userId);
+      if (existing) {
+        map.set(p.userId, {
+          ...existing,
+          stake: (Number(existing.stake) || 0) + (Number(p.stake) || 0),
+        });
+      } else {
+        map.set(p.userId, { ...p });
+      }
+    }
+    return Array.from(map.values());
+  }, [round, previewPlayers]);
 
   const previewPot = React.useMemo(() => {
     if (round) return round.pot;
@@ -947,6 +1087,7 @@ export default function SpinGameScreen() {
                     onSpinComplete={handleSpinComplete}
                     status={round ? round.status : "waiting"}
                     mode="5_PLAYER"
+                    speakingUserIds={speakingUserIds}
                   />
                 </View>
 
@@ -1008,31 +1149,59 @@ export default function SpinGameScreen() {
                 </TouchableOpacity>
               </View>
 
-              {/* RIGHT SIDE: Monthly Leaderboard Panel */}
+              {/* RIGHT SIDE: Active Room Players & Per-User Voice Controls Panel */}
               <View style={ds.sidebar5P}>
                 <View style={ds.rightSidebarPanel}>
                   <View style={ds.leaderboardHeader}>
-                    <Text style={ds.leaderboardTitle}>TOP PLAYERS</Text>
-                    <Ionicons name="trophy" size={16} color="#f5b642" />
+                    <Text style={ds.leaderboardTitle}>ROOM PLAYERS ({round?.players?.length || 0}/5)</Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        const newAllMuted = !allRemoteMuted;
+                        setAllRemoteMuted(newAllMuted);
+                        voiceService.muteAllRemoteUsers(newAllMuted);
+                      }}
+                      style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: allRemoteMuted ? "rgba(239, 68, 68, 0.2)" : "rgba(34, 197, 94, 0.15)", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 }}
+                    >
+                      <Ionicons name={allRemoteMuted ? "volume-mute" : "volume-high"} size={14} color={allRemoteMuted ? "#ef4444" : "#22c55e"} />
+                      <Text style={{ color: allRemoteMuted ? "#ef4444" : "#22c55e", fontSize: 11, fontWeight: "600" }}>
+                        {allRemoteMuted ? "Muted All" : "Mute All"}
+                      </Text>
+                    </TouchableOpacity>
                   </View>
                   {Array.from({ length: 5 }, (_, idx) => {
-                    const lead = leaderboard && leaderboard[idx] ? leaderboard[idx] : null;
-                    const rank = idx + 1;
-                    const circleBg = rank === 1 ? "#f5b642" : (rank === 2 ? "#b9cacb" : (rank === 3 ? "#f97316" : (rank === 4 ? "#a855f7" : "#22c55e")));
+                    const player = round?.players && round.players[idx] ? round.players[idx] : null;
+                    const isSelf = player?.userId === user?.id;
+                    const isMuted = player ? !!mutedRemoteUsers[player.userId] : false;
                     return (
-                      <View key={lead?.id || idx} style={ds.leaderRow}>
-                        <View style={[ds.leaderBadge, { backgroundColor: circleBg, opacity: lead ? 1 : 0.4 }]}>
-                          <Text style={ds.leaderBadgeText}>{rank}</Text>
+                      <View key={player?.userId || idx} style={ds.leaderRow}>
+                        <View style={[ds.leaderBadge, { backgroundColor: player ? (isSelf ? "#06b6d4" : "#3b82f6") : "rgba(255,255,255,0.08)", opacity: player ? 1 : 0.4 }]}>
+                          <Text style={ds.leaderBadgeText}>{idx + 1}</Text>
                         </View>
                         <View style={ds.leaderDetails}>
-                          <Text style={[ds.leaderName, !lead && { color: "rgba(255,255,255,0.3)" }]} numberOfLines={1}>
-                            {lead ? `@${lead.username}` : "@---"}
+                          <Text style={[ds.leaderName, !player && { color: "rgba(255,255,255,0.3)" }]} numberOfLines={1}>
+                            {player ? `${player.username}${isSelf ? " (You)" : ""}` : "Waiting for player..."}
                           </Text>
-                          <Text style={[ds.leaderVal, !lead && { color: "rgba(255,255,255,0.2)" }]}>
-                            {lead ? `${lead.wins || lead.score || 0} Wins` : "0 Wins"}
+                          <Text style={[ds.leaderVal, !player && { color: "rgba(255,255,255,0.2)" }]}>
+                            {player ? `${player.stake} ETB` : "Empty Seat"}
                           </Text>
                         </View>
-                        {rank === 1 && lead && <Ionicons name="ribbon" size={16} color="#f5b642" />}
+                        {player && !isSelf && (
+                          <TouchableOpacity
+                            onPress={() => {
+                              const nextMuted = !isMuted;
+                              setMutedRemoteUsers(prev => ({ ...prev, [player.userId]: nextMuted }));
+                              voiceService.muteRemoteUser(player.userId, nextMuted);
+                            }}
+                            style={{ padding: 6, backgroundColor: isMuted ? "rgba(239,68,68,0.2)" : "rgba(255,255,255,0.08)", borderRadius: 8 }}
+                          >
+                            <Ionicons name={isMuted ? "mic-off" : "mic"} size={16} color={isMuted ? "#ef4444" : "#22c55e"} />
+                          </TouchableOpacity>
+                        )}
+                        {player && isSelf && (
+                          <View style={{ padding: 6, backgroundColor: "rgba(6, 182, 212, 0.15)", borderRadius: 8 }}>
+                            <Ionicons name="person" size={16} color="#06b6d4" />
+                          </View>
+                        )}
                       </View>
                     );
                   })}
@@ -1220,7 +1389,7 @@ export default function SpinGameScreen() {
                 <View style={ds.countdownBox}>
                   <Text style={ds.countdownLabel}>SPIN ENDS IN</Text>
                   <Text style={ds.countdownTime}>
-                    00:{countdown.toString().padStart(2, '0')}
+                    {formatCountdown(countdown)}
                   </Text>
                 </View>
 
@@ -1235,6 +1404,7 @@ export default function SpinGameScreen() {
                     onSpinComplete={handleSpinComplete}
                     status={round ? round.status : "waiting"}
                     mode="RAIL"
+                    speakingUserIds={speakingUserIds}
                   />
                 </View>
 
@@ -1392,7 +1562,7 @@ export default function SpinGameScreen() {
                   }}>
                     <Ionicons name="time-outline" size={16} color="#f5b642" />
                     <Text style={{ color: "#f5b642", fontSize: 18, fontWeight: "900", fontFamily: "Inter, sans-serif" }}>
-                      00 : {countdown.toString().padStart(2, '0')}
+                      {formatCountdown(countdown)}
                     </Text>
                   </View>
                 </View>
@@ -1506,13 +1676,14 @@ export default function SpinGameScreen() {
             <View style={{ flex: 1, alignItems: "center", justifyContent: "center", marginVertical: 6, position: "relative" }}>
               <SpinWheel
                 size={Math.min(screenW - 48, 320)}
-                players={round ? round.players : previewPlayers}
+                players={displayPlayers}
                 isSpinning={screenState === "spinning"}
                 winningSlice={winningSlice}
                 spinDuration={spinDuration}
                 onSpinComplete={handleSpinComplete}
                 status={round ? round.status : "waiting"}
                 mode={is5Player ? "5_PLAYER" : "RAIL"}
+                speakingUserIds={speakingUserIds}
               />
 
               {/* Glowing Stage Pedestal ring under wheel base in 5-player mode */}
@@ -1663,7 +1834,7 @@ export default function SpinGameScreen() {
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                 {/* Joined Players Profiles */}
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: "row", alignItems: "center", gap: 8 }} style={{ flex: 1, marginRight: 8 }}>
-                  {(round ? round.players : previewPlayers).map((p: any, idx: number) => {
+                  {displayPlayers.map((p: any, idx: number) => {
                     const borderColors = ["#ef4444", "#a78bfa", "#22c55e", "#00daf3", "#f5b642"];
                     const color = borderColors[idx % borderColors.length];
                     const rawName = p.username || "Player";
@@ -1836,6 +2007,23 @@ export default function SpinGameScreen() {
 
             {/* Action Buttons */}
             <View style={ds.resultActions}>
+              {round?.mode === "5_PLAYER" && rematchAvailable && (
+                <TouchableOpacity
+                  onPress={handleRematchClick}
+                  disabled={rematchAccepted}
+                  style={[
+                    ds.resultPlayAgainBtn,
+                    { backgroundColor: rematchAccepted ? "#22c55e" : "#7c3aed", marginBottom: 10 },
+                  ]}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name={rematchAccepted ? "checkmark-circle" : "refresh-circle"} size={18} color="#fff" />
+                  <Text style={ds.resultPlayAgainText}>
+                    {rematchAccepted ? `ACCEPTED (${rematchCount})` : "REMATCH (100 ETB)"}
+                  </Text>
+                </TouchableOpacity>
+              )}
+
               <TouchableOpacity
                 onPress={handlePlayAgain}
                 style={[ds.resultPlayAgainBtn, isMyWin && { backgroundColor: "#ca8a04" }]}

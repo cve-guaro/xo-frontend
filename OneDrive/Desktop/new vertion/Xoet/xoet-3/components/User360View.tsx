@@ -11,22 +11,22 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 
 const C = {
-  primary: '#00daf3',
-  primaryContainer: '#00a3ff',
-  secondary: '#00daf3',
-  background: '#09090b',
-  surface: '#18181b',
-  surfaceContainerLowest: '#030303',
-  surfaceContainerLow: '#0f0f11',
-  surfaceContainer: '#1e1e24',
-  surfaceContainerHigh: '#27272a',
-  surfaceContainerHighest: '#3f3f46',
+  primary: '#7c3aed',
+  primaryContainer: '#6d28d9',
+  secondary: '#22d3ee',
+  background: '#0d1220',
+  surface: '#13182c',
+  surfaceContainerLowest: '#0a0e1a',
+  surfaceContainerLow: '#101526',
+  surfaceContainer: '#171d33',
+  surfaceContainerHigh: '#1f2540',
+  surfaceContainerHighest: '#2a3150',
   onSurface: '#f4f4f5',
-  onSurfaceVariant: '#a1a1aa',
-  outlineVariant: 'rgba(39, 39, 42, 0.6)',
+  onSurfaceVariant: '#94a3b8',
+  outlineVariant: '#1f2540',
   error: '#ef4444',
-  success: '#34d399',
-  gold: '#fbbf24',
+  success: '#22c55e',
+  gold: '#f5b642',
 };
 
 const fmt = (n: number) => {

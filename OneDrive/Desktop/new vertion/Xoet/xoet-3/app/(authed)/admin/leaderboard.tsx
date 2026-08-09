@@ -462,11 +462,11 @@ export default function AdminLeaderboardPage() {
             </LinearGradient>
           </View>
 
-          {/* ================= PROTOCOL DISTRIBUTION MODE SELECTOR ================= */}
+          {/* ================= PAYOUT MODE SELECTOR ================= */}
           <View style={s.modeSelectorCard}>
             <View style={s.modeSelectorHeader}>
               <Ionicons name="git-network-outline" size={16} color={C.accent} />
-              <Text style={s.modeSelectorTitle}>SYSTEM SETTLEMENT PROTOCOL MODE</Text>
+              <Text style={s.modeSelectorTitle}>PAYOUT MODE</Text>
             </View>
             <View style={s.modeBtnContainer}>
               <TouchableOpacity 
@@ -475,7 +475,7 @@ export default function AdminLeaderboardPage() {
                 style={[s.modeBtn, autoApprove ? s.modeBtnActive : null, { borderTopLeftRadius: 12, borderBottomLeftRadius: 12 }]}
               >
                 <Ionicons name="flash-sharp" size={16} color={autoApprove ? "#000" : C.green} style={{ marginRight: 6 }} />
-                <Text style={[s.modeBtnText, autoApprove ? s.modeBtnTextActive : null]}>AUTOMATIC PROTOCOL</Text>
+                <Text style={[s.modeBtnText, autoApprove ? s.modeBtnTextActive : null]}>AUTOMATIC</Text>
               </TouchableOpacity>
               <TouchableOpacity 
                 activeOpacity={0.8} 
@@ -483,7 +483,7 @@ export default function AdminLeaderboardPage() {
                 style={[s.modeBtn, !autoApprove ? s.modeBtnActive : null, { borderTopRightRadius: 12, borderBottomRightRadius: 12 }]}
               >
                 <Ionicons name="hammer-sharp" size={16} color={!autoApprove ? "#000" : "#f59e0b"} style={{ marginRight: 6 }} />
-                <Text style={[s.modeBtnText, !autoApprove ? s.modeBtnTextActive : null]}>MANUAL CONSOLE</Text>
+                <Text style={[s.modeBtnText, !autoApprove ? s.modeBtnTextActive : null]}>MANUAL</Text>
               </TouchableOpacity>
             </View>
             <Text style={s.modeHintText}>

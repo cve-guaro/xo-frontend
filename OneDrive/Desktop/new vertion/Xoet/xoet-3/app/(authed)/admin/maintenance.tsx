@@ -183,7 +183,7 @@ export default function Maintenance() {
       <View style={s.header}>
         <View>
           <Text style={s.pageTitle}>System Maintenance</Text>
-          <Text style={s.pageSubtitle}>Manage feature toggles and emergency lockdowns</Text>
+          <Text style={s.pageSubtitle}>System operational toggles, maintenance mode, and emergency access</Text>
         </View>
       </View>
 
@@ -194,7 +194,7 @@ export default function Maintenance() {
             <View style={[s.iconBg, { backgroundColor: isEmergencyLocked ? 'rgba(253,111,133,0.2)' : 'rgba(166,140,255,0.2)' }]}>
               <Ionicons name="warning" size={20} color={isEmergencyLocked ? C.error : C.primary} />
             </View>
-            <Text style={[s.cardTitle, isEmergencyLocked && { color: C.error, textShadowColor: 'rgba(253,111,133,0.5)', textShadowRadius: 10 }]}>Emergency Lockdown</Text>
+            <Text style={[s.cardTitle, isEmergencyLocked && { color: C.error, textShadowColor: 'rgba(253,111,133,0.5)', textShadowRadius: 10 }]}>Emergency Maintenance Lockout</Text>
           </View>
           <Switch
             value={isEmergencyLocked}
@@ -263,9 +263,10 @@ export default function Maintenance() {
       </View>
 
       <View style={s.card}>
-        <Text style={s.cardTitle}>Social Features</Text>
-        <Text style={s.cardDesc}>Manage leaderboards and social elements.</Text>
-        <FeatureRow title="Leaderboard" desc="Show the global leaderboard to users." featureKey="feature_leaderboard" />
+        <Text style={s.cardTitle}>Social & Competition Features</Text>
+        <Text style={s.cardDesc}>Manage leaderboards, rewards, and social elements.</Text>
+        <FeatureRow title="Master Leaderboard Active" desc="Master switch. When OFF, leaderboard is disabled, UI shows maintenance state, and auto-payout cron is paused." featureKey="leaderboard_enabled" warning={true} />
+        <FeatureRow title="Leaderboard Feature" desc="Show the global leaderboard tab to users." featureKey="feature_leaderboard" />
       </View>
 
     </ScrollView>
@@ -297,14 +298,9 @@ const s = StyleSheet.create({
     padding: 24,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: 'rgba(39, 39, 42, 0.6)',
-    shadowColor: C.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 24,
-    elevation: 10,
+    borderColor: C.border,
   },
-  cardTitle: { fontSize: 18, fontWeight: '900', color: '#fff', marginBottom: 6, letterSpacing: 0.5 },
+  cardTitle: { fontSize: 18, fontWeight: '900', color: '#ffffff', marginBottom: 6, letterSpacing: 0.5 },
   cardDesc: { fontSize: 13, color: C.onSurfaceVariant, marginBottom: 20, lineHeight: 20 },
   
   iconBg: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
@@ -317,48 +313,45 @@ const s = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 16,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.05)',
+    borderTopColor: C.border,
   },
-  featureTitle: { fontSize: 15, fontWeight: '700', color: '#fff', marginBottom: 4 },
-  featureDesc: { fontSize: 12, color: 'rgba(255,255,255,0.5)' },
+  featureTitle: { fontSize: 15, fontWeight: '700', color: '#ffffff', marginBottom: 4 },
+  featureDesc: { fontSize: 12, color: C.onSurfaceVariant },
   
-  whitelistContainer: { marginTop: 20, borderTopWidth: 1, borderTopColor: 'rgba(253,111,133,0.2)', paddingTop: 20 },
+  whitelistContainer: { marginTop: 20, borderTopWidth: 1, borderTopColor: C.border, paddingTop: 20 },
   sectionTitle: { fontSize: 14, fontWeight: '700', color: C.onSurface, marginBottom: 12 },
   whitelistInputRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
   input: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: C.surfaceContainerLowest,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: C.border,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    color: '#fff',
+    color: '#ffffff',
     fontSize: 14,
   },
   addBtn: {
-    backgroundColor: C.primaryContainer,
+    backgroundColor: C.primary,
     borderRadius: 12,
     paddingHorizontal: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  addBtnText: { color: '#fff', fontWeight: 'bold' },
+  addBtnText: { color: '#ffffff', fontWeight: 'bold' },
   whitelistList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   whitelistChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,218,243,0.1)',
+    backgroundColor: 'rgba(124,58,237,0.15)',
     borderWidth: 1,
-    borderColor: 'rgba(0,218,243,0.3)',
+    borderColor: C.border,
     borderRadius: 10,
     paddingLeft: 12,
     paddingRight: 4,
     paddingVertical: 6,
     gap: 8,
-    shadowColor: C.secondary,
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
   },
   whitelistText: { color: C.secondary, fontSize: 13, fontWeight: '800' }
 });
