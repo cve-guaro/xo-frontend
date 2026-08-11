@@ -214,7 +214,7 @@ export default function SpinGameScreen() {
   const stopSpinLoop = useCallback(() => {
     try {
       spinLoopSound.pause();
-      spinLoopSound.currentTime = 0;
+      spinLoopSound.seekTo(0);
     } catch (e) { console.warn("stopSpinLoop error:", e); }
   }, [spinLoopSound]);
 
@@ -224,7 +224,7 @@ export default function SpinGameScreen() {
   }, [stopSpinLoop]);
 
   const stopAllSounds = useCallback(() => {
-    try { spinLoopSound.pause(); spinLoopSound.currentTime = 0; } catch (e) {}
+    try { spinLoopSound.pause(); spinLoopSound.seekTo(0); } catch (e) {}
     try { winSound.pause(); } catch (e) {}
     try { loseSound.pause(); } catch (e) {}
     try { addMoneySound.pause(); } catch (e) {}
