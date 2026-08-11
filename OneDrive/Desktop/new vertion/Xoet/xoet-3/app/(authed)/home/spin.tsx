@@ -103,6 +103,51 @@ function CelebrationConfetti() {
   );
 }
 
+// ── Animated Voice Equalizer Wave ─────────────────────────────────────────
+function SpeakingWaveAnimation() {
+  const bar1 = useRef(new Animated.Value(4)).current;
+  const bar2 = useRef(new Animated.Value(12)).current;
+  const bar3 = useRef(new Animated.Value(8)).current;
+  const bar4 = useRef(new Animated.Value(16)).current;
+
+  useEffect(() => {
+    const createLoop = (anim: Animated.Value, min: number, max: number, duration: number) => {
+      return Animated.loop(
+        Animated.sequence([
+          Animated.timing(anim, { toValue: max, duration, useNativeDriver: false }),
+          Animated.timing(anim, { toValue: min, duration, useNativeDriver: false }),
+        ])
+      );
+    };
+
+    const anim1 = createLoop(bar1, 4, 18, 250);
+    const anim2 = createLoop(bar2, 3, 16, 320);
+    const anim3 = createLoop(bar3, 5, 20, 280);
+    const anim4 = createLoop(bar4, 4, 14, 350);
+
+    anim1.start();
+    anim2.start();
+    anim3.start();
+    anim4.start();
+
+    return () => {
+      anim1.stop();
+      anim2.stop();
+      anim3.stop();
+      anim4.stop();
+    };
+  }, [bar1, bar2, bar3, bar4]);
+
+  return (
+    <View style={{ flexDirection: "row", alignItems: "flex-end", height: 18, gap: 2, marginLeft: 6 }}>
+      <Animated.View style={{ width: 3, height: bar1, backgroundColor: "#22c55e", borderRadius: 2 }} />
+      <Animated.View style={{ width: 3, height: bar2, backgroundColor: "#22c55e", borderRadius: 2 }} />
+      <Animated.View style={{ width: 3, height: bar3, backgroundColor: "#22c55e", borderRadius: 2 }} />
+      <Animated.View style={{ width: 3, height: bar4, backgroundColor: "#22c55e", borderRadius: 2 }} />
+    </View>
+  );
+}
+
 // ── Types ──────────────────────────────────────────────────────────────────
 type SpinPlayer = {
   userId: string;
@@ -169,11 +214,17 @@ export default function SpinGameScreen() {
   const stopSpinLoop = useCallback(() => {
     try {
       spinLoopSound.pause();
+      spinLoopSound.seekTo(0);
     } catch (e) { console.warn("stopSpinLoop error:", e); }
   }, [spinLoopSound]);
 
+  const handleSpinComplete = useCallback(() => {
+    stopSpinLoop();
+    setIsSpinning(false);
+  }, [stopSpinLoop]);
+
   const stopAllSounds = useCallback(() => {
-    try { spinLoopSound.pause(); } catch (e) {}
+    try { spinLoopSound.pause(); spinLoopSound.seekTo(0); } catch (e) {}
     try { winSound.pause(); } catch (e) {}
     try { loseSound.pause(); } catch (e) {}
     try { addMoneySound.pause(); } catch (e) {}
@@ -748,12 +799,6 @@ export default function SpinGameScreen() {
   // ── Leave room handler — shows confirmation popup ──────────────────
   const handleLeaveRoom = useCallback(() => {
     setShowLeaveConfirm(true);
-  }, []);
-
-  // ── Spin complete handler ────────────────────────────────────────────
-  const handleSpinComplete = useCallback(() => {
-    // Animation done — result will come from server
-    setIsSpinning(false);
   }, []);
 
   // ── Play again handler ───────────────────────────────────────────────
@@ -1922,85 +1967,77 @@ export default function SpinGameScreen() {
 
           <View style={[
             ds.resultPopup,
-            isMyWin
-              ? {
-                  backgroundColor: "#1a1202",
-                  borderColor: "#f5b642",
-                  borderWidth: 2.5,
-                  shadowColor: "#f5b642",
-                  shadowOffset: { width: 0, height: 0 },
-                  shadowOpacity: 0.9,
-                  shadowRadius: 25,
-                  elevation: 15,
-                }
-              : {
-                  backgroundColor: "#161019",
-                  borderColor: "#cd7f32",
-                  borderWidth: 2,
-                  shadowColor: "#cd7f32",
-                  shadowOffset: { width: 0, height: 0 },
-                  shadowOpacity: 0.5,
-                  shadowRadius: 15,
-                  elevation: 10,
-                }
+            {
+              backgroundColor: "rgba(13, 16, 33, 0.96)",
+              borderColor: isMyWin ? "#F5B642" : "rgba(255, 255, 255, 0.12)",
+              borderWidth: 2,
+              borderRadius: 28,
+              padding: 24,
+              shadowColor: isMyWin ? "#F5B642" : "#7C3AED",
+              shadowOffset: { width: 0, height: 8 },
+              shadowOpacity: 0.7,
+              shadowRadius: 30,
+              elevation: 20,
+            }
           ]}>
             {/* Trophy / Ribbon Icon Circle */}
             <View style={{
-              width: 84,
-              height: 84,
-              borderRadius: 42,
-              backgroundColor: isMyWin ? "rgba(245, 182, 66, 0.2)" : "rgba(205, 127, 50, 0.2)",
+              width: 80,
+              height: 80,
+              borderRadius: 40,
+              backgroundColor: isMyWin ? "rgba(245, 182, 66, 0.18)" : "rgba(124, 58, 237, 0.18)",
               borderWidth: 2,
-              borderColor: isMyWin ? "#fde047" : "#cd7f32",
+              borderColor: isMyWin ? "#F5B642" : "#7C3AED",
               alignItems: "center",
               justifyContent: "center",
-              marginBottom: 12,
+              marginBottom: 14,
             }}>
               <Ionicons
                 name={isMyWin ? "trophy" : "ribbon"}
-                size={48}
-                color={isMyWin ? "#f5b642" : "#cd7f32"}
+                size={44}
+                color={isMyWin ? "#F5B642" : "#A78BFA"}
               />
             </View>
 
             {/* Title */}
             <Text style={{
-              color: isMyWin ? "#fde047" : "#cd7f32",
+              color: isMyWin ? "#FDE047" : "#FFFFFF",
               fontSize: 24,
               fontWeight: "900",
-              textShadowColor: isMyWin ? "#ca8a04" : "#78350f",
-              textShadowRadius: 8,
+              letterSpacing: 0.5,
+              textShadowColor: isMyWin ? "rgba(245, 182, 66, 0.6)" : "rgba(0,0,0,0.8)",
+              textShadowRadius: 10,
             }}>
-              {isMyWin ? "🎉 YOU WON!" : "Better Luck Next Time"}
+              {isMyWin ? "🎉 VICTORY!" : "Better Luck Next Time"}
             </Text>
 
             {/* Winner Info */}
-            <View style={ds.resultWinnerRow}>
-              <View style={[ds.seatAvatar, { backgroundColor: isMyWin ? "#f5b642" : "#cd7f32", width: 36, height: 36, borderRadius: 18, marginRight: 10 }]}>
-                <Text style={[ds.seatAvatarText, { fontSize: 13 }]}>
+            <View style={[ds.resultWinnerRow, { backgroundColor: "rgba(255, 255, 255, 0.04)", paddingHorizontal: 16, paddingVertical: 10, borderRadius: 16, marginVertical: 12, borderWidth: 1, borderColor: "rgba(255, 255, 255, 0.06)" }]}>
+              <View style={[ds.seatAvatar, { backgroundColor: isMyWin ? "#F5B642" : "#7C3AED", width: 36, height: 36, borderRadius: 18, marginRight: 10 }]}>
+                <Text style={[ds.seatAvatarText, { fontSize: 13, color: "#FFFFFF" }]}>
                   {resultData.winnerName.slice(0, 2).toUpperCase()}
                 </Text>
               </View>
               <View>
-                <Text style={ds.resultWinnerName}>{resultData.winnerName}</Text>
-                <Text style={ds.resultWinnerLabel}>Winner</Text>
+                <Text style={[ds.resultWinnerName, { color: "#FFFFFF", fontWeight: "900" }]}>{resultData.winnerName}</Text>
+                <Text style={[ds.resultWinnerLabel, { color: "rgba(255, 255, 255, 0.5)" }]}>Round Winner</Text>
               </View>
             </View>
 
             {/* Prize Amount Box */}
             <View style={{
-              backgroundColor: isMyWin ? "rgba(245, 182, 66, 0.15)" : "rgba(205, 127, 50, 0.15)",
+              backgroundColor: isMyWin ? "rgba(245, 182, 66, 0.12)" : "rgba(124, 58, 237, 0.12)",
               borderWidth: 1.5,
-              borderColor: isMyWin ? "#f5b642" : "#cd7f32",
-              borderRadius: 16,
+              borderColor: isMyWin ? "rgba(245, 182, 66, 0.4)" : "rgba(124, 58, 237, 0.4)",
+              borderRadius: 20,
               paddingHorizontal: 24,
-              paddingVertical: 12,
-              marginVertical: 14,
+              paddingVertical: 14,
+              marginBottom: 16,
               alignItems: "center",
               width: "100%",
             }}>
-              <Text style={{ color: isMyWin ? "#fef08a" : "#e2e8f0", fontSize: 12, fontWeight: "800", letterSpacing: 1 }}>PRIZE WON</Text>
-              <Text style={{ color: "#ffffff", fontSize: 26, fontWeight: "900", marginTop: 4 }}>
+              <Text style={{ color: isMyWin ? "#FEF08A" : "#A78BFA", fontSize: 11, fontWeight: '800', letterSpacing: 1.2 }}>PRIZE WON</Text>
+              <Text style={{ color: "#FFFFFF", fontSize: 28, fontWeight: "900", marginTop: 4 }}>
                 {resultData.prizeAmount.toLocaleString()} ETB
               </Text>
             </View>
@@ -2013,7 +2050,7 @@ export default function SpinGameScreen() {
                   disabled={rematchAccepted}
                   style={[
                     ds.resultPlayAgainBtn,
-                    { backgroundColor: rematchAccepted ? "#22c55e" : "#7c3aed", marginBottom: 10 },
+                    { backgroundColor: rematchAccepted ? "#22C55E" : "#7C3AED", marginBottom: 10, borderRadius: 16 },
                   ]}
                   activeOpacity={0.85}
                 >
@@ -2026,11 +2063,11 @@ export default function SpinGameScreen() {
 
               <TouchableOpacity
                 onPress={handlePlayAgain}
-                style={[ds.resultPlayAgainBtn, isMyWin && { backgroundColor: "#ca8a04" }]}
+                style={[ds.resultPlayAgainBtn, { backgroundColor: isMyWin ? "#F5B642" : "#7C3AED", borderRadius: 16 }]}
                 activeOpacity={0.85}
               >
                 <Ionicons name="reload" size={16} color="#fff" />
-                <Text style={ds.resultPlayAgainText}>PLAY AGAIN</Text>
+                <Text style={[ds.resultPlayAgainText, { color: "#FFFFFF" }]}>PLAY AGAIN</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -2045,11 +2082,11 @@ export default function SpinGameScreen() {
                   refreshProfile();
                   router.replace("/(authed)/home/gameplay");
                 }}
-                style={ds.resultLeaveBtn}
+                style={[ds.resultLeaveBtn, { backgroundColor: "rgba(239, 68, 68, 0.1)", borderWidth: 1, borderColor: "rgba(239, 68, 68, 0.3)", borderRadius: 16 }]}
                 activeOpacity={0.85}
               >
-                <Ionicons name="exit-outline" size={16} color="#ef4444" />
-                <Text style={ds.resultLeaveText}>LEAVE</Text>
+                <Ionicons name="exit-outline" size={16} color="#EF4444" />
+                <Text style={[ds.resultLeaveText, { color: "#EF4444" }]}>LEAVE</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -2088,18 +2125,22 @@ export default function SpinGameScreen() {
                 const isSelf = p.userId === user?.id;
                 const isMuted = mutedPlayers.has(p.userId);
                 const isSelfHost = round?.players[0]?.userId === user?.id;
+                const isSpeaking = Array.isArray(speakingUserIds) && speakingUserIds.some(id => String(id) === String(p.userId));
 
                 return (
-                  <View key={p.userId || idx} style={ds.drawerPlayerRow}>
-                    <View style={[ds.drawerAvatarCircle, { borderColor: color }]}>
-                      <Ionicons name="person" size={18} color={color} />
+                  <View key={p.userId || idx} style={[ds.drawerPlayerRow, !isMuted && { borderColor: '#22c55e', borderWidth: 1.5 }]}>
+                    <View style={[ds.drawerAvatarCircle, { borderColor: !isMuted ? '#22c55e' : color }]}>
+                      <Ionicons name="person" size={18} color={!isMuted ? '#22c55e' : color} />
                     </View>
                     <View style={{ flex: 1, marginLeft: 12 }}>
-                      <Text style={ds.drawerPlayerName}>{isSelf ? "You (" + (p.username || "Zara") + ")" : p.username || "Zara"}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={ds.drawerPlayerName}>{isSelf ? "You (" + (p.username || "Zara") + ")" : p.username || "Zara"}</Text>
+                        {isSpeaking && <SpeakingWaveAnimation />}
+                      </View>
                       <Text style={[ds.drawerPlayerStake, { color }]}>{p.stake || 100} ETB</Text>
                     </View>
 
-                    {/* Microphone Icon Button on right (replacing pencil/pin icon) */}
+                    {/* Microphone Icon Button on right with mute/unmute action */}
                     <TouchableOpacity
                       onPress={() => {
                         if (isSelfHost) {
@@ -2108,13 +2149,13 @@ export default function SpinGameScreen() {
                           toggleMutePlayer(p.userId);
                         }
                       }}
-                      style={[ds.drawerMicBtn, { borderColor: color }]}
+                      style={[ds.drawerMicBtn, { borderColor: isMuted ? '#ef4444' : '#22c55e', backgroundColor: isMuted ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)' }]}
                       activeOpacity={0.8}
                     >
                       <Ionicons
-                        name={isMuted ? "mic-off-outline" : "mic-outline"}
+                        name={isMuted ? "mic-off-outline" : "mic"}
                         size={18}
-                        color={isMuted ? "#ef4444" : color}
+                        color={isMuted ? "#ef4444" : "#22c55e"}
                       />
                     </TouchableOpacity>
                   </View>
