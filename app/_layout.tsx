@@ -48,6 +48,8 @@ import GlobalToastContainer from "../components/GlobalToast";
 import { PwaInstallBanner } from "../components/PwaInstallBanner";
 import { FeatureProvider } from "../context/FeatureContext";
 import { FeatureGate } from "../components/FeatureGate";
+import { SmoothScroll } from "../components/SmoothScroll";
+
 
 // ✅ Suppress known-safe React Native Web deprecation warnings in browser console.
 // LogBox only filters the in-app overlay; patching console.warn/error is needed for DevTools.
@@ -197,17 +199,19 @@ function RootLayout() {
       <FeatureProvider>
         <BackgroundMusicProvider>
           <ToastProvider>
-            <SafeAreaProvider style={{ flex: 1, ...(Platform.OS === 'web' ? { height: '100vh', width: '100vw' } : {}) } as any}>
-              <StatusBar style="light" />
-              <AuthGate>
-                <FeatureGate>
-                  <Slot />
-                  <GlobalUIComponents />
-                  <GlobalToastContainer />
-                  {Platform.OS === 'web' && <PwaInstallBanner />}
-                </FeatureGate>
-              </AuthGate>
-            </SafeAreaProvider>
+            <SmoothScroll>
+              <SafeAreaProvider style={{ flex: 1, ...(Platform.OS === 'web' ? { height: '100vh', width: '100vw' } : {}) } as any}>
+                <StatusBar style="light" />
+                <AuthGate>
+                  <FeatureGate>
+                    <Slot />
+                    <GlobalUIComponents />
+                    <GlobalToastContainer />
+                    {Platform.OS === 'web' && <PwaInstallBanner />}
+                  </FeatureGate>
+                </AuthGate>
+              </SafeAreaProvider>
+            </SmoothScroll>
           </ToastProvider>
         </BackgroundMusicProvider>
       </FeatureProvider>

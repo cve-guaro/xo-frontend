@@ -1651,6 +1651,38 @@ export default function SpinGameScreen() {
               </View>
             </View>
 
+            {/* Prize Pool & Players Joined Header Card (Matching Reference Design) */}
+            {!is5Player && (
+              <View style={{
+                alignItems: "center",
+                justifyContent: "center",
+                width: "100%",
+                marginVertical: 4,
+                paddingVertical: 10,
+                paddingHorizontal: 16,
+                backgroundColor: "rgba(18, 22, 38, 0.75)",
+                borderRadius: 18,
+                borderWidth: 1,
+                borderColor: "rgba(255, 255, 255, 0.12)",
+              }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                  <Ionicons name="information-circle" size={14} color="#f5b642" />
+                  <Text style={{ color: "rgba(255, 255, 255, 0.8)", fontSize: 11, fontWeight: "800", letterSpacing: 1.2 }}>
+                    PRIZE POOL
+                  </Text>
+                </View>
+                <Text style={{ color: "#f5b642", fontSize: 30, fontWeight: "900", marginVertical: 2, letterSpacing: 0.5 }}>
+                  {previewPot.toLocaleString()} ETB
+                </Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 }}>
+                  <Ionicons name="people" size={14} color="rgba(255, 255, 255, 0.7)" />
+                  <Text style={{ color: "rgba(255, 255, 255, 0.85)", fontSize: 13, fontWeight: "700" }}>
+                    {round ? round.players.length : (previewPlayers.length || 0)} Players Joined
+                  </Text>
+                </View>
+              </View>
+            )}
+
             {/* 5-PLAYER SPIN BANNER HEADER & SIDE BADGES (Image 1 Style) */}
             {is5Player && (
               <View style={{ alignItems: "center", width: "100%", marginVertical: 4 }}>
@@ -1730,6 +1762,27 @@ export default function SpinGameScreen() {
                 mode={is5Player ? "5_PLAYER" : "RAIL"}
                 speakingUserIds={speakingUserIds}
               />
+
+              {/* 3-Second Pre-Spin Countdown Readiness Overlay */}
+              {(preSpinCountdown !== null || round?.status === "locked") && (
+                <View style={{
+                  position: "absolute",
+                  width: Math.min(screenW - 48, 320),
+                  height: Math.min(screenW - 48, 320),
+                  borderRadius: Math.min(screenW - 48, 320) / 2,
+                  backgroundColor: "rgba(6, 8, 20, 0.78)",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  zIndex: 25,
+                }}>
+                  <Text style={{ color: "#f5b642", fontSize: 72, fontWeight: "900", textShadowColor: "#000", textShadowRadius: 14 }}>
+                    {preSpinCountdown !== null ? preSpinCountdown : 3}
+                  </Text>
+                  <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "900", letterSpacing: 2, marginTop: 4 }}>
+                    GET READY!
+                  </Text>
+                </View>
+              )}
 
               {/* Glowing Stage Pedestal ring under wheel base in 5-player mode */}
               {is5Player && (
