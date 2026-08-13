@@ -257,6 +257,9 @@ export default function SpinGameScreen() {
   const [preSpinCountdown, setPreSpinCountdown] = useState<number | null>(null);
   const preSpinTimerRef = useRef<any>(null);
   const countdownTimerRef = useRef<any>(null);
+  // Store pending spin data so we can defer the spin until preSpinCountdown finishes
+  const pendingSpinDataRef = useRef<{ winningSlice: number; spinDuration: number; roundId: string; winnerId?: string } | null>(null);
+  const [pendingWinnerId, setPendingWinnerId] = useState<string | null>(null);
   const targetEndTimeRef = useRef<number | null>(null);
   // ── Rematch State ──────────────────────────────────────────────
   const [rematchAvailable, setRematchAvailable] = useState<{ originalRoundId: string; timeoutMs: number; betAmount: number } | null>(null);
@@ -397,6 +400,8 @@ export default function SpinGameScreen() {
         setScreenState("browse");
         setRound(null);
         setWinningSlice(null);
+        setPendingWinnerId(null);
+        pendingSpinDataRef.current = null;
         setResultData(null);
         setError("Connection lost during spin. Please try again.");
         refreshProfile();
@@ -496,6 +501,21 @@ export default function SpinGameScreen() {
               if (prev === null || prev <= 1) {
                 clearInterval(preSpinTimerRef.current);
                 preSpinTimerRef.current = null;
+                // If spin:start already arrived while counting, fire spin NOW
+                const pending = pendingSpinDataRef.current;
+                if (pending) {
+                  pendingSpinDataRef.current = null;
+                  setIsSpinning(true);
+                  setScreenState("spinning");
+                  setRound(r => {
+                    if (r && r.roundId !== pending.roundId) return r;
+                    playSpinLoop();
+                    return {
+                      ...(r || { roundId: pending.roundId, configId: 0, betAmount: 10, maxPlayers: 5, roomName: "Spin Room", countdown: 0, mode: "RAIL", players: [] }),
+                      status: "spinning",
+                    } as RoundState;
+                  });
+                }
                 return null;
               }
               return prev - 1;
@@ -504,23 +524,38 @@ export default function SpinGameScreen() {
           break;
 
         case "spin:start":
-          // Clear pre-spin countdown if still running
-          if (preSpinTimerRef.current) {
-            clearInterval(preSpinTimerRef.current);
-            preSpinTimerRef.current = null;
-          }
-          setPreSpinCountdown(null);
-          setIsSpinning(true);
+          // Store spin data; only start spinning AFTER the 3-sec readiness countdown finishes
           setWinningSlice(payload.winningSlice);
           setSpinDuration(payload.spinDuration || 5000);
-          setScreenState("spinning");
-          setRound(prev => {
-            if (prev && prev.roundId !== payload.roundId) return prev;
-            playSpinLoop();
-            return {
-              ...(prev || { roundId: payload.roundId, configId: 0, betAmount: 10, maxPlayers: 5, roomName: "Spin Room", countdown: 0, mode: "RAIL", players: [] }),
-              status: "spinning",
-            } as RoundState;
+          setPendingWinnerId(payload.winnerId || null);
+          pendingSpinDataRef.current = {
+            winningSlice: payload.winningSlice,
+            spinDuration: payload.spinDuration || 5000,
+            roundId: payload.roundId,
+            winnerId: payload.winnerId,
+          };
+
+          // If the readiness countdown already finished, start spinning immediately
+          setPreSpinCountdown(prev => {
+            if (prev === null || prev <= 0) {
+              // Countdown already done — fire spin now
+              if (preSpinTimerRef.current) {
+                clearInterval(preSpinTimerRef.current);
+                preSpinTimerRef.current = null;
+              }
+              pendingSpinDataRef.current = null;
+              setIsSpinning(true);
+              setScreenState("spinning");
+              setRound(r => {
+                if (r && r.roundId !== payload.roundId) return r;
+                playSpinLoop();
+                return {
+                  ...(r || { roundId: payload.roundId, configId: 0, betAmount: 10, maxPlayers: 5, roomName: "Spin Room", countdown: 0, mode: "RAIL", players: [] }),
+                  status: "spinning",
+                } as RoundState;
+              });
+            }
+            return prev; // keep countdown running
           });
           break;
 
@@ -572,6 +607,8 @@ export default function SpinGameScreen() {
             setScreenState("waiting");
             setIsSpinning(false);
             setWinningSlice(null);
+        setPendingWinnerId(null);
+        pendingSpinDataRef.current = null;
             setResultData(null);
             setRematchAvailable(null);
             setRematchAccepted(false);
@@ -586,6 +623,8 @@ export default function SpinGameScreen() {
           setRound(null);
           setIsSpinning(false);
           setWinningSlice(null);
+        setPendingWinnerId(null);
+        pendingSpinDataRef.current = null;
           setResultData(null);
           // Refresh balance (refund)
           setTimeout(() => refreshProfile(), 1000);
@@ -662,6 +701,8 @@ export default function SpinGameScreen() {
         setScreenState("waiting");
         setIsSpinning(false);
         setWinningSlice(null);
+        setPendingWinnerId(null);
+        pendingSpinDataRef.current = null;
         setResultData(null);
 
         // Start a smooth client-side countdown timer based on target timestamp
@@ -764,6 +805,8 @@ export default function SpinGameScreen() {
     setRound(null);
     setIsSpinning(false);
     setWinningSlice(null);
+        setPendingWinnerId(null);
+        pendingSpinDataRef.current = null;
     setResultData(null);
     joinAttemptedRef.current = false;
     refreshProfile();
@@ -811,6 +854,8 @@ export default function SpinGameScreen() {
     setRound(null);
     setIsSpinning(false);
     setWinningSlice(null);
+        setPendingWinnerId(null);
+        pendingSpinDataRef.current = null;
     setResultData(null);
     setCountdown(0);
     if (countdownTimerRef.current) { clearInterval(countdownTimerRef.current); countdownTimerRef.current = null; }
@@ -1128,6 +1173,7 @@ export default function SpinGameScreen() {
                     players={round ? round.players : []}
                     isSpinning={screenState === "spinning"}
                     winningSlice={winningSlice}
+                    winnerId={pendingWinnerId}
                     spinDuration={spinDuration}
                     onSpinComplete={handleSpinComplete}
                     status={round ? round.status : "waiting"}
@@ -1445,6 +1491,7 @@ export default function SpinGameScreen() {
                     players={previewPlayers}
                     isSpinning={screenState === "spinning"}
                     winningSlice={winningSlice}
+                    winnerId={pendingWinnerId}
                     spinDuration={spinDuration}
                     onSpinComplete={handleSpinComplete}
                     status={round ? round.status : "waiting"}
@@ -1756,6 +1803,7 @@ export default function SpinGameScreen() {
                 players={displayPlayers}
                 isSpinning={screenState === "spinning"}
                 winningSlice={winningSlice}
+                winnerId={pendingWinnerId}
                 spinDuration={spinDuration}
                 onSpinComplete={handleSpinComplete}
                 status={round ? round.status : "waiting"}
@@ -2130,6 +2178,8 @@ export default function SpinGameScreen() {
                   setRound(null);
                   setIsSpinning(false);
                   setWinningSlice(null);
+        setPendingWinnerId(null);
+        pendingSpinDataRef.current = null;
                   setResultData(null);
                   setCountdown(0);
                   refreshProfile();

@@ -19,6 +19,7 @@ type SpinWheelProps = {
   players: Player[];
   isSpinning: boolean;
   winningSlice?: number | null;
+  winnerId?: string | null;
   spinDuration?: number; // ms
   onSpinComplete?: () => void;
   status: "waiting" | "locked" | "spinning" | "resolved" | "paid" | "cancelled" | "idle";
@@ -63,6 +64,7 @@ export default function SpinWheel({
   players,
   isSpinning,
   winningSlice,
+  winnerId,
   spinDuration = 5000,
   onSpinComplete,
   status,
@@ -126,8 +128,17 @@ export default function SpinWheel({
       setHasSpun(true);
       const safeWinningSlice = (typeof winningSlice === "number" && winningSlice >= 0) ? winningSlice : 0;
 
+      // Resolve target slice: prefer winnerId lookup (immune to array reordering)
+      let resolvedSliceIdx: number;
+      if (winnerId) {
+        const foundIdx = players.findIndex(p => p.userId === winnerId);
+        resolvedSliceIdx = foundIdx >= 0 ? foundIdx : safeWinningSlice;
+      } else {
+        resolvedSliceIdx = safeWinningSlice;
+      }
+
       // Calculate exact center angle of winning slice from precomputed slices
-      const validSliceIdx = Math.min(Math.max(0, safeWinningSlice), slices.length - 1);
+      const validSliceIdx = Math.min(Math.max(0, resolvedSliceIdx), slices.length - 1);
       const targetSlice = slices[validSliceIdx] || slices[0];
       const sliceCenterAngle = (targetSlice.startAngle + targetSlice.endAngle) / 2;
 
