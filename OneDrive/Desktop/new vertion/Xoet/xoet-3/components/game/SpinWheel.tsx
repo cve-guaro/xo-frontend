@@ -19,6 +19,7 @@ type SpinWheelProps = {
   players: Player[];
   isSpinning: boolean;
   winningSlice?: number | null;
+  winnerId?: string | null;
   spinDuration?: number; // ms
   onSpinComplete?: () => void;
   status: "waiting" | "locked" | "spinning" | "resolved" | "paid" | "cancelled" | "idle";
@@ -63,6 +64,7 @@ export default function SpinWheel({
   players,
   isSpinning,
   winningSlice,
+  winnerId,
   spinDuration = 5000,
   onSpinComplete,
   status,
@@ -126,27 +128,23 @@ export default function SpinWheel({
       setHasSpun(true);
       const safeWinningSlice = (typeof winningSlice === "number" && winningSlice >= 0) ? winningSlice : 0;
 
-      // Calculate final angle to land on the winning slice
-      let sliceCenterAngle = 0;
-      if (is5Player) {
-        // Find winner seatIndex
-        const winner = players[safeWinningSlice];
-        const winnerSeat = winner ? (winner.seatIndex ?? safeWinningSlice) : safeWinningSlice;
-        sliceCenterAngle = winnerSeat * 72 + 36;
-      } else if (hasStakes && totalStake > 0) {
-        let accumulated = 0;
-        const validSlice = Math.min(safeWinningSlice, players.length - 1);
-        for (let i = 0; i < validSlice; i++) {
-          accumulated += (Number((players[i] as any).stake || 0) / totalStake) * 360;
-        }
-        const winningAngle = (Number((players[validSlice] as any).stake || 0) / totalStake) * 360;
-        sliceCenterAngle = accumulated + winningAngle / 2;
+      // Resolve target slice: prefer winnerId lookup (immune to array reordering)
+      let resolvedSliceIdx: number;
+      if (winnerId) {
+        const foundIdx = players.findIndex(p => p.userId === winnerId);
+        resolvedSliceIdx = foundIdx >= 0 ? foundIdx : safeWinningSlice;
       } else {
-        sliceCenterAngle = safeWinningSlice * angleStep + angleStep / 2;
+        resolvedSliceIdx = safeWinningSlice;
       }
 
-      const fullRotations = 6; // 6 smooth rotations
-      const targetAngle = fullRotations * 360 + (360 - sliceCenterAngle);
+      // Calculate exact center angle of winning slice from precomputed slices
+      const validSliceIdx = Math.min(Math.max(0, resolvedSliceIdx), slices.length - 1);
+      const targetSlice = slices[validSliceIdx] || slices[0];
+      const sliceCenterAngle = (targetSlice.startAngle + targetSlice.endAngle) / 2;
+
+      const fullRotations = 6; // 6 smooth decelerating rotations
+      const finalStopAngle = ((360 - sliceCenterAngle) % 360 + 360) % 360;
+      const targetAngle = fullRotations * 360 + finalStopAngle;
 
       Animated.timing(rotation, {
         toValue: targetAngle,
