@@ -206,7 +206,11 @@ export default function SpinGameScreen() {
 
   const playSpinLoop = useCallback(() => {
     try {
+      // Restart cleanly from the beginning each spin — a previously-finished
+      // player will not resume without seekTo(0), which made the spin silent.
+      spinLoopSound.seekTo(0);
       spinLoopSound.loop = true;
+      spinLoopSound.volume = 1;
       spinLoopSound.play();
     } catch (e) { console.warn("spinLoopSound error:", e); }
   }, [spinLoopSound]);
@@ -1799,7 +1803,7 @@ export default function SpinGameScreen() {
             {/* Center Spin Wheel with Stage Pedestal */}
             <View style={{ flex: 1, alignItems: "center", justifyContent: "center", marginVertical: 6, position: "relative" }}>
               <SpinWheel
-                size={Math.min(screenW - 48, 320)}
+                size={Math.max(140, Math.min(screenW - 48, 320))}
                 players={displayPlayers}
                 isSpinning={screenState === "spinning"}
                 winningSlice={winningSlice}

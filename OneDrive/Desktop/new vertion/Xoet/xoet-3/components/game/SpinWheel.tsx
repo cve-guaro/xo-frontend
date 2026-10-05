@@ -124,15 +124,20 @@ export default function SpinWheel({
 
   // Trigger spin animation
   useEffect(() => {
-    if ((isSpinning || status === "spinning") && !hasSpun) {
+    if ((isSpinning || status === "spinning") && !hasSpun && players.length > 0) {
       setHasSpun(true);
       const safeWinningSlice = (typeof winningSlice === "number" && winningSlice >= 0) ? winningSlice : 0;
 
-      // Resolve target slice: prefer winnerId lookup (immune to array reordering)
+      // Resolve target slice. Prefer winnerId lookup (immune to array reordering),
+      // BUT slices are laid out by SEAT in 5-player mode while the players array is
+      // in join order — so use seatIndex there, otherwise the wheel lands on the
+      // slice of whoever joined at that position instead of the actual winner.
       let resolvedSliceIdx: number;
-      if (winnerId) {
-        const foundIdx = players.findIndex(p => p.userId === winnerId);
-        resolvedSliceIdx = foundIdx >= 0 ? foundIdx : safeWinningSlice;
+      const winnerPlayer = winnerId ? players.find(p => String(p.userId) === String(winnerId)) : undefined;
+      if (winnerPlayer) {
+        resolvedSliceIdx = (is5Player && typeof winnerPlayer.seatIndex === "number" && winnerPlayer.seatIndex >= 0)
+          ? winnerPlayer.seatIndex
+          : players.indexOf(winnerPlayer);
       } else {
         resolvedSliceIdx = safeWinningSlice;
       }
@@ -142,14 +147,14 @@ export default function SpinWheel({
       const targetSlice = slices[validSliceIdx] || slices[0];
       const sliceCenterAngle = (targetSlice.startAngle + targetSlice.endAngle) / 2;
 
-      const fullRotations = 6; // 6 smooth decelerating rotations
+      const fullRotations = 9; // fast, satisfying spin (was 6 — felt lazy)
       const finalStopAngle = ((360 - sliceCenterAngle) % 360 + 360) % 360;
       const targetAngle = fullRotations * 360 + finalStopAngle;
 
       Animated.timing(rotation, {
         toValue: targetAngle,
         duration: spinDuration,
-        easing: Easing.bezier(0.1, 0.85, 0.15, 1), // ultra-smooth fast start, gradual deceleration
+        easing: Easing.bezier(0.12, 0.9, 0.2, 1), // punchy start, long smooth deceleration
         useNativeDriver: Platform.OS !== "web",
       }).start(() => {
         onSpinComplete?.();
@@ -167,8 +172,13 @@ export default function SpinWheel({
     ? rotation.interpolate({ inputRange: [0, 360], outputRange: ["0deg", "360deg"] })
     : idleLoopAnim.interpolate({ inputRange: [0, 360], outputRange: ["0deg", "360deg"] });
 
+  // Collapsed/hidden layouts can briefly report a negative size (window tab-switch
+  // on web reports width ≈ 1). Rendering the SVG with a negative size spams
+  // "attribute r: A negative value is not valid" and breaks the wheel — skip it.
+  if (!size || size <= 0) return null;
+
   return (
-    <View style={[styles.container, { width: size, height: size }]}>
+    <View style={[styles.container, { width: size, height: size }]} pointerEvents="none">
       {/* Animated wheel */}
       <Animated.View
         style={{
@@ -176,7 +186,7 @@ export default function SpinWheel({
           width: size,
           height: size,
           zIndex: 2,
-          ...(Platform.OS === "web" ? ({ willChange: "transform" } as any) : {}),
+          ...(Platform.OS === "web" ? ({ willChange: "transform", touchAction: "pan-y" } as any) : {}),
         }}
       >
         <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
