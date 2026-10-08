@@ -32,7 +32,7 @@ export default function LoginScreen() {
   const { unlockAudio } = useBackgroundMusic();
   const { width, height } = useWindowDimensions();
   const isDesktop = width > 768 && Platform.OS === 'web';
-  const mobileBannerHeight = Math.min(Math.max(Math.round(height * 0.40), 260), 380);
+  const mobileBannerHeight = Math.min(Math.max(Math.round(height * 0.46), 330), 490);
   const toast = useToast();
 
   // --- Helpers to convert pending number -> national part (last 9 digits) ---
@@ -512,12 +512,15 @@ export default function LoginScreen() {
               <View style={[styles.mobileBannerWrap, { height: mobileBannerHeight }]}>
                 <Image 
                   source={BANNER_IMAGE}
-                  style={styles.bannerImg}
+                  style={[
+                    styles.bannerImg,
+                    Platform.OS === 'web' ? ({ objectPosition: 'top center' } as any) : {}
+                  ]}
                   resizeMode="cover"
                 />
                 <LinearGradient
-                  colors={["transparent", "rgba(4, 4, 10, 0.2)", "rgba(4, 4, 10, 0.75)", "#04040a"]}
-                  locations={[0, 0.35, 0.72, 1]}
+                  colors={["transparent", "rgba(4, 4, 10, 0.15)", "rgba(4, 4, 10, 0.7)", "#04040a"]}
+                  locations={[0, 0.42, 0.78, 1]}
                   style={StyleSheet.absoluteFill}
                 />
               </View>
@@ -535,190 +538,193 @@ export default function LoginScreen() {
                   </Text>
                 </View>
 
-                {step === "number" ? (
-                  <View style={styles.mobileActionsWrap}>
-                    {loginMode === "choice" ? (
-                      <View style={{ gap: 14 }}>
-                        {/* Button 1: Coral-Red Pill Button for Telegram */}
-                        <TouchableOpacity
-                          disabled={telegramLoading}
-                          onPress={async () => {
-                            try {
-                              await loginWithTelegram();
-                            } catch (err: any) {
-                              toast.error('Telegram Login', err?.message || 'Login failed');
-                            }
-                          }}
-                          activeOpacity={0.85}
-                          style={{ width: '100%' }}
-                        >
-                          <LinearGradient
-                            colors={["#FF3B5C", "#E02847"]}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
-                            style={styles.primaryActionBtn}
+                {/* Bottom container pushing actions and footer to the bottom matching wireframe */}
+                <View style={styles.mobileBottomSection}>
+                  {step === "number" ? (
+                    <View style={styles.mobileActionsWrap}>
+                      {loginMode === "choice" ? (
+                        <View style={{ gap: 14 }}>
+                          {/* Button 1: Coral-Red Pill Button for Telegram */}
+                          <TouchableOpacity
+                            disabled={telegramLoading}
+                            onPress={async () => {
+                              try {
+                                await loginWithTelegram();
+                              } catch (err: any) {
+                                toast.error('Telegram Login', err?.message || 'Login failed');
+                              }
+                            }}
+                            activeOpacity={0.85}
+                            style={{ width: '100%' }}
                           >
-                            {telegramLoading ? (
-                              <ActivityIndicator color="#ffffff" />
-                            ) : (
-                              <>
-                                <TelegramPlaneIcon size={20} color="#ffffff" />
-                                <Text style={styles.primaryActionBtnText}>
-                                  {language === 'am' ? 'በቴሌግራም ቦት ግባ' : 'Continue with Telegram'}
-                                </Text>
-                              </>
-                            )}
-                          </LinearGradient>
-                        </TouchableOpacity>
+                            <LinearGradient
+                              colors={["#FF3B5C", "#E02847"]}
+                              start={{ x: 0, y: 0 }}
+                              end={{ x: 1, y: 0 }}
+                              style={styles.primaryActionBtn}
+                            >
+                              {telegramLoading ? (
+                                <ActivityIndicator color="#ffffff" />
+                              ) : (
+                                <>
+                                  <TelegramPlaneIcon size={20} color="#ffffff" />
+                                  <Text style={styles.primaryActionBtnText}>
+                                    {language === 'am' ? 'በቴሌግራም ቦት ግባ' : 'Continue with Telegram'}
+                                  </Text>
+                                </>
+                              )}
+                            </LinearGradient>
+                          </TouchableOpacity>
 
-                        {telegramLoading && (
-                          <Text style={styles.loadingTipText}>
-                            {language === 'am' 
-                              ? 'ቴሌግራምን ይክፈቱ እና ስልክ ቁጥርዎን ያጋሩ...' 
-                              : 'Open Telegram and tap Share Contact...'}
-                          </Text>
-                        )}
-
-                        {/* Button 2: Dark Sleek Pill Button for Phone SMS */}
-                        <TouchableOpacity
-                          onPress={() => setLoginMode("sms")}
-                          activeOpacity={0.8}
-                          style={styles.secondaryActionBtn}
-                        >
-                          <ChatBubbleIcon size={19} color="#FF3B5C" />
-                          <Text style={styles.secondaryActionBtnText}>
-                            {language === 'am' ? 'በስልክ ቁጥር (SMS OTP) ግባ' : 'Continue with Phone (SMS OTP)'}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                    ) : (
-                      /* SMS Phone Input View */
-                      <View>
-                        <TouchableOpacity 
-                          onPress={() => setLoginMode("choice")}
-                          style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 18 }}
-                        >
-                          <Text style={{ color: '#FF3B5C', fontSize: 13, fontWeight: '700' }}>← Back to login options</Text>
-                        </TouchableOpacity>
-
-                        <View style={styles.phoneInputGrid}>
-                          <View style={styles.countryPicker}>
-                            <Text style={{ fontSize: 16 }}>🇪🇹</Text>
-                            <Text style={styles.countryCode}>+251</Text>
-                          </View>
-                          <View style={styles.phoneInputWrap}>
-                            <TextInput
-                              placeholder="9xx / 7xx xxx xxx"
-                              placeholderTextColor="rgba(255,255,255,0.25)"
-                              style={styles.mainInput}
-                              keyboardType="number-pad"
-                              value={national}
-                              onChangeText={(t) => {
-                                let val = t.replace(/\D/g, "");
-                                if (val.length > 0 && val[0] !== '9' && val[0] !== '7') {
-                                   val = val.replace(/^[^97]+/, "");
-                                }
-                                setNational(val.slice(0, 9));
-                              }}
-                              maxLength={9}
-                            />
-                          </View>
-                        </View>
-
-                        <TouchableOpacity 
-                          disabled={!canSend} 
-                          onPress={onSend} 
-                          activeOpacity={0.85}
-                          style={{ marginTop: 20 }}
-                        >
-                          <LinearGradient 
-                            colors={canSend ? ["#FF3B5C", "#E02847"] : ["rgba(255, 59, 92, 0.2)", "rgba(224, 40, 71, 0.2)"]} 
-                            start={{x:0,y:0}} end={{x:1,y:0}}
-                            style={styles.sendBtn}
-                          >
-                            {requestingOtp ? (
-                              <ActivityIndicator color="#ffffff" />
-                            ) : (
-                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                <Text style={[styles.sendBtnText, { color: canSend ? '#ffffff' : 'rgba(255,255,255,0.4)' }]}>
-                                  {language === 'am' ? 'የማረጋገጫ ኮድ ላክ' : 'Send Verification Code'}
-                                </Text>
-                                <ArrowForwardIcon size={18} color={canSend ? '#ffffff' : 'rgba(255,255,255,0.4)'} />
-                              </View>
-                            )}
-                          </LinearGradient>
-                        </TouchableOpacity>
-                      </View>
-                    )}
-                  </View>
-                ) : (
-                  /* OTP Verification View */
-                  <View style={styles.mobileActionsWrap}>
-                    <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, textAlign: 'center', marginBottom: 16 }}>
-                      {language === 'am' ? 'ወደ ስልክዎ የተላከውን 4-ዲጂት ኮድ ያስገቡ' : `Enter the 4-digit code sent to ${prettyFull(fullPhone)}`}
-                    </Text>
-                    <View style={styles.otpInputGridWrapper}>
-                      <View style={styles.otpInputGrid}>
-                        {[0, 1, 2, 3].map((i) => (
-                          <TextInput
-                            key={i}
-                            ref={(r) => { inputsRef.current[i] = r; }}
-                            keyboardType="number-pad"
-                            value={otpParts[i]}
-                            onChangeText={(t) => handleOtpChange(i, t)}
-                            onKeyPress={(e) => handleOtpKeyPress(i, e)}
-                            maxLength={1}
-                            style={[styles.otpInput, otpParts[i] ? styles.otpInputActive : null]}
-                          />
-                        ))}
-                      </View>
-                    </View>
-
-                    <TouchableOpacity 
-                      disabled={!canVerify} 
-                      onPress={onVerify} 
-                      activeOpacity={0.85}
-                      style={{ marginTop: 22 }}
-                    >
-                      <LinearGradient 
-                        colors={canVerify ? ["#FF3B5C", "#E02847"] : ["rgba(255, 59, 92, 0.2)", "rgba(224, 40, 71, 0.2)"]} 
-                        start={{x:0,y:0}} end={{x:1,y:0}}
-                        style={styles.sendBtn}
-                      >
-                        {verifyingOtp ? (
-                          <ActivityIndicator color="#ffffff" />
-                        ) : (
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                            <Text style={[styles.sendBtnText, { color: canVerify ? '#ffffff' : 'rgba(255,255,255,0.4)' }]}>
-                              {t("verify_button")}
+                          {telegramLoading && (
+                            <Text style={styles.loadingTipText}>
+                              {language === 'am' 
+                                ? 'ቴሌግራምን ይክፈቱ እና ስልክ ቁጥርዎን ያጋሩ...' 
+                                : 'Open Telegram and tap Share Contact...'}
                             </Text>
-                            <CheckmarkCircleIcon size={18} color={canVerify ? '#ffffff' : 'rgba(255,255,255,0.4)'} />
+                          )}
+
+                          {/* Button 2: Dark Sleek Pill Button for Phone SMS */}
+                          <TouchableOpacity
+                            onPress={() => setLoginMode("sms")}
+                            activeOpacity={0.8}
+                            style={styles.secondaryActionBtn}
+                          >
+                            <ChatBubbleIcon size={19} color="#FF3B5C" />
+                            <Text style={styles.secondaryActionBtnText}>
+                              {language === 'am' ? 'በስልክ ቁጥር (SMS OTP) ግባ' : 'Continue with Phone (SMS OTP)'}
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                      ) : (
+                        /* SMS Phone Input View */
+                        <View>
+                          <TouchableOpacity 
+                            onPress={() => setLoginMode("choice")}
+                            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 18 }}
+                          >
+                            <Text style={{ color: '#FF3B5C', fontSize: 13, fontWeight: '700' }}>← Back to login options</Text>
+                          </TouchableOpacity>
+
+                          <View style={styles.phoneInputGrid}>
+                            <View style={styles.countryPicker}>
+                              <Text style={{ fontSize: 16 }}>🇪🇹</Text>
+                              <Text style={styles.countryCode}>+251</Text>
+                            </View>
+                            <View style={styles.phoneInputWrap}>
+                              <TextInput
+                                placeholder="9xx / 7xx xxx xxx"
+                                placeholderTextColor="rgba(255,255,255,0.25)"
+                                style={styles.mainInput}
+                                keyboardType="number-pad"
+                                value={national}
+                                onChangeText={(t) => {
+                                  let val = t.replace(/\D/g, "");
+                                  if (val.length > 0 && val[0] !== '9' && val[0] !== '7') {
+                                     val = val.replace(/^[^97]+/, "");
+                                  }
+                                  setNational(val.slice(0, 9));
+                                }}
+                                maxLength={9}
+                              />
+                            </View>
                           </View>
-                        )}
-                      </LinearGradient>
-                    </TouchableOpacity>
 
-                    <View style={{ marginTop: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
-                      <TouchableOpacity onPress={() => setStep("number")}>
-                        <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, fontWeight: '600' }}>Edit number</Text>
-                      </TouchableOpacity>
-                      
-                      <TouchableOpacity onPress={resend} disabled={requestingOtp || resendTimer > 0}>
-                        <Text style={{ color: (requestingOtp || resendTimer > 0) ? '#64748b' : '#FF3B5C', fontSize: 13, fontWeight: '700' }}>
-                          {requestingOtp ? 'Sending...' : (resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Resend Code')}
-                        </Text>
-                      </TouchableOpacity>
+                          <TouchableOpacity 
+                            disabled={!canSend} 
+                            onPress={onSend} 
+                            activeOpacity={0.85}
+                            style={{ marginTop: 20 }}
+                          >
+                            <LinearGradient 
+                              colors={canSend ? ["#FF3B5C", "#E02847"] : ["rgba(255, 59, 92, 0.2)", "rgba(224, 40, 71, 0.2)"]} 
+                              start={{x:0,y:0}} end={{x:1,y:0}}
+                              style={styles.sendBtn}
+                            >
+                              {requestingOtp ? (
+                                <ActivityIndicator color="#ffffff" />
+                              ) : (
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                  <Text style={[styles.sendBtnText, { color: canSend ? '#ffffff' : 'rgba(255,255,255,0.4)' }]}>
+                                    {language === 'am' ? 'የማረጋገጫ ኮድ ላክ' : 'Send Verification Code'}
+                                  </Text>
+                                  <ArrowForwardIcon size={18} color={canSend ? '#ffffff' : 'rgba(255,255,255,0.4)'} />
+                                </View>
+                              )}
+                            </LinearGradient>
+                          </TouchableOpacity>
+                        </View>
+                      )}
                     </View>
-                  </View>
-                )}
+                  ) : (
+                    /* OTP Verification View */
+                    <View style={styles.mobileActionsWrap}>
+                      <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, textAlign: 'center', marginBottom: 16 }}>
+                        {language === 'am' ? 'ወደ ስልክዎ የተላከውን 4-ዲጂት ኮድ ያስገቡ' : `Enter the 4-digit code sent to ${prettyFull(fullPhone)}`}
+                      </Text>
+                      <View style={styles.otpInputGridWrapper}>
+                        <View style={styles.otpInputGrid}>
+                          {[0, 1, 2, 3].map((i) => (
+                            <TextInput
+                              key={i}
+                              ref={(r) => { inputsRef.current[i] = r; }}
+                              keyboardType="number-pad"
+                              value={otpParts[i]}
+                              onChangeText={(t) => handleOtpChange(i, t)}
+                              onKeyPress={(e) => handleOtpKeyPress(i, e)}
+                              maxLength={1}
+                              style={[styles.otpInput, otpParts[i] ? styles.otpInputActive : null]}
+                            />
+                          ))}
+                        </View>
+                      </View>
 
-                {/* Legal Footer */}
-                <View style={styles.mobileFooterWrap}>
-                  <Text style={styles.footerInfo}>
-                    By continuing, you agree to our{" "}
-                    <Text style={styles.footerLink} onPress={() => router.push('/(auth)/terms')}>Terms of Service</Text> and{" "}
-                    <Text style={styles.footerLink} onPress={() => router.push('/(auth)/privacy')}>Privacy Policy</Text>
-                  </Text>
+                      <TouchableOpacity 
+                        disabled={!canVerify} 
+                        onPress={onVerify} 
+                        activeOpacity={0.85}
+                        style={{ marginTop: 22 }}
+                      >
+                        <LinearGradient 
+                          colors={canVerify ? ["#FF3B5C", "#E02847"] : ["rgba(255, 59, 92, 0.2)", "rgba(224, 40, 71, 0.2)"]} 
+                          start={{x:0,y:0}} end={{x:1,y:0}}
+                          style={styles.sendBtn}
+                        >
+                          {verifyingOtp ? (
+                            <ActivityIndicator color="#ffffff" />
+                          ) : (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                              <Text style={[styles.sendBtnText, { color: canVerify ? '#ffffff' : 'rgba(255,255,255,0.4)' }]}>
+                                {t("verify_button")}
+                              </Text>
+                              <CheckmarkCircleIcon size={18} color={canVerify ? '#ffffff' : 'rgba(255,255,255,0.4)'} />
+                            </View>
+                          )}
+                        </LinearGradient>
+                      </TouchableOpacity>
+
+                      <View style={{ marginTop: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+                        <TouchableOpacity onPress={() => setStep("number")}>
+                          <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, fontWeight: '600' }}>Edit number</Text>
+                        </TouchableOpacity>
+                        
+                        <TouchableOpacity onPress={resend} disabled={requestingOtp || resendTimer > 0}>
+                          <Text style={{ color: (requestingOtp || resendTimer > 0) ? '#64748b' : '#FF3B5C', fontSize: 13, fontWeight: '700' }}>
+                            {requestingOtp ? 'Sending...' : (resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Resend Code')}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Legal Footer */}
+                  <View style={styles.mobileFooterWrap}>
+                    <Text style={styles.footerInfo}>
+                      By continuing, you agree to our{" "}
+                      <Text style={styles.footerLink} onPress={() => router.push('/(auth)/terms')}>Terms of Service</Text> and{" "}
+                      <Text style={styles.footerLink} onPress={() => router.push('/(auth)/privacy')}>Privacy Policy</Text>
+                    </Text>
+                  </View>
                 </View>
               </View>
             </ScrollView>
@@ -850,7 +856,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     minHeight: '100%',
     backgroundColor: '#04040a',
-    justifyContent: 'space-between',
   },
   mobileBannerWrap: {
     width: '100%',
@@ -861,8 +866,8 @@ const styles = StyleSheet.create({
   mobileBody: {
     flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 12,
-    paddingBottom: 28,
+    paddingTop: 8,
+    paddingBottom: 24,
     justifyContent: 'space-between',
     width: '100%',
     maxWidth: 440,
@@ -870,7 +875,8 @@ const styles = StyleSheet.create({
   },
   mobileHeaderWrap: {
     alignItems: 'center',
-    marginBottom: 20,
+    justifyContent: 'center',
+    paddingVertical: 14,
   },
   mobileTitle: {
     color: '#ffffff',
@@ -886,14 +892,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
+  mobileBottomSection: {
+    width: '100%',
+    marginTop: 'auto',
+  },
   mobileActionsWrap: {
     width: '100%',
     marginBottom: 20,
   },
   mobileFooterWrap: {
-    marginTop: 'auto',
     alignItems: 'center',
-    paddingTop: 16,
+    paddingBottom: 4,
   },
 
   bannerImg: {
