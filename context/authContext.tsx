@@ -1075,12 +1075,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await playClickSound();
 
       // 1) Init session on backend
+      const returnUrl = (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.origin)
+        ? `${window.location.origin}/home/account`
+        : 'https://xo-frontend-gamma.vercel.app/home/account';
+
       const initRes = await fetch(`${API_URL}/auth/telegram-init`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'x-platform': Platform.OS === 'web' ? 'web' : 'mobile',
         },
+        body: JSON.stringify({ returnUrl }),
       });
       if (!initRes.ok) {
         throw new Error('Failed to start Telegram login');

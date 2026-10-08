@@ -249,48 +249,86 @@ export default function LoginScreen() {
   const canSend = nationalDigits.length === 9 && (nationalDigits.startsWith('9') || nationalDigits.startsWith('7')) && !requestingOtp;
   const canVerify = otpParts.join("").length === 4 && !verifyingOtp;
 
+  const BANNER_IMAGE = require("../../assets/images/login-banner.jpg");
+
   return (
     <View style={styles.backgroundImage}>
       {Platform.OS === 'web' && (
         <Head>
-          <title>XO Ethiopia - Play Tic-Tac-Toe for Real Money</title>
-          <meta name="title" content="XO Ethiopia - Play Tic-Tac-Toe for Real Money" />
-          <meta name="description" content="Play Tic-Tac-Toe for real money on XO Ethiopia. Join tournaments, play with friends, and win cash prizes daily! Easy withdrawals via Telebirr." />
+          <title>XO Ethiopia - Play Tic-Tac-Toe & Spin for Real Money</title>
+          <meta name="title" content="XO Ethiopia - Play Tic-Tac-Toe & Spin for Real Money" />
+          <meta name="description" content="Play Tic-Tac-Toe and Spin games for real cash on XO Ethiopia. Instant deposit and withdrawal." />
         </Head>
       )}
-      <LinearGradient colors={["#060614", "#0c0c1f", "#060614"]} style={StyleSheet.absoluteFill} />
-      {/* Subtle secondary glow overlay */}
+      <LinearGradient colors={["#04040a", "#090918", "#04040a"]} style={StyleSheet.absoluteFill} />
+      {/* Subtle brand neon glow overlays */}
       <LinearGradient 
-        colors={["transparent", "rgba(0, 218, 243, 0.03)", "transparent"]} 
+        colors={["rgba(0, 218, 243, 0.05)", "transparent", "rgba(255, 59, 92, 0.04)"]} 
         start={{x:0, y:0}} end={{x:1, y:1}} 
         style={StyleSheet.absoluteFill} 
       />
       <SafeAreaView style={styles.safe}>
-        <KeyboardAvoidingView style={{ flex: 1, justifyContent: "center" }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-          <View style={[
-            { flex: 1, maxWidth: 450, alignSelf: 'center', width: '92%', justifyContent: 'center' },
-            isDesktop && styles.desktopWrapper
-          ]}>
+        <KeyboardAvoidingView 
+          style={{ flex: 1, justifyContent: "center", paddingVertical: isDesktop ? 40 : 16 }} 
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        >
+          {/* Main Container: Split card on Desktop, Vertical on Mobile */}
+          <View style={isDesktop ? styles.desktopCard : styles.mobileCard}>
             
-            {/* Card */}
-            <View style={styles.glassCard}>
+            {/* Banner Section */}
+            {isDesktop ? (
+              <View style={styles.desktopBannerWrap}>
+                <Image 
+                  source={BANNER_IMAGE}
+                  style={styles.bannerImg}
+                  resizeMode="cover"
+                />
+                <LinearGradient
+                  colors={["transparent", "rgba(6, 6, 18, 0.3)", "rgba(6, 6, 18, 0.8)"]}
+                  style={StyleSheet.absoluteFill}
+                />
+              </View>
+            ) : (
+              <View style={styles.mobileBannerWrap}>
+                <Image 
+                  source={BANNER_IMAGE}
+                  style={styles.bannerImg}
+                  resizeMode="cover"
+                />
+                <LinearGradient
+                  colors={["transparent", "rgba(18, 18, 34, 0.4)", "rgba(18, 18, 34, 0.98)"]}
+                  style={StyleSheet.absoluteFill}
+                />
+              </View>
+            )}
+
+            {/* Form Section */}
+            <View style={isDesktop ? styles.desktopFormWrap : styles.mobileFormWrap}>
+              
+              {/* Header Badge */}
               <View style={styles.cardHeader}>
                 <View style={styles.logoCircle}>
                   <Image 
                     source={require("../../assets/images/adaptive-icon.png")} 
-                    style={{ width: 28, height: 28, borderRadius: 6 }} 
+                    style={{ width: 26, height: 26, borderRadius: 6 }} 
                     // @ts-ignore
                     {...(Platform.OS === 'web' ? { fetchPriority: "high" } : {})}
                   />
                 </View>
-                <Text style={styles.cardBrand}>XO ET</Text>
+                <Text style={styles.cardBrand}>XO ETHIOPIA</Text>
               </View>
 
-              <Text style={styles.cardTitle}>Sign in with your phone</Text>
-              <Text style={styles.cardSub}>Welcome back. Enter your phone number to continue.</Text>
+              <Text style={styles.cardTitle}>
+                {language === 'am' ? 'እንኳን ደህና መጡ' : 'Welcome back'}
+              </Text>
+              <Text style={styles.cardSub}>
+                {language === 'am' 
+                  ? 'ለመጫወት እና ለማሸነፍ የመግቢያ መንገድ ይምረጡ'
+                  : 'Fast and secure login to play & win real cash'}
+              </Text>
 
               {step === "number" ? (
-                <View style={{ marginTop: 20 }}>
+                <View style={{ marginTop: 24 }}>
                   {loginMode === "choice" ? (
                     <View style={{ gap: 14 }}>
                       {/* Button 1: Telegram Bot Login */}
@@ -303,44 +341,39 @@ export default function LoginScreen() {
                             toast.error('Telegram Login', err?.message || 'Login failed');
                           }
                         }}
-                        activeOpacity={0.8}
+                        activeOpacity={0.85}
                       >
-                        <View style={{
-                          height: 58,
-                          borderRadius: 18,
-                          backgroundColor: 'rgba(0, 136, 204, 0.18)',
-                          borderWidth: 1.5,
-                          borderColor: 'rgba(0, 136, 204, 0.4)',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          flexDirection: 'row',
-                          gap: 10,
-                        }}>
+                        <LinearGradient
+                          colors={["#0088cc", "#006699"]}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={styles.primaryActionBtn}
+                        >
                           {telegramLoading ? (
-                            <ActivityIndicator color="#0088CC" />
+                            <ActivityIndicator color="#ffffff" />
                           ) : (
                             <>
-                              <TelegramPlaneIcon size={20} color="#0088CC" />
-                              <Text style={{ color: '#0088CC', fontSize: 15, fontWeight: '800' }}>
-                                {language === 'am' ? 'በቴሌግራም ቦት ግባ (@XoethiopiaBot)' : 'Login with Telegram Bot'}
+                              <TelegramPlaneIcon size={22} color="#ffffff" />
+                              <Text style={styles.primaryActionBtnText}>
+                                {language === 'am' ? 'በቴሌግራም ቦት ግባ' : 'Continue with Telegram'}
                               </Text>
                             </>
                           )}
-                        </View>
+                        </LinearGradient>
                       </TouchableOpacity>
 
                       {telegramLoading && (
-                        <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, textAlign: 'center', marginTop: -4 }}>
+                        <Text style={styles.loadingTipText}>
                           {language === 'am' 
                             ? 'ቴሌግራምን ይክፈቱ እና ስልክ ቁጥርዎን ያጋሩ...' 
-                            : 'Open Telegram and share your phone number...'}
+                            : 'Open Telegram and tap Share Contact...'}
                         </Text>
                       )}
 
                       {/* Divider */}
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 4, gap: 12 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 6, gap: 12 }}>
                         <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.08)' }} />
-                        <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, fontWeight: '700', letterSpacing: 1 }}>OR</Text>
+                        <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, fontWeight: '800', letterSpacing: 1 }}>OR</Text>
                         <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.08)' }} />
                       </View>
 
@@ -348,31 +381,20 @@ export default function LoginScreen() {
                       <TouchableOpacity
                         onPress={() => setLoginMode("sms")}
                         activeOpacity={0.8}
+                        style={styles.secondaryActionBtn}
                       >
-                        <View style={{
-                          height: 58,
-                          borderRadius: 18,
-                          backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                          borderWidth: 1.5,
-                          borderColor: 'rgba(255, 255, 255, 0.12)',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          flexDirection: 'row',
-                          gap: 10,
-                        }}>
-                          <ChatBubbleIcon size={20} color="#a78bfa" />
-                          <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '800' }}>
-                            {language === 'am' ? 'በስልክ ቁጥር (SMS OTP) ግባ' : 'Login with SMS OTP'}
-                          </Text>
-                        </View>
+                        <ChatBubbleIcon size={20} color="#00daf3" />
+                        <Text style={styles.secondaryActionBtnText}>
+                          {language === 'am' ? 'በስልክ ቁጥር (SMS OTP) ግባ' : 'Continue with Phone (SMS OTP)'}
+                        </Text>
                       </TouchableOpacity>
                     </View>
                   ) : (
-                    /* SMS OTP Input View */
+                    /* SMS Phone Input View */
                     <View>
                       <TouchableOpacity 
                         onPress={() => setLoginMode("choice")}
-                        style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 16 }}
+                        style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 18 }}
                       >
                         <Text style={{ color: '#00daf3', fontSize: 13, fontWeight: '700' }}>← Back to login options</Text>
                       </TouchableOpacity>
@@ -404,11 +426,11 @@ export default function LoginScreen() {
                       <TouchableOpacity 
                         disabled={!canSend} 
                         onPress={onSend} 
-                        activeOpacity={0.8}
+                        activeOpacity={0.85}
                         style={{ marginTop: 20 }}
                       >
                         <LinearGradient 
-                          colors={canSend ? ["#00daf3", "#00a3ff"] : ["rgba(0, 218, 243, 0.15)", "rgba(0, 163, 255, 0.15)"]} 
+                          colors={canSend ? ["#00daf3", "#008eb0"] : ["rgba(0, 218, 243, 0.15)", "rgba(0, 142, 176, 0.15)"]} 
                           start={{x:0,y:0}} end={{x:1,y:0}}
                           style={styles.sendBtn}
                         >
@@ -416,7 +438,9 @@ export default function LoginScreen() {
                             <ActivityIndicator color={canSend ? "#0c0c1f" : "rgba(255,255,255,0.4)"} />
                           ) : (
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                              <Text style={[styles.sendBtnText, { color: canSend ? '#0c0c1f' : 'rgba(255,255,255,0.4)' }]}>Send OTP</Text>
+                              <Text style={[styles.sendBtnText, { color: canSend ? '#0c0c1f' : 'rgba(255,255,255,0.4)' }]}>
+                                {language === 'am' ? 'የማረጋገጫ ኮድ ላክ' : 'Send Verification Code'}
+                              </Text>
                               <ArrowForwardIcon size={18} color={canSend ? '#0c0c1f' : 'rgba(255,255,255,0.4)'} />
                             </View>
                           )}
@@ -426,7 +450,11 @@ export default function LoginScreen() {
                   )}
                 </View>
               ) : (
+                /* OTP Verification View */
                 <View style={{ marginTop: 24 }}>
+                  <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, textAlign: 'center', marginBottom: 16 }}>
+                    {language === 'am' ? 'ወደ ስልክዎ የተላከውን 4-ዲጂት ኮድ ያስገቡ' : `Enter the 4-digit code sent to ${prettyFull(fullPhone)}`}
+                  </Text>
                   <View style={styles.otpInputGridWrapper}>
                     <View style={styles.otpInputGrid}>
                       {[0, 1, 2, 3].map((i) => (
@@ -447,11 +475,11 @@ export default function LoginScreen() {
                   <TouchableOpacity 
                     disabled={!canVerify} 
                     onPress={onVerify} 
-                    activeOpacity={0.8}
-                    style={{ marginTop: 20 }}
+                    activeOpacity={0.85}
+                    style={{ marginTop: 22 }}
                   >
                     <LinearGradient 
-                      colors={canVerify ? ["#00daf3", "#00a3ff"] : ["rgba(0, 218, 243, 0.15)", "rgba(0, 163, 255, 0.15)"]} 
+                      colors={canVerify ? ["#00daf3", "#008eb0"] : ["rgba(0, 218, 243, 0.15)", "rgba(0, 142, 176, 0.15)"]} 
                       start={{x:0,y:0}} end={{x:1,y:0}}
                       style={styles.sendBtn}
                     >
@@ -459,27 +487,30 @@ export default function LoginScreen() {
                         <ActivityIndicator color={canVerify ? "#0c0c1f" : "rgba(255,255,255,0.4)"} />
                       ) : (
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                          <Text style={[styles.sendBtnText, { color: canVerify ? '#0c0c1f' : 'rgba(255,255,255,0.4)' }]}>{t("verify_button")}</Text>
+                          <Text style={[styles.sendBtnText, { color: canVerify ? '#0c0c1f' : 'rgba(255,255,255,0.4)' }]}>
+                            {t("verify_button")}
+                          </Text>
                           <CheckmarkCircleIcon size={18} color={canVerify ? '#0c0c1f' : 'rgba(255,255,255,0.4)'} />
                         </View>
                       )}
                     </LinearGradient>
                   </TouchableOpacity>
 
-                  <View style={{ marginTop: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+                  <View style={{ marginTop: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
                     <TouchableOpacity onPress={() => setStep("number")}>
-                      <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>Edit phone number</Text>
+                      <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, fontWeight: '600' }}>Edit number</Text>
                     </TouchableOpacity>
                     
                     <TouchableOpacity onPress={resend} disabled={requestingOtp || resendTimer > 0}>
                       <Text style={{ color: (requestingOtp || resendTimer > 0) ? '#64748b' : '#00daf3', fontSize: 13, fontWeight: '700' }}>
-                        {requestingOtp ? 'Sending...' : (resendTimer > 0 ? `Resend OTP in ${resendTimer}s` : 'Resend OTP')}
+                        {requestingOtp ? 'Sending...' : (resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Resend Code')}
                       </Text>
                     </TouchableOpacity>
                   </View>
                 </View>
               )}
 
+              {/* Legal Footer */}
               <View style={styles.cardFooter}>
                 <Text style={styles.footerInfo}>
                   By continuing, you agree to our{" "}
@@ -487,15 +518,9 @@ export default function LoginScreen() {
                   <Text style={styles.footerLink} onPress={() => router.push('/(auth)/privacy')}>Privacy Policy</Text>
                 </Text>
               </View>
+
             </View>
           </View>
-          
-          {/* Global Status Footer */}
-          <View style={styles.statusFooter}>
-            <View style={styles.statusDot} />
-            <Text style={styles.statusText}>SYSTEM STATUS: ONLINE</Text>
-          </View>
-
         </KeyboardAvoidingView>
       </SafeAreaView>
 
@@ -522,7 +547,6 @@ export default function LoginScreen() {
               shadowRadius: 40,
               alignItems: 'center'
             }}>
-              {/* Illustration Replacement using Neon Icons */}
               <View style={{
                 width: 120, height: 120, borderRadius: 60,
                 backgroundColor: 'rgba(0, 218, 243, 0.1)',
@@ -580,55 +604,146 @@ function prettyFull(full: string) {
 }
 
 const styles = StyleSheet.create({
-  backgroundImage: { flex: 1, width: "100%", height: "100%", backgroundColor: "#020204" },
+  backgroundImage: { flex: 1, width: "100%", height: "100%", backgroundColor: "#04040a" },
   safe: { flex: 1, backgroundColor: "transparent" },
 
-  glassCard: {
-    backgroundColor: 'rgba(23, 23, 37, 0.7)',
+  // Desktop Split Card Layout
+  desktopCard: {
+    flexDirection: 'row',
+    maxWidth: 900,
+    width: '92%',
+    alignSelf: 'center',
+    backgroundColor: 'rgba(15, 15, 28, 0.85)',
     borderRadius: 32,
-    padding: 32,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
+    overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 20 },
-    shadowOpacity: 0.4,
-    shadowRadius: 40,
+    shadowOffset: { width: 0, height: 24 },
+    shadowOpacity: 0.6,
+    shadowRadius: 50,
+  },
+  desktopBannerWrap: {
+    flex: 1,
+    minHeight: 580,
+    position: 'relative',
+    backgroundColor: '#060614',
+  },
+  desktopFormWrap: {
+    flex: 1.15,
+    padding: 40,
+    justifyContent: 'center',
+  },
+
+  // Mobile Vertical Card Layout
+  mobileCard: {
+    maxWidth: 440,
+    width: '92%',
+    alignSelf: 'center',
+    backgroundColor: 'rgba(15, 15, 28, 0.92)',
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.5,
+    shadowRadius: 36,
+  },
+  mobileBannerWrap: {
+    width: '100%',
+    height: 240,
+    position: 'relative',
+    backgroundColor: '#060614',
+  },
+  mobileFormWrap: {
+    padding: 24,
+    paddingTop: 18,
+  },
+
+  bannerImg: {
+    width: '100%',
+    height: '100%',
   },
 
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 40,
+    gap: 10,
+    marginBottom: 20,
   },
   logoCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: 'rgba(0, 218, 243, 0.15)',
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: 'rgba(0, 218, 243, 0.12)',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: 'rgba(0, 218, 243, 0.3)',
   },
   cardBrand: {
-    color: '#fff',
-    fontSize: 18,
+    color: '#00daf3',
+    fontSize: 14,
     fontWeight: '900',
-    letterSpacing: 0.5,
+    letterSpacing: 1.5,
   },
 
   cardTitle: {
-    color: '#fff',
-    fontSize: 28,
+    color: '#ffffff',
+    fontSize: 30,
     fontWeight: '900',
     letterSpacing: 0.2,
   },
   cardSub: {
-    color: 'rgba(255, 255, 255, 0.5)',
+    color: 'rgba(255, 255, 255, 0.55)',
     fontSize: 14,
-    marginTop: 8,
+    marginTop: 6,
     lineHeight: 20,
+  },
+
+  primaryActionBtn: {
+    height: 58,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 10,
+    shadowColor: '#0088cc',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+  },
+  primaryActionBtnText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+
+  secondaryActionBtn: {
+    height: 56,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 10,
+  },
+  secondaryActionBtnText: {
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+
+  loadingTipText: {
+    color: '#00daf3',
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 2,
+    fontWeight: '600',
   },
 
   phoneInputGrid: {
@@ -639,7 +754,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
     borderRadius: 16,
     paddingHorizontal: 16,
     height: 56,
@@ -653,7 +768,7 @@ const styles = StyleSheet.create({
   },
   phoneInputWrap: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
     borderRadius: 16,
     paddingHorizontal: 20,
     height: 56,
@@ -668,15 +783,19 @@ const styles = StyleSheet.create({
   },
 
   sendBtn: {
-    height: 60,
-    borderRadius: 20,
+    height: 58,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#00daf3',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 14,
   },
   sendBtnText: {
-    color: '#fff',
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: '900',
+    letterSpacing: 0.3,
   },
 
   otpInputGridWrapper: {
@@ -686,39 +805,37 @@ const styles = StyleSheet.create({
   otpInputGrid: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 16,
+    gap: 14,
     maxWidth: 320,
     width: '100%',
   },
   otpInput: {
     flex: 1,
-    height: 72,
-    maxWidth: 64,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    height: 68,
+    maxWidth: 62,
+    backgroundColor: 'rgba(255,255,255,0.05)',
     borderRadius: 18,
     borderWidth: 1.5,
     borderColor: 'rgba(255,255,255,0.1)',
     textAlign: 'center',
     color: '#fff',
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '900',
-    shadowColor: '#00daf3',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0,
-    shadowRadius: 10,
   },
   otpInputActive: {
-    borderColor: 'rgba(0, 218, 243, 0.8)',
+    borderColor: '#00daf3',
     backgroundColor: 'rgba(0, 218, 243, 0.08)',
-    shadowOpacity: 0.3,
+    shadowColor: '#00daf3',
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
   },
 
   cardFooter: {
-    marginTop: 40,
+    marginTop: 32,
     alignItems: 'center',
   },
   footerInfo: {
-    color: 'rgba(255,255,255,0.3)',
+    color: 'rgba(255,255,255,0.35)',
     fontSize: 12,
     textAlign: 'center',
     lineHeight: 18,
@@ -726,33 +843,5 @@ const styles = StyleSheet.create({
   footerLink: {
     color: '#00daf3',
     fontWeight: '700',
-  },
-
-  statusFooter: {
-    position: 'absolute',
-    bottom: 24,
-    left: 24,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#00daf3',
-    shadowColor: '#00daf3',
-    shadowOpacity: 1,
-    shadowRadius: 4,
-  },
-  statusText: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 1,
-  },
-
-  desktopWrapper: {
-    paddingVertical: 40,
   },
 });
