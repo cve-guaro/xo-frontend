@@ -126,8 +126,12 @@ function AuthGate({ children }: PropsWithChildren) {
 
   const { unlockAudio } = useBackgroundMusic();
 
-  // ✅ show silky loader while nav/auth are not ready
-  if (!navReady || (booting && !user)) {
+  const hasIncomingUrlToken = Platform.OS === 'web' && typeof window !== 'undefined' && (
+    window.location.search.includes('token=') || window.location.search.includes('auth_token=')
+  );
+
+  // ✅ show silky loader while nav/auth are not ready or while incoming URL token hydrates
+  if (!navReady || (booting && !user) || (hasIncomingUrlToken && !user)) {
     return (
       <Pressable 
         onPress={() => {

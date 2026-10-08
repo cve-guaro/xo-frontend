@@ -428,6 +428,9 @@ type Ctx = {
   loginWithTelegram: () => Promise<void>;
   telegramLoading: boolean;
 
+  // Direct token login (URL token hydration / deep link)
+  loginWithToken: (token: string, refreshToken?: string) => Promise<void>;
+
   // Profile & session
   refreshProfile: () => Promise<void>;
   logout: () => Promise<void>;
@@ -809,6 +812,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Run health check in the background without blocking boot
         void testConnection();
 
+        // 0) Check URL or deep link for incoming token (e.g. from Telegram login return)
+        let incomingToken: string | null = null;
+        let incomingRefresh: string | null = null;
+
+        if (Platform.OS === 'web' && typeof window !== 'undefined') {
+          try {
+            const urlParams = new URLSearchParams(window.location.search);
+            const t = urlParams.get('token') || urlParams.get('auth_token');
+            const r = urlParams.get('refresh') || urlParams.get('refreshToken');
+            if (t) {
+              incomingToken = t;
+              incomingRefresh = r;
+            }
+          } catch (_) {}
+        }
+
+        if (!incomingToken) {
+          try {
+            const initialUrl = await Linking.getInitialURL();
+            if (initialUrl) {
+              const parsed = new URL(initialUrl);
+              const t = parsed.searchParams.get('token') || parsed.searchParams.get('auth_token');
+              const r = parsed.searchParams.get('refresh') || parsed.searchParams.get('refreshToken');
+              if (t) {
+                incomingToken = t;
+                incomingRefresh = r;
+              }
+            }
+          } catch (_) {}
+        }
+
         // 1) Load cached tokens, cached user profile, and cached methods in parallel (near-instant)
         const [savedToken, cachedUserRaw, cachedMethods] = await Promise.all([
           storage.getItemAsync(KEY),
@@ -827,8 +861,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           } catch {}
         }
 
-        if (savedToken) {
-          setToken(savedToken);
+        const effectiveToken = incomingToken || savedToken;
+
+        if (incomingToken) {
+          await storage.setItemAsync(KEY, incomingToken);
+          if (incomingRefresh) {
+            await storage.setItemAsync(REFRESH_KEY, incomingRefresh);
+          }
+          cachedUser = null; // Stale cache should not be used for a newly provided token
+        }
+
+        if (effectiveToken) {
+          setToken(effectiveToken);
           if (cachedUser) {
             setUser(cachedUser);
             // Hide the splash screen instantly for users with valid cached session!
@@ -839,19 +883,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (!cachedUser) {
               // Blocking boot if no cache exists to prevent UI flicker
               const [profile] = await Promise.all([
-                fetchMe(savedToken),
+                fetchMe(effectiveToken),
                 fetchPaymentMethods(),
               ]);
               setUser(profile);
               await storage.setItemAsync(USER_KEY, JSON.stringify(profile));
               setOffline(false);
               await playSuccessSound();
+
+              // Clean up incoming token from URL bar so it doesn't linger in browser history
+              if (incomingToken && Platform.OS === 'web' && typeof window !== 'undefined' && window.history?.replaceState) {
+                try {
+                  const cleanUrl = new URL(window.location.href);
+                  cleanUrl.searchParams.delete('token');
+                  cleanUrl.searchParams.delete('auth_token');
+                  cleanUrl.searchParams.delete('refresh');
+                  cleanUrl.searchParams.delete('refreshToken');
+                  const newSearch = cleanUrl.searchParams.toString();
+                  const target = cleanUrl.pathname + (newSearch ? `?${newSearch}` : '') + cleanUrl.hash;
+                  window.history.replaceState({}, document.title, target);
+                } catch (_) {}
+              }
             } else {
               // Non-blocking background revalidation if cache exists (Perceived instant load!)
               void (async () => {
                 try {
                   const [profile] = await Promise.all([
-                    fetchMe(savedToken),
+                    fetchMe(effectiveToken),
                     fetchPaymentMethods(),
                   ]);
                   setUser(profile);
@@ -957,7 +1015,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               console.warn("[boot] Rate-limited, waiting 5s…");
               await new Promise(r => setTimeout(r, 5000));
               try {
-                const profile = await fetchMe(savedToken);
+                const profile = await fetchMe(effectiveToken);
                 setUser(profile);
                 await storage.setItemAsync(USER_KEY, JSON.stringify(profile));
                 setOffline(false);
@@ -1067,6 +1125,67 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Direct token login handler for deep links and URL params
+  const loginWithToken = useCallback(async (newToken: string, newRefreshToken?: string) => {
+    try {
+      setBooting(true);
+      await storage.setItemAsync(KEY, newToken);
+      if (newRefreshToken) {
+        await storage.setItemAsync(REFRESH_KEY, newRefreshToken);
+      }
+      setToken(newToken);
+
+      const [profile] = await Promise.all([
+        fetchMe(newToken),
+        fetchPaymentMethods(),
+      ]);
+      setUser(profile);
+      await storage.setItemAsync(USER_KEY, JSON.stringify(profile));
+      setOffline(false);
+      await playSuccessSound();
+
+      if (Platform.OS === 'web' && typeof window !== 'undefined' && window.history?.replaceState) {
+        try {
+          const cleanUrl = new URL(window.location.href);
+          cleanUrl.searchParams.delete('token');
+          cleanUrl.searchParams.delete('auth_token');
+          cleanUrl.searchParams.delete('refresh');
+          cleanUrl.searchParams.delete('refreshToken');
+          const newSearch = cleanUrl.searchParams.toString();
+          const target = cleanUrl.pathname + (newSearch ? `?${newSearch}` : '') + cleanUrl.hash;
+          window.history.replaceState({}, document.title, target);
+        } catch (_) {}
+      }
+    } catch (err: any) {
+      console.warn('[loginWithToken] failed:', err?.message);
+      if (err?.status === 401) {
+        await storage.deleteItemAsync(KEY);
+        await storage.deleteItemAsync(REFRESH_KEY);
+        await storage.deleteItemAsync(USER_KEY);
+        setToken(null);
+        setUser(null);
+      }
+    } finally {
+      setBooting(false);
+    }
+  }, [fetchPaymentMethods]);
+
+  // Deep linking listener for runtime incoming URLs
+  useEffect(() => {
+    const sub = Linking.addEventListener('url', async ({ url }) => {
+      try {
+        if (!url) return;
+        const parsed = new URL(url);
+        const t = parsed.searchParams.get('token') || parsed.searchParams.get('auth_token');
+        const r = parsed.searchParams.get('refresh') || parsed.searchParams.get('refreshToken');
+        if (t) {
+          await loginWithToken(t, r || undefined);
+        }
+      } catch (_) {}
+    });
+    return () => sub.remove();
+  }, [loginWithToken]);
+
   // ---- Telegram login ----
   const loginWithTelegram = useCallback(async () => {
     setTelegramLoading(true);
@@ -1074,10 +1193,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await playClickSound();
 
-      // 1) Init session on backend
+      // 1) Init session on backend — defaults to /home/gameplay
       const returnUrl = (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.origin)
-        ? `${window.location.origin}/home/account`
-        : 'https://xo-frontend-gamma.vercel.app/home/account';
+        ? `${window.location.origin}/home/gameplay`
+        : 'https://xo-frontend-gamma.vercel.app/home/gameplay';
 
       const initRes = await fetch(`${API_URL}/auth/telegram-init`, {
         method: 'POST',
@@ -1320,6 +1439,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       verifyOtp: verifyOtp as any,
       loginWithTelegram,
       telegramLoading,
+      loginWithToken,
 
       refreshProfile,
       logout,
@@ -1356,6 +1476,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       pendingNumber,
       telegramLoading,
       loginWithTelegram,
+      loginWithToken,
       language,
       paymentMethod,
       fetchingMethods,

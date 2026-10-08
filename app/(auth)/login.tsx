@@ -27,8 +27,8 @@ import { useToast } from "../../context/ToastContext";
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { ref, promo } = useLocalSearchParams<{ref?: string, promo?: string}>();
-  const { requestOtp, verifyOtp, requestingOtp, verifyingOtp, pendingNumber, user, token, t, language, loginWithTelegram, telegramLoading } = useAuth();
+  const { ref, promo, token: urlToken, refresh: urlRefresh } = useLocalSearchParams<{ref?: string, promo?: string, token?: string, refresh?: string}>();
+  const { requestOtp, verifyOtp, requestingOtp, verifyingOtp, pendingNumber, user, token, t, language, loginWithTelegram, telegramLoading, loginWithToken } = useAuth();
   const { unlockAudio } = useBackgroundMusic();
   const { width, height } = useWindowDimensions();
   const isDesktop = width > 768 && Platform.OS === 'web';
@@ -92,6 +92,13 @@ export default function LoginScreen() {
   const otpRef = useRef(["", "", "", ""]); // avoids laggy re-renders during typing
   // Safe mutable ref array — null initially, populated via ref={\ callback}
   const inputsRef = useRef<(TextInput | null)[]>([null, null, null, null]);
+
+  // Auto-login if token is present in URL (e.g. from Telegram login return)
+  useEffect(() => {
+    if (urlToken && !token && loginWithToken) {
+      void loginWithToken(urlToken, urlRefresh);
+    }
+  }, [urlToken, urlRefresh, token, loginWithToken]);
 
   // ---- route if already logged in
   useEffect(() => {
