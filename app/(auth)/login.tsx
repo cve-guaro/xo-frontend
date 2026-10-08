@@ -32,7 +32,7 @@ export default function LoginScreen() {
   const { unlockAudio } = useBackgroundMusic();
   const { width, height } = useWindowDimensions();
   const isDesktop = width > 768 && Platform.OS === 'web';
-  const mobileBannerHeight = Math.min(Math.max(Math.round(height * 0.46), 330), 490);
+  const mobileBannerHeight = Math.min(Math.max(Math.round(height * 0.58), 400), 560);
   const toast = useToast();
 
   // --- Helpers to convert pending number -> national part (last 9 digits) ---
@@ -603,7 +603,10 @@ export default function LoginScreen() {
                             onPress={() => setLoginMode("choice")}
                             style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 18 }}
                           >
-                            <Text style={{ color: '#FF3B5C', fontSize: 13, fontWeight: '700' }}>← Back to login options</Text>
+                            <Ionicons name="arrow-back" size={16} color="#FF3B5C" />
+                            <Text style={{ color: '#FF3B5C', fontSize: 13, fontWeight: '700' }}>
+                              {language === 'am' ? 'ወደ መግቢያ አማራጮች ተመለስ' : 'Back to login'}
+                            </Text>
                           </TouchableOpacity>
 
                           <View style={styles.phoneInputGrid}>
@@ -868,7 +871,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 8,
     paddingBottom: 24,
-    justifyContent: 'space-between',
     width: '100%',
     maxWidth: 440,
     alignSelf: 'center',
@@ -876,7 +878,8 @@ const styles = StyleSheet.create({
   mobileHeaderWrap: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
+    paddingTop: 8,
+    paddingBottom: 8,
   },
   mobileTitle: {
     color: '#ffffff',
@@ -894,15 +897,16 @@ const styles = StyleSheet.create({
   },
   mobileBottomSection: {
     width: '100%',
-    marginTop: 'auto',
+    marginTop: 18,
   },
   mobileActionsWrap: {
     width: '100%',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   mobileFooterWrap: {
+    marginTop: 16,
     alignItems: 'center',
-    paddingBottom: 4,
+    paddingBottom: 8,
   },
 
   bannerImg: {
@@ -930,10 +934,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexDirection: 'row',
     gap: 10,
-    shadowColor: '#FF3B5C',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
+    // Flat sleek pill button — no fuzzy drop shadow
+    elevation: 0,
+    ...(Platform.OS === 'web' ? ({ boxShadow: 'none' } as any) : {}),
   },
   primaryActionBtnText: {
     color: '#ffffff',
@@ -952,6 +955,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexDirection: 'row',
     gap: 10,
+    elevation: 0,
+    ...(Platform.OS === 'web' ? ({ boxShadow: 'none' } as any) : {}),
   },
   secondaryActionBtnText: {
     color: '#ffffff',
@@ -981,6 +986,7 @@ const styles = StyleSheet.create({
     height: 54,
     borderWidth: 1.5,
     borderColor: 'rgba(255,255,255,0.12)',
+    ...(Platform.OS === 'web' ? ({ outline: 'none' } as any) : {}),
   },
   countryCode: {
     color: '#fff',
@@ -995,12 +1001,19 @@ const styles = StyleSheet.create({
     height: 54,
     borderWidth: 1.5,
     borderColor: 'rgba(255,255,255,0.12)',
+    ...(Platform.OS === 'web' ? ({ outline: 'none', boxShadow: 'none' } as any) : {}),
   },
   mainInput: {
     flex: 1,
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+    ...(Platform.OS === 'web' ? ({
+      outline: 'none',
+      outlineStyle: 'none',
+      outlineWidth: 0,
+      boxShadow: 'none',
+    } as any) : {}),
   },
 
   sendBtn: {
@@ -1008,10 +1021,8 @@ const styles = StyleSheet.create({
     borderRadius: 27,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#FF3B5C',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
+    elevation: 0,
+    ...(Platform.OS === 'web' ? ({ boxShadow: 'none' } as any) : {}),
   },
   sendBtnText: {
     fontSize: 16,
@@ -1042,13 +1053,20 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 26,
     fontWeight: '900',
+    ...(Platform.OS === 'web' ? ({
+      outline: 'none',
+      outlineStyle: 'none',
+      outlineWidth: 0,
+      boxShadow: 'none',
+    } as any) : {}),
   },
   otpInputActive: {
     borderColor: '#FF3B5C',
     backgroundColor: 'rgba(255, 59, 92, 0.08)',
-    shadowColor: '#FF3B5C',
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
+    ...(Platform.OS === 'web' ? ({
+      outline: 'none',
+      boxShadow: 'none',
+    } as any) : {}),
   },
 
   cardFooter: {
