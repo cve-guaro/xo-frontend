@@ -669,28 +669,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const playSuccessSound = async () => {
     if ((!user || !user.sound_muted) && clickPlayer) {
       try {
-        clickPlayer.play();
-      } catch (e) {
-        console.warn("Success sound play error:", e);
-      }
+        await Promise.resolve(clickPlayer.play()).catch(() => {});
+      } catch (_) {}
     }
   };
   const playErrorSound = async () => {
     if ((!user || !user.sound_muted) && losePlayer) {
       try {
-        losePlayer.play();
-      } catch (e) {
-        console.warn("Error sound play error:", e);
-      }
+        await Promise.resolve(losePlayer.play()).catch(() => {});
+      } catch (_) {}
     }
   };
   const playClickSound = async () => {
     if ((!user || !user.sound_muted) && clickPlayer) {
       try {
-        clickPlayer.play();
-      } catch (e) {
-        console.warn("Click sound play error:", e);
-      }
+        await Promise.resolve(clickPlayer.play()).catch(() => {});
+      } catch (_) {}
     }
   };
 
