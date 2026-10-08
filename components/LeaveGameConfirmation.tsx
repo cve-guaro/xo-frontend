@@ -3,6 +3,7 @@ import { Modal, View, Text, StyleSheet, TouchableOpacity, useWindowDimensions, P
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/authContext';
+import { WebPressable } from './WebPressable';
 
 type LeaveGameConfirmationProps = {
   visible: boolean;
@@ -53,23 +54,23 @@ export default function LeaveGameConfirmation({ visible, onCancel, onConfirm, st
 
             {/* Buttons */}
             <View style={styles.buttonRow}>
-              <TouchableOpacity onPress={onCancel} activeOpacity={0.9} style={styles.cancelBtn}>
+              <WebPressable onPress={onCancel} activeScale={0.96} style={styles.cancelBtn}>
                 <LinearGradient colors={["rgba(16,185,129,0.2)", "rgba(16,185,129,0.1)"]} style={styles.cancelGradient}>
                   <Ionicons name="play" size={16} color="#34d399" />
                   <Text style={styles.cancelText}>
                     {t("stay_game")}
                   </Text>
                 </LinearGradient>
-              </TouchableOpacity>
+              </WebPressable>
  
-              <TouchableOpacity onPress={onConfirm} activeOpacity={0.9} style={styles.confirmBtn}>
+              <WebPressable onPress={onConfirm} activeScale={0.96} style={styles.confirmBtn}>
                 <LinearGradient colors={["#ef4444", "#dc2626"]} style={styles.confirmGradient}>
                   <Ionicons name="exit-outline" size={16} color="#fff" />
                   <Text style={styles.confirmText}>
                     {t("exit_game")}
                   </Text>
                 </LinearGradient>
-              </TouchableOpacity>
+              </WebPressable>
             </View>
           </LinearGradient>
         </View>

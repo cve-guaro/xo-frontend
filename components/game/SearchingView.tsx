@@ -1,10 +1,26 @@
 // components/game/SearchingView.tsx
-// Full-screen futuristic AAA esports Matchmaking Arena view with animated radar, floating neon X/O elements, player info card, and glowing status indicators.
+// ────────────────────────────────────────────────────────────────────────────
+// Matchmaking screen — production pass.
+//  - Concentric radar with phase-offset pulse rings (no gimmick clutter).
+//  - Structured status copy: title + supporting line.
+//  - Player card: clean divider, quiet typography.
+//  - Reassurance line under cancel (reduces search-cancel anxiety).
+// ────────────────────────────────────────────────────────────────────────────
 import React, { memo, useEffect, useRef, useState } from "react";
-import { View, Text, Animated, Easing, Platform, TouchableOpacity, StyleSheet, useWindowDimensions, ImageBackground } from "react-native";
+import {
+  View,
+  Text,
+  Animated,
+  Easing,
+  Platform,
+  StyleSheet,
+  useWindowDimensions,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "../../context/authContext";
+import { WebPressable } from "../WebPressable";
+import { colors, type, radius, space, metrics, elevation } from "../../theme/tokens";
 
 interface SearchingViewProps {
   onCancel: () => void;
@@ -13,91 +29,110 @@ interface SearchingViewProps {
   betMax?: number;
 }
 
-const SearchingView = memo(function SearchingView({ onCancel, isMatched, betMin = 10, betMax = 10 }: SearchingViewProps) {
+const SearchingView = memo(function SearchingView({
+  onCancel,
+  isMatched,
+  betMin = 10,
+  betMax = 10,
+}: SearchingViewProps) {
   const { user } = useAuth();
   const [elapsed, setElapsed] = useState(0);
-  const pulse = useRef(new Animated.Value(0)).current;
-  const rotate = useRef(new Animated.Value(0)).current;
-  const floatAnim = useRef(new Animated.Value(0)).current;
+  const pulseA = useRef(new Animated.Value(0)).current;
+  const pulseB = useRef(new Animated.Value(0)).current;
 
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
 
   useEffect(() => {
-    const pulseLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, { toValue: 1, duration: 1800, easing: Easing.inOut(Easing.ease), useNativeDriver: Platform.OS !== 'web' }),
-        Animated.timing(pulse, { toValue: 0, duration: 1800, easing: Easing.inOut(Easing.ease), useNativeDriver: Platform.OS !== 'web' }),
-      ])
+    const loopA = Animated.loop(
+      Animated.timing(pulseA, {
+        toValue: 1,
+        duration: 2200,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: Platform.OS !== "web",
+      })
     );
-
-    const rotateLoop = Animated.loop(
-      Animated.timing(rotate, { toValue: 1, duration: 4000, easing: Easing.linear, useNativeDriver: Platform.OS !== 'web' })
+    const loopB = Animated.loop(
+      Animated.timing(pulseB, {
+        toValue: 1,
+        duration: 2200,
+        easing: Easing.out(Easing.ease),
+        delay: 1100, // phase offset — continuous ripple
+        useNativeDriver: Platform.OS !== "web",
+      })
     );
-
-    const floatLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(floatAnim, { toValue: 1, duration: 3000, easing: Easing.inOut(Easing.quad), useNativeDriver: Platform.OS !== 'web' }),
-        Animated.timing(floatAnim, { toValue: 0, duration: 3000, easing: Easing.inOut(Easing.quad), useNativeDriver: Platform.OS !== 'web' }),
-      ])
-    );
-
-    pulseLoop.start();
-    rotateLoop.start();
-    floatLoop.start();
-
-    const ti = setInterval(() => setElapsed(p => p + 1), 1000);
+    loopA.start();
+    loopB.start();
+    const ti = setInterval(() => setElapsed((p) => p + 1), 1000);
     return () => {
-      pulseLoop.stop();
-      rotateLoop.stop();
-      floatLoop.stop();
+      loopA.stop();
+      loopB.stop();
       clearInterval(ti);
     };
-  }, [pulse, rotate, floatAnim]);
+  }, [pulseA, pulseB]);
 
-  const timeStr = `${Math.floor(elapsed / 60)}:${(elapsed % 60).toString().padStart(2, '0')}`;
+  const timeStr = `${Math.floor(elapsed / 60)}:${(elapsed % 60)
+    .toString()
+    .padStart(2, "0")}`;
 
-  const spinDeg = rotate.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
+  const ringA = (base: number) => ({
+    scale: pulseA.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1.15] }),
+    opacity: pulseA.interpolate({ inputRange: [0, 1], outputRange: [0.7, 0] }),
+    width: base,
+    height: base,
+    borderRadius: base / 2,
+  });
+  const ringB = (base: number) => ({
+    scale: pulseB.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1.15] }),
+    opacity: pulseB.interpolate({ inputRange: [0, 1], outputRange: [0.7, 0] }),
+    width: base,
+    height: base,
+    borderRadius: base / 2,
   });
 
-  const scale1 = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.95, 1.15] });
-  const scale2 = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.88, 1.06] });
-  const fade1 = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.5, 0.15] });
-  const fade2 = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.7, 0.3] });
-
-  const floatY = floatAnim.interpolate({ inputRange: [0, 1], outputRange: [-6, 6] });
-
-  const usernameDisplay = user?.username || (user?.number ? `User ${user.number.slice(-4)}` : "Player");
+  const usernameDisplay =
+    user?.username ||
+    (user?.number ? `User ${user.number.slice(-4)}` : "Player");
   const userInitials = usernameDisplay.slice(0, 2).toUpperCase();
-
-  const stakeDisplay = betMin === betMax ? `ETB ${betMin}` : `ETB ${betMin} - ${betMax}`;
+  const stakeDisplay =
+    betMin === betMax ? `ETB ${betMin}` : `ETB ${betMin} - ${betMax}`;
 
   return (
     <View style={styles.container}>
-      {/* Clean Dark Background */}
       <View style={StyleSheet.absoluteFillObject}>
         <LinearGradient
-          colors={["#050814", "#090d20", "#110a28", "#050814"]}
+          colors={["#07070E", "#0B0B16", "#0D0A1C", "#07070E"]}
           locations={[0, 0.4, 0.8, 1]}
           style={StyleSheet.absoluteFillObject}
         />
-        <View style={styles.gridOverlay} />
       </View>
 
-      {/* ── TOP SECTION: Player Status Card (At top, Flat border, No Shadows) ── */}
-      <View style={{ width: "100%", paddingTop: Platform.OS === 'ios' ? 36 : 12, zIndex: 10, alignItems: "center" }}>
+      {/* ── Player status card ───────────────────────────────────────── */}
+      <View style={styles.topZone}>
         <View style={[styles.playerCard, isDesktop && { maxWidth: 420 }]}>
           <View style={styles.playerCardLeft}>
             <View style={styles.avatarCircle}>
               <Text style={styles.avatarText}>{userInitials}</Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.playerCardName} numberOfLines={1}>{usernameDisplay}</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 }}>
-                <View style={styles.pulsingDot} />
-                <Text style={styles.playerCardStatus}>{isMatched ? 'MATCHED' : 'SEARCHING'}</Text>
+              <Text style={styles.playerCardName} numberOfLines={1}>
+                {usernameDisplay}
+              </Text>
+              <View style={styles.statusRow}>
+                <View
+                  style={[
+                    styles.pulsingDot,
+                    isMatched && { backgroundColor: colors.successSoft },
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.playerCardStatus,
+                    isMatched && { color: colors.successSoft },
+                  ]}
+                >
+                  {isMatched ? "MATCHED" : "SEARCHING"}
+                </Text>
               </View>
             </View>
           </View>
@@ -111,56 +146,63 @@ const SearchingView = memo(function SearchingView({ onCancel, isMatched, betMin 
         </View>
       </View>
 
-      {/* ── CENTER SECTION: Radar & Status Text (Centered in middle) ── */}
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", width: "100%", marginVertical: 10 }}>
-        {/* Center Glowing Radar Arena */}
+      {/* ── Radar + status ───────────────────────────────────────────── */}
+      <View style={styles.centerZone}>
         <View style={styles.orbContainer}>
-          <Animated.View style={[
-            styles.radarRing,
-            { width: 280, height: 280, borderRadius: 140, borderColor: isMatched ? 'rgba(16, 185, 129, 0.4)' : 'rgba(0, 218, 243, 0.25)', opacity: fade1, transform: [{ scale: scale1 }] }
-          ]} />
-          <Animated.View style={[
-            styles.radarRing,
-            { width: 220, height: 220, borderRadius: 110, borderColor: isMatched ? 'rgba(52, 211, 153, 0.5)' : 'rgba(168, 85, 247, 0.35)', opacity: fade2, transform: [{ scale: scale2 }] }
-          ]} />
-          <View style={[styles.radarRingStatic, { width: 160, height: 160, borderRadius: 80 }]} />
+          <Animated.View style={[styles.radarRing, ringA(260)]} />
+          <Animated.View style={[styles.radarRing, ringB(260)]} />
+          <View style={[styles.radarRingStatic, { width: 200, height: 200, borderRadius: 100 }]} />
+          <View style={[styles.radarRingStatic, { width: 132, height: 132, borderRadius: 66 }]} />
 
           <LinearGradient
-            colors={isMatched ? ['#10b981', '#059669'] : ['#00daf3', '#0099ff']}
-            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-            style={styles.coreOrb}
+            colors={isMatched ? ["#10b981", "#059669"] : colors.gradCta}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[styles.coreOrb, isMatched ? elevation.glowGold : elevation.glowPrimary]}
           >
-            <Ionicons name={isMatched ? 'checkmark' : 'search'} size={32} color={isMatched ? "#ffffff" : "#0c0e1a"} />
+            <Ionicons
+              name={isMatched ? "checkmark" : "search"}
+              size={30}
+              color={isMatched ? "#ffffff" : "#04222B"}
+            />
           </LinearGradient>
         </View>
 
-        {/* Status Text */}
         <Text style={styles.statusTitle}>
-          {isMatched ? 'MATCH FOUND!' : 'FINDING OPPONENT...'}
+          {isMatched ? "MATCH FOUND" : "FINDING OPPONENT"}
+        </Text>
+        <Text style={styles.statusSub}>
+          {isMatched
+            ? "Get ready — starting the round"
+            : "Pairing you with a nearby player of similar stake"}
         </Text>
 
-        {/* Elapsed Timer Pill */}
         <View style={styles.timerPill}>
-          <Ionicons name="time-outline" size={14} color="#00daf3" style={{ marginRight: 6 }} />
+          <Ionicons name="time-outline" size={13} color={colors.primary} />
           <Text style={styles.timerText}>{timeStr} elapsed</Text>
         </View>
       </View>
 
-      {/* ── BOTTOM SECTION: Cancel Button & Tip (Anchored at very bottom) ── */}
-      <View style={{ width: "100%", alignItems: "center", paddingBottom: Platform.OS === 'ios' ? 28 : 12, zIndex: 10 }}>
-        <TouchableOpacity 
-          onPress={onCancel} 
-          disabled={isMatched} 
-          style={[styles.cancelBtnWrap, isDesktop && { maxWidth: 360 }]} 
-          activeOpacity={0.8}
+      {/* ── Cancel + reassurance ─────────────────────────────────────── */}
+      <View style={styles.bottomZone}>
+        <WebPressable
+          onPress={onCancel}
+          disabled={isMatched}
+          style={({ pressed }) => [
+            styles.cancelBtnWrap,
+            pressed && { opacity: 0.85 },
+            isMatched && { opacity: 0.5 },
+          ]}
         >
-          <View style={styles.cancelBtnInner}>
-            <Ionicons name="close-circle" size={18} color="#ef4444" style={{ marginRight: 8 }} />
+          <View style={styles.cancelTouch}>
+            <Ionicons name="close-circle" size={17} color={colors.dangerSoft} />
             <Text style={styles.cancelBtnText}>CANCEL SEARCH</Text>
           </View>
-        </TouchableOpacity>
+        </WebPressable>
 
-
+        <Text style={styles.reassureText}>
+          You won't be charged until a match is found
+        </Text>
       </View>
     </View>
   );
@@ -171,204 +213,197 @@ export default SearchingView;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    width: '100%',
-    minHeight: '100%',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    backgroundColor: '#050814',
-    position: 'relative',
-    overflow: 'hidden',
+    width: "100%",
+    minHeight: "100%",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: space.xl,
+    backgroundColor: colors.bgDeep,
+    overflow: "hidden",
   },
-  gridOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 140,
-    borderTopWidth: 1,
-    borderColor: 'rgba(0, 218, 243, 0.05)',
-    backgroundColor: 'rgba(0, 218, 243, 0.015)',
-  },
-  playerCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(12, 18, 38, 0.85)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    width: '100%',
+
+  topZone: {
+    width: "100%",
+    paddingTop: Platform.OS === "ios" ? 36 : 12,
+    alignItems: "center",
     zIndex: 10,
   },
+  playerCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.md,
+    width: "100%",
+  },
   playerCardLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.md,
     flex: 1.2,
   },
   avatarCircle: {
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: 'rgba(0, 218, 243, 0.15)',
+    backgroundColor: colors.tintPrimary,
     borderWidth: 1.5,
-    borderColor: '#00daf3',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: "rgba(0,218,243,0.45)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   avatarText: {
-    color: '#00daf3',
-    fontWeight: '900',
+    color: colors.primary,
+    fontWeight: "800",
     fontSize: 14,
   },
   playerCardName: {
-    color: '#ffffff',
+    color: colors.text,
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: "800",
+  },
+  statusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginTop: 2,
   },
   pulsingDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#00daf3',
+    backgroundColor: colors.primary,
   },
   playerCardStatus: {
-    color: '#00daf3',
+    color: colors.primary,
     fontSize: 10,
-    fontWeight: '800',
+    fontWeight: "800",
     letterSpacing: 1,
   },
   playerCardDivider: {
     width: 1,
     height: 32,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    marginHorizontal: 12,
+    backgroundColor: colors.divider,
+    marginHorizontal: space.md,
   },
   playerCardRight: {
-    alignItems: 'flex-end',
+    alignItems: "flex-end",
     flex: 0.8,
   },
   stakeVal: {
-    color: '#00daf3',
+    color: colors.gold,
     fontSize: 14,
-    fontWeight: '900',
+    fontWeight: "800",
   },
   stakeLabel: {
-    color: 'rgba(255, 255, 255, 0.4)',
+    color: colors.textFaint,
     fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 0.5,
+    fontWeight: "700",
+    letterSpacing: 0.6,
     marginTop: 2,
   },
-  orbContainer: {
-    width: 280,
-    height: 280,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-    marginVertical: 10,
+
+  centerZone: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    width: "100%",
     zIndex: 10,
+  },
+  orbContainer: {
+    width: 260,
+    height: 260,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
   },
   radarRing: {
-    position: 'absolute',
+    position: "absolute",
     borderWidth: 1.5,
+    borderColor: "rgba(0,218,243,0.4)",
   },
   radarRingStatic: {
-    position: 'absolute',
+    position: "absolute",
     borderWidth: 1,
-    borderColor: 'rgba(0, 218, 243, 0.15)',
-  },
-  sweeperArc: {
-    position: 'absolute',
-    width: 240,
-    height: 240,
-    borderRadius: 120,
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-  },
-  arcLine: {
-    width: 120,
-    height: 3,
-    backgroundColor: '#00daf3',
-    borderRadius: 2,
-    shadowColor: '#00daf3',
-    shadowOpacity: 0.9,
-    shadowRadius: 8,
+    borderColor: "rgba(255,255,255,0.06)",
   },
   coreOrb: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#00daf3',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: 24,
-    elevation: 16,
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
+    width: 74,
+    height: 74,
+    borderRadius: 37,
+    alignItems: "center",
+    justifyContent: "center",
   },
   statusTitle: {
-    color: '#ffffff',
-    fontSize: 20,
-    fontWeight: '900',
-    marginTop: 24,
-    letterSpacing: 2,
-    zIndex: 10,
+    color: colors.text,
+    ...type.display,
+    marginTop: space.xxl,
+    letterSpacing: 1.5,
+    textAlign: "center",
+  },
+  statusSub: {
+    color: colors.textMuted,
+    fontSize: 12.5,
+    fontWeight: "600",
+    marginTop: 6,
+    textAlign: "center",
+    paddingHorizontal: space.xl,
+    lineHeight: 18,
   },
   timerPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 218, 243, 0.08)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 14,
-    marginTop: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: colors.tintPrimary,
+    paddingHorizontal: space.lg,
+    paddingVertical: 7,
+    borderRadius: radius.pill,
+    marginTop: space.lg,
     borderWidth: 1,
-    borderColor: 'rgba(0, 218, 243, 0.3)',
-    zIndex: 10,
+    borderColor: "rgba(0,218,243,0.25)",
   },
   timerText: {
-    color: '#00daf3',
-    fontWeight: '800',
-    fontSize: 14,
-    letterSpacing: 0.5,
+    color: colors.primary,
+    fontWeight: "700",
+    fontSize: 13,
+  },
+
+  bottomZone: {
+    width: "100%",
+    alignItems: "center",
+    paddingBottom: Platform.OS === "ios" ? 28 : 16,
+    zIndex: 10,
   },
   cancelBtnWrap: {
-    marginTop: 32,
-    width: '100%',
-    borderRadius: 20,
-    overflow: 'hidden',
-    borderWidth: 1.5,
-    borderColor: 'rgba(239, 68, 68, 0.4)',
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    zIndex: 10,
+    width: "100%",
+    maxWidth: 420,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: "rgba(239,68,68,0.35)",
+    backgroundColor: "rgba(239,68,68,0.08)",
+    overflow: "hidden",
   },
-  cancelBtnInner: {
+  cancelTouch: {
     paddingVertical: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: space.sm,
   },
   cancelBtnText: {
-    color: '#f87171',
-    fontWeight: '900',
-    letterSpacing: 1.5,
-    fontSize: 14,
+    color: colors.dangerSoft,
+    fontWeight: "800",
+    letterSpacing: 1.2,
+    fontSize: 13.5,
   },
-  tipRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 24,
-    zIndex: 10,
-  },
-  tipText: {
-    color: 'rgba(0, 218, 243, 0.7)',
-    fontSize: 11,
-    fontWeight: '600',
+  reassureText: {
+    color: colors.textFaint,
+    fontSize: 11.5,
+    fontWeight: "600",
+    marginTop: space.md,
+    textAlign: "center",
   },
 });
-

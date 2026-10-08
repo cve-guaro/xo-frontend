@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { ArrowForwardIcon, CheckmarkCircleIcon, ServerIcon, ConstructIcon } from "../../components/SvgIcons";
+import { ArrowForwardIcon, CheckmarkCircleIcon, ServerIcon, ConstructIcon, TelegramPlaneIcon, ChatBubbleIcon } from "../../components/SvgIcons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import Head from "expo-router/head";
@@ -320,7 +320,7 @@ export default function LoginScreen() {
                             <ActivityIndicator color="#0088CC" />
                           ) : (
                             <>
-                              <Ionicons name="paper-plane" size={20} color="#0088CC" />
+                              <TelegramPlaneIcon size={20} color="#0088CC" />
                               <Text style={{ color: '#0088CC', fontSize: 15, fontWeight: '800' }}>
                                 {language === 'am' ? 'በቴሌግራም ቦት ግባ (@XoethiopiaBot)' : 'Login with Telegram Bot'}
                               </Text>
@@ -360,7 +360,7 @@ export default function LoginScreen() {
                           flexDirection: 'row',
                           gap: 10,
                         }}>
-                          <Text style={{ fontSize: 18 }}>💬</Text>
+                          <ChatBubbleIcon size={20} color="#a78bfa" />
                           <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '800' }}>
                             {language === 'am' ? 'በስልክ ቁጥር (SMS OTP) ግባ' : 'Login with SMS OTP'}
                           </Text>

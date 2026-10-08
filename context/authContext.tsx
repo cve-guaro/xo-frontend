@@ -467,23 +467,46 @@ type Ctx = {
 const storage = {
   async getItemAsync(key: string): Promise<string | null> {
     if (Platform.OS === "web") {
-      return localStorage.getItem(key);
+      try {
+        if (typeof window !== "undefined" && window.localStorage) {
+          return window.localStorage.getItem(key);
+        }
+      } catch {
+        return null;
+      }
+      return null;
     }
-    return SecureStore.getItemAsync(key);
+    try {
+      return await SecureStore.getItemAsync(key);
+    } catch {
+      return null;
+    }
   },
   async setItemAsync(key: string, value: string): Promise<void> {
     if (Platform.OS === "web") {
-      localStorage.setItem(key, value);
+      try {
+        if (typeof window !== "undefined" && window.localStorage) {
+          window.localStorage.setItem(key, value);
+        }
+      } catch {}
       return;
     }
-    return SecureStore.setItemAsync(key, value);
+    try {
+      await SecureStore.setItemAsync(key, value);
+    } catch {}
   },
   async deleteItemAsync(key: string): Promise<void> {
     if (Platform.OS === "web") {
-      localStorage.removeItem(key);
+      try {
+        if (typeof window !== "undefined" && window.localStorage) {
+          window.localStorage.removeItem(key);
+        }
+      } catch {}
       return;
     }
-    return SecureStore.deleteItemAsync(key);
+    try {
+      await SecureStore.deleteItemAsync(key);
+    } catch {}
   },
 };
 

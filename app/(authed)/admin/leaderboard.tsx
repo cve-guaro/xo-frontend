@@ -1079,12 +1079,12 @@ export default function AdminLeaderboardPage() {
                               }
                             }}
                             style={{
-                              background: 'transparent',
+                              backgroundColor: 'transparent',
                               color: '#fff',
                               border: 'none',
-                              outline: 'none',
+                              outlineStyle: 'none',
                               width: '100%',
-                              fontSize: '13px',
+                              fontSize: 13,
                               fontFamily: 'inherit',
                             }}
                           >

@@ -795,7 +795,7 @@ const s = StyleSheet.create({
   toggleBtnActive: {
     backgroundColor: "#7c3aed",
     ...(Platform.OS === 'web' ? { 
-      background: "linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)",
+      backgroundImage: "linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)",
       boxShadow: "0 4px 12px rgba(124, 58, 237, 0.4)"
     } as any : {}),
   },

@@ -16,6 +16,7 @@ import {
   Vibration,
   View,
 } from "react-native";
+import { WebPressable } from "../WebPressable";
 
 interface ResultOverlayProps {
   visible: boolean;
@@ -177,25 +178,43 @@ function ResultOverlay({ visible, outcome, amount, onHome, onPlayAgain, onSendEm
                 <Text style={styles.message}>{ui.message}</Text>
 
                 <View style={{ width: "100%", flexDirection: "column", gap: 10 }}>
-                  <TouchableOpacity onPress={onHome} disabled={!canContinue} activeOpacity={0.92} style={[styles.btnWrap, !canContinue && { opacity: 0.5 }]}>
+                  <WebPressable
+                    onPress={canContinue ? onHome : undefined}
+                    disabled={!canContinue}
+                    activeScale={0.96}
+                    style={({ pressed }) => [
+                      styles.btnWrap,
+                      !canContinue && { opacity: 0.5 },
+                      pressed && canContinue && { transform: [{ scale: 0.96 }] },
+                    ]}
+                  >
                     <LinearGradient colors={ui.primaryGrad} style={styles.btn}>
                       <Ionicons name="home-outline" size={18} color="#0c0c1f" />
                       <Text style={styles.btnText}>{ui.primaryText}</Text>
                       {!canContinue && <Text style={{ color: 'rgba(12,12,31,0.6)', fontSize: 11, marginLeft: 'auto', fontWeight: '800' }}>({countdown}s)</Text>}
                       {canContinue && <Ionicons name="chevron-forward" size={16} color="#0c0c1f" style={{ marginLeft: 'auto' }} />}
                     </LinearGradient>
-                  </TouchableOpacity>
+                  </WebPressable>
 
                   {/* Play Again / Rematch Button (LOSER ONLY) */}
                   {onPlayAgain && !isWin && (
                     <View>
-                      <TouchableOpacity onPress={insufficientBalance ? undefined : onPlayAgain} disabled={!canContinue || insufficientBalance} activeOpacity={0.92} style={[styles.btnWrap, (!canContinue || insufficientBalance) && { opacity: 0.45 }]}>
+                      <WebPressable
+                        onPress={(!canContinue || insufficientBalance) ? undefined : onPlayAgain}
+                        disabled={!canContinue || insufficientBalance}
+                        activeScale={0.96}
+                        style={({ pressed }) => [
+                          styles.btnWrap,
+                          (!canContinue || insufficientBalance) && { opacity: 0.45 },
+                          pressed && canContinue && !insufficientBalance && { transform: [{ scale: 0.96 }] },
+                        ]}
+                      >
                         <LinearGradient colors={["rgba(255,255,255,0.1)", "rgba(255,255,255,0.05)"]} style={[styles.btn, { borderWidth: 1, borderColor: insufficientBalance ? "rgba(255,75,75,0.3)" : "rgba(255,255,255,0.15)" }]}>
                           <Ionicons name="refresh-outline" size={18} color="#fff" />
                           <Text style={[styles.btnText, { color: '#fff' }]}>Run It Back! 🔥</Text>
                           {!canContinue && <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, marginLeft: 'auto', fontWeight: '800' }}>({countdown}s)</Text>}
                         </LinearGradient>
-                      </TouchableOpacity>
+                      </WebPressable>
                       {insufficientBalance && (
                         <Text style={{ color: '#ff6b6b', fontSize: 11, fontWeight: '700', textAlign: 'center', marginTop: 6 }}>
                           ⚠️ Insufficient balance for this rematch

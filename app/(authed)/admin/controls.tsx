@@ -101,6 +101,7 @@ export default function AdminControls() {
   const [refundUser, setRefundUser] = useState('');
   const [refundAmount, setRefundAmount] = useState('');
   const [refundReason, setRefundReason] = useState('');
+  const [refundOriginalTxId, setRefundOriginalTxId] = useState('');
   const [refundTarget, setRefundTarget] = useState<'available' | 'withdrawable' | 'both'>('available');
   const [refundResult, setRefundResult] = useState<any>(null);
 
@@ -225,8 +226,8 @@ export default function AdminControls() {
 
   // Issue Manual Refund
   const handleIssueRefund = async () => {
-    if (!refundUser.trim() || !refundAmount.trim()) return;
-    const confirmed = await showConfirmModal(`Issue refund of ${refundAmount} ETB to ${refundUser.trim()}?`);
+    if (!refundUser.trim() || !refundAmount.trim() || !refundOriginalTxId.trim()) return;
+    const confirmed = await showConfirmModal(`Issue refund of ${refundAmount} ETB to ${refundUser.trim()} (original tx ${refundOriginalTxId.trim()})?`);
     if (!confirmed) return;
     setRefundResult(null);
     try {
@@ -242,6 +243,7 @@ export default function AdminControls() {
           amount: Number(refundAmount),
           reason: refundReason.trim(),
           target: refundTarget,
+          originalTxId: refundOriginalTxId.trim(),
         }),
       });
       const data = await res.json();
@@ -250,6 +252,7 @@ export default function AdminControls() {
         setRefundUser('');
         setRefundAmount('');
         setRefundReason('');
+        setRefundOriginalTxId('');
         setRefundTarget('available');
         fetchRefunds();
       } else {
@@ -478,6 +481,19 @@ export default function AdminControls() {
                 placeholder="e.g. 0939484533 or Almaz_Winner"
                 style={s.input}
                 placeholderTextColor="#334155"
+              />
+            </View>
+
+            <Text style={s.fieldLabel}>ORIGINAL TRANSACTION ID (REQUIRED — REFUND IS KEYED TO IT)</Text>
+            <View style={s.inputRow}>
+              <Ionicons name="receipt-outline" size={16} color="#475569" />
+              <TextInput
+                value={refundOriginalTxId}
+                onChangeText={setRefundOriginalTxId}
+                placeholder="wallet_transactions.id of the tx being refunded"
+                style={s.input}
+                placeholderTextColor="#334155"
+                autoCapitalize="none"
               />
             </View>
 

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Switch, TouchableOpacity, TextInput, ActivityIndicator, Platform } from 'react-native';
+import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { AdminTheme as C } from './_layout';
@@ -9,6 +10,7 @@ import { API_URL } from '../../../config';
 import ActionConfirmModal from '../../../components/ActionConfirmModal';
 
 export default function Maintenance() {
+  const router = useRouter();
   const { token, user, isSuperAdmin } = useAuth();
   const toast = useToast();
   
@@ -186,6 +188,39 @@ export default function Maintenance() {
           <Text style={s.pageSubtitle}>System operational toggles, maintenance mode, and emergency access</Text>
         </View>
       </View>
+
+      {/* API & Mini-App Infrastructure Gateway Card */}
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={() => router.push('/admin/miniapps' as any)}
+        style={[s.card, { borderColor: 'rgba(124,58,237,0.4)', backgroundColor: 'rgba(19, 24, 44, 0.85)' }]}
+      >
+        <LinearGradient
+          colors={['rgba(124,58,237,0.18)', 'rgba(34,211,238,0.08)']}
+          style={{ ...StyleSheet.absoluteFillObject, borderRadius: 24 }}
+        />
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, flex: 1, paddingRight: 12 }}>
+            <View style={[s.iconBg, { backgroundColor: 'rgba(124,58,237,0.25)', width: 46, height: 46, borderRadius: 14 }]}>
+              <Ionicons name="apps" size={24} color={C.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={[s.cardTitle, { marginBottom: 2 }]}>API & Mini-App Controller</Text>
+                <View style={{ backgroundColor: 'rgba(34,211,238,0.15)', borderColor: 'rgba(34,211,238,0.3)', borderWidth: 1, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 }}>
+                  <Text style={{ color: C.secondary, fontSize: 10, fontWeight: '800', letterSpacing: 0.5 }}>LOCKED GATE</Text>
+                </View>
+              </View>
+              <Text style={[s.cardDesc, { marginBottom: 0 }]}>
+                Manage registered developer mini-apps, API credentials, permission scopes, rate limits, and audit logs.
+              </Text>
+            </View>
+          </View>
+          <View style={{ backgroundColor: C.primary, width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="chevron-forward" size={20} color="#ffffff" />
+          </View>
+        </View>
+      </TouchableOpacity>
 
       {/* Emergency Lockout Card */}
       <LinearGradient colors={isEmergencyLocked ? ['rgba(253,111,133,0.15)', 'rgba(138,22,50,0.1)'] : ['rgba(167,139,250,0.1)', 'rgba(0,218,243,0.05)']} style={[s.card, isEmergencyLocked && { borderColor: 'rgba(253,111,133,0.3)' }]}>

@@ -59,6 +59,7 @@ const TOPBAR_H = 60;
    { icon: 'link',    label: 'Promotions',      path: '/admin/promotion-links' },
    { icon: 'shield-checkmark', label: 'Audit Logs', path: '/admin/audit' },
    { icon: 'podium',  label: 'Leaderboard',     path: '/admin/leaderboard' },
+   { icon: 'apps',    label: 'Mini Apps',        path: '/admin/miniapps' },
    { icon: 'settings', label: 'Settings',        path: '/admin/settings' },
    { icon: 'home',    label: 'Back To Home',    path: '/(authed)/home/gameplay' },
  ];
@@ -197,7 +198,10 @@ export default function AdminLayout() {
     { icon: 'options', label: 'Platform Controls', path: '/admin/controls' },
     { icon: 'link', label: 'Promotions', path: '/admin/promotion-links' },
     { icon: 'shield-checkmark', label: 'System Audits', path: '/admin/audit' },
-    ...(isMaintenanceAdmin ? [{ icon: 'construct', label: 'Maintenance', path: '/admin/maintenance' }] : []),
+    ...(isMaintenanceAdmin ? [
+      { icon: 'construct', label: 'Maintenance', path: '/admin/maintenance' },
+      { icon: 'apps', label: 'Mini Apps (API)', path: '/admin/miniapps' },
+    ] : []),
   ];
 
   const xoGroup = [
@@ -360,6 +364,13 @@ export default function AdminLayout() {
               </View>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <TouchableOpacity
+                onPress={() => router.push('/(authed)/home/gameplay' as any)}
+                style={[s.iconBtn, { backgroundColor: 'rgba(0, 218, 243, 0.15)', borderWidth: 1, borderColor: 'rgba(0, 218, 243, 0.4)' }]}
+                accessibilityLabel="Back to Home"
+              >
+                <Ionicons name="home-outline" size={17} color={C.primary} />
+              </TouchableOpacity>
               <TouchableOpacity onPress={toggleMusic} style={s.iconBtn}>
                 <Ionicons name={musicPlaying ? 'volume-high' : 'volume-mute'} size={18} color={musicPlaying ? C.secondary : C.error} />
               </TouchableOpacity>
@@ -409,7 +420,25 @@ export default function AdminLayout() {
                         <SideNavItem key={item.path} {...item} currentPath={pathname} collapsed={false} />
                      ))}
                   </ScrollView>
-                  <View style={{ padding: 20, borderTopWidth: 1, borderTopColor: C.outlineVariant }}>
+                  <View style={{ padding: 20, borderTopWidth: 1, borderTopColor: C.outlineVariant, gap: 10 }}>
+                     <TouchableOpacity 
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: 8,
+                          backgroundColor: 'rgba(0, 218, 243, 0.12)',
+                          borderWidth: 1,
+                          borderColor: 'rgba(0, 218, 243, 0.35)',
+                          paddingVertical: 12,
+                          borderRadius: 12,
+                        }} 
+                        onPress={() => { setMobileSidebarVisible(false); router.push('/(authed)/home/gameplay' as any); }}
+                     >
+                        <Ionicons name="home-outline" size={18} color={C.primary} />
+                        <Text style={{ color: C.primary, fontSize: 13, fontWeight: '800' }}>{isEN ? 'BACK TO GAME' : 'ወደ መነሻ ተመለስ'}</Text>
+                     </TouchableOpacity>
+
                      <TouchableOpacity 
                         style={s.emergencyBtn} 
                         onPress={() => { setMobileSidebarVisible(false); setLogoutModalVisible(true); }}
@@ -528,6 +557,29 @@ export default function AdminLayout() {
           <AdminGlobalSearch />
         </View>
         <View style={s.topbarRight}>
+          {/* Back to Home Button */}
+          <TouchableOpacity
+            onPress={() => router.push('/(authed)/home/gameplay' as any)}
+            activeOpacity={0.8}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              backgroundColor: 'rgba(0, 218, 243, 0.1)',
+              borderWidth: 1,
+              borderColor: 'rgba(0, 218, 243, 0.35)',
+              paddingHorizontal: 12,
+              paddingVertical: 7,
+              borderRadius: 10,
+              marginRight: 6,
+            }}
+          >
+            <Ionicons name="home-outline" size={15} color={C.primary} />
+            <Text style={{ color: C.primary, fontSize: 11, fontWeight: '800', letterSpacing: 0.5 }}>
+              {isEN ? 'BACK TO HOME' : 'ወደ መነሻ'}
+            </Text>
+          </TouchableOpacity>
+
           {isDesktop && (
             <>
               <TouchableOpacity style={s.balanceGroup} activeOpacity={0.7} onPress={() => router.push('/admin/ledger' as any)}>

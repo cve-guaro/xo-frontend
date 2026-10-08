@@ -216,6 +216,8 @@ import { LobbyHeader } from "../../../components/game/LobbyHeader";
 import { WeeklyPodium } from "../../../components/game/WeeklyPodium";
 import { SocialProofCard } from "../../../components/game/SocialProofCard";
 import { LiveWinToast } from "../../../components/game/LiveWinToast";
+import { SegmentedTabs, CtaButton } from "../../../theme/ui";
+import { colors } from "../../../theme/tokens";
 
 
 
@@ -1211,21 +1213,21 @@ export default function Landing() {
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
             <MobileQuickTile
               icon="arrow-down"
-              iconColor="#60a5fa"
+              accent="violet"
               title={isEN ? "Deposit" : "ማስገቢያ"}
               subtitle="TOP UP"
               onPress={() => Platform.OS === 'web' ? setDepositVisible(true) : router.push("/(authed)/deposit")}
             />
             <MobileQuickTile
               icon="arrow-up"
-              iconColor="#eab308"
+              accent="gold"
               title={isEN ? "Withdraw" : "ወጪ ማውጫ"}
               subtitle="CASH OUT"
               onPress={() => Platform.OS === 'web' ? setWithdrawVisible(true) : router.push("/(authed)/withdraw")}
             />
             <MobileQuickTile
               icon="swap-horizontal"
-              iconColor="#00daf3"
+              accent="cyan"
               title={isEN ? "Transactions" : "ግብይቶች"}
               subtitle="HISTORY"
               onPress={() => router.push("/(authed)/home/transactions")}
@@ -1233,80 +1235,20 @@ export default function Landing() {
           </View>
 
           {/* 3. Mode Switcher Tabs (SPIN vs XO) */}
-          <View style={{
-            flexDirection: "row",
-            backgroundColor: "#0d0e1d",
-            borderRadius: 16,
-            padding: 4,
-            marginTop: 16,
-            borderWidth: 1.2,
-            borderColor: "rgba(139, 92, 246, 0.2)",
-            alignSelf: "center",
-            width: "100%",
-          }}>
-            <TouchableOpacity
-              onPress={() => setSelectedTab("SPIN")}
-              style={{
-                flex: 1,
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "center",
-                paddingVertical: 11,
-                borderRadius: 12,
-                backgroundColor: selectedTab === "SPIN" ? "rgba(139, 92, 246, 0.25)" : "transparent",
-                borderColor: selectedTab === "SPIN" ? "#8b5cf6" : "transparent",
-                borderWidth: selectedTab === "SPIN" ? 1.2 : 0,
-                gap: 8,
-              }}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="aperture-outline" size={17} color={selectedTab === "SPIN" ? "#c084fc" : "#8b93a7"} />
-              <Text style={{ color: selectedTab === "SPIN" ? "#c084fc" : "#8b93a7", fontSize: 13, fontWeight: "900" }}>
-                SPIN
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => setSelectedTab("XO_GAME")}
-              style={{
-                flex: 1,
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "center",
-                paddingVertical: 11,
-                borderRadius: 12,
-                backgroundColor: selectedTab === "XO_GAME" ? "rgba(139, 92, 246, 0.25)" : "transparent",
-                borderColor: selectedTab === "XO_GAME" ? "#8b5cf6" : "transparent",
-                borderWidth: selectedTab === "XO_GAME" ? 1.2 : 0,
-                gap: 8,
-              }}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="grid-outline" size={17} color={selectedTab === "XO_GAME" ? "#c084fc" : "#8b93a7"} />
-              <Text style={{ color: selectedTab === "XO_GAME" ? "#c084fc" : "#8b93a7", fontSize: 13, fontWeight: "900" }}>
-                XO
-              </Text>
-            </TouchableOpacity>
+          <View style={{ marginTop: 16 }}>
+            <SegmentedTabs
+              tabs={[
+                { key: "SPIN" as const, label: "SPIN", icon: "aperture-outline" },
+                { key: "XO_GAME" as const, label: "XO", icon: "grid-outline" },
+              ]}
+              value={selectedTab}
+              onChange={(k) => setSelectedTab(k)}
+            />
           </View>
 
           {/* 4. Main Gaming Section (SPIN TO WIN vs XO Podium) */}
           {selectedTab === "SPIN" ? (
-            <ImageBackground
-              source={require("../../../assets/images/spin-bg.jpg")}
-              style={{
-                marginTop: 16,
-                borderRadius: 24,
-                padding: 18,
-                alignItems: "center",
-                width: "100%",
-                overflow: "hidden",
-                borderWidth: 1.5,
-                borderColor: "rgba(139, 92, 246, 0.3)",
-              }}
-              imageStyle={{ borderRadius: 24, opacity: 0.8 }}
-              resizeMode="cover"
-            >
-              <View style={[StyleSheet.absoluteFillObject, { backgroundColor: "rgba(12, 9, 30, 0.72)", borderRadius: 24 }]} />
+            <View style={spinStyles.card}>
 
               {/* SPIN TO WIN Header Header */}
               <View style={{ width: "100%", flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
@@ -1346,84 +1288,43 @@ export default function Landing() {
                 <SpinWheel size={300} players={[]} isSpinning={false} status="idle" mode={spinMode} />
               </View>
 
-              {/* SPIN NOW! Big Neon CTA Button */}
-              <TouchableOpacity
+              {/* Primary CTA */}
+              <CtaButton
+                label="SPIN NOW"
+                icon="aperture"
                 onPress={handleMobileSpinNow}
-                style={{
-                  marginTop: 20,
-                  width: "100%",
-                  borderRadius: 24,
-                  overflow: "hidden",
-                  borderWidth: 1.5,
-                  borderColor: "#f5b642",
-                  shadowColor: "#a855f7",
-                  shadowOffset: { width: 0, height: 8 },
-                  shadowOpacity: 0.5,
-                  shadowRadius: 14,
-                  elevation: 8,
-                }}
-                activeOpacity={0.85}
-              >
-                <LinearGradient
-                  colors={["#8b35ff", "#c026d3", "#7c3aed"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={{ paddingVertical: 14, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 10 }}
-                >
-                  <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 16, fontWeight: "900" }}>««</Text>
-                  <Text style={{ color: "#ffffff", fontSize: 17, fontWeight: "900", letterSpacing: 1.5 }}>
-                    SPIN NOW!
-                  </Text>
-                  <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 16, fontWeight: "900" }}>»»</Text>
-                </LinearGradient>
-              </TouchableOpacity>
+                style={{ marginTop: 4 }}
+              />
 
-              {/* Centered & Clickable 5 People Spin Capsule Button */}
-              <View style={{ width: "100%", alignItems: "center", justifyContent: "center", marginTop: 16 }}>
-                <TouchableOpacity
-                  onPress={() => {
-                    haptics.tap();
-                    router.push({
-                      pathname: '/(authed)/home/spin',
-                      params: { mode: "5_PLAYER" }
-                    } as any);
-                  }}
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 10,
-                    paddingVertical: 12,
-                    paddingHorizontal: 24,
-                    borderRadius: 24,
-                    borderWidth: 1.5,
-                    borderColor: "#8b5cf6",
-                    backgroundColor: "rgba(18, 14, 42, 0.9)",
-                    shadowColor: "#8b5cf6",
-                    shadowOffset: { width: 0, height: 4 },
-                    shadowOpacity: 0.4,
-                    shadowRadius: 10,
-                    elevation: 6,
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <View style={{ flexDirection: "row" }}>
-                    <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: "#7c3aed", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#fff" }}>
-                      <Ionicons name="person" size={11} color="#ffffff" />
-                    </View>
-                    <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: "#22c55e", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#fff", marginLeft: -8 }}>
-                      <Ionicons name="person" size={11} color="#ffffff" />
-                    </View>
-                    <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: "#22d3ee", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#fff", marginLeft: -8 }}>
-                      <Ionicons name="person" size={11} color="#ffffff" />
-                    </View>
+              {/* 5-player capsule */}
+              <TouchableOpacity
+                onPress={() => {
+                  haptics.tap();
+                  router.push({
+                    pathname: '/(authed)/home/spin',
+                    params: { mode: "5_PLAYER" }
+                  } as any);
+                }}
+                activeOpacity={0.8}
+                style={spinStyles.capsule}
+              >
+                <View style={{ flexDirection: "row" }}>
+                  <View style={[spinStyles.avatarDot, { backgroundColor: "#7c3aed" }]}>
+                    <Ionicons name="person" size={11} color="#ffffff" />
                   </View>
-                  <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "900", letterSpacing: 0.8 }}>
-                    5 PEOPLE SPIN ›
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </ImageBackground>
+                  <View style={[spinStyles.avatarDot, { backgroundColor: "#22c55e", marginLeft: -8 }]}>
+                    <Ionicons name="person" size={11} color="#ffffff" />
+                  </View>
+                  <View style={[spinStyles.avatarDot, { backgroundColor: "#22d3ee", marginLeft: -8 }]}>
+                    <Ionicons name="person" size={11} color="#ffffff" />
+                  </View>
+                </View>
+                <Text style={spinStyles.capsuleText}>
+                  5 PEOPLE SPIN
+                </Text>
+                <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
           ) : (
             <WeeklyPodium
               isEN={isEN}
@@ -1437,79 +1338,9 @@ export default function Landing() {
             />
           )}
 
-          <View style={{ height: 20 }} />
-
-          <View style={{ height: 35 }} />
+          <View style={{ height: 110 }} />
         </ScrollView>
 
-        {/* 7. Mobile Sticky Bottom Navigation Bar (Fintech Luxury Bar) */}
-        <View style={{
-          flexDirection: "row",
-          backgroundColor: "#0a0b18",
-          borderTopWidth: 1.2,
-          borderTopColor: "rgba(139, 92, 246, 0.2)",
-          paddingVertical: 10,
-          paddingBottom: Platform.OS === "ios" ? 22 : 12,
-          alignItems: "center",
-          justifyContent: "space-around",
-          width: "100%",
-        }}>
-          {/* HOME Tab (Active) */}
-          <TouchableOpacity
-            style={{
-              alignItems: "center",
-              paddingHorizontal: 16,
-              paddingVertical: 6,
-              borderRadius: 14,
-              backgroundColor: "rgba(139, 92, 246, 0.18)",
-              borderWidth: 1,
-              borderColor: "rgba(139, 92, 246, 0.4)",
-            }}
-            onPress={() => router.push('/(authed)/home/gameplay')}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="home" size={20} color="#c084fc" />
-            <Text style={{ color: "#c084fc", fontSize: 10, fontWeight: "900", marginTop: 2 }}>
-              {isEN ? "HOME" : "መነሻ"}
-            </Text>
-          </TouchableOpacity>
-
-          {/* HISTORY Tab */}
-          <TouchableOpacity
-            style={{ alignItems: "center", paddingHorizontal: 12, paddingVertical: 6 }}
-            onPress={() => router.push('/(authed)/home/history')}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="time-outline" size={20} color="#8b93a7" />
-            <Text style={{ color: "#8b93a7", fontSize: 10, fontWeight: "800", marginTop: 2 }}>
-              {isEN ? "HISTORY" : "ታሪክ"}
-            </Text>
-          </TouchableOpacity>
-
-          {/* LEADERBOARD Tab */}
-          <TouchableOpacity
-            style={{ alignItems: "center", paddingHorizontal: 12, paddingVertical: 6 }}
-            onPress={() => router.push('/(authed)/home/leaderboard')}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="trophy-outline" size={20} color="#8b93a7" />
-            <Text style={{ color: "#8b93a7", fontSize: 10, fontWeight: "800", marginTop: 2 }}>
-              {isEN ? "LEADERBOARD" : "ደረጃዎች"}
-            </Text>
-          </TouchableOpacity>
-
-          {/* PROFILE Tab */}
-          <TouchableOpacity
-            style={{ alignItems: "center", paddingHorizontal: 12, paddingVertical: 6 }}
-            onPress={() => router.push('/(authed)/home/account')}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="person-outline" size={20} color="#8b93a7" />
-            <Text style={{ color: "#8b93a7", fontSize: 10, fontWeight: "800", marginTop: 2 }}>
-              {isEN ? "PROFILE" : "መገለጫ"}
-            </Text>
-          </TouchableOpacity>
-        </View>
         {!!user?.username && <WelcomeTermsPopup visible={termsVisible} onAgree={handleAgreeTerms} language={language} />}
         <ProfileEditModal
           visible={!user?.username && !booting}
@@ -2904,6 +2735,96 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 24,
     textTransform: 'uppercase',
+  },
+});
+
+// SPIN card styles (token-based)
+const spinStyles = StyleSheet.create({
+  card: {
+    marginTop: 16,
+    borderRadius: 24,
+    padding: 18,
+    alignItems: "center",
+    width: "100%",
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "#10101F",
+  },
+  headerRow: {
+    width: "100%",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+    alignSelf: "stretch",
+  },
+  title: {
+    color: "#EDEEF4",
+    fontSize: 20,
+    fontWeight: "800",
+    letterSpacing: -0.2,
+  },
+  subtitle: {
+    color: "#F5B642",
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 2,
+  },
+  liveBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(16,185,129,0.10)",
+    borderRadius: 999,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: "rgba(16,185,129,0.28)",
+  },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#34D399",
+  },
+  liveText: {
+    color: "#B4B8CC",
+    fontSize: 11.5,
+    fontWeight: "700",
+  },
+  wheelWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginVertical: 12,
+  },
+  capsule: {
+    marginTop: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    paddingVertical: 11,
+    paddingHorizontal: 22,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+    backgroundColor: "rgba(255,255,255,0.04)",
+  },
+  avatarDot: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.6)",
+  },
+  capsuleText: {
+    color: "#EDEEF4",
+    fontSize: 12.5,
+    fontWeight: "800",
+    letterSpacing: 0.6,
   },
 });
 

@@ -309,9 +309,8 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
         <ScrollView style={s.mainScrollView} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={s.pageContentWrapper}>
             <View style={s.threeColumnRow}>
-              {/* 1. LEFT SIDEBAR (fixed width 280px) */}
-              {/* 1. LEFT SIDEBAR (split cards) */}
-              <View style={[s.leftSidebar, { alignSelf: "stretch" }]}>
+              {/* 1. LEFT SIDEBAR */}
+              <View style={s.leftSidebar}>
                 {/* Card 1: User Profile & Balance */}
                 <View style={s.card}>
                   <View style={s.userCardHeader}>
@@ -341,10 +340,9 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
                   </View>
                 </View>
 
-                {/* Card 2: Navigation & Wallet */}
-                <View style={[s.card, { flex: 1, justifyContent: "space-between" }]}>
-                  {/* Vertical Navigation Links */}
-                  <View style={{ justifyContent: "center", marginVertical: 10 }}>
+                {/* Card 2: Navigation Links (Height limits based on items) */}
+                <View style={s.card}>
+                  <View style={{ justifyContent: "center" }}>
                     <TouchableOpacity onPress={() => handleNavClick('home')} style={[s.navItem, s.navItemActive]} activeOpacity={0.8}>
                       <View style={s.navItemActiveBar} />
                       <Ionicons name="home" size={18} color="#8b5cf6" />
@@ -378,35 +376,35 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
                       </TouchableOpacity>
                     )}
                   </View>
+                </View>
 
-                  {/* Wallet Summary Panel */}
-                  <View>
-                    <Text style={s.sectionTitleSmall}>WALLET</Text>
+                {/* Card 3: Separate Wallet Information Box */}
+                <View style={s.card}>
+                  <Text style={s.sectionTitleSmall}>WALLET</Text>
 
-                    <View style={s.walletRow}>
-                      <Text style={s.walletLabel}>Deposit</Text>
-                      <Text style={[s.walletValSmall, { color: "#22c55e" }]}>+ 3,420 ETB</Text>
-                    </View>
+                  <View style={s.walletRow}>
+                    <Text style={s.walletLabel}>Deposit</Text>
+                    <Text style={[s.walletValSmall, { color: "#22c55e" }]}>+ 3,420 ETB</Text>
+                  </View>
 
-                    <View style={s.walletRow}>
-                      <Text style={s.walletLabel}>Withdraw</Text>
-                      <Text style={[s.walletValSmall, { color: "#ef4444" }]}>- 420 ETB</Text>
-                    </View>
+                  <View style={s.walletRow}>
+                    <Text style={s.walletLabel}>Withdraw</Text>
+                    <Text style={[s.walletValSmall, { color: "#ef4444" }]}>- 420 ETB</Text>
+                  </View>
 
-                    <View style={s.walletRow}>
-                      <Text style={s.walletLabel}>Transactions</Text>
-                      <Text style={s.walletValSecond}>12 today</Text>
-                    </View>
+                  <View style={s.walletRow}>
+                    <Text style={s.walletLabel}>Transactions</Text>
+                    <Text style={s.walletValSecond}>12 today</Text>
+                  </View>
 
-                    {/* Direct wallet buttons */}
-                    <View style={s.walletButtons}>
-                      <TouchableOpacity onPress={() => setDepositVisible(true)} style={[s.walletBtnSmall, { borderColor: "#22d3ee" }]} activeOpacity={0.8}>
-                        <Text style={[s.walletBtnTextSmall, { color: "#22d3ee" }]}>DEPOSIT</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity onPress={() => setWithdrawVisible(true)} style={[s.walletBtnSmall, { borderColor: "#7c3aed" }]} activeOpacity={0.8}>
-                        <Text style={[s.walletBtnTextSmall, { color: "#7c3aed" }]}>WITHDRAW</Text>
-                      </TouchableOpacity>
-                    </View>
+                  {/* Direct wallet buttons */}
+                  <View style={s.walletButtons}>
+                    <TouchableOpacity onPress={() => setDepositVisible(true)} style={[s.walletBtnSmall, { borderColor: "#22d3ee" }]} activeOpacity={0.8}>
+                      <Text style={[s.walletBtnTextSmall, { color: "#22d3ee" }]}>DEPOSIT</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => setWithdrawVisible(true)} style={[s.walletBtnSmall, { borderColor: "#7c3aed" }]} activeOpacity={0.8}>
+                      <Text style={[s.walletBtnTextSmall, { color: "#7c3aed" }]}>WITHDRAW</Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
               </View>
@@ -486,12 +484,12 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
                   </View>
 
                   {/* Simple Centered Wheel - with continuous rotation */}
-                  <View style={{ width: 450, height: 450, alignItems: "center", justifyContent: "center", marginVertical: 14, alignSelf: "center" }}>
-                    <Animated.View style={{ transform: [{ rotate: idleSpinRotate }], width: 450, height: 450 }}>
-                      <SpinWheelSvg size={450} mode="RAIL" showPointer={false} />
+                  <View style={{ width: 395, height: 395, alignItems: "center", justifyContent: "center", marginVertical: 8, alignSelf: "center" }}>
+                    <Animated.View style={{ transform: [{ rotate: idleSpinRotate }], width: 395, height: 395 }}>
+                      <SpinWheelSvg size={395} mode="RAIL" showPointer={false} />
                     </Animated.View>
                     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-                      <SpinWheelSvg size={450} onlyPointer={true} />
+                      <SpinWheelSvg size={395} onlyPointer={true} />
                     </View>
                   </View>
 
@@ -517,45 +515,205 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
                 </ImageBackground>
               </View>
 
-              {/* 3. RIGHT SIDEBAR (fixed width 320px) */}
+              {/* 3. RIGHT SIDEBAR */}
               <View style={[s.rightSidebar, { gap: 12 }]}>
-                {/* Top leaders card */}
-                <View style={s.card}>
-                  <View style={s.leaderboardHeader}>
-                    <Text style={s.leaderboardTitle}>TOP LEADERS</Text>
-                    <Ionicons name="trophy" size={18} color="#f5b642" />
-                  </View>
-                  <Text style={s.leaderboardStats}>248 online  •  56 friends  •  48 playing</Text>
+                {/* 5-Player Spin Card (High-impact, attractive, touchable, increased height) */}
+                <View style={{
+                  backgroundColor: '#0c0f24',
+                  borderRadius: 24,
+                  borderWidth: 1.5,
+                  borderColor: 'rgba(99, 102, 241, 0.4)',
+                  padding: 20,
+                  shadowColor: '#8b5cf6',
+                  shadowOffset: { width: 0, height: 10 },
+                  shadowOpacity: 0.35,
+                  shadowRadius: 22,
+                  elevation: 12,
+                  position: 'relative',
+                  overflow: 'hidden',
+                  minHeight: 460,
+                  justifyContent: 'space-between',
+                }}>
+                  {/* Glowing background accent */}
+                  <View pointerEvents="none" style={{ position: 'absolute', top: -40, right: -40, width: 140, height: 140, borderRadius: 70, backgroundColor: 'rgba(0, 218, 243, 0.12)' }} />
+                  <View pointerEvents="none" style={{ position: 'absolute', bottom: -50, left: -50, width: 160, height: 160, borderRadius: 80, backgroundColor: 'rgba(139, 92, 246, 0.14)' }} />
 
-                  {/* Standings entries (Padded to 5 slots) */}
-                  <View style={s.leadersList}>
-                    {Array.from({ length: 5 }, (_, idx) => {
-                      const lead = (weeklyLeaderboard && weeklyLeaderboard[idx]) ? weeklyLeaderboard[idx] : null;
-                      const rank = idx + 1;
-                      const hasCrown = rank === 1 && lead && (lead.wins > 0);
-                      const circleBg = rank === 1 ? "#f5b642" : (rank === 2 ? "#b9cacb" : (rank === 3 ? "#f97316" : (rank === 4 ? "#a855f7" : "#22c55e")));
-                      return (
-                        <View key={lead?.id || idx} style={s.leaderRow}>
-                          <View style={[s.leaderBadge, { backgroundColor: circleBg, opacity: lead ? 1 : 0.4 }]}>
-                            <Text style={s.leaderBadgeText}>{rank}</Text>
-                          </View>
-                          <View style={s.leaderDetails}>
-                            <Text style={[s.leaderName, !lead && { color: "rgba(255,255,255,0.3)" }]} numberOfLines={1}>
-                              {lead ? `@${lead.username || "user"}` : "@---"}
-                            </Text>
-                            <Text style={[s.leaderVal, !lead && { color: "rgba(255,255,255,0.2)" }]}>
-                              {lead ? `${lead.wins} Wins` : "0 Wins"}
-                            </Text>
-                          </View>
-                          {hasCrown && <Ionicons name="trophy" size={16} color="#f5b642" />}
+                  {/* Header row: MULTIPLAYER badge on left, LIVE indicator on right */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <View style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 6,
+                      backgroundColor: 'rgba(0, 218, 243, 0.12)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(0, 218, 243, 0.35)',
+                      paddingHorizontal: 10,
+                      paddingVertical: 5,
+                      borderRadius: 14,
+                    }}>
+                      <Ionicons name="people-sharp" size={13} color="#00daf3" />
+                      <Text style={{ color: '#00daf3', fontSize: 10, fontWeight: '900', letterSpacing: 0.8, fontFamily: 'Inter, sans-serif' }}>MULTIPLAYER</Text>
+                    </View>
+
+                    <View style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 6,
+                      backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(239, 68, 68, 0.35)',
+                      paddingHorizontal: 9,
+                      paddingVertical: 4,
+                      borderRadius: 12,
+                    }}>
+                      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#ef4444' }} />
+                      <Text style={{ color: '#ef4444', fontSize: 9, fontWeight: '900', letterSpacing: 0.6, fontFamily: 'Inter, sans-serif' }}>LIVE 5-SLOT</Text>
+                    </View>
+                  </View>
+
+                  {/* Title & Subtitle */}
+                  <View style={{ marginTop: 12 }}>
+                    <Text style={{ color: '#ffffff', fontSize: 22, fontWeight: '900', letterSpacing: 0.5, fontFamily: 'Inter, sans-serif' }}>
+                      5-PLAYER
+                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: -2 }}>
+                      <Text style={{ color: '#00daf3', fontSize: 26, fontWeight: '900', letterSpacing: 0.8, fontFamily: 'Inter, sans-serif' }}>
+                        POT SPIN
+                      </Text>
+                      <Ionicons name="flash" size={20} color="#f5b642" />
+                    </View>
+                    <Text style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 11, marginTop: 4, lineHeight: 16, fontFamily: 'Inter, sans-serif' }}>
+                      5 Players • 1 Winner Takes The Pot
+                    </Text>
+                  </View>
+
+                  {/* Center Graphic: 3D 5-Player Spin Illustration */}
+                  <View style={{ alignItems: 'center', justifyContent: 'center', marginVertical: 6 }}>
+                    <Image
+                      source={require("../../assets/images/3d-5p-spin.png")}
+                      style={{ width: 170, height: 145, resizeMode: "contain" }}
+                    />
+                  </View>
+
+                  {/* Live Player Seats Visualizer */}
+                  <View style={{
+                    backgroundColor: 'rgba(15, 20, 38, 0.75)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(255, 255, 255, 0.08)',
+                    borderRadius: 16,
+                    padding: 10,
+                  }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 9, fontWeight: '800', letterSpacing: 0.5 }}>
+                        ACTIVE SEATS: 4 / 5
+                      </Text>
+                      <Text style={{ color: '#22c55e', fontSize: 9, fontWeight: '800' }}>
+                        ● STARTING SOON
+                      </Text>
+                    </View>
+
+                    {/* 5 Seat circles */}
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      {['YM', 'BK', 'TL', 'SO'].map((initials, i) => (
+                        <View key={i} style={{
+                          width: 34,
+                          height: 34,
+                          borderRadius: 17,
+                          backgroundColor: 'rgba(139, 92, 246, 0.25)',
+                          borderWidth: 1.5,
+                          borderColor: '#8b5cf6',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}>
+                          <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>{initials}</Text>
                         </View>
-                      );
-                    })}
+                      ))}
+
+                      {/* 5th slot: Open seat (+ YOU) */}
+                      <TouchableOpacity
+                        onPress={() => router.push({ pathname: '/(authed)/home/spin', params: { mode: "5_PLAYER" } } as any)}
+                        activeOpacity={0.8}
+                        style={{
+                          width: 44,
+                          height: 34,
+                          borderRadius: 17,
+                          backgroundColor: 'rgba(0, 218, 243, 0.15)',
+                          borderWidth: 1.5,
+                          borderStyle: 'dashed',
+                          borderColor: '#00daf3',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <Text style={{ color: '#00daf3', fontSize: 10, fontWeight: '900' }}>+ YOU</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
 
-                  {/* View Standings */}
-                  <TouchableOpacity onPress={() => handleNavClick('leaderboard')} style={s.standingsBtn} activeOpacity={0.8}>
-                    <Text style={s.standingsBtnText}>VIEW ALL LEADERS</Text>
+                  {/* Pot & Entry stats strip */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10 }}>
+                    {/* Entry Fee Box */}
+                    <View style={{
+                      flex: 1,
+                      backgroundColor: 'rgba(20, 26, 48, 0.85)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(0, 218, 243, 0.25)',
+                      paddingHorizontal: 10,
+                      paddingVertical: 7,
+                      borderRadius: 14,
+                    }}>
+                      <Text style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 8, fontWeight: '800', letterSpacing: 0.5 }}>ENTRY FEE</Text>
+                      <Text style={{ color: '#00daf3', fontSize: 13, fontWeight: '900', marginTop: 1 }}>100 ETB</Text>
+                    </View>
+
+                    {/* Prize Pot Box */}
+                    <View style={{
+                      flex: 1,
+                      backgroundColor: 'rgba(20, 26, 48, 0.85)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(245, 182, 66, 0.3)',
+                      paddingHorizontal: 10,
+                      paddingVertical: 7,
+                      borderRadius: 14,
+                    }}>
+                      <Text style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 8, fontWeight: '800', letterSpacing: 0.5 }}>WINNER POT</Text>
+                      <Text style={{ color: '#f5b642', fontSize: 13, fontWeight: '900', marginTop: 1 }}>450 ETB 🏆</Text>
+                    </View>
+                  </View>
+
+                  {/* High-Impact Touch CTA Button */}
+                  <TouchableOpacity
+                    onPress={() => router.push({ pathname: '/(authed)/home/spin', params: { mode: "5_PLAYER" } } as any)}
+                    activeOpacity={0.88}
+                    style={{
+                      borderRadius: 16,
+                      overflow: 'hidden',
+                      marginTop: 12,
+                      shadowColor: '#8b5cf6',
+                      shadowOffset: { width: 0, height: 6 },
+                      shadowOpacity: 0.6,
+                      shadowRadius: 14,
+                      elevation: 8,
+                    }}
+                  >
+                    <LinearGradient
+                      colors={['#8b5cf6', '#6366f1']}
+                      start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                      style={{
+                        paddingVertical: 13,
+                        paddingHorizontal: 16,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8,
+                      }}
+                    >
+                      <Ionicons name="play-circle" size={18} color="#ffffff" />
+                      <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '900', letterSpacing: 0.8, fontFamily: 'Inter, sans-serif' }}>
+                        JOIN 5-PLAYER ROOM
+                      </Text>
+                      <Ionicons name="chevron-forward" size={16} color="#ffffff" />
+                    </LinearGradient>
                   </TouchableOpacity>
                 </View>
 
@@ -590,137 +748,6 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
                     <Ionicons name="chevron-forward" size={16} color="#4b5563" />
                   </View>
                 </TouchableOpacity>
-
-                {/* 5-Player Spin Card (Matching Image 2 design) */}
-                <View style={{
-                  backgroundColor: '#0c0f24',
-                  borderRadius: 24,
-                  borderWidth: 1.5,
-                  borderColor: 'rgba(99, 102, 241, 0.35)',
-                  padding: 22,
-                  shadowColor: '#8b5cf6',
-                  shadowOffset: { width: 0, height: 8 },
-                  shadowOpacity: 0.25,
-                  shadowRadius: 20,
-                  elevation: 10,
-                  position: 'relative',
-                  overflow: 'hidden',
-                  minHeight: 260,
-                }}>
-                  {/* Header row: MULTIPLAYER badge on left, LIVE indicator on right */}
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                    <View style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 6,
-                      backgroundColor: 'rgba(0, 218, 243, 0.12)',
-                      borderWidth: 1,
-                      borderColor: 'rgba(0, 218, 243, 0.3)',
-                      paddingHorizontal: 10,
-                      paddingVertical: 4,
-                      borderRadius: 14,
-                    }}>
-                      <Ionicons name="people-sharp" size={13} color="#00daf3" />
-                      <Text style={{ color: '#00daf3', fontSize: 10, fontWeight: '900', letterSpacing: 0.8, fontFamily: 'Inter, sans-serif' }}>MULTIPLAYER</Text>
-                    </View>
-
-                    <View style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 5,
-                      backgroundColor: 'rgba(239, 68, 68, 0.15)',
-                      borderWidth: 1,
-                      borderColor: 'rgba(239, 68, 68, 0.3)',
-                      paddingHorizontal: 8,
-                      paddingVertical: 3,
-                      borderRadius: 12,
-                    }}>
-                      <Text style={{ color: '#ef4444', fontSize: 9, fontWeight: '900', letterSpacing: 0.5, fontFamily: 'Inter, sans-serif' }}>LIVE</Text>
-                      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#ef4444' }} />
-                    </View>
-                  </View>
-
-                  {/* Main content row: Title & text on left, Mini Wheel Illustration on right */}
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14, marginBottom: 18 }}>
-                    <View style={{ flex: 1, minWidth: 110 }}>
-                      <Text style={{ color: '#ffffff', fontSize: 24, fontWeight: '900', letterSpacing: 0.5, fontFamily: 'Inter, sans-serif' }}>
-                        5-PLAYER
-                      </Text>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: -2 }}>
-                        <Text style={{ color: '#00daf3', fontSize: 30, fontWeight: '900', letterSpacing: 1, fontFamily: 'Inter, sans-serif' }}>
-                          SPIN
-                        </Text>
-                        <Ionicons name="people" size={24} color="#a78bfa" />
-                      </View>
-
-                      <Text style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 11, marginTop: 8, lineHeight: 16, fontFamily: 'Inter, sans-serif' }}>
-                        Join other players online.{'\n'}Win proportional odds.
-                      </Text>
-                    </View>
-
-                    {/* Right Graphic: Transparent 3D 5-Player Spin Illustration (3d-5p-spin.png) */}
-                    <View style={{ width: 200, height: 170, alignItems: 'center', justifyContent: 'center' }}>
-                      <Image
-                        source={require("../../assets/images/3d-5p-spin.png")}
-                        style={{ width: 200, height: 170, resizeMode: "contain" }}
-                      />
-                    </View>
-                  </View>
-
-                  {/* Bottom Row: Entry Fee Box on left + JOIN ROOM CTA button in PURPLE on right */}
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255, 255, 255, 0.08)' }}>
-                    {/* Entry Fee Box */}
-                    <View style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 8,
-                      backgroundColor: 'rgba(20, 26, 48, 0.8)',
-                      borderWidth: 1,
-                      borderColor: 'rgba(0, 218, 243, 0.25)',
-                      paddingHorizontal: 10,
-                      paddingVertical: 6,
-                      borderRadius: 14,
-                    }}>
-                      <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(0, 218, 243, 0.15)', alignItems: 'center', justifyContent: 'center' }}>
-                        <Ionicons name="cash-outline" size={16} color="#00daf3" />
-                      </View>
-                      <View>
-                        <Text style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 8, fontWeight: '800', letterSpacing: 0.5, fontFamily: 'Inter, sans-serif' }}>ENTRY FEE</Text>
-                        <Text style={{ color: '#00daf3', fontSize: 13, fontWeight: '900', fontFamily: 'Inter, sans-serif' }}>100 ETB</Text>
-                      </View>
-                    </View>
-
-                    {/* JOIN ROOM CTA Button in PURPLE */}
-                    <TouchableOpacity
-                      onPress={() => router.push({ pathname: '/(authed)/home/spin', params: { mode: "5_PLAYER" } } as any)}
-                      activeOpacity={0.85}
-                      style={{ borderRadius: 14, overflow: 'hidden', flex: 1, maxWidth: 140 }}
-                    >
-                      <LinearGradient
-                        colors={['#8b5cf6', '#6366f1']}
-                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                        style={{
-                          paddingVertical: 10,
-                          paddingHorizontal: 14,
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: 4,
-                          shadowColor: '#8b5cf6',
-                          shadowOffset: { width: 0, height: 4 },
-                          shadowOpacity: 0.5,
-                          shadowRadius: 10,
-                          elevation: 6,
-                        }}
-                      >
-                        <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '900', letterSpacing: 0.5, fontFamily: 'Inter, sans-serif' }}>
-                          JOIN ROOM
-                        </Text>
-                        <Ionicons name="chevron-forward" size={14} color="#ffffff" />
-                      </LinearGradient>
-                    </TouchableOpacity>
-                  </View>
-                </View>
               </View>
             </View>
           </View>
@@ -730,9 +757,8 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
         <ScrollView style={s.mainScrollView} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={s.pageContentWrapper}>
             <View style={s.threeColumnRow}>
-              {/* 1. LEFT SIDEBAR (fixed width 280px) */}
-              {/* 1. LEFT SIDEBAR (split cards) */}
-              <View style={[s.leftSidebar, { alignSelf: "stretch" }]}>
+              {/* 1. LEFT SIDEBAR */}
+              <View style={s.leftSidebar}>
                 {/* Card 1: User Profile & Balance */}
                 <View style={s.card}>
                   <View style={s.userCardHeader}>
@@ -762,10 +788,9 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
                   </View>
                 </View>
 
-                {/* Card 2: Navigation & Wallet */}
-                <View style={[s.card, { flex: 1, justifyContent: "space-between" }]}>
-                  {/* Vertical Navigation Links */}
-                  <View style={{ justifyContent: "center", marginVertical: 10 }}>
+                {/* Card 2: Navigation Links (Height limits based on items) */}
+                <View style={s.card}>
+                  <View style={{ justifyContent: "center" }}>
                     <TouchableOpacity onPress={() => handleNavClick('home')} style={[s.navItem, s.navItemActive]} activeOpacity={0.8}>
                       <View style={s.navItemActiveBar} />
                       <Ionicons name="home" size={18} color="#8b5cf6" />
@@ -799,35 +824,35 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
                       </TouchableOpacity>
                     )}
                   </View>
+                </View>
 
-                  {/* Wallet Summary Panel */}
-                  <View>
-                    <Text style={s.sectionTitleSmall}>WALLET</Text>
+                {/* Card 3: Separate Wallet Information Box */}
+                <View style={s.card}>
+                  <Text style={s.sectionTitleSmall}>WALLET</Text>
 
-                    <View style={s.walletRow}>
-                      <Text style={s.walletLabel}>Deposit</Text>
-                      <Text style={[s.walletValSmall, { color: "#22c55e" }]}>+ 3,420 ETB</Text>
-                    </View>
+                  <View style={s.walletRow}>
+                    <Text style={s.walletLabel}>Deposit</Text>
+                    <Text style={[s.walletValSmall, { color: "#22c55e" }]}>+ 3,420 ETB</Text>
+                  </View>
 
-                    <View style={s.walletRow}>
-                      <Text style={s.walletLabel}>Withdraw</Text>
-                      <Text style={[s.walletValSmall, { color: "#ef4444" }]}>- 420 ETB</Text>
-                    </View>
+                  <View style={s.walletRow}>
+                    <Text style={s.walletLabel}>Withdraw</Text>
+                    <Text style={[s.walletValSmall, { color: "#ef4444" }]}>- 420 ETB</Text>
+                  </View>
 
-                    <View style={s.walletRow}>
-                      <Text style={s.walletLabel}>Transactions</Text>
-                      <Text style={s.walletValSecond}>12 today</Text>
-                    </View>
+                  <View style={s.walletRow}>
+                    <Text style={s.walletLabel}>Transactions</Text>
+                    <Text style={s.walletValSecond}>12 today</Text>
+                  </View>
 
-                    {/* Direct wallet buttons */}
-                    <View style={s.walletButtons}>
-                      <TouchableOpacity onPress={() => setDepositVisible(true)} style={[s.walletBtnSmall, { borderColor: "#22d3ee" }]} activeOpacity={0.8}>
-                        <Text style={[s.walletBtnTextSmall, { color: "#22d3ee" }]}>DEPOSIT</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity onPress={() => setWithdrawVisible(true)} style={[s.walletBtnSmall, { borderColor: "#7c3aed" }]} activeOpacity={0.8}>
-                        <Text style={[s.walletBtnTextSmall, { color: "#7c3aed" }]}>WITHDRAW</Text>
-                      </TouchableOpacity>
-                    </View>
+                  {/* Direct wallet buttons */}
+                  <View style={s.walletButtons}>
+                    <TouchableOpacity onPress={() => setDepositVisible(true)} style={[s.walletBtnSmall, { borderColor: "#22d3ee" }]} activeOpacity={0.8}>
+                      <Text style={[s.walletBtnTextSmall, { color: "#22d3ee" }]}>DEPOSIT</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => setWithdrawVisible(true)} style={[s.walletBtnSmall, { borderColor: "#7c3aed" }]} activeOpacity={0.8}>
+                      <Text style={[s.walletBtnTextSmall, { color: "#7c3aed" }]}>WITHDRAW</Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
               </View>
@@ -1542,7 +1567,7 @@ const s = StyleSheet.create({
   desktopTabBtnActive: {
     backgroundColor: "#7c3aed",
     ...(Platform.OS === 'web' ? {
-      background: "linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)",
+      backgroundImage: "linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)",
       boxShadow: "0 4px 12px rgba(124, 58, 237, 0.4)"
     } as any : {}),
   },
@@ -1816,7 +1841,7 @@ const s = StyleSheet.create({
     borderRadius: 28,
     borderWidth: 1,
     borderColor: "rgba(139, 92, 246, 0.4)",
-    padding: 36,
+    padding: 24,
     alignItems: "center",
     position: "relative",
     overflow: "hidden",
@@ -1843,7 +1868,7 @@ const s = StyleSheet.create({
     shadowRadius: 18,
     elevation: 10,
     ...(Platform.OS === 'web' ? {
-      background: "linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)",
+      backgroundImage: "linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)",
       boxShadow: "0 8px 25px rgba(124, 58, 237, 0.5)"
     } as any : {}),
   },
@@ -1858,8 +1883,8 @@ const s = StyleSheet.create({
 
   // Right sidebar
   rightSidebar: {
-    width: 310,
-    gap: 16,
+    width: 325,
+    gap: 12,
   },
   leaderboardHeader: {
     flexDirection: "row",

@@ -1,6 +1,7 @@
 // components/game/EmojiBar.tsx — Quick-tap animated emoji bar with 2s cooldown
 import React, { useState, useRef } from 'react';
-import { View, TouchableOpacity, StyleSheet, Animated, Easing, Image } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Animated, Easing, Image, Platform } from 'react-native';
+import { haptics } from '../../lib/haptcs';
 
 export const EMOJI_GIFS: Record<string, string> = {
   '👋': 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f44b/512.gif',
@@ -23,10 +24,11 @@ export default function EmojiBar({ onSend, disabled }: Props) {
 
   const handlePress = (emoji: string, idx: number) => {
     if (cooldown || disabled) return;
+    haptics.tap();
     // Bounce animation
     Animated.sequence([
-      Animated.timing(scaleAnims[idx], { toValue: 1.4, duration: 100, useNativeDriver: true }),
-      Animated.timing(scaleAnims[idx], { toValue: 1, duration: 150, easing: Easing.bounce, useNativeDriver: true }),
+      Animated.timing(scaleAnims[idx], { toValue: 1.35, duration: 90, useNativeDriver: Platform.OS !== 'web' }),
+      Animated.timing(scaleAnims[idx], { toValue: 1, duration: 140, easing: Easing.bounce, useNativeDriver: Platform.OS !== 'web' }),
     ]).start();
     onSend(emoji);
     setCooldown(true);
@@ -41,7 +43,7 @@ export default function EmojiBar({ onSend, disabled }: Props) {
             style={[styles.btn, (cooldown || disabled) && styles.btnDisabled]}
             onPress={() => handlePress(emoji, i)}
             disabled={cooldown || disabled}
-            activeOpacity={0.6}
+            activeOpacity={0.82}
           >
             <Image 
               source={{ uri: EMOJI_GIFS[emoji] }} 
@@ -79,6 +81,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
+    ...(Platform.OS === 'web' ? { 
+      cursor: 'pointer',
+      transition: 'transform 0.15s ease, filter 0.15s ease',
+      touchAction: 'manipulation',
+      WebkitTapHighlightColor: 'transparent',
+    } as any : {}),
   },
   btnDisabled: {
     opacity: 0.3,

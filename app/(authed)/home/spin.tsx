@@ -206,7 +206,11 @@ export default function SpinGameScreen() {
 
   const playSpinLoop = useCallback(() => {
     try {
+      // Restart cleanly from the beginning each spin — a previously-finished
+      // player will not resume without seekTo(0), which made the spin silent.
+      spinLoopSound.seekTo(0);
       spinLoopSound.loop = true;
+      spinLoopSound.volume = 1;
       spinLoopSound.play();
     } catch (e) { console.warn("spinLoopSound error:", e); }
   }, [spinLoopSound]);
@@ -218,10 +222,27 @@ export default function SpinGameScreen() {
     } catch (e) { console.warn("stopSpinLoop error:", e); }
   }, [spinLoopSound]);
 
+  const isSpinningRef = useRef(false);
+  const pendingResultDataRef = useRef<{ winnerId: string; winnerName: string; prizeAmount: number } | null>(null);
+
   const handleSpinComplete = useCallback(() => {
     stopSpinLoop();
     setIsSpinning(false);
-  }, [stopSpinLoop]);
+    isSpinningRef.current = false;
+
+    // Show result modal ONLY after the wheel has physically finished spinning and landed on the winner!
+    if (pendingResultDataRef.current) {
+      const res = pendingResultDataRef.current;
+      pendingResultDataRef.current = null;
+      setResultData(res);
+      setScreenState("result");
+      if (res.winnerId === user?.id) {
+        playWin();
+      } else {
+        playLose();
+      }
+    }
+  }, [stopSpinLoop, user?.id, playWin, playLose]);
 
   const stopAllSounds = useCallback(() => {
     try { spinLoopSound.pause(); spinLoopSound.seekTo(0); } catch (e) {}
@@ -501,21 +522,6 @@ export default function SpinGameScreen() {
               if (prev === null || prev <= 1) {
                 clearInterval(preSpinTimerRef.current);
                 preSpinTimerRef.current = null;
-                // If spin:start already arrived while counting, fire spin NOW
-                const pending = pendingSpinDataRef.current;
-                if (pending) {
-                  pendingSpinDataRef.current = null;
-                  setIsSpinning(true);
-                  setScreenState("spinning");
-                  setRound(r => {
-                    if (r && r.roundId !== pending.roundId) return r;
-                    playSpinLoop();
-                    return {
-                      ...(r || { roundId: pending.roundId, configId: 0, betAmount: 10, maxPlayers: 5, roomName: "Spin Room", countdown: 0, mode: "RAIL", players: [] }),
-                      status: "spinning",
-                    } as RoundState;
-                  });
-                }
                 return null;
               }
               return prev - 1;
@@ -524,53 +530,53 @@ export default function SpinGameScreen() {
           break;
 
         case "spin:start":
-          // Store spin data; only start spinning AFTER the 3-sec readiness countdown finishes
+          // Server officially fires the spin with confirmed winningSlice and winnerId
+          if (preSpinTimerRef.current) {
+            clearInterval(preSpinTimerRef.current);
+            preSpinTimerRef.current = null;
+          }
+          setPreSpinCountdown(null);
           setWinningSlice(payload.winningSlice);
           setSpinDuration(payload.spinDuration || 5000);
           setPendingWinnerId(payload.winnerId || null);
-          pendingSpinDataRef.current = {
-            winningSlice: payload.winningSlice,
-            spinDuration: payload.spinDuration || 5000,
-            roundId: payload.roundId,
-            winnerId: payload.winnerId,
-          };
+          pendingResultDataRef.current = null;
 
-          // If the readiness countdown already finished, start spinning immediately
-          setPreSpinCountdown(prev => {
-            if (prev === null || prev <= 0) {
-              // Countdown already done — fire spin now
-              if (preSpinTimerRef.current) {
-                clearInterval(preSpinTimerRef.current);
-                preSpinTimerRef.current = null;
-              }
-              pendingSpinDataRef.current = null;
-              setIsSpinning(true);
-              setScreenState("spinning");
-              setRound(r => {
-                if (r && r.roundId !== payload.roundId) return r;
-                playSpinLoop();
-                return {
-                  ...(r || { roundId: payload.roundId, configId: 0, betAmount: 10, maxPlayers: 5, roomName: "Spin Room", countdown: 0, mode: "RAIL", players: [] }),
-                  status: "spinning",
-                } as RoundState;
-              });
-            }
-            return prev; // keep countdown running
+          isSpinningRef.current = true;
+          setIsSpinning(true);
+          setScreenState("spinning");
+          setRound(r => {
+            if (r && r.roundId !== payload.roundId) return r;
+            playSpinLoop();
+            return {
+              ...(r || { roundId: payload.roundId, configId: 0, betAmount: 10, maxPlayers: 5, roomName: "Spin Room", countdown: 0, mode: "RAIL", players: [] }),
+              status: "spinning",
+            } as RoundState;
           });
           break;
 
         case "spin:result":
-          stopSpinLoop();
           setRound(prev => {
             if (prev && prev.roundId !== payload.roundId) return prev;
-            setResultData({
-              winnerId: payload.winnerId,
-              winnerName: payload.winnerName,
-              prizeAmount: payload.prizeAmount,
-            });
+            return {
+              ...(prev || { roundId: payload.roundId, configId: 0, betAmount: 10, maxPlayers: 5, roomName: "Spin Room", countdown: 0, mode: "RAIL", players: [] }),
+              status: "resolved",
+            } as RoundState;
+          });
+
+          const roundResult = {
+            winnerId: payload.winnerId,
+            winnerName: payload.winnerName,
+            prizeAmount: payload.prizeAmount,
+          };
+
+          // If the wheel is still in motion, queue the result so the pointer visibly lands FIRST!
+          if (isSpinningRef.current) {
+            pendingResultDataRef.current = roundResult;
+          } else {
+            stopSpinLoop();
+            setResultData(roundResult);
             setScreenState("result");
-            // Only play win/lose sound if user was actually in this active round
-            const isUserInRound = prev?.players.some(p => p.userId === user?.id);
+            const isUserInRound = round?.players.some(p => p.userId === user?.id);
             if (isUserInRound) {
               if (payload.winnerId === user?.id) {
                 playWin();
@@ -578,11 +584,7 @@ export default function SpinGameScreen() {
                 playLose();
               }
             }
-            return {
-              ...(prev || { roundId: payload.roundId, configId: 0, betAmount: 10, maxPlayers: 5, roomName: "Spin Room", countdown: 0, mode: "RAIL", players: [] }),
-              status: "resolved",
-            } as RoundState;
-          });
+          }
           // Refresh balance
           setTimeout(() => refreshProfile(), 1500);
           break;
@@ -717,9 +719,9 @@ export default function SpinGameScreen() {
               clearInterval(countdownTimerRef.current);
               countdownTimerRef.current = null;
               targetEndTimeRef.current = null;
-              // Resilient fallback: trigger spin if timer expires
-              setIsSpinning(true);
-              setScreenState("spinning");
+              // Timer expired — wait for server spin:locked and spin:start.
+              // NEVER start the animation without confirmed winner from server.
+              setCountdown(0);
             }
           }, 300);
         }
@@ -1170,7 +1172,7 @@ export default function SpinGameScreen() {
                 <View style={ds.wheelCenter}>
                   <SpinWheel
                     size={wheelSize}
-                    players={round ? round.players : []}
+                    players={round ? round.players : previewPlayers}
                     isSpinning={screenState === "spinning"}
                     winningSlice={winningSlice}
                     winnerId={pendingWinnerId}
@@ -1799,8 +1801,8 @@ export default function SpinGameScreen() {
             {/* Center Spin Wheel with Stage Pedestal */}
             <View style={{ flex: 1, alignItems: "center", justifyContent: "center", marginVertical: 6, position: "relative" }}>
               <SpinWheel
-                size={Math.min(screenW - 48, 320)}
-                players={displayPlayers}
+                size={Math.max(140, Math.min(screenW - 48, 320))}
+                players={round ? round.players : previewPlayers}
                 isSpinning={screenState === "spinning"}
                 winningSlice={winningSlice}
                 winnerId={pendingWinnerId}

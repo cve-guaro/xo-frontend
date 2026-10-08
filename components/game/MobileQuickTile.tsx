@@ -1,12 +1,38 @@
 // components/game/MobileQuickTile.tsx
-// Upgraded Luxury Action Card for Mobile Gameplay Landing Screen.
+// Action tile for the mobile lobby. Token-based accent, real press feedback.
 import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { WebPressable } from "../WebPressable";
+import { colors, type, radius, space, metrics } from "../../theme/tokens";
+
+export type TileAccent = "violet" | "gold" | "cyan";
+
+const ACCENTS: Record<
+  TileAccent,
+  { fg: string; bg: string; ring: string }
+> = {
+  violet: {
+    fg: colors.violetSoft,
+    bg: colors.tintViolet,
+    ring: "rgba(139,92,246,0.4)",
+  },
+  gold: {
+    fg: colors.gold,
+    bg: colors.tintGold,
+    ring: "rgba(245,182,66,0.4)",
+  },
+  cyan: {
+    fg: colors.primary,
+    bg: colors.tintPrimary,
+    ring: "rgba(0,218,243,0.4)",
+  },
+};
 
 interface MobileQuickTileProps {
-  icon: string;
-  iconColor: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  accent?: TileAccent;
+  iconColor?: string;
   iconBgColor?: string;
   title: string;
   subtitle: string;
@@ -15,110 +41,81 @@ interface MobileQuickTileProps {
 
 const MobileQuickTile = ({
   icon,
+  accent = "cyan",
   iconColor,
   iconBgColor,
   title,
   subtitle,
   onPress,
 }: MobileQuickTileProps) => {
-  const containerBg = iconBgColor || (
-    iconColor.includes("60a5fa") || iconColor.includes("3b82f6")
-      ? "rgba(59, 130, 246, 0.15)"
-      : iconColor.includes("eab308") || iconColor.includes("f5b642")
-      ? "rgba(234, 179, 8, 0.15)"
-      : "rgba(0, 218, 243, 0.15)"
-  );
-
-  const iconBorderColor = (
-    iconColor.includes("60a5fa") || iconColor.includes("3b82f6")
-      ? "rgba(59, 130, 246, 0.35)"
-      : iconColor.includes("eab308") || iconColor.includes("f5b642")
-      ? "rgba(234, 179, 8, 0.35)"
-      : "rgba(0, 218, 243, 0.35)"
-  );
+  // Legacy props still win if a caller passes explicit colors.
+  const a = iconColor
+    ? { fg: iconColor, bg: iconBgColor || "rgba(255,255,255,0.05)", ring: "rgba(255,255,255,0.14)" }
+    : ACCENTS[accent];
 
   return (
-    <TouchableOpacity
+    <WebPressable
       onPress={onPress}
-      activeOpacity={0.85}
-      style={styles.cardContainer}
+      style={({ pressed, hovered }) => [
+        styles.cardContainer,
+        pressed && { transform: [{ scale: 0.97 }], opacity: 0.9 },
+        hovered && { borderColor: colors.borderStrong, backgroundColor: colors.cardRaised },
+      ]}
     >
-      {/* Icon Capsule Box */}
-      <View style={[styles.iconBox, { backgroundColor: containerBg, borderColor: iconBorderColor }]}>
-        <Ionicons name={icon as any} size={22} color={iconColor} />
+      <View style={[styles.iconBox, { backgroundColor: a.bg, borderColor: a.ring }]}>
+        <Ionicons name={icon} size={21} color={a.fg} />
       </View>
 
-      {/* Title & Subtitle with Chevron */}
       <View style={styles.textContainer}>
         <Text style={styles.titleText} numberOfLines={1} adjustsFontSizeToFit>
           {title}
         </Text>
-        <View style={styles.subtitleRow}>
-          <Text style={styles.subtitleText} numberOfLines={1} adjustsFontSizeToFit>
-            {subtitle}
-          </Text>
-          <Text style={styles.chevronText}>›</Text>
-        </View>
+        <Text style={styles.subtitleText} numberOfLines={1} adjustsFontSizeToFit>
+          {subtitle}
+        </Text>
       </View>
-    </TouchableOpacity>
+    </WebPressable>
   );
 };
 
 const styles = StyleSheet.create({
   cardContainer: {
     flex: 1,
-    backgroundColor: "#0d0f22",
-    borderRadius: 18,
-    borderWidth: 1.2,
-    borderColor: "rgba(139, 92, 246, 0.18)",
+    backgroundColor: colors.card,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
     paddingVertical: 14,
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 4,
+    gap: space.sm,
   },
   iconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+    width: metrics.tileIconSize,
+    height: metrics.tileIconSize,
+    borderRadius: radius.md,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1.2,
+    borderWidth: 1,
   },
   textContainer: {
     alignItems: "center",
     width: "100%",
   },
   titleText: {
-    color: "#ffffff",
-    fontSize: 13,
-    fontWeight: "900",
+    color: colors.text,
+    fontSize: 12.5,
+    fontWeight: "800",
     textAlign: "center",
-    letterSpacing: 0.2,
-  },
-  subtitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 2,
-    marginTop: 2,
   },
   subtitleText: {
-    color: "#8b93a7",
-    fontSize: 9,
-    fontWeight: "800",
+    color: colors.textMuted,
+    fontSize: 8.5,
+    fontWeight: "700",
     textTransform: "uppercase",
-    letterSpacing: 0.6,
-  },
-  chevronText: {
-    color: "#8b93a7",
-    fontSize: 10,
-    fontWeight: "800",
+    letterSpacing: 0.7,
+    marginTop: 2,
   },
 });
 

@@ -28,6 +28,7 @@ import PwaInstallModal from "../../../components/game/PwaInstallModal";
 import { SlidingNumber } from "../../../components/game/SlidingNumber";
 import NotificationsPopover from "../../../components/NotificationsPopover";
 import { SkeletonRow } from "../../../components/SkeletonLoading";
+import SpinWheel from "../../../components/game/SpinWheel";
 
 // ---- Types ----
 type Move = { ts: string; user: string; index: number; symbol: "X" | "O" };
@@ -130,6 +131,8 @@ export default function GamesHistory() {
   const [spinHistory, setSpinHistory] = useState<any[]>([]);
   const [spinLoading, setSpinLoading] = useState(false);
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
+  const [selectedSpinId, setSelectedSpinId] = useState<string | null>(null);
+  const [isSpinReplayPlaying, setIsSpinReplayPlaying] = useState(false);
   const [filter, setFilter] = useState<"all" | "win" | "loss">("all");
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -176,7 +179,11 @@ export default function GamesHistory() {
       });
       if (res.ok) {
         const data = await res.json();
-        setSpinHistory(data.history || []);
+        const list = data.history || [];
+        setSpinHistory(list);
+        if (list.length > 0) {
+          setSelectedSpinId((prev) => prev || list[0].round_id || list[0].id || 'round_0');
+        }
       }
     } catch (e) {
       console.error('[SPIN_HISTORY_ERR]', e);
@@ -307,7 +314,7 @@ export default function GamesHistory() {
                 <Text style={s.toggleBtnText}>SPIN</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[s.toggleBtn, s.toggleBtnActive, Platform.OS === 'web' ? { background: "linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)", boxShadow: "0 4px 12px rgba(124, 58, 237, 0.4)" } as any : undefined]}
+                style={[s.toggleBtn, s.toggleBtnActive, Platform.OS === 'web' ? { backgroundImage: "linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)", boxShadow: "0 4px 12px rgba(124, 58, 237, 0.4)" } as any : undefined]}
                 onPress={() => router.push('/(authed)/home/gameplay')}
                 activeOpacity={0.85}
               >
@@ -594,6 +601,8 @@ export default function GamesHistory() {
                       </View>
                     ) : (
                       spinHistory.map((item: any, idx: number) => {
+                        const roundKey = String(item.round_id || item.id || `spin_${idx}`);
+                        const isSelected = selectedSpinId === roundKey;
                         const isWin = item.is_winner;
                         const statusColor = isWin ? "#34d399" : "#ef4444";
                         const modeLabel = item.mode_label || (item.config_id === 2 ? "Rail Spin" : "5-Player Spin");
@@ -603,7 +612,19 @@ export default function GamesHistory() {
                         const playersList = Array.isArray(item.players) ? item.players : [];
 
                         return (
-                          <View key={item.round_id || idx} style={[s.matchCardContainer, { padding: 16 }]}>
+                          <TouchableOpacity 
+                            key={roundKey} 
+                            onPress={() => {
+                              setSelectedSpinId(roundKey);
+                              setIsSpinReplayPlaying(false);
+                            }}
+                            activeOpacity={0.85}
+                            style={[
+                              s.matchCardContainer, 
+                              isSelected && s.matchCardContainerSelected, 
+                              { padding: 16 }
+                            ]}
+                          >
                             <View style={[s.matchIndicatorBar, { backgroundColor: statusColor }]} />
                             
                             {/* Top row */}
@@ -614,7 +635,10 @@ export default function GamesHistory() {
                                 </View>
                                 <Text style={{ color: '#00daf3', fontSize: 12, fontWeight: '800' }}>{modeLabel.toUpperCase()}</Text>
                               </View>
-                              <Text style={{ color: '#8b93a7', fontSize: 11, fontWeight: '600' }}>{formatWhen(item.created_at)}</Text>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                <Text style={{ color: '#8b93a7', fontSize: 11, fontWeight: '600' }}>{formatWhen(item.created_at)}</Text>
+                                <Ionicons name="chevron-forward" size={14} color={isSelected ? "#22d3ee" : "#8b93a7"} />
+                              </View>
                             </View>
 
                             {/* Prize & Pot details */}
@@ -649,7 +673,7 @@ export default function GamesHistory() {
                                 })}
                               </View>
                             )}
-                          </View>
+                          </TouchableOpacity>
                         );
                       })
                     )
@@ -759,9 +783,167 @@ export default function GamesHistory() {
                 )}
               </View>
 
-              {/* 3. RIGHT SIDEBAR — MATCH DETAILS */}
+              {/* 3. RIGHT SIDEBAR — MATCH / ROUND DETAILS */}
               <View style={s.rightSidebar}>
-                {selectedGame ? (() => {
+                {gameType === 'spin' ? (() => {
+                  const selectedRound = spinHistory.find(
+                    (r: any) => String(r.round_id || r.id || '') === selectedSpinId
+                  ) || spinHistory[0] || null;
+
+                  if (!selectedRound) {
+                    return (
+                      <View style={[s.card, { flex: 1, alignItems: "center", justifyContent: "center" }]}>
+                        <Ionicons name="disc-outline" size={36} color="rgba(255,255,255,0.2)" />
+                        <Text style={{ color: "rgba(255,255,255,0.3)", marginTop: 10, fontSize: 13, fontFamily: "Inter, sans-serif" }}>
+                          {isEN ? "Select a spin round to view details" : "ዝርዝሩን ለማየት የስፒን ጨዋታ ይምረጡ"}
+                        </Text>
+                      </View>
+                    );
+                  }
+
+                  const isWin = selectedRound.is_winner;
+                  const statusColor = isWin ? "#34d399" : "#ef4444";
+                  const statusText = isWin ? "VICTORY" : "DEFEAT";
+                  const modeLabel = selectedRound.mode_label || (selectedRound.config_id === 2 ? "Rail Spin" : "5-Player Spin");
+                  const pot = Number(selectedRound.pot_amount || 0);
+                  const prize = Number(selectedRound.prize_amount || 0);
+                  const entryFee = Number(selectedRound.bet_amount || 100);
+                  const roundPlayers = Array.isArray(selectedRound.players) ? selectedRound.players : [];
+
+                  const mappedPlayers = roundPlayers.map((p: any, idx: number) => ({
+                    userId: p.userId || p.id || String(idx),
+                    username: p.username || `Player ${idx + 1}`,
+                    seatIndex: p.seatIndex ?? idx,
+                    avatar: p.avatar,
+                  }));
+
+                  const winningSlice = mappedPlayers.findIndex(
+                    (p: any) => p.username === selectedRound.winner_name
+                  );
+
+                  return (
+                    <View style={[s.card, { flex: 1 }]}>
+                      {/* Sidebar Header */}
+                      <View style={s.leaderboardHeader}>
+                        <Text style={s.leaderboardTitle}>ROUND DETAILS</Text>
+                        <TouchableOpacity onPress={() => setSelectedSpinId(null)}>
+                          <Ionicons name="close" size={18} color="#8b93a7" />
+                        </TouchableOpacity>
+                      </View>
+
+                      {/* Outcome Badge Row */}
+                      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 14, marginBottom: 16 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                          <Ionicons name={isWin ? "trophy" : "skull"} size={16} color={statusColor} />
+                          <Text style={[s.detailBadgeText, { color: statusColor }]}>{statusText}</Text>
+                        </View>
+                        <View style={s.modeBadge}>
+                          <Text style={s.modeBadgeText}>
+                            {modeLabel.toUpperCase()}
+                          </Text>
+                        </View>
+                      </View>
+
+                      {/* Prize Amount Showcase Banner */}
+                      <View style={{ backgroundColor: 'rgba(34, 211, 238, 0.08)', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: 'rgba(34, 211, 238, 0.25)', marginBottom: 16, alignItems: 'center' }}>
+                        <Text style={{ color: '#8b93a7', fontSize: 10, fontWeight: '800', letterSpacing: 1 }}>TOTAL PRIZE</Text>
+                        <Text style={{ color: '#22d3ee', fontSize: 28, fontWeight: '900', marginTop: 2, fontFamily: 'Inter, sans-serif' }}>
+                          ETB {prize.toLocaleString()}
+                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                          <Ionicons name="trophy" size={13} color="#f5b642" />
+                          <Text style={{ color: '#f5b642', fontSize: 12, fontWeight: '700' }}>
+                            Winner: @{selectedRound.winner_name || '—'}
+                          </Text>
+                        </View>
+                      </View>
+
+                      {/* Stat Lines */}
+                      <View style={s.statLinesGroup}>
+                        <View style={s.statLineRow}>
+                          <Text style={s.statLineLabel}>POT AMOUNT</Text>
+                          <Text style={s.statLineVal}>ETB {pot.toLocaleString()}</Text>
+                        </View>
+                        <View style={s.statLineRow}>
+                          <Text style={s.statLineLabel}>ENTRY FEE</Text>
+                          <Text style={s.statLineVal}>ETB {entryFee.toLocaleString()}</Text>
+                        </View>
+                        <View style={s.statLineRow}>
+                          <Text style={s.statLineLabel}>ROUND ID</Text>
+                          <Text style={s.statLineVal}>#SPIN-{String(selectedRound.round_id || selectedRound.id || '').slice(-6).toUpperCase()}</Text>
+                        </View>
+                        <View style={s.statLineRow}>
+                          <Text style={s.statLineLabel}>DATE & TIME</Text>
+                          <Text style={s.statLineVal}>{formatWhen(selectedRound.created_at)}</Text>
+                        </View>
+                      </View>
+
+                      {/* Participants / List of Users */}
+                      <Text style={[s.boardTitleHeader, { marginTop: 14, marginBottom: 8 }]}>PARTICIPANTS ({mappedPlayers.length})</Text>
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
+                        {mappedPlayers.map((p: any, idx: number) => {
+                          const isWinner = p.username === selectedRound.winner_name;
+                          return (
+                            <View
+                              key={p.userId || idx}
+                              style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                gap: 5,
+                                backgroundColor: isWinner ? 'rgba(52, 211, 153, 0.12)' : 'rgba(255, 255, 255, 0.04)',
+                                borderWidth: 1,
+                                borderColor: isWinner ? 'rgba(52, 211, 153, 0.35)' : 'rgba(255, 255, 255, 0.07)',
+                                paddingHorizontal: 10,
+                                paddingVertical: 5,
+                                borderRadius: 10,
+                              }}
+                            >
+                              <Ionicons name={isWinner ? "trophy" : "person"} size={12} color={isWinner ? "#34d399" : "#8b93a7"} />
+                              <Text style={{ color: isWinner ? "#34d399" : "#e2e8f0", fontSize: 11, fontWeight: "700" }}>
+                                {p.username}
+                              </Text>
+                            </View>
+                          );
+                        })}
+                      </View>
+
+                      {/* Spin Wheel Replay Section */}
+                      <Text style={[s.boardTitleHeader, { marginBottom: 6 }]}>SPIN REPLAY</Text>
+                      <View style={{ alignItems: 'center', justifyContent: 'center', marginVertical: 8 }}>
+                        <SpinWheel
+                          size={180}
+                          players={mappedPlayers}
+                          isSpinning={isSpinReplayPlaying}
+                          winningSlice={winningSlice >= 0 ? winningSlice : 0}
+                          status={isSpinReplayPlaying ? "spinning" : "resolved"}
+                          mode={selectedRound.config_id === 2 ? "RAIL" : "5_PLAYER"}
+                          onSpinComplete={() => setIsSpinReplayPlaying(false)}
+                        />
+                      </View>
+
+                      {/* Replay Controls (Play/Pause, Reset) */}
+                      <View style={s.replayControlsRow}>
+                        {/* Reset Button */}
+                        <TouchableOpacity 
+                          onPress={() => setIsSpinReplayPlaying(false)}
+                          style={s.replayControlBtn}
+                          activeOpacity={0.8}
+                        >
+                          <Ionicons name="refresh" size={16} color="#fff" />
+                        </TouchableOpacity>
+
+                        {/* Play/Pause Button */}
+                        <TouchableOpacity 
+                          onPress={() => setIsSpinReplayPlaying(!isSpinReplayPlaying)}
+                          style={[s.replayControlBtn, s.replayPlayBtn]}
+                          activeOpacity={0.8}
+                        >
+                          <Ionicons name={isSpinReplayPlaying ? "pause" : "play"} size={18} color="#0a0e1a" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  );
+                })() : selectedGame ? (() => {
                   const isWin = selectedGame.is_winner === true ||
                     (selectedGame.is_winner === undefined && selectedGame.winner != null && String(selectedGame.winner).toLowerCase() === String(myId || '').toLowerCase());
                   const statusColor = isWin ? "#22c55e" : "#ef4444";

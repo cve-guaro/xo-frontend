@@ -1129,7 +1129,7 @@ const styles = StyleSheet.create({
     color: '#e5e3ff',
     fontSize: 14,
     fontWeight: '700',
-    outline: 'none',
+    ...({ outlineStyle: 'none' } as any),
   },
   statLabel: {
     color: 'rgba(168,167,212,0.6)',

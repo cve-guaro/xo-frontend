@@ -21,9 +21,14 @@ type Selection = "default" | "soft";
 const isWeb = Platform.OS === "web";
 
 /** Wrapper that never throws (important for UI interactions) */
-async function safe<T>(fn: () => Promise<T> | T): Promise<void> {
+async function safe<T>(fn: () => Promise<T> | T, webVibeMs?: number | number[]): Promise<void> {
   try {
-    if (isWeb) return; // no haptics on web
+    if (isWeb) {
+      if (webVibeMs && typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+        navigator.vibrate(webVibeMs);
+      }
+      return;
+    }
     await fn();
   } catch {
     // ignore (simulator, unsupported device, permissions, etc.)
@@ -47,34 +52,34 @@ export const haptics = {
 
   /** Small "button pressed" */
   tap: () =>
-    safe(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)),
+    safe(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light), 10),
 
   /** For subtle toggles / segmented controls */
-  select: () => safe(() => Haptics.selectionAsync()),
+  select: () => safe(() => Haptics.selectionAsync(), 6),
 
   /** Slightly stronger than tap */
   confirm: () =>
-    safe(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)),
+    safe(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium), 18),
 
   /** Strong physical event (e.g., win, big action) */
   heavy: () =>
-    safe(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy)),
+    safe(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy), [25, 40, 25]),
 
   /** Success / Warning / Error (OS-native feel) */
   success: () =>
-    safe(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)),
+    safe(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success), [15, 50, 20]),
   warning: () =>
-    safe(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)),
+    safe(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning), [20, 40, 20]),
   error: () =>
-    safe(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)),
+    safe(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error), [30, 60, 30]),
 
   // ---- configurable ----
 
   impact: (strength: Impact = "light") =>
-    safe(() => Haptics.impactAsync(impactStyleMap[strength])),
+    safe(() => Haptics.impactAsync(impactStyleMap[strength]), strength === "heavy" ? [20, 40, 20] : strength === "medium" ? 18 : 10),
 
   notify: (type: Notification) =>
-    safe(() => Haptics.notificationAsync(notificationTypeMap[type])),
+    safe(() => Haptics.notificationAsync(notificationTypeMap[type]), type === "error" ? [30, 60, 30] : [15, 50, 20]),
 
   /**
    * "Selection" haptic, with a tiny "soft" option:
