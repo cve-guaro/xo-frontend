@@ -273,75 +273,44 @@ const BootSplash = memo(function BootSplash({ status }: { status: string }) {
 
   return (
     <View style={styles.bootRoot}>
-      {/* keep your brand background */}
-      <LinearGradient
-        colors={["#060614", "#0c0c1f"]}
-        style={StyleSheet.absoluteFill}
-      />
-
-      {/* silky dark overlay */}
-      <LinearGradient
-        colors={["rgba(6,6,20,0.96)", "rgba(6,6,20,0.90)", "rgba(6,6,20,0.96)"]}
-        style={StyleSheet.absoluteFill}
-      />
-
-      {/* subtle blobs */}
-      <View pointerEvents="none" style={[styles.blob, styles.blob1]} />
-      <View pointerEvents="none" style={[styles.blob, styles.blob2]} />
-
-      <Animated.View style={[styles.bootCard, { opacity: fade, transform: [{ translateY: floatY }] }]}>
-        {/* logo + pulse ring */}
-        <View style={styles.logoWrap}>
-          <Animated.View
-            style={[
-              styles.ring,
+      <Animated.View
+        style={{
+          opacity: fade,
+          transform: [{ scale: ringScale }],
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        {/* Soft breathing glow behind the logo */}
+        <Animated.View
+          style={{
+            position: "absolute",
+            width: 140,
+            height: 140,
+            borderRadius: 70,
+            backgroundColor: "#00daf3",
+            opacity: pulse.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0.12, 0.3],
+            }),
+            transform: [
               {
-                opacity: ringOpacity,
-                transform: [{ scale: ringScale }],
+                scale: pulse.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [1, 1.25],
+                }),
               },
-            ]}
-          />
+            ],
+          }}
+        />
 
-          <View style={styles.logoFrame}>
-            <Image 
-              source={require("../assets/images/icon.jpg")} 
-              style={styles.logo} 
-              // @ts-ignore
-              {...(Platform.OS === 'web' ? { fetchPriority: "high" } : {})}
-            />
-            <LinearGradient
-              colors={["rgba(0,218,243,0.25)", "transparent"]}
-              style={StyleSheet.absoluteFill}
-            />
-          </View>
-        </View>
-
-        <Text style={styles.appName}>XO ET</Text>
-        <Text style={styles.tagline}>Just a second…</Text>
-
-        <View style={styles.loadingRow}>
-          <View style={styles.iconChip}>
-            <SparklesIcon size={16} color="rgba(255,255,255,0.85)" />
-          </View>
-
-          <Text style={styles.statusText} numberOfLines={1}>
-            {status}
-          </Text>
-
-          <ActivityIndicator color="#00daf3" />
-        </View>
-
-        {/* tiny progress bar shimmer (very cheap) */}
-        <View style={styles.barOuter}>
-          <Animated.View
-            style={[
-              styles.barInner,
-              {
-                width: Math.max(140, Math.min(width - 110, 260)),
-                opacity: ringOpacity,
-                transform: [{ translateX: pulse.interpolate({ inputRange: [0, 1], outputRange: [-40, 40] }) }],
-              },
-            ]}
+        {/* Clean rounded logo frame */}
+        <View style={styles.logoFrame}>
+          <Image 
+            source={require("../assets/images/icon.jpg")} 
+            style={styles.logo} 
+            // @ts-ignore
+            {...(Platform.OS === 'web' ? { fetchPriority: "high" } : {})}
           />
         </View>
       </Animated.View>
@@ -350,103 +319,28 @@ const BootSplash = memo(function BootSplash({ status }: { status: string }) {
 });
 
 const styles = StyleSheet.create({
-  bootRoot: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#060614" },
-
-  blob: {
-    position: "absolute",
-    width: 320,
-    height: 320,
-    borderRadius: 999,
-    opacity: 0.06,
-    backgroundColor: "#00daf3",
-  },
-  blob1: { top: -140, left: -140 },
-  blob2: { bottom: -170, right: -160, backgroundColor: "#00daf3", opacity: 0.04 },
-
-  bootCard: {
-    width: "88%",
-    maxWidth: 420,
-    borderRadius: 24,
-    paddingVertical: 22,
-    paddingHorizontal: 18,
-    alignItems: "center",
-    backgroundColor: "rgba(6,6,20,0.86)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
-    overflow: "hidden",
-  },
-
-  logoWrap: { marginBottom: 10, alignItems: "center", justifyContent: "center" },
-  ring: {
-    position: "absolute",
-    width: 92,
-    height: 92,
-    borderRadius: 46,
-    borderWidth: 2,
-    borderColor: "rgba(0,218,243,0.4)",
-  },
-  logoFrame: {
-    width: 76,
-    height: 76,
-    borderRadius: 22,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
-    backgroundColor: "rgba(0,0,0,0.2)",
-  },
-  logo: { width: "100%", height: "100%" },
-
-  appName: {
-    color: "rgba(255,255,255,0.95)",
-    fontSize: 20,
-    fontWeight: "900",
-    letterSpacing: 0.2,
-  },
-  tagline: {
-    marginTop: 2,
-    color: "rgba(255,255,255,0.60)",
-    fontSize: 12,
-    fontWeight: "700",
-  },
-
-  loadingRow: {
-    marginTop: 16,
-    width: "100%",
-    borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    backgroundColor: "rgba(255,255,255,0.04)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  iconChip: {
-    width: 34,
-    height: 34,
-    borderRadius: 14,
+  bootRoot: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(0,218,243,0.15)",
-    borderWidth: 1,
-    borderColor: "rgba(0,218,243,0.2)",
+    backgroundColor: "#04040a",
   },
-  statusText: { flex: 1, color: "rgba(255,255,255,0.85)", fontWeight: "800", fontSize: 12 },
-
-  barOuter: {
-    marginTop: 10,
-    width: "100%",
-    height: 8,
-    borderRadius: 999,
+  logoFrame: {
+    width: 92,
+    height: 92,
+    borderRadius: 24,
     overflow: "hidden",
-    backgroundColor: "rgba(255,255,255,0.03)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.05)",
+    backgroundColor: "#0c0c16",
+    borderWidth: 1.5,
+    borderColor: "rgba(0, 218, 243, 0.4)",
+    shadowColor: "#00daf3",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 24,
+    elevation: 8,
   },
-  barInner: {
+  logo: {
+    width: "100%",
     height: "100%",
-    borderRadius: 999,
-    backgroundColor: "rgba(0,218,243,0.4)",
   },
 });
