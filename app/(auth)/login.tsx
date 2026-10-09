@@ -23,6 +23,7 @@ import { useBackgroundMusic } from "../../context/BackgroundMusicProvider";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient as ExpoLinearGradient } from "expo-linear-gradient";
 import { useToast } from "../../context/ToastContext";
+import { API_URL } from "../../config";
 
 
 export default function LoginScreen() {
@@ -53,6 +54,7 @@ export default function LoginScreen() {
   const [maintenanceData, setMaintenanceData] = useState<{ error: string, message: string } | null>(null);
   const [otpAttempts, setOtpAttempts] = useState(0);
   const [attemptCooldown, setAttemptCooldown] = useState(0);
+  const [passLoading, setPassLoading] = useState(false);
   const MAX_ATTEMPTS = 5;
 
   useEffect(() => {
@@ -254,6 +256,29 @@ export default function LoginScreen() {
     }
   }, [requestOtp, fullPhone, clearOtp, otpAttempts, attemptCooldown, language]);
 
+  const handleQuickAdminPass = useCallback(async () => {
+    try {
+      setPassLoading(true);
+      await unlockAudio();
+      const res = await fetch(`${API_URL}/otp/quick-login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ number: "0939484533" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || data?.message || "Quick login failed");
+      if (data.token && loginWithToken) {
+        await loginWithToken(data.token, data.refreshToken);
+        toast.success("Admin Pass", "Logged in as Admin 0939484533 (10,000 ETB)");
+        router.replace("/(authed)/home/gameplay");
+      }
+    } catch (err: any) {
+      toast.error("Quick Login", err?.message || "Failed to bypass login");
+    } finally {
+      setPassLoading(false);
+    }
+  }, [unlockAudio, loginWithToken, toast, router]);
+
   // Valid if exactly 9 digits and starting with 9 (Ethio Telecom) or 7 (Safaricom)
   const canSend = nationalDigits.length === 9 && (nationalDigits.startsWith('9') || nationalDigits.startsWith('7')) && !requestingOtp;
   const canVerify = otpParts.join("").length === 4 && !verifyingOtp;
@@ -373,6 +398,32 @@ export default function LoginScreen() {
                             <Text style={styles.secondaryActionBtnText}>
                               {language === 'am' ? 'በስልክ ቁጥር (SMS OTP) ግባ' : 'Continue with Phone (SMS OTP)'}
                             </Text>
+                          </TouchableOpacity>
+
+                          {/* Button 3: Quick Admin Pass Login (Temporary Dev Bypass) */}
+                          <TouchableOpacity
+                            onPress={handleQuickAdminPass}
+                            activeOpacity={0.8}
+                            disabled={passLoading}
+                            style={[
+                              styles.secondaryActionBtn,
+                              {
+                                borderColor: '#00e5ff',
+                                backgroundColor: 'rgba(0, 229, 255, 0.08)',
+                                marginTop: 10,
+                              }
+                            ]}
+                          >
+                            {passLoading ? (
+                              <ActivityIndicator size="small" color="#00e5ff" />
+                            ) : (
+                              <>
+                                <Ionicons name="flash" size={18} color="#00e5ff" />
+                                <Text style={[styles.secondaryActionBtnText, { color: '#00e5ff' }]}>
+                                  ⚡ Quick Pass (Admin 0939484533)
+                                </Text>
+                              </>
+                            )}
                           </TouchableOpacity>
                         </View>
                       ) : (
@@ -601,6 +652,32 @@ export default function LoginScreen() {
                             <Text style={styles.secondaryActionBtnText}>
                               {language === 'am' ? 'በስልክ ቁጥር (SMS OTP) ግባ' : 'Continue with Phone (SMS OTP)'}
                             </Text>
+                          </TouchableOpacity>
+
+                          {/* Button 3: Quick Admin Pass Login (Temporary Dev Bypass) */}
+                          <TouchableOpacity
+                            onPress={handleQuickAdminPass}
+                            activeOpacity={0.8}
+                            disabled={passLoading}
+                            style={[
+                              styles.secondaryActionBtn,
+                              {
+                                borderColor: '#00e5ff',
+                                backgroundColor: 'rgba(0, 229, 255, 0.08)',
+                                marginTop: 10,
+                              }
+                            ]}
+                          >
+                            {passLoading ? (
+                              <ActivityIndicator size="small" color="#00e5ff" />
+                            ) : (
+                              <>
+                                <Ionicons name="flash" size={18} color="#00e5ff" />
+                                <Text style={[styles.secondaryActionBtnText, { color: '#00e5ff' }]}>
+                                  ⚡ Quick Pass (Admin 0939484533)
+                                </Text>
+                              </>
+                            )}
                           </TouchableOpacity>
                         </View>
                       ) : (

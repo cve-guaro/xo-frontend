@@ -80,8 +80,6 @@ export default function AuthedLayout() {
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === "web" && width >= 768;
 
-  if (!user) return <Redirect href="/(auth)/login" />;
-
   const getTabTitle = useCallback(
     (routeName: string) => {
       if (language === "am") {
@@ -151,6 +149,8 @@ export default function AuthedLayout() {
       </View>
     );
   }, []);
+
+  if (!user) return <Redirect href="/(auth)/login" />;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>

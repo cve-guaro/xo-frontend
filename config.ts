@@ -11,7 +11,7 @@ const getApiUrl = () => {
   if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location) {
     const hostname = window.location.hostname;
     if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1' && !hostname.startsWith('192.168.')) {
-      return 'https://xogpt-production.up.railway.app';
+      return 'https://xo-backend-production-286e.up.railway.app';
     }
   }
   return 'http://localhost:2000';
