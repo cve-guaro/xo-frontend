@@ -260,11 +260,18 @@ export default function LoginScreen() {
     try {
       setPassLoading(true);
       await unlockAudio();
-      const res = await fetch(`${API_URL}/otp/quick-login`, {
+      let res = await fetch(`${API_URL}/otp/quick-login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ number: "0939484533" }),
       });
+      if (res.status === 404) {
+        res = await fetch(`${API_URL}/auth/quick-login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ number: "0939484533" }),
+        });
+      }
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || data?.message || "Quick login failed");
       if (data.token && loginWithToken) {
