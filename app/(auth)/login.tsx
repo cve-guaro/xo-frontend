@@ -406,32 +406,6 @@ export default function LoginScreen() {
                               {language === 'am' ? 'በስልክ ቁጥር (SMS OTP) ግባ' : 'Continue with Phone (SMS OTP)'}
                             </Text>
                           </TouchableOpacity>
-
-                          {/* Button 3: Quick Admin Pass Login (Temporary Dev Bypass) */}
-                          <TouchableOpacity
-                            onPress={handleQuickAdminPass}
-                            activeOpacity={0.8}
-                            disabled={passLoading}
-                            style={[
-                              styles.secondaryActionBtn,
-                              {
-                                borderColor: '#00e5ff',
-                                backgroundColor: 'rgba(0, 229, 255, 0.08)',
-                                marginTop: 10,
-                              }
-                            ]}
-                          >
-                            {passLoading ? (
-                              <ActivityIndicator size="small" color="#00e5ff" />
-                            ) : (
-                              <>
-                                <Ionicons name="flash" size={18} color="#00e5ff" />
-                                <Text style={[styles.secondaryActionBtnText, { color: '#00e5ff' }]}>
-                                  ⚡ Quick Pass (Admin 0939484533)
-                                </Text>
-                              </>
-                            )}
-                          </TouchableOpacity>
                         </View>
                       ) : (
                         /* SMS Phone Input View */
@@ -659,32 +633,6 @@ export default function LoginScreen() {
                             <Text style={styles.secondaryActionBtnText}>
                               {language === 'am' ? 'በስልክ ቁጥር (SMS OTP) ግባ' : 'Continue with Phone (SMS OTP)'}
                             </Text>
-                          </TouchableOpacity>
-
-                          {/* Button 3: Quick Admin Pass Login (Temporary Dev Bypass) */}
-                          <TouchableOpacity
-                            onPress={handleQuickAdminPass}
-                            activeOpacity={0.8}
-                            disabled={passLoading}
-                            style={[
-                              styles.secondaryActionBtn,
-                              {
-                                borderColor: '#00e5ff',
-                                backgroundColor: 'rgba(0, 229, 255, 0.08)',
-                                marginTop: 10,
-                              }
-                            ]}
-                          >
-                            {passLoading ? (
-                              <ActivityIndicator size="small" color="#00e5ff" />
-                            ) : (
-                              <>
-                                <Ionicons name="flash" size={18} color="#00e5ff" />
-                                <Text style={[styles.secondaryActionBtnText, { color: '#00e5ff' }]}>
-                                  ⚡ Quick Pass (Admin 0939484533)
-                                </Text>
-                              </>
-                            )}
                           </TouchableOpacity>
                         </View>
                       ) : (

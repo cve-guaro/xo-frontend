@@ -27,16 +27,16 @@ type SpinWheelProps = {
   speakingUserIds?: string[];
 };
 
-// Slice colors — vibrant, distinguishable
+// Slice colors — matches Image 2 (Green, Cyan/Blue, Orange, Purple)
 const SLICE_COLORS = [
-  "#8b5cf6", // violet
-  "#22c55e", // green
-  "#22d3ee", // cyan
-  "#f97316", // orange
-  "#ef4444", // red
-  "#f5b642", // gold
-  "#3b82f6", // blue
-  "#ec4899", // pink
+  "#16a34a", // Vibrant Green (Image 2)
+  "#0284c7", // Vibrant Sky/Cyan Blue (Image 2)
+  "#ea580c", // Vibrant Orange (Image 2)
+  "#7c3aed", // Vibrant Purple (Image 2)
+  "#ef4444", // Red
+  "#f59e0b", // Amber/Gold
+  "#ec4899", // Pink
+  "#06b6d4", // Cyan
 ];
 
 const polarToCartesian = (cx: number, cy: number, r: number, angleInDegrees: number) => {
@@ -220,7 +220,6 @@ export default function SpinWheel({
           {/* Slices */}
           <G>
             {slices.map(({ idx, startAngle, angle, endAngle }) => {
-
               const textAngle = startAngle + angle / 2;
               const textPos = polarToCartesian(cx, cy, r * 0.60, textAngle);
               const color = SLICE_COLORS[idx % SLICE_COLORS.length];
@@ -232,103 +231,90 @@ export default function SpinWheel({
                 player = players[idx];
               }
 
-              // Abbreviate name to fit (or show 20% Bonus preview when empty)
-              const displayName = player
-                ? player.username.length > 8
-                  ? player.username.slice(0, 7) + "…"
-                  : player.username
-                : "20%";
+              const defaultStakes = [10, 20, 30, 50, 100, 150];
+              const stakeVal = player 
+                ? Number((player as any).stake || (is5Player ? 100 : defaultStakes[idx % defaultStakes.length]))
+                : defaultStakes[idx % defaultStakes.length];
 
-              // Include stake percentage or ETB amount under name
-              let details = "";
-              let isSpeaking = false;
-              if (player) {
-                isSpeaking = Array.isArray(speakingUserIds) && speakingUserIds.some(id => String(id) === String(player.userId));
-                const stakeVal = Number((player as any).stake || (is5Player ? 100 : 0));
-                if (is5Player) {
-                  details = `${stakeVal} ETB (20%)`;
-                } else if (totalStake > 0) {
-                  const pct = Math.round((stakeVal / totalStake) * 100);
-                  details = `${stakeVal} ETB (${pct}%)`;
-                } else {
-                  details = `${stakeVal} ETB`;
-                }
-              } else {
-                details = "Bonus";
-              }
+              const stakeLabel = `${stakeVal} ETB`;
 
               return (
                 <G key={idx}>
                   <Path
                     d={getArcPath(cx, cy, r, startAngle, endAngle)}
                     fill={color}
-                    stroke="#12172a"
+                    stroke="#0b0f19"
                     strokeWidth={2}
                   />
-                  {!!displayName && (
-                    <SvgText
-                      x={textPos.x}
-                      y={textPos.y - (details ? 6 : 0)}
-                      fill={isSpeaking ? "#34d399" : "#ffffff"}
-                      fontSize={Math.min(size * 0.038, 13)}
-                      fontWeight="900"
-                      textAnchor="middle"
-                      alignmentBaseline="middle"
-                    >
-                      {displayName} {isSpeaking ? "🔊" : ""}
-                    </SvgText>
-                  )}
-                  {!!details && (
-                    <SvgText
-                      x={textPos.x}
-                      y={textPos.y + 8}
-                      fill="#e2e8f0"
-                      fontSize={Math.min(size * 0.032, 10)}
-                      fontWeight="600"
-                      textAnchor="middle"
-                      alignmentBaseline="middle"
-                    >
-                      {details}
-                    </SvgText>
-                  )}
+
+                  {/* 3-Coin Stack Icon on slice */}
+                  <G transform={`translate(${textPos.x - 7}, ${textPos.y - 15})`}>
+                    <Circle cx={7} cy={3} r={5.5} fill="#fef08a" stroke="#ca8a04" strokeWidth={1} />
+                    <Circle cx={7} cy={6} r={5.5} fill="#fde047" stroke="#ca8a04" strokeWidth={1} />
+                    <Circle cx={7} cy={9} r={5.5} fill="#facc15" stroke="#ca8a04" strokeWidth={1} />
+                  </G>
+
+                  {/* Stake Amount */}
+                  <SvgText
+                    x={textPos.x}
+                    y={textPos.y + 11}
+                    fill="#ffffff"
+                    fontSize={Math.min(size * 0.038, 11.5)}
+                    fontWeight="900"
+                    textAnchor="middle"
+                    alignmentBaseline="middle"
+                  >
+                    {stakeLabel}
+                  </SvgText>
                 </G>
               );
             })}
           </G>
 
-          {/* Gold Rim */}
-          <Circle cx={cx} cy={cy} r={r * 1.04} stroke="url(#goldGrad)" strokeWidth={size * 0.06} fill="none" />
-          <Circle cx={cx} cy={cy} r={r * 1.09} fill="none" stroke="url(#goldGrad)" strokeWidth={3} />
+          {/* Gold Studded Metallic Rim */}
+          <Circle cx={cx} cy={cy} r={r * 1.04} stroke="url(#goldGrad)" strokeWidth={size * 0.065} fill="none" />
+          <Circle cx={cx} cy={cy} r={r * 1.09} fill="none" stroke="url(#goldGrad)" strokeWidth={2.5} />
 
           {/* Glowing Bulbs / Lights on the rim */}
           <G>
-            {Array.from({ length: 18 }).map((_, i) => {
-              const angle = i * (360 / 18);
+            {Array.from({ length: 20 }).map((_, i) => {
+              const angle = i * (360 / 20);
               const pos = polarToCartesian(cx, cy, r * 1.04, angle);
-              const isYellow = i % 2 === 0;
               return (
                 <G key={i}>
-                  <Circle cx={pos.x} cy={pos.y} r={size * 0.018} fill={isYellow ? "#ca8a04" : "#ec4899"} opacity={0.4} />
-                  <Circle cx={pos.x} cy={pos.y} r={size * 0.010} fill={isYellow ? "#fef08a" : "#fbcfe8"} />
+                  <Circle cx={pos.x} cy={pos.y} r={size * 0.016} fill="#ca8a04" opacity={0.4} />
+                  <Circle cx={pos.x} cy={pos.y} r={size * 0.010} fill="#fef08a" />
                 </G>
               );
             })}
           </G>
 
-          {/* Center 3D gold hub */}
-          <Circle cx={cx} cy={cy} r={r * 0.22} fill="url(#goldGrad)" />
-          <Circle cx={cx} cy={cy} r={r * 0.18} fill="url(#centerHubGrad)" stroke="#78350f" strokeWidth={1.5} />
+          {/* Center 3D Gold Hub with XO ETHIOPIA logo (Image 2) */}
+          <Circle cx={cx} cy={cy} r={r * 0.25} fill="url(#goldGrad)" stroke="#78350f" strokeWidth={2} />
+          <Circle cx={cx} cy={cy} r={r * 0.21} fill="url(#centerHubGrad)" stroke="#b45309" strokeWidth={1.5} />
           <SvgText
             x={cx}
-            y={cy + 1}
-            fill="#f5b642"
-            fontSize={Math.max(size * 0.045, 11)}
+            y={cy - 2}
+            fill="#000000"
+            fontSize={Math.max(size * 0.052, 13)}
             fontWeight="900"
             textAnchor="middle"
             alignmentBaseline="middle"
-            letterSpacing={0.5}
+            letterSpacing={1}
           >
-            SPIN
+            XO
+          </SvgText>
+          <SvgText
+            x={cx}
+            y={cy + 9}
+            fill="#000000"
+            fontSize={Math.max(size * 0.021, 6.5)}
+            fontWeight="900"
+            textAnchor="middle"
+            alignmentBaseline="middle"
+            letterSpacing={0.8}
+          >
+            ETHIOPIA
           </SvgText>
         </Svg>
       </Animated.View>

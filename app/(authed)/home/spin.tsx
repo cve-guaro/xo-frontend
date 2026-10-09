@@ -24,6 +24,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
+import Svg, { Path, Ellipse } from "react-native-svg";
 import { useAuth } from "../../../context/authContext";
 import { useSocket } from "../../../context/socketContext";
 import { useFocusEffect } from "@react-navigation/native";
@@ -34,6 +35,28 @@ import { WebDepositModal, WebWithdrawModal } from "../../../components/WebModals
 import { voiceService } from "../../../lib/voiceService";
 import { useAudioPlayer } from "expo-audio";
 import { useBackgroundMusic } from "../../../context/BackgroundMusicProvider";
+
+// ── Coin Stack Icon Component ─────────────────────────────────────────────
+function CoinStackIcon({ size = 16, color = "#facc15" }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <ellipse cx="12" cy="6" rx="8" ry="3" fill={color} stroke="#b45309" strokeWidth="1" />
+      <path d="M4 6v5c0 1.66 3.58 3 8 3s8-1.34 8-3V6" fill={color} stroke="#b45309" strokeWidth="1" />
+      <ellipse cx="12" cy="11" rx="8" ry="2.5" fill="#eab308" />
+      <path d="M4 11v5c0 1.66 3.58 3 8 3s8-1.34 8-3v-5" fill={color} stroke="#b45309" strokeWidth="1" />
+      <ellipse cx="12" cy="16" rx="8" ry="2.5" fill="#ca8a04" />
+    </Svg>
+  );
+}
+
+// ── 3D Crown Icon Component (Image 4) ──────────────────────────────────────
+function CrownIcon({ size = 36 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="#ffffff">
+      <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z" />
+    </Svg>
+  );
+}
 
 // ── Celebration Confetti Rain Animation (Top to Bottom) ────────────────────
 function CelebrationConfetti() {
@@ -1011,6 +1034,11 @@ export default function SpinGameScreen() {
     return Array.from(map.values());
   }, [round, previewPlayers]);
 
+  // Sorted players: highest stake down to lowest (Image 3)
+  const sortedPlayers = React.useMemo(() => {
+    return [...displayPlayers].sort((a, b) => Number(b.stake || 0) - Number(a.stake || 0));
+  }, [displayPlayers]);
+
   const previewPot = React.useMemo(() => {
     if (round) return round.pot;
     const roomBet = preJoinRoom?.betAmount || betAmount;
@@ -1605,443 +1633,316 @@ export default function SpinGameScreen() {
         /* ════════════════════════════════════════════════════════════════
            ██  MOBILE SPIN ROOM LAYOUT
            ════════════════════════════════════════════════════════════════ */
-        <View style={{ flex: 1, backgroundColor: is5Player ? "#0c0824" : "#060814", paddingHorizontal: 16, paddingTop: 10, justifyContent: "space-between", position: "relative" }}>
-            {/* Top Header Row (SINGLE HEADER BAR ON MOBILE) */}
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", width: "100%", marginBottom: 6, position: "relative", zIndex: 10 }}>
-              {/* Back Button */}
+        <View style={{ flex: 1, backgroundColor: "#060814", paddingHorizontal: 16, paddingTop: 10, paddingBottom: 16, justifyContent: "space-between", position: "relative" }}>
+          {/* Top Header Row (Matching Image 2: Circular Back, Center Timer, Speaker + Mic) */}
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", width: "100%", marginBottom: 6, position: "relative", zIndex: 10 }}>
+            {/* Back Button (Left) */}
+            <TouchableOpacity
+              onPress={handleLeaveRoom}
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 22,
+                backgroundColor: "rgba(15, 23, 42, 0.75)",
+                borderWidth: 1,
+                borderColor: "rgba(255, 255, 255, 0.15)",
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 2,
+              }}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="chevron-back" size={22} color="#ffffff" />
+            </TouchableOpacity>
+
+            {/* Dead-Centered Countdown Timer Pill */}
+            <View style={{
+              position: "absolute",
+              left: 0,
+              right: 0,
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 1,
+              pointerEvents: "none",
+            }}>
+              <View style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 8,
+                backgroundColor: "rgba(15, 23, 42, 0.85)",
+                borderRadius: 22,
+                paddingHorizontal: 20,
+                paddingVertical: 8,
+                borderWidth: 1,
+                borderColor: "#1e3a8a",
+                shadowColor: "#1d4ed8",
+                shadowOffset: { width: 0, height: 0 },
+                shadowOpacity: 0.5,
+                shadowRadius: 8,
+                elevation: 6,
+              }}>
+                <Ionicons name="time-outline" size={18} color="#facc15" />
+                <Text style={{ color: "#facc15", fontSize: 16, fontWeight: "800", fontFamily: "Inter, sans-serif" }}>
+                  {countdown > 0 ? formatCountdown(countdown) : "01:18"}
+                </Text>
+              </View>
+            </View>
+
+            {/* Top Right Action Icons: Speaker & Mic */}
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10, zIndex: 2 }}>
               <TouchableOpacity
-                onPress={handleLeaveRoom}
+                onPress={handleToggleSpeaker}
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
+                  backgroundColor: "rgba(15, 23, 42, 0.75)",
+                  borderWidth: 1,
+                  borderColor: "rgba(255, 255, 255, 0.15)",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+                activeOpacity={0.8}
+              >
+                <Ionicons name={masterSpeakerMuted ? "volume-mute" : "volume-high"} size={20} color="#ffffff" />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleToggleMic}
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
+                  backgroundColor: "rgba(15, 23, 42, 0.75)",
+                  borderWidth: 1,
+                  borderColor: micMuted ? "rgba(244, 63, 94, 0.5)" : "rgba(34, 197, 94, 0.5)",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+                activeOpacity={0.8}
+              >
+                <Ionicons name={micMuted ? "mic-off" : "mic"} size={20} color={micMuted ? "#f43f5e" : "#22c55e"} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Prize Pool Header Card (Exact Image 2 Style: Coin Stack, Flanking Magenta Rays, Glowing Bottom Accent) */}
+          <View style={{
+            alignItems: "center",
+            justifyContent: "center",
+            width: "100%",
+            marginVertical: 4,
+            paddingVertical: 12,
+            paddingHorizontal: 16,
+            backgroundColor: "rgba(15, 23, 42, 0.75)",
+            borderRadius: 20,
+            borderWidth: 1,
+            borderColor: "rgba(99, 102, 241, 0.25)",
+            position: "relative",
+          }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 2 }}>
+              <CoinStackIcon size={16} />
+              <Text style={{ color: "rgba(255, 255, 255, 0.75)", fontSize: 11, fontWeight: "800", letterSpacing: 1.2 }}>
+                PRIZE POOL
+              </Text>
+            </View>
+
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 14 }}>
+              {/* Left Magenta Rays */}
+              <View style={{ flexDirection: "column", gap: 3, alignItems: "center" }}>
+                <View style={{ width: 14, height: 3, backgroundColor: "#e879f9", borderRadius: 2, transform: [{ rotate: "-25deg" }, { translateX: -3 }] }} />
+                <View style={{ width: 18, height: 3, backgroundColor: "#d946ef", borderRadius: 2, transform: [{ rotate: "0deg" }, { translateX: -6 }] }} />
+                <View style={{ width: 14, height: 3, backgroundColor: "#c026d3", borderRadius: 2, transform: [{ rotate: "25deg" }, { translateX: -3 }] }} />
+              </View>
+
+              {/* Amount */}
+              <Text style={{ color: "#fbbf24", fontSize: 34, fontWeight: "900", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" }}>
+                {previewPot.toLocaleString()} ETB
+              </Text>
+
+              {/* Right Magenta Rays */}
+              <View style={{ flexDirection: "column", gap: 3, alignItems: "center" }}>
+                <View style={{ width: 14, height: 3, backgroundColor: "#e879f9", borderRadius: 2, transform: [{ rotate: "25deg" }, { translateX: 3 }] }} />
+                <View style={{ width: 18, height: 3, backgroundColor: "#d946ef", borderRadius: 2, transform: [{ rotate: "0deg" }, { translateX: 6 }] }} />
+                <View style={{ width: 14, height: 3, backgroundColor: "#c026d3", borderRadius: 2, transform: [{ rotate: "-25deg" }, { translateX: 3 }] }} />
+              </View>
+            </View>
+
+            {/* Glowing magenta bottom bar */}
+            <View style={{
+              width: 72,
+              height: 3,
+              backgroundColor: "#d946ef",
+              borderRadius: 2,
+              marginTop: 4,
+              shadowColor: "#d946ef",
+              shadowOpacity: 0.9,
+              shadowRadius: 8,
+              elevation: 4,
+            }} />
+          </View>
+
+          {/* Center Spin Wheel */}
+          <View style={{ flex: 1, alignItems: "center", justifyContent: "center", marginVertical: 6, position: "relative" }}>
+            <SpinWheel
+              size={Math.max(140, Math.min(screenW - 48, 330))}
+              players={round ? round.players : previewPlayers}
+              isSpinning={screenState === "spinning"}
+              winningSlice={winningSlice}
+              winnerId={pendingWinnerId}
+              spinDuration={spinDuration}
+              onSpinComplete={handleSpinComplete}
+              status={round ? round.status : "waiting"}
+              mode={is5Player ? "5_PLAYER" : "RAIL"}
+              speakingUserIds={speakingUserIds}
+            />
+
+            {/* 3-Second Pre-Spin Countdown Readiness Overlay */}
+            {(preSpinCountdown !== null || round?.status === "locked") && (
+              <View style={{
+                position: "absolute",
+                width: Math.min(screenW - 48, 330),
+                height: Math.min(screenW - 48, 330),
+                borderRadius: Math.min(screenW - 48, 330) / 2,
+                backgroundColor: "rgba(6, 8, 20, 0.78)",
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 25,
+              }}>
+                <Text style={{ color: "#f5b642", fontSize: 72, fontWeight: "900", textShadowColor: "#000", textShadowRadius: 14 }}>
+                  {preSpinCountdown !== null ? preSpinCountdown : 3}
+                </Text>
+                <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "900", letterSpacing: 2, marginTop: 4 }}>
+                  GET READY!
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* Bottom Controls Area (Matching Image 2: Stepper, Full-width Pink ADD BET, Info, Drawer Trigger) */}
+          <View style={{ width: "100%", alignItems: "center", paddingBottom: 6 }}>
+            {/* Stepper Capsule */}
+            <View style={{
+              backgroundColor: "rgba(13, 20, 38, 0.85)",
+              borderRadius: 28,
+              borderWidth: 1,
+              borderColor: "rgba(255, 255, 255, 0.12)",
+              height: 52,
+              paddingHorizontal: 8,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              width: "100%",
+            }}>
+              <TouchableOpacity
+                onPress={() => {
+                  if (round) setAddAmount(prev => Math.max(10, prev - 10));
+                  else setBetAmount(prev => Math.max(10, prev - 10));
+                }}
                 style={{
                   width: 38,
                   height: 38,
                   borderRadius: 19,
-                  borderWidth: 1.5,
-                  borderColor: "#ef4444",
-                  backgroundColor: "rgba(239, 68, 68, 0.15)",
+                  backgroundColor: "rgba(255, 255, 255, 0.08)",
                   alignItems: "center",
                   justifyContent: "center",
-                  zIndex: 2,
                 }}
                 activeOpacity={0.8}
               >
-                <Ionicons name="chevron-back" size={20} color="#ef4444" />
+                <Ionicons name="remove" size={20} color="#ffffff" />
               </TouchableOpacity>
 
-              {/* Dead-Centered Countdown Timer Pill - Hidden in 5-Player mode */}
-              {!is5Player && (
-                <View style={{
-                  position: "absolute",
-                  left: 0,
-                  right: 0,
+              <Text style={{ color: "#ffffff", fontSize: 17, fontWeight: "800", fontFamily: "Inter, sans-serif" }}>
+                +{round ? addAmount : betAmount} ETB
+              </Text>
+
+              <TouchableOpacity
+                onPress={() => {
+                  if (round) setAddAmount(prev => Math.min(10000, prev + 10));
+                  else setBetAmount(prev => Math.min(10000, prev + 10));
+                }}
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 19,
+                  backgroundColor: "rgba(255, 255, 255, 0.08)",
                   alignItems: "center",
                   justifyContent: "center",
-                  zIndex: 1,
-                  pointerEvents: "none",
-                }}>
-                  <View style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 8,
-                    backgroundColor: "rgba(13, 17, 36, 0.9)",
-                    borderRadius: 20,
-                    paddingHorizontal: 18,
-                    paddingVertical: 7,
-                    borderWidth: 1.5,
-                    borderColor: "#8b5cf6",
-                    shadowColor: "#8b5cf6",
-                    shadowOffset: { width: 0, height: 0 },
-                    shadowOpacity: 0.7,
-                    shadowRadius: 10,
-                    elevation: 8,
-                  }}>
-                    <Ionicons name="time-outline" size={16} color="#f5b642" />
-                    <Text style={{ color: "#f5b642", fontSize: 18, fontWeight: "900", fontFamily: "Inter, sans-serif" }}>
-                      {formatCountdown(countdown)}
-                    </Text>
-                  </View>
-                </View>
-              )}
-
-              {/* Top Right Action Icons: Speaker & Mic */}
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 10, zIndex: 2 }}>
-                <TouchableOpacity
-                  onPress={handleToggleSpeaker}
-                  style={{
-                    width: 38,
-                    height: 38,
-                    borderRadius: 19,
-                    borderWidth: 1.5,
-                    borderColor: masterSpeakerMuted ? "#ef4444" : "#00daf3",
-                    backgroundColor: masterSpeakerMuted ? "rgba(239, 68, 68, 0.15)" : "rgba(0, 218, 243, 0.15)",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name={masterSpeakerMuted ? "volume-mute" : "volume-high"} size={18} color={masterSpeakerMuted ? "#ef4444" : "#00daf3"} />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={handleToggleMic}
-                  style={{
-                    width: 38,
-                    height: 38,
-                    borderRadius: 19,
-                    borderWidth: 1.5,
-                    borderColor: micMuted ? "#ef4444" : "#00daf3",
-                    backgroundColor: micMuted ? "rgba(239, 68, 68, 0.15)" : "rgba(0, 218, 243, 0.15)",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name={micMuted ? "mic-off" : "mic"} size={18} color={micMuted ? "#ef4444" : "#00daf3"} />
-                </TouchableOpacity>
-              </View>
+                }}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="add" size={20} color="#ffffff" />
+              </TouchableOpacity>
             </View>
 
-            {/* Prize Pool & Players Joined Header Card (Matching Reference Design) */}
-            {!is5Player && (
-              <View style={{
+            {/* ADD BET Full-width Pink Button */}
+            <TouchableOpacity
+              disabled={joinLoading || addLoading || isSpinning}
+              onPress={() => {
+                if (round) handleAddStake(addAmount);
+                else handleJoinRoom(is5Player ? "5_PLAYER" : "RAIL", betAmount);
+              }}
+              style={{
+                backgroundColor: "#f43f5e",
+                borderRadius: 28,
+                height: 54,
+                width: "100%",
                 alignItems: "center",
                 justifyContent: "center",
-                width: "100%",
-                marginVertical: 4,
-                paddingVertical: 10,
-                paddingHorizontal: 16,
-                backgroundColor: "rgba(18, 22, 38, 0.75)",
-                borderRadius: 18,
+                marginTop: 12,
+                shadowColor: "#f43f5e",
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.45,
+                shadowRadius: 12,
+                elevation: 8,
+                opacity: joinLoading || addLoading || isSpinning ? 0.7 : 1,
+              }}
+              activeOpacity={0.85}
+            >
+              {joinLoading || addLoading ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <Text style={{ color: "#ffffff", fontSize: 16, fontWeight: "900", letterSpacing: 1, fontFamily: "Inter, sans-serif" }}>
+                  ADD BET
+                </Text>
+              )}
+            </TouchableOpacity>
+
+            {/* Helper Info Text */}
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 10 }}>
+              <Ionicons name="information-circle-outline" size={15} color="#64748b" />
+              <Text style={{ color: "#64748b", fontSize: 12, fontWeight: "600" }}>
+                Higher bet = higher chance to win
+              </Text>
+            </View>
+
+            {/* View All Players Capsule Drawer Trigger */}
+            <TouchableOpacity
+              onPress={() => setMobilePlayersSheetVisible(true)}
+              style={{
+                backgroundColor: "rgba(13, 20, 38, 0.65)",
+                borderRadius: 24,
                 borderWidth: 1,
-                borderColor: "rgba(255, 255, 255, 0.12)",
-              }}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-                  <Ionicons name="information-circle" size={14} color="#f5b642" />
-                  <Text style={{ color: "rgba(255, 255, 255, 0.8)", fontSize: 11, fontWeight: "800", letterSpacing: 1.2 }}>
-                    PRIZE POOL
-                  </Text>
-                </View>
-                <Text style={{ color: "#f5b642", fontSize: 30, fontWeight: "900", marginVertical: 2, letterSpacing: 0.5 }}>
-                  {previewPot.toLocaleString()} ETB
-                </Text>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 }}>
-                  <Ionicons name="people" size={14} color="rgba(255, 255, 255, 0.7)" />
-                  <Text style={{ color: "rgba(255, 255, 255, 0.85)", fontSize: 13, fontWeight: "700" }}>
-                    {round ? round.players.length : (previewPlayers.length || 0)} Players Joined
-                  </Text>
-                </View>
-              </View>
-            )}
-
-            {/* 5-PLAYER SPIN BANNER HEADER & SIDE BADGES (Image 1 Style) */}
-            {is5Player && (
-              <View style={{ alignItems: "center", width: "100%", marginVertical: 4 }}>
-                {/* Stars + 5-PLAYER Subheader */}
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                  <Ionicons name="star" size={12} color="#f5b642" />
-                  <Text style={{ color: "#f5b642", fontSize: 13, fontWeight: "900", letterSpacing: 1.5, fontFamily: "Inter, sans-serif" }}>
-                    5-PLAYER
-                  </Text>
-                  <Ionicons name="star" size={12} color="#f5b642" />
-                </View>
-
-                {/* Big SPIN Title */}
-                <Text style={{
-                  color: "#ffffff",
-                  fontSize: 38,
-                  fontWeight: "900",
-                  letterSpacing: 2,
-                  fontFamily: "Inter, sans-serif",
-                  marginTop: -2,
-                }}>
-                  SPIN
-                </Text>
-
-                {/* Tagline */}
-                <Text style={{ color: "#d8b4fe", fontSize: 11, fontWeight: "700", fontFamily: "Inter, sans-serif", marginTop: -2 }}>
-                  ◆ Spin, Play & Win Big! ◆
-                </Text>
-
-                {/* Flanking Side Badges (Entry Fee Left, 5 Players Live Right) */}
-                <View style={{ flexDirection: "row", width: "100%", justifyContent: "space-between", alignItems: "center", marginTop: 6, paddingHorizontal: 4 }}>
-                  {/* Left: ENTRY FEE 100 ETB */}
-                  <View style={{
-                    backgroundColor: "rgba(244, 114, 182, 0.12)",
-                    borderWidth: 1.5,
-                    borderStyle: "dashed",
-                    borderColor: "#f472b6",
-                    borderRadius: 14,
-                    paddingHorizontal: 12,
-                    paddingVertical: 6,
-                    alignItems: "center",
-                    minWidth: 95,
-                  }}>
-                    <Text style={{ color: "#f472b6", fontSize: 9, fontWeight: "800", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" }}>ENTRY FEE</Text>
-                    <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "900", marginTop: 1, fontFamily: "Inter, sans-serif" }}>100 ETB</Text>
-                  </View>
-
-                  {/* Right: 5 PLAYERS LIVE */}
-                  <View style={{
-                    backgroundColor: "rgba(168, 85, 247, 0.15)",
-                    borderWidth: 1.5,
-                    borderStyle: "dashed",
-                    borderColor: "#a855f7",
-                    borderRadius: 14,
-                    paddingHorizontal: 12,
-                    paddingVertical: 6,
-                    alignItems: "center",
-                    minWidth: 95,
-                  }}>
-                    <Text style={{ color: "#00daf3", fontSize: 18, fontWeight: "900", lineHeight: 20, fontFamily: "Inter, sans-serif" }}>5</Text>
-                    <Text style={{ color: "#c084fc", fontSize: 8, fontWeight: "800", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" }}>PLAYERS LIVE</Text>
-                  </View>
-                </View>
-              </View>
-            )}
-
-            {/* Center Spin Wheel with Stage Pedestal */}
-            <View style={{ flex: 1, alignItems: "center", justifyContent: "center", marginVertical: 6, position: "relative" }}>
-              <SpinWheel
-                size={Math.max(140, Math.min(screenW - 48, 320))}
-                players={round ? round.players : previewPlayers}
-                isSpinning={screenState === "spinning"}
-                winningSlice={winningSlice}
-                winnerId={pendingWinnerId}
-                spinDuration={spinDuration}
-                onSpinComplete={handleSpinComplete}
-                status={round ? round.status : "waiting"}
-                mode={is5Player ? "5_PLAYER" : "RAIL"}
-                speakingUserIds={speakingUserIds}
-              />
-
-              {/* 3-Second Pre-Spin Countdown Readiness Overlay */}
-              {(preSpinCountdown !== null || round?.status === "locked") && (
-                <View style={{
-                  position: "absolute",
-                  width: Math.min(screenW - 48, 320),
-                  height: Math.min(screenW - 48, 320),
-                  borderRadius: Math.min(screenW - 48, 320) / 2,
-                  backgroundColor: "rgba(6, 8, 20, 0.78)",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  zIndex: 25,
-                }}>
-                  <Text style={{ color: "#f5b642", fontSize: 72, fontWeight: "900", textShadowColor: "#000", textShadowRadius: 14 }}>
-                    {preSpinCountdown !== null ? preSpinCountdown : 3}
-                  </Text>
-                  <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "900", letterSpacing: 2, marginTop: 4 }}>
-                    GET READY!
-                  </Text>
-                </View>
-              )}
-
-              {/* Glowing Stage Pedestal ring under wheel base in 5-player mode */}
-              {is5Player && (
-                <View style={{
-                  position: "absolute",
-                  bottom: 4,
-                  width: 140,
-                  height: 18,
-                  borderRadius: 9,
-                  borderWidth: 1.5,
-                  borderColor: "rgba(168, 85, 247, 0.5)",
-                  backgroundColor: "rgba(168, 85, 247, 0.15)",
-                  shadowColor: "#a855f7",
-                  shadowOffset: { width: 0, height: 0 },
-                  shadowOpacity: 0.6,
-                  shadowRadius: 10,
-                  zIndex: -1,
-                }} />
-              )}
-            </View>
-
-            {/* Bottom Floating Controls Card */}
-            <View style={{
-              backgroundColor: "rgba(13, 17, 36, 0.92)",
-              borderRadius: 24,
-              borderWidth: 1.5,
-              borderColor: "#242c4a",
-              padding: 14,
-              marginBottom: 16,
-              width: "100%",
-              shadowColor: "#8b5cf6",
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.3,
-              shadowRadius: 12,
-              elevation: 10,
-            }}>
-              {/* Top Stepper Row: [-] +10 ETB [+] AND Bet/Play Button beside [+] (Hidden in 5-player mode) */}
-              {!is5Player && (
-                <View style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  backgroundColor: "rgba(20, 26, 48, 0.8)",
-                  borderRadius: 16,
-                  borderWidth: 1,
-                  borderColor: "#1e2646",
-                  paddingHorizontal: 10,
-                  paddingVertical: 8,
-                  marginBottom: 12,
-                }}>
-                  {/* Minus Button */}
-                  <TouchableOpacity
-                    onPress={() => {
-                      if (round) setAddAmount(prev => Math.max(10, prev - 10));
-                      else setBetAmount(prev => Math.max(10, prev - 10));
-                    }}
-                    style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: 18,
-                      borderWidth: 1.5,
-                      borderColor: "#ef4444",
-                      backgroundColor: "rgba(239, 68, 68, 0.15)",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons name="remove" size={20} color="#ef4444" />
-                  </TouchableOpacity>
-
-                  {/* Stake Amount Display (Tappable on Mobile) */}
-                  <TouchableOpacity
-                    disabled={joinLoading || addLoading}
-                    onPress={() => {
-                      if (round) handleAddStake(addAmount);
-                      else handleJoinRoom(is5Player ? "5_PLAYER" : "RAIL", betAmount);
-                    }}
-                    style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 4 }}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={{ color: "#ffffff", fontSize: 17, fontWeight: "900", fontFamily: "Inter, sans-serif" }}>
-                      +{round ? addAmount : betAmount} ETB
-                    </Text>
-                  </TouchableOpacity>
-
-                  {/* Plus Button & Bet/Play Button side by side */}
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                    {/* Plus Button */}
-                    <TouchableOpacity
-                      onPress={() => {
-                        if (round) setAddAmount(prev => Math.min(10000, prev + 10));
-                        else setBetAmount(prev => Math.min(10000, prev + 10));
-                      }}
-                      style={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: 18,
-                        borderWidth: 1.5,
-                        borderColor: "#22c55e",
-                        backgroundColor: "rgba(34, 197, 94, 0.15)",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                      activeOpacity={0.8}
-                    >
-                      <Ionicons name="add" size={20} color="#22c55e" />
-                    </TouchableOpacity>
-
-                    {/* Bet / Play Button beside + button */}
-                    <TouchableOpacity
-                      disabled={joinLoading || addLoading}
-                      onPress={() => {
-                        if (round) handleAddStake(addAmount);
-                        else handleJoinRoom(is5Player ? "5_PLAYER" : "RAIL", betAmount);
-                      }}
-                      style={{
-                        paddingHorizontal: 12,
-                        height: 36,
-                        borderRadius: 12,
-                        borderWidth: 1.5,
-                        borderColor: addLoading || joinLoading ? "#00daf3" : "#8b5cf6",
-                        backgroundColor: addLoading || joinLoading ? "rgba(0, 218, 243, 0.2)" : "#16102b",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        flexDirection: "row",
-                        gap: 4,
-                        shadowColor: "#8b5cf6",
-                        shadowOffset: { width: 0, height: 0 },
-                        shadowOpacity: 0.6,
-                        shadowRadius: 8,
-                        elevation: 6,
-                      }}
-                      activeOpacity={0.8}
-                    >
-                      {joinLoading || addLoading ? (
-                        <ActivityIndicator size="small" color="#00daf3" />
-                      ) : (
-                        <Ionicons name="play" size={20} color="#8b5cf6" style={{ marginLeft: 2 }} />
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              )}
-
-              {/* Row 2: Joined Player Profiles (First Names) on left + Drawer Trigger on right */}
-              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                {/* Joined Players Profiles */}
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: "row", alignItems: "center", gap: 8 }} style={{ flex: 1, marginRight: 8 }}>
-                  {displayPlayers.map((p: any, idx: number) => {
-                    const borderColors = ["#ef4444", "#a78bfa", "#22c55e", "#00daf3", "#f5b642"];
-                    const color = borderColors[idx % borderColors.length];
-                    const rawName = p.username || "Player";
-                    const firstName = rawName.split(" ")[0].split("_")[0];
-                    const isSelf = p.userId === user?.id;
-
-                    return (
-                      <TouchableOpacity
-                        key={p.userId || idx}
-                        onPress={() => setMobilePlayersSheetVisible(true)}
-                        style={{
-                          flexDirection: "row",
-                          alignItems: "center",
-                          gap: 6,
-                          backgroundColor: "rgba(20, 26, 48, 0.9)",
-                          borderRadius: 16,
-                          borderWidth: 1.5,
-                          borderColor: color,
-                          paddingHorizontal: 10,
-                          paddingVertical: 5,
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: color + "30", alignItems: "center", justifyContent: "center" }}>
-                          <Ionicons name="person" size={12} color={color} />
-                        </View>
-                        <Text numberOfLines={1} style={{ color: "#ffffff", fontSize: 12, fontWeight: "800" }}>
-                          {isSelf ? "You" : (firstName.length > 8 ? firstName.slice(0, 7) + "…" : firstName)}
-                        </Text>
-                        <Text style={{ color: color, fontSize: 10, fontWeight: "700" }}>
-                          {p.stake || 100} ETB
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-
-                {/* Players Drawer Trigger Button (Opens drawer sheet) */}
-                <TouchableOpacity
-                  onPress={() => setMobilePlayersSheetVisible(true)}
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 4,
-                    backgroundColor: "rgba(139, 92, 246, 0.2)",
-                    borderRadius: 14,
-                    borderWidth: 1.5,
-                    borderColor: "#8b5cf6",
-                    paddingHorizontal: 10,
-                    paddingVertical: 8,
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="people" size={16} color="#a78bfa" />
-                  <Ionicons name="chevron-up" size={16} color="#a78bfa" />
-                </TouchableOpacity>
-              </View>
-            </View>
+                borderColor: "rgba(255, 255, 255, 0.1)",
+                height: 46,
+                paddingHorizontal: 16,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                width: "100%",
+                marginTop: 18,
+              }}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="people" size={18} color="#94a3b8" />
+              <Text style={{ color: "#94a3b8", fontSize: 13, fontWeight: "600" }}>
+                View all players (more)
+              </Text>
+              <Ionicons name="chevron-down" size={16} color="#94a3b8" />
+            </TouchableOpacity>
           </View>
+        </View>
       )}
 
       {/* ════════════════════════════════════════════════════════════════
@@ -2061,145 +1962,233 @@ export default function SpinGameScreen() {
       )}
 
       {/* ════════════════════════════════════════════════════════════════
-         ██  WINNER / LOSER POPUP OVERLAY
+         ██  WINNER / LOSER POPUP OVERLAY (Exact Match Image 4)
          ════════════════════════════════════════════════════════════════ */}
       {screenState === "result" && resultData && (
         <View style={ds.overlayBackdrop}>
-          {/* Falling Celebration Confetti Rain for Winner */}
           {isMyWin && <CelebrationConfetti />}
 
-          <View style={[
-            ds.resultPopup,
-            {
-              backgroundColor: "rgba(13, 16, 33, 0.96)",
-              borderColor: isMyWin ? "#F5B642" : "rgba(255, 255, 255, 0.12)",
-              borderWidth: 2,
-              borderRadius: 28,
-              padding: 24,
-              shadowColor: isMyWin ? "#F5B642" : "#7C3AED",
-              shadowOffset: { width: 0, height: 8 },
-              shadowOpacity: 0.7,
-              shadowRadius: 30,
-              elevation: 20,
-            }
-          ]}>
-            {/* Trophy / Ribbon Icon Circle */}
-            <View style={{
-              width: 80,
-              height: 80,
-              borderRadius: 40,
-              backgroundColor: isMyWin ? "rgba(245, 182, 66, 0.18)" : "rgba(124, 58, 237, 0.18)",
-              borderWidth: 2,
-              borderColor: isMyWin ? "#F5B642" : "#7C3AED",
-              alignItems: "center",
-              justifyContent: "center",
-              marginBottom: 14,
-            }}>
-              <Ionicons
-                name={isMyWin ? "trophy" : "ribbon"}
-                size={44}
-                color={isMyWin ? "#F5B642" : "#A78BFA"}
-              />
-            </View>
+          <View style={{
+            backgroundColor: "#0d1326",
+            borderWidth: 1,
+            borderColor: "rgba(255, 255, 255, 0.12)",
+            borderRadius: 24,
+            padding: 24,
+            alignItems: "center",
+            width: "90%",
+            maxWidth: 360,
+            shadowColor: isMyWin ? "#f59e0b" : "#7c3aed",
+            shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: 0.6,
+            shadowRadius: 24,
+            elevation: 20,
+          }}>
+            {isMyWin ? (
+              /* ── YOU WON! (Image 4 Left) ── */
+              <>
+                {/* Crown with Sparkle Rays */}
+                <View style={{ alignItems: "center", justifyContent: "center", width: 84, height: 84, marginBottom: 12 }}>
+                  <View style={{ position: "absolute", width: 100, height: 100, alignItems: "center", justifyContent: "center" }}>
+                    <View style={{ position: "absolute", width: 12, height: 4, backgroundColor: "#facc15", borderRadius: 2, top: 4, left: 16, transform: [{ rotate: "-35deg" }] }} />
+                    <View style={{ position: "absolute", width: 12, height: 4, backgroundColor: "#facc15", borderRadius: 2, top: 4, right: 16, transform: [{ rotate: "35deg" }] }} />
+                    <View style={{ position: "absolute", width: 10, height: 3, backgroundColor: "#e879f9", borderRadius: 2, top: 18, right: 2, transform: [{ rotate: "50deg" }] }} />
+                    <View style={{ position: "absolute", width: 10, height: 3, backgroundColor: "#e879f9", borderRadius: 2, top: 18, left: 2, transform: [{ rotate: "-50deg" }] }} />
+                  </View>
+                  <LinearGradient
+                    colors={["#facc15", "#f59e0b", "#d97706"]}
+                    style={{ width: 72, height: 72, borderRadius: 20, alignItems: "center", justifyContent: "center", shadowColor: "#facc15", shadowOpacity: 0.6, shadowRadius: 16 }}
+                  >
+                    <CrownIcon size={38} />
+                  </LinearGradient>
+                </View>
 
-            {/* Title */}
-            <Text style={{
-              color: isMyWin ? "#FDE047" : "#FFFFFF",
-              fontSize: 24,
-              fontWeight: "900",
-              letterSpacing: 0.5,
-              textShadowColor: isMyWin ? "rgba(245, 182, 66, 0.6)" : "rgba(0,0,0,0.8)",
-              textShadowRadius: 10,
-            }}>
-              {isMyWin ? "🎉 VICTORY!" : "Better Luck Next Time"}
-            </Text>
-
-            {/* Winner Info */}
-            <View style={[ds.resultWinnerRow, { backgroundColor: "rgba(255, 255, 255, 0.04)", paddingHorizontal: 16, paddingVertical: 10, borderRadius: 16, marginVertical: 12, borderWidth: 1, borderColor: "rgba(255, 255, 255, 0.06)" }]}>
-              <View style={[ds.seatAvatar, { backgroundColor: isMyWin ? "#F5B642" : "#7C3AED", width: 36, height: 36, borderRadius: 18, marginRight: 10 }]}>
-                <Text style={[ds.seatAvatarText, { fontSize: 13, color: "#FFFFFF" }]}>
-                  {resultData.winnerName.slice(0, 2).toUpperCase()}
+                {/* Title & Subtitle */}
+                <Text style={{ color: "#ffffff", fontSize: 24, fontWeight: "900", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" }}>
+                  YOU WON!
                 </Text>
-              </View>
-              <View>
-                <Text style={[ds.resultWinnerName, { color: "#FFFFFF", fontWeight: "900" }]}>{resultData.winnerName}</Text>
-                <Text style={[ds.resultWinnerLabel, { color: "rgba(255, 255, 255, 0.5)" }]}>Round Winner</Text>
-              </View>
-            </View>
+                <Text style={{ color: "#94a3b8", fontSize: 13, fontWeight: "600", marginTop: 4 }}>
+                  Congratulations
+                </Text>
 
-            {/* Prize Amount Box */}
-            <View style={{
-              backgroundColor: isMyWin ? "rgba(245, 182, 66, 0.12)" : "rgba(124, 58, 237, 0.12)",
-              borderWidth: 1.5,
-              borderColor: isMyWin ? "rgba(245, 182, 66, 0.4)" : "rgba(124, 58, 237, 0.4)",
-              borderRadius: 20,
-              paddingHorizontal: 24,
-              paddingVertical: 14,
-              marginBottom: 16,
-              alignItems: "center",
-              width: "100%",
-            }}>
-              <Text style={{ color: isMyWin ? "#FEF08A" : "#A78BFA", fontSize: 11, fontWeight: '800', letterSpacing: 1.2 }}>PRIZE WON</Text>
-              <Text style={{ color: "#FFFFFF", fontSize: 28, fontWeight: "900", marginTop: 4 }}>
-                {resultData.prizeAmount.toLocaleString()} ETB
-              </Text>
-            </View>
+                {/* Prize Box */}
+                <View style={{
+                  backgroundColor: "rgba(15, 23, 42, 0.95)",
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  borderColor: "rgba(168, 85, 247, 0.35)",
+                  width: "100%",
+                  paddingVertical: 14,
+                  paddingHorizontal: 16,
+                  marginTop: 16,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 12,
+                }}>
+                  <CoinStackIcon size={28} />
+                  <View>
+                    <Text style={{ color: "#a855f7", fontSize: 10, fontWeight: "800", letterSpacing: 1 }}>YOUR PRIZE</Text>
+                    <Text style={{ color: "#facc15", fontSize: 24, fontWeight: "900", marginTop: 2, fontFamily: "Inter, sans-serif" }}>
+                      {resultData.prizeAmount.toLocaleString()} ETB
+                    </Text>
+                  </View>
+                </View>
 
-            {/* Action Buttons */}
-            <View style={ds.resultActions}>
-              {round?.mode === "5_PLAYER" && rematchAvailable && (
+                <Text style={{ color: "#64748b", fontSize: 12, fontWeight: "600", marginTop: 14, marginBottom: 18 }}>
+                  Keep playing and win more!
+                </Text>
+
+                {/* Pink OK Button */}
                 <TouchableOpacity
-                  onPress={handleRematchClick}
-                  disabled={rematchAccepted}
-                  style={[
-                    ds.resultPlayAgainBtn,
-                    { backgroundColor: rematchAccepted ? "#22C55E" : "#7C3AED", marginBottom: 10, borderRadius: 16 },
-                  ]}
+                  onPress={() => {
+                    setResultData(null);
+                    setScreenState("waiting");
+                    handlePlayAgain();
+                  }}
+                  style={{
+                    backgroundColor: "#f43f5e",
+                    borderRadius: 24,
+                    height: 48,
+                    width: "100%",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    shadowColor: "#f43f5e",
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.4,
+                    shadowRadius: 10,
+                    elevation: 6,
+                  }}
                   activeOpacity={0.85}
                 >
-                  <Ionicons name={rematchAccepted ? "checkmark-circle" : "refresh-circle"} size={18} color="#fff" />
-                  <Text style={ds.resultPlayAgainText}>
-                    {rematchAccepted ? `ACCEPTED (${rematchCount})` : "REMATCH (100 ETB)"}
+                  <Text style={{ color: "#ffffff", fontSize: 15, fontWeight: "900", letterSpacing: 1 }}>
+                    OK
                   </Text>
                 </TouchableOpacity>
-              )}
+              </>
+            ) : (
+              /* ── ROUND OVER (Image 4 Right) ── */
+              <>
+                {/* Purple Person Avatar with Confetti */}
+                <View style={{ alignItems: "center", justifyContent: "center", width: 80, height: 80, marginBottom: 12 }}>
+                  <View style={{ position: "absolute", width: 100, height: 100, alignItems: "center", justifyContent: "center" }}>
+                    <View style={{ position: "absolute", width: 10, height: 3, backgroundColor: "#c084fc", borderRadius: 2, top: 4, left: 16, transform: [{ rotate: "-35deg" }] }} />
+                    <View style={{ position: "absolute", width: 10, height: 3, backgroundColor: "#c084fc", borderRadius: 2, top: 4, right: 16, transform: [{ rotate: "35deg" }] }} />
+                    <View style={{ position: "absolute", width: 8, height: 3, backgroundColor: "#f472b6", borderRadius: 2, top: 18, right: 2, transform: [{ rotate: "45deg" }] }} />
+                  </View>
+                  <View style={{ width: 68, height: 68, borderRadius: 34, backgroundColor: "#7c3aed", alignItems: "center", justifyContent: "center", shadowColor: "#7c3aed", shadowOpacity: 0.6, shadowRadius: 16 }}>
+                    <Ionicons name="person" size={34} color="#ffffff" />
+                  </View>
+                </View>
 
-              <TouchableOpacity
-                onPress={handlePlayAgain}
-                style={[ds.resultPlayAgainBtn, { backgroundColor: isMyWin ? "#F5B642" : "#7C3AED", borderRadius: 16 }]}
-                activeOpacity={0.85}
-              >
-                <Ionicons name="reload" size={16} color="#fff" />
-                <Text style={[ds.resultPlayAgainText, { color: "#FFFFFF" }]}>PLAY AGAIN</Text>
-              </TouchableOpacity>
+                {/* Title & Subtitle */}
+                <Text style={{ color: "#ffffff", fontSize: 22, fontWeight: "900", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" }}>
+                  ROUND OVER
+                </Text>
+                <Text style={{ color: "#94a3b8", fontSize: 13, fontWeight: "600", marginTop: 4 }}>
+                  Better luck next time
+                </Text>
 
-              <TouchableOpacity
-                onPress={() => {
-                  voiceService.leaveChannel();
-                  setScreenState("browse");
-                  setRound(null);
-                  setIsSpinning(false);
-                  setWinningSlice(null);
-        setPendingWinnerId(null);
-        pendingSpinDataRef.current = null;
-                  setResultData(null);
-                  setCountdown(0);
-                  refreshProfile();
-                  router.replace("/(authed)/home/gameplay");
-                }}
-                style={[ds.resultLeaveBtn, { backgroundColor: "rgba(239, 68, 68, 0.1)", borderWidth: 1, borderColor: "rgba(239, 68, 68, 0.3)", borderRadius: 16 }]}
-                activeOpacity={0.85}
-              >
-                <Ionicons name="exit-outline" size={16} color="#EF4444" />
-                <Text style={[ds.resultLeaveText, { color: "#EF4444" }]}>LEAVE</Text>
-              </TouchableOpacity>
-            </View>
+                {/* Winner Card */}
+                <View style={{
+                  backgroundColor: "rgba(15, 23, 42, 0.95)",
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  borderColor: "rgba(255, 255, 255, 0.08)",
+                  width: "100%",
+                  paddingVertical: 12,
+                  paddingHorizontal: 14,
+                  marginTop: 16,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}>
+                  {/* Winner avatar and name */}
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                    <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: "#7c3aed", alignItems: "center", justifyContent: "center" }}>
+                      <Ionicons name="person" size={20} color="#ffffff" />
+                    </View>
+                    <View>
+                      <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "700" }}>{resultData.winnerName}</Text>
+                      <Text style={{ color: "#94a3b8", fontSize: 11, fontWeight: "600" }}>Won this round</Text>
+                    </View>
+                  </View>
+
+                  {/* Prize */}
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <CoinStackIcon size={22} />
+                    <View>
+                      <Text style={{ color: "#94a3b8", fontSize: 10, fontWeight: "800" }}>PRIZE</Text>
+                      <Text style={{ color: "#facc15", fontSize: 15, fontWeight: "900" }}>
+                        {resultData.prizeAmount.toLocaleString()} ETB
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* PLAY AGAIN Purple Button */}
+                <TouchableOpacity
+                  onPress={handlePlayAgain}
+                  style={{
+                    backgroundColor: "#7c3aed",
+                    borderRadius: 24,
+                    height: 48,
+                    width: "100%",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginTop: 18,
+                    shadowColor: "#7c3aed",
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.4,
+                    shadowRadius: 10,
+                    elevation: 6,
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "900", letterSpacing: 0.5 }}>
+                    PLAY AGAIN
+                  </Text>
+                </TouchableOpacity>
+
+                {/* LEAVE Outline Button */}
+                <TouchableOpacity
+                  onPress={() => {
+                    voiceService.leaveChannel();
+                    setScreenState("browse");
+                    setRound(null);
+                    setIsSpinning(false);
+                    setWinningSlice(null);
+                    setPendingWinnerId(null);
+                    pendingSpinDataRef.current = null;
+                    setResultData(null);
+                    setCountdown(0);
+                    refreshProfile();
+                    router.replace("/(authed)/home/gameplay");
+                  }}
+                  style={{
+                    backgroundColor: "transparent",
+                    borderWidth: 1,
+                    borderColor: "rgba(255, 255, 255, 0.2)",
+                    borderRadius: 24,
+                    height: 48,
+                    width: "100%",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginTop: 10,
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "900", letterSpacing: 0.5 }}>
+                    LEAVE
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </View>
       )}
 
       {/* ════════════════════════════════════════════════════════════════
-         ██  MOBILE PLAYERS BOTTOM SHEET DRAWER (AFTER CLICKING)
+         ██  MOBILE PLAYERS BOTTOM SHEET DRAWER (Exact Match Image 3)
          ════════════════════════════════════════════════════════════════ */}
       <Modal
         visible={mobilePlayersSheetVisible}
@@ -2210,72 +2199,122 @@ export default function SpinGameScreen() {
         <View style={ds.drawerOverlay}>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setMobilePlayersSheetVisible(false)} />
 
-          <View style={ds.drawerCard}>
+          <View style={{
+            backgroundColor: "#0c1022",
+            borderTopLeftRadius: 28,
+            borderTopRightRadius: 28,
+            borderWidth: 1,
+            borderColor: "rgba(255, 255, 255, 0.1)",
+            paddingHorizontal: 20,
+            paddingBottom: 34,
+            paddingTop: 12,
+            width: "100%",
+            maxHeight: "75%",
+          }}>
             {/* Top Grab Handle */}
             <TouchableOpacity
               onPress={() => setMobilePlayersSheetVisible(false)}
-              style={ds.drawerHandleWrap}
+              style={{ alignItems: "center", paddingVertical: 4, marginBottom: 12 }}
               activeOpacity={0.8}
             >
-              <View style={ds.drawerHandleBar} />
+              <View style={{ width: 44, height: 4, borderRadius: 2, backgroundColor: "rgba(255, 255, 255, 0.25)" }} />
             </TouchableOpacity>
 
-            {/* Players List Header */}
-            <Text style={ds.drawerTitle}>PLAYERS ({round ? round.players.length : previewPlayers.length})</Text>
+            {/* Players Header with chevron (Image 3) */}
+            <TouchableOpacity
+              onPress={() => setMobilePlayersSheetVisible(false)}
+              style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16, paddingHorizontal: 4 }}
+              activeOpacity={0.8}
+            >
+              <Text style={{ color: "#ffffff", fontSize: 16, fontWeight: "900", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" }}>
+                PLAYERS ({sortedPlayers.length})
+              </Text>
+              <Ionicons name="chevron-down" size={20} color="#94a3b8" />
+            </TouchableOpacity>
 
-            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 340 }}>
-              {(round ? round.players : previewPlayers).map((p: any, idx: number) => {
-                const borderColors = ["#ff4b4b", "#a78bfa", "#22c55e", "#00daf3", "#fbbf24"];
-                const color = borderColors[idx % borderColors.length];
+            {/* Sorted Players List (High stake to low stake) */}
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 380 }}>
+              {sortedPlayers.map((p: any, idx: number) => {
                 const isSelf = p.userId === user?.id;
                 const isMuted = mutedPlayers.has(p.userId);
                 const isSelfHost = round?.players[0]?.userId === user?.id;
                 const isSpeaking = Array.isArray(speakingUserIds) && speakingUserIds.some(id => String(id) === String(p.userId));
 
+                // Image 3 Avatar Colors: Self is pink #f43f5e, others cycle cyan/purple/blue
+                const otherColors = ["#0284c7", "#7c3aed", "#0284c7", "#10b981", "#f59e0b"];
+                const avatarBg = isSelf ? "#f43f5e" : otherColors[idx % otherColors.length];
+                const rawName = p.username || "Player";
+                const cleanName = isSelf ? "You" : (rawName.split(" ")[0].split("_")[0]);
+
                 return (
-                  <View key={p.userId || idx} style={[ds.drawerPlayerRow, !isMuted && { borderColor: '#22c55e', borderWidth: 1.5 }]}>
-                    <View style={[ds.drawerAvatarCircle, { borderColor: !isMuted ? '#22c55e' : color }]}>
-                      <Ionicons name="person" size={18} color={!isMuted ? '#22c55e' : color} />
-                    </View>
-                    <View style={{ flex: 1, marginLeft: 12 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <Text style={ds.drawerPlayerName}>{isSelf ? "You (" + (p.username || "Zara") + ")" : p.username || "Zara"}</Text>
-                        {isSpeaking && <SpeakingWaveAnimation />}
+                  <View
+                    key={p.userId || idx}
+                    style={{
+                      backgroundColor: "rgba(15, 23, 42, 0.85)",
+                      borderRadius: 16,
+                      borderWidth: 1,
+                      borderColor: "rgba(255, 255, 255, 0.08)",
+                      paddingHorizontal: 14,
+                      paddingVertical: 12,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      marginBottom: 10,
+                    }}
+                  >
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flex: 1 }}>
+                      {/* Avatar Circle */}
+                      <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: avatarBg, alignItems: "center", justifyContent: "center" }}>
+                        <Ionicons name="person" size={22} color="#ffffff" />
                       </View>
-                      <Text style={[ds.drawerPlayerStake, { color }]}>{p.stake || 100} ETB</Text>
+
+                      {/* Name & Stake Column */}
+                      <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                          <Text style={{ color: "#ffffff", fontSize: 15, fontWeight: "700" }}>
+                            {cleanName}
+                          </Text>
+                          {isSpeaking && <SpeakingWaveAnimation />}
+                        </View>
+                        <Text style={{ color: "#facc15", fontSize: 13, fontWeight: "800", marginTop: 2 }}>
+                          {p.stake || 10} ETB
+                        </Text>
+                      </View>
                     </View>
 
-                    {/* Microphone Icon Button on right with mute/unmute action */}
+                    {/* Microphone Icon Button on right */}
                     <TouchableOpacity
                       onPress={() => {
-                        if (isSelfHost) {
+                        if (isSelf) {
+                          handleToggleMic();
+                        } else if (isSelfHost) {
                           handleHostMuteUser(p.userId, isMuted);
                         } else {
                           toggleMutePlayer(p.userId);
                         }
                       }}
-                      style={[ds.drawerMicBtn, { borderColor: isMuted ? '#ef4444' : '#22c55e', backgroundColor: isMuted ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)' }]}
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 20,
+                        borderWidth: 1.5,
+                        borderColor: isMuted ? "#f43f5e" : "#22c55e",
+                        backgroundColor: isMuted ? "rgba(244, 63, 94, 0.15)" : "rgba(34, 197, 94, 0.15)",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
                       activeOpacity={0.8}
                     >
                       <Ionicons
-                        name={isMuted ? "mic-off-outline" : "mic"}
+                        name={isMuted ? "mic-off" : "mic"}
                         size={18}
-                        color={isMuted ? "#ef4444" : "#22c55e"}
+                        color={isMuted ? "#f43f5e" : "#22c55e"}
                       />
                     </TouchableOpacity>
                   </View>
                 );
               })}
             </ScrollView>
-
-            {/* Pull down indicator at bottom */}
-            <TouchableOpacity
-              onPress={() => setMobilePlayersSheetVisible(false)}
-              style={ds.drawerBottomClose}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="chevron-down" size={20} color="#8b93a7" />
-            </TouchableOpacity>
           </View>
         </View>
       </Modal>

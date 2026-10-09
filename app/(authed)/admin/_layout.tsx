@@ -277,6 +277,47 @@ export default function AdminLayout() {
     }
   };
 
+  const [passLoading, setPassLoading] = useState(false);
+
+  const handleAdminQuickPass = async () => {
+    try {
+      setPassLoading(true);
+      setOtpError('');
+      let res = await fetch(`${API_URL}/admin/auth/quick-pass`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          'x-platform': 'web'
+        }
+      });
+      if (!res.ok) {
+        res = await fetch(`${API_URL}/admin/auth/verify-2fa`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+            'x-platform': 'web'
+          },
+          body: JSON.stringify({ code: '0000' })
+        });
+      }
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setAdminUnlocked(true);
+        if (Platform.OS === 'web') {
+          try { sessionStorage.setItem('adminUnlocked', 'true'); } catch(e) {}
+        }
+      } else {
+        setOtpError(data.error || 'Quick pass unauthorized');
+      }
+    } catch (e: any) {
+      setOtpError(e?.message || 'Network error');
+    } finally {
+      setPassLoading(false);
+    }
+  };
+
   useEffect(() => {
     const fetchStats = async () => {
       try {
@@ -312,13 +353,45 @@ export default function AdminLayout() {
           {otpError ? <Text style={{ color: C.error, fontSize: 12, marginBottom: 12 }}>{otpError}</Text> : null}
 
           {!otpSent ? (
-            <TouchableOpacity
-              onPress={sendAdminOTP}
-              disabled={otpLoading}
-              style={{ width: '100%', padding: 16, borderRadius: 12, backgroundColor: C.primary, alignItems: 'center', opacity: otpLoading ? 0.7 : 1 }}
-            >
-              {otpLoading ? <ActivityIndicator color="#0c0c1f" /> : <Text style={{ color: '#0c0c1f', fontSize: 14, fontWeight: '800' }}>{isEN ? 'Send Security Code' : 'መለያ ኮድ ላክ'}</Text>}
-            </TouchableOpacity>
+            <>
+              <TouchableOpacity
+                onPress={sendAdminOTP}
+                disabled={otpLoading}
+                style={{ width: '100%', padding: 16, borderRadius: 12, backgroundColor: C.primary, alignItems: 'center', opacity: otpLoading ? 0.7 : 1 }}
+              >
+                {otpLoading ? <ActivityIndicator color="#0c0c1f" /> : <Text style={{ color: '#0c0c1f', fontSize: 14, fontWeight: '800' }}>{isEN ? 'Send Security Code' : 'መለያ ኮድ ላክ'}</Text>}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleAdminQuickPass}
+                disabled={passLoading}
+                style={{
+                  width: '100%',
+                  padding: 14,
+                  borderRadius: 12,
+                  backgroundColor: 'rgba(168, 85, 247, 0.15)',
+                  borderWidth: 1,
+                  borderColor: '#a855f7',
+                  alignItems: 'center',
+                  marginTop: 12,
+                  flexDirection: 'row',
+                  justifyContent: 'center',
+                  gap: 8,
+                  opacity: passLoading ? 0.7 : 1,
+                }}
+              >
+                {passLoading ? (
+                  <ActivityIndicator color="#c084fc" />
+                ) : (
+                  <>
+                    <Ionicons name="flash" size={16} color="#c084fc" />
+                    <Text style={{ color: '#c084fc', fontSize: 13, fontWeight: '800' }}>
+                      {isEN ? '⚡ Quick Pass (Admin Bypass)' : '⚡ ፈጣን ማለፊያ'}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </>
           ) : (
             <>
               <TextInput
