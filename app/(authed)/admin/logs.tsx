@@ -422,11 +422,9 @@ export default function AdminLogs() {
       {/* Match Visualizer Modal */}
       <Modal visible={!!selected} transparent animationType="fade" onRequestClose={handleCloseModal}>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalBox, glass()]}>
+          <View style={[styles.modalBox, { backgroundColor: C.surface }]}>
             <TouchableOpacity onPress={handleCloseModal} style={styles.closeBtn}><Ionicons name="close" size={18} color="#e5e3ff" /></TouchableOpacity>
             <View style={styles.modalLeft}>
-              <View style={styles.modalLeftGlow1} />
-              <View style={styles.modalLeftGlow2} />
               <View style={{ zIndex: 10, flex: 1, alignItems: 'center', justifyContent: 'center' }}>
                 <Text style={styles.modalVizTitle}>{t('replay_engine')}</Text>
                 <Text style={styles.modalVizId}>{t('id')}: {selected?.id?.slice(0,14).toUpperCase()}</Text>
@@ -434,7 +432,7 @@ export default function AdminLogs() {
                 <View style={styles.engineControls}>
                   <TouchableOpacity style={styles.engineBtn} onPress={() => { setIsPlaying(false); setReplayStep(Math.max(0, replayStep - 1)) }}><Ionicons name="play-back" size={20} color="#fff" /></TouchableOpacity>
                   <TouchableOpacity style={[styles.engineBtn, { backgroundColor: C.primary, width: 44, height: 44, borderRadius: 22 }]} onPress={() => { if (replayStep >= (selected?.moves?.length || 0)) setReplayStep(0); setIsPlaying(!isPlaying); }}>
-                    <Ionicons name={isPlaying ? "pause" : "play"} size={22} color="#000" />
+                    <Ionicons name={isPlaying ? "pause" : "play"} size={22} color="#fff" />
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.engineBtn} onPress={() => { setIsPlaying(false); setReplayStep(Math.min((selected?.moves?.length || 0), replayStep + 1)) }}><Ionicons name="play-forward" size={20} color="#fff" /></TouchableOpacity>
                 </View>
@@ -442,7 +440,7 @@ export default function AdminLogs() {
                 <View style={styles.board}>
                   {getReplayBoard().map((cell, i) => (
                     <View key={i} style={styles.boardCell}>
-                      {cell ? <Text style={[styles.boardMark, { color: cell === 'O' ? C.secondary : '#ffabf3' }]}>{cell}</Text> : null}
+                      {cell ? <Text style={[styles.boardMark, { color: cell === 'O' ? C.secondary : C.primary }]}>{cell}</Text> : null}
                     </View>
                   ))}
                 </View>
@@ -479,61 +477,59 @@ const styles = StyleSheet.create({
   pageTitle: { color: '#e5e3ff', fontSize: 36, fontWeight: '900', letterSpacing: -1 },
   pageSub: { color: '#a8a7d4', fontSize: 13, marginTop: 8, maxWidth: 400 },
   headerBtns: { flexDirection: 'row', gap: 12 },
-  filterBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: '#1c1c3c', borderRadius: 12 },
-  filterTxt: { color: '#e5e3ff', fontSize: 13, fontWeight: '700' },
-  exportBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: C.primary, borderRadius: 12 },
-  exportTxt: { color: '#fff', fontSize: 13, fontWeight: '800' },
+  filterBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 8, backgroundColor: C.surfaceContainerLowest, borderRadius: 8, borderWidth: 1, borderColor: C.border },
+  filterTxt: { color: C.onSurfaceVariant, fontSize: 13, fontWeight: '700' },
+  exportBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 8, backgroundColor: C.primary, borderRadius: 8 },
+  exportTxt: { color: '#fff', fontSize: 13, fontWeight: '700' },
   statsRow: { flexDirection: 'row', gap: 20, marginBottom: 32, paddingHorizontal: 24 },
   statCard: { flex: 1 },
-  statLabel: { color: '#a8a7d4', fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 2 },
-  statVal: { color: '#e5e3ff', fontSize: 24, fontWeight: '900', marginTop: 12 },
-  statSub: { color: 'rgba(0,218,243,0.5)', fontSize: 10, marginTop: 4 },
+  statLabel: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1.5 },
+  statVal: { color: '#ffffff', fontSize: 24, fontWeight: '700', marginTop: 12 },
+  statSub: { color: C.onSurfaceVariant, fontSize: 10, marginTop: 4 },
   healthDot: { width: 10, height: 10, borderRadius: 5 },
   tableWrap: { flex: 1, marginHorizontal: 24, backgroundColor: 'transparent' },
   tableTopBar: { 
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 24, backgroundColor: 'rgba(24, 24, 27, 0.65)', borderTopLeftRadius: 20, borderTopRightRadius: 20, borderWidth: 1, borderBottomWidth: 0, borderColor: 'rgba(39, 39, 42, 0.6)'
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, backgroundColor: C.surface, borderTopLeftRadius: 10, borderTopRightRadius: 10, borderWidth: 1, borderBottomWidth: 0, borderColor: C.border
   },
-  tableTitle: { color: '#fff', fontSize: 20, fontWeight: '900', letterSpacing: 0.5 },
+  tableTitle: { color: '#fff', fontSize: 18, fontWeight: '700', letterSpacing: 0.5 },
   liveIndicator: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.secondary },
-  liveTxt: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1 },
-  searchBox: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.surfaceContainerLowest, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: C.border, width: 260 },
+  liveTxt: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
+  searchBox: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.surfaceContainerLowest, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: C.border, width: 240 },
   searchInput: { flex: 1, color: '#fff', fontSize: 13, fontWeight: '600' },
   colRow: { 
-    flexDirection: 'row', paddingHorizontal: 24, paddingVertical: 14, alignItems: 'center',
-    backgroundColor: 'transparent'
+    flexDirection: 'row', paddingHorizontal: 20, paddingVertical: 12, alignItems: 'center',
+    backgroundColor: '#313D4A'
   },
-  colHead: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1.5 },
-  tableRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, backgroundColor: 'rgba(24, 24, 27, 0.5)', borderRadius: 16, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(39, 39, 42, 0.4)' },
+  colHead: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
+  tableRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, backgroundColor: C.surface, borderRadius: 10, marginBottom: 8, borderWidth: 1, borderColor: C.border },
   matchId: { color: C.primary, fontSize: 11, fontWeight: '700' },
-  playerName: { color: '#fff', fontSize: 13, fontWeight: '800', letterSpacing: 0.5 },
+  playerName: { color: '#fff', fontSize: 13, fontWeight: '700', letterSpacing: 0.5 },
   avatarStack: { flexDirection: 'row' },
-  stackAvatar: { width: 34, height: 34, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  stackAvatarTxt: { fontSize: 12, fontWeight: '900' },
-  stakeVal: { color: '#00daf3', fontSize: 15, fontWeight: '900' },
-  resultPill: { fontSize: 10, fontWeight: '900', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 1 },
-  timeAgo: { color: '#fff', fontSize: 12, fontWeight: '700' },
-  viewBtn: { padding: 8, backgroundColor: 'rgba(166,140,255,0.1)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(0, 218, 243, 0.3)' },
-  emptyText: { color: '#a8a7d4', textAlign: 'center', marginVertical: 40, fontSize: 14 },
-  pagination: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, marginTop: 8, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(39, 39, 42, 0.6)', backgroundColor: 'rgba(24, 24, 27, 0.65)' },
+  stackAvatar: { width: 34, height: 34, borderRadius: 8, borderWidth: 1, borderColor: C.border, backgroundColor: '#313D4A', alignItems: 'center', justifyContent: 'center' },
+  stackAvatarTxt: { fontSize: 12, fontWeight: '700', color: '#ffffff' },
+  stakeVal: { color: C.secondary, fontSize: 13, fontWeight: '700' },
+  resultPill: { fontSize: 9, fontWeight: '700', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, borderWidth: 1, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5 },
+  timeAgo: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '600' },
+  viewBtn: { padding: 6, backgroundColor: C.surfaceContainerLowest, borderRadius: 6, borderWidth: 1, borderColor: C.border },
+  emptyText: { color: C.onSurfaceVariant, textAlign: 'center', marginVertical: 40, fontSize: 13 },
+  pagination: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, marginTop: 8, borderRadius: 10, borderWidth: 1, borderColor: C.border, backgroundColor: C.surface },
   paginationText: { color: C.onSurfaceVariant, fontSize: 12, fontWeight: '700' },
   pageNav: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  pageNavBtn: { width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(166,140,255,0.1)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(0, 218, 243, 0.3)' },
-  pageIndicatorText: { color: '#fff', fontSize: 13, fontWeight: '800' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(12,12,31,0.9)', alignItems: 'center', justifyContent: 'center', padding: 16 },
-  modalBox: { width: '100%', maxWidth: 600, height: 600, borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
-  closeBtn: { position: 'absolute', top: 20, right: 20, zIndex: 50, width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(0,0,0,0.3)', alignItems: 'center', justifyContent: 'center' },
+  pageNavBtn: { width: 36, height: 36, borderRadius: 8, backgroundColor: C.surfaceContainerHighest, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.border },
+  pageIndicatorText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(11,20,55,0.85)', alignItems: 'center', justifyContent: 'center', padding: 16 },
+  modalBox: { width: '100%', maxWidth: 600, height: 600, borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: C.border },
+  closeBtn: { position: 'absolute', top: 20, right: 20, zIndex: 50, width: 32, height: 32, borderRadius: 8, backgroundColor: '#313D4A', alignItems: 'center', justifyContent: 'center' },
   modalLeft: { flex: 1, padding: 32 },
-  modalLeftGlow1: { position: 'absolute', top: -50, left: -50, width: 200, height: 200, borderRadius: 100, backgroundColor: 'rgba(0,218,243,0.05)' },
-  modalLeftGlow2: { position: 'absolute', bottom: -50, right: -50, width: 200, height: 200, borderRadius: 100, backgroundColor: 'rgba(166,140,255,0.05)' },
-  modalVizTitle: { color: '#fff', fontSize: 24, fontWeight: '900', marginBottom: 4 },
-  modalVizId: { color: 'rgba(168,167,212,0.6)', fontSize: 11, marginBottom: 24, letterSpacing: 2 },
+  modalVizTitle: { color: '#fff', fontSize: 22, fontWeight: '700', marginBottom: 4 },
+  modalVizId: { color: C.onSurfaceVariant, fontSize: 11, marginBottom: 24, letterSpacing: 1.5 },
   engineControls: { flexDirection: 'row', alignItems: 'center', gap: 20, marginBottom: 24 },
-  engineBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
-  board: { flexDirection: 'row', flexWrap: 'wrap', width: 282, height: 282, backgroundColor: 'rgba(0,0,0,0.2)', padding: 10, borderRadius: 20, gap: 10, alignSelf: 'center' },
-  boardCell: { width: 80, height: 80, borderRadius: 12, backgroundColor: '#18181b', alignItems: 'center', justifyContent: 'center' },
-  boardMark: { fontSize: 36, fontWeight: '900' },
+  engineBtn: { width: 40, height: 40, borderRadius: 8, backgroundColor: C.surfaceContainerLowest, borderWidth: 1, borderColor: C.border, alignItems: 'center', justifyContent: 'center' },
+  board: { flexDirection: 'row', flexWrap: 'wrap', width: 282, height: 282, backgroundColor: C.surfaceContainerLowest, padding: 10, borderRadius: 10, gap: 10, alignSelf: 'center', borderWidth: 1, borderColor: C.border },
+  boardCell: { width: 80, height: 80, borderRadius: 8, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, alignItems: 'center', justifyContent: 'center' },
+  boardMark: { fontSize: 36, fontWeight: '700' },
   modalStats: { flexDirection: 'row', justifyContent: 'center', gap: 40, marginTop: 32 },
-  modalStatLabel: { color: 'rgba(168,167,212,0.6)', fontSize: 10, fontWeight: '800', textTransform: 'uppercase', marginBottom: 4 },
-  modalStatVal: { color: '#fff', fontSize: 18, fontWeight: '800' },
+  modalStatLabel: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '700', textTransform: 'uppercase', marginBottom: 4 },
+  modalStatVal: { color: '#fff', fontSize: 16, fontWeight: '700' },
   modalDivider: { width: 1, height: 30, backgroundColor: 'rgba(255,255,255,0.1)' },
 });

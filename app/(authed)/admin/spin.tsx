@@ -18,8 +18,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../../context/authContext';
 import { API_URL } from '../../../config';
-import { AdminTheme as C } from './_layout';
 import { SkeletonRow } from '../../../components/SkeletonLoading';
+import { AdminTheme as BaseTheme } from './_layout';
+
+const C = {
+  ...BaseTheme,
+  textSecondary: BaseTheme.onSurfaceVariant,
+  warning: BaseTheme.accentGold,
+};
 
 const fmt = (n: number) => Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const timeFmt = (d: string) => {
@@ -248,15 +254,15 @@ export default function SpinAdminPage() {
 
   const renderStatsColumn = (title: string, modeStats: any, botVal: boolean, botSetter: (v: boolean) => void, settingKey: string, showEntryAmount: boolean = false) => {
     return (
-      <View style={{ flex: 1, backgroundColor: 'rgba(17,17,25,0.7)', borderRadius: 24, padding: 24, borderWidth: 1, borderColor: C.outlineVariant }}>
-        <Text style={{ color: '#fff', fontSize: 18, fontWeight: '900', marginBottom: 16, letterSpacing: 0.5 }}>{title}</Text>
+      <View style={{ flex: 1, backgroundColor: C.surface, borderRadius: 10, padding: 20, borderWidth: 1, borderColor: C.border }}>
+        <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700', marginBottom: 16 }}>{title}</Text>
         
         {/* Controls Card */}
-        <View style={{ backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 16, padding: 16, marginBottom: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)' }}>
+        <View style={{ backgroundColor: C.surfaceContainerLowest, borderRadius: 8, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: C.border }}>
           <View style={s.switchRow}>
             <View style={{ flex: 1, paddingRight: 12 }}>
-              <Text style={{ color: '#fff', fontSize: 14, fontWeight: '800' }}>Bot Assistance</Text>
-              <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: '600', marginTop: 4 }}>
+              <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>Bot Assistance</Text>
+              <Text style={{ color: C.textSecondary, fontSize: 11, fontWeight: '500', marginTop: 4 }}>
                 When active, bots automatically seed the room.
               </Text>
             </View>
@@ -264,23 +270,23 @@ export default function SpinAdminPage() {
               value={botVal}
               disabled={!isSuperAdmin || saving}
               onValueChange={(v) => updateToggleSetting(settingKey, v, botSetter)}
-              trackColor={{ false: 'rgba(68,68,107,0.4)', true: 'rgba(117,81,255,0.3)' }}
+              trackColor={{ false: '#313D4A', true: 'rgba(60,80,224,0.4)' }}
               thumbColor={botVal ? C.primary : '#f4f3f4'}
             />
           </View>
 
           {showEntryAmount && (
-            <View style={{ borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)', paddingTop: 16, marginTop: 16 }}>
-              <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800', marginBottom: 8 }}>Entry Amount (ETB)</Text>
+            <View style={{ borderTopWidth: 1, borderTopColor: C.border, paddingTop: 16, marginTop: 16 }}>
+              <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700', marginBottom: 8 }}>Entry Amount (ETB)</Text>
               <View style={{ flexDirection: 'row', gap: 10 }}>
                 <View style={[s.inputRow, { flex: 1 }]}>
-                  <Ionicons name="wallet-outline" size={16} color={C.onSurfaceVariant} style={{ marginRight: 8 }} />
+                  <Ionicons name="wallet-outline" size={16} color={C.textSecondary} style={{ marginRight: 8 }} />
                   <TextInput
                     value={spinEntryAmount}
                     onChangeText={setSpinEntryAmount}
                     placeholder="e.g. 100"
                     style={s.input}
-                    placeholderTextColor="rgba(163,174,208,0.4)"
+                    placeholderTextColor="rgba(138,153,173,0.5)"
                     keyboardType="numeric"
                   />
                 </View>
@@ -293,24 +299,24 @@ export default function SpinAdminPage() {
         </View>
 
         {/* Analytics Card */}
-        <Text style={{ color: C.onSurfaceVariant, fontSize: 11, fontWeight: '800', letterSpacing: 1.2, marginBottom: 12 }}>ANALYTICS</Text>
+        <Text style={{ color: C.textSecondary, fontSize: 11, fontWeight: '700', letterSpacing: 1.2, marginBottom: 12 }}>ANALYTICS</Text>
         {modeStats ? (
-          <View style={{ gap: 12 }}>
+          <View style={{ gap: 10 }}>
             {[
-              { label: 'Total Bets', value: `${fmt(modeStats.totalBets / 100)} ETB`, icon: 'trending-up', color: '#38bdf8' },
-              { label: 'Total Payouts', value: `${fmt(modeStats.totalPayouts / 100)} ETB`, icon: 'arrow-down-circle', color: '#f59e0b' },
-              { label: 'Total Refunds', value: `${fmt(modeStats.totalRefunds / 100)} ETB`, icon: 'refresh-circle', color: '#fb923c' },
+              { label: 'Total Bets', value: `${fmt(modeStats.totalBets / 100)} ETB`, icon: 'trending-up', color: C.primary },
+              { label: 'Total Payouts', value: `${fmt(modeStats.totalPayouts / 100)} ETB`, icon: 'arrow-down-circle', color: C.warning },
+              { label: 'Total Refunds', value: `${fmt(modeStats.totalRefunds / 100)} ETB`, icon: 'refresh-circle', color: C.warning },
               { label: 'Net House Profit', value: `${fmt(modeStats.netHouseProfit / 100)} ETB`, icon: 'cash', color: modeStats.netHouseProfit >= 0 ? C.success : C.error },
-              { label: 'Total Rounds', value: String(modeStats.totalRounds), icon: 'repeat', color: '#a78bfa' },
-              { label: 'Unique Players', value: String(modeStats.uniquePlayers), icon: 'people', color: C.secondary },
+              { label: 'Total Rounds', value: String(modeStats.totalRounds), icon: 'repeat', color: C.primary },
+              { label: 'Unique Players', value: String(modeStats.uniquePlayers), icon: 'people', color: C.textSecondary },
             ].map((card, i) => (
-              <View key={i} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.01)', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.02)' }}>
-                <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: card.color + '15', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+              <View key={i} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: C.surfaceContainerLowest, padding: 12, borderRadius: 8, borderWidth: 1, borderColor: C.border }}>
+                <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#313D4A', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
                   <Ionicons name={card.icon as any} size={16} color={card.color} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: '700' }}>{card.label}</Text>
-                  <Text style={{ color: '#fff', fontSize: 14, fontWeight: '900', marginTop: 2 }}>{card.value}</Text>
+                  <Text style={{ color: C.textSecondary, fontSize: 11, fontWeight: '600' }}>{card.label}</Text>
+                  <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700', marginTop: 2 }}>{card.value}</Text>
                 </View>
               </View>
             ))}
@@ -345,10 +351,10 @@ export default function SpinAdminPage() {
 
         <TouchableOpacity
           onPress={() => router.replace('/(authed)/home/gameplay' as any)}
-          style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(117,81,255,0.15)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(117,81,255,0.3)' }}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.lightPrimary, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(60,80,224,0.2)' }}
         >
           <Ionicons name="play" size={14} color={C.primary} />
-          <Text style={{ color: C.primary, fontSize: 12, fontWeight: '800' }}>Launch Game</Text>
+          <Text style={{ color: C.primary, fontSize: 12, fontWeight: '700' }}>Launch Game</Text>
         </TouchableOpacity>
       </View>
 
@@ -368,14 +374,14 @@ export default function SpinAdminPage() {
               gap: 8,
               paddingHorizontal: 16,
               paddingVertical: 10,
-              borderRadius: 14,
-              backgroundColor: activeTab === t.id ? C.primary : 'rgba(17,17,25,0.6)',
+              borderRadius: 8,
+              backgroundColor: activeTab === t.id ? C.primary : C.surface,
               borderWidth: 1,
-              borderColor: activeTab === t.id ? C.primary : C.outlineVariant,
+              borderColor: activeTab === t.id ? C.primary : C.border,
             }}
           >
-            <Ionicons name={t.icon as any} size={16} color={activeTab === t.id ? '#fff' : C.onSurfaceVariant} />
-            <Text style={{ color: activeTab === t.id ? '#fff' : C.onSurfaceVariant, fontSize: 12, fontWeight: '800' }}>
+            <Ionicons name={t.icon as any} size={16} color={activeTab === t.id ? '#fff' : C.textSecondary} />
+            <Text style={{ color: activeTab === t.id ? '#fff' : C.textSecondary, fontSize: 12, fontWeight: '700' }}>
               {t.label}
             </Text>
           </TouchableOpacity>
@@ -389,15 +395,17 @@ export default function SpinAdminPage() {
           <View style={s.graphicalDashboardCard}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <Ionicons name="stats-chart" size={22} color={C.primary} />
+                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#313D4A', alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="stats-chart" size={18} color={C.primary} />
+                </View>
                 <View>
-                  <Text style={{ color: '#fff', fontSize: 16, fontWeight: '900' }}>WAGER VOLUME & MODE DISTRIBUTION</Text>
-                  <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>Real Spin Mode vs 5-Player Mode breakdown</Text>
+                  <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700' }}>WAGER VOLUME & MODE DISTRIBUTION</Text>
+                  <Text style={{ color: C.textSecondary, fontSize: 11 }}>Real Spin Mode vs 5-Player Mode breakdown</Text>
                 </View>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
-                <Text style={{ color: C.success, fontSize: 18, fontWeight: '900' }}>{fmt(dashboardMetrics.totalWagered)} ETB</Text>
-                <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: '700' }}>Total Cumulative Wagered</Text>
+                <Text style={{ color: C.success, fontSize: 18, fontWeight: '700' }}>{fmt(dashboardMetrics.totalWagered)} ETB</Text>
+                <Text style={{ color: C.textSecondary, fontSize: 10, fontWeight: '600' }}>Total Cumulative Wagered</Text>
               </View>
             </View>
 
@@ -410,15 +418,15 @@ export default function SpinAdminPage() {
             {/* Mode Breakdown Legends */}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: '#38bdf8' }} />
-                <Text style={{ color: '#fff', fontSize: 12, fontWeight: '800' }}>Real Spin (Rail): {dashboardMetrics.railRatio.toFixed(1)}%</Text>
-                <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>({fmt(dashboardMetrics.railBets)} ETB)</Text>
+                <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: C.primary }} />
+                <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>Real Spin (Rail): {dashboardMetrics.railRatio.toFixed(1)}%</Text>
+                <Text style={{ color: C.textSecondary, fontSize: 11 }}>({fmt(dashboardMetrics.railBets)} ETB)</Text>
               </View>
 
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: '#a78bfa' }} />
-                <Text style={{ color: '#fff', fontSize: 12, fontWeight: '800' }}>5-Player Spin: {dashboardMetrics.fivepRatio.toFixed(1)}%</Text>
-                <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>({fmt(dashboardMetrics.fivepBets)} ETB)</Text>
+                <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: C.success }} />
+                <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>5-Player Spin: {dashboardMetrics.fivepRatio.toFixed(1)}%</Text>
+                <Text style={{ color: C.textSecondary, fontSize: 11 }}>({fmt(dashboardMetrics.fivepBets)} ETB)</Text>
               </View>
             </View>
 
@@ -430,7 +438,7 @@ export default function SpinAdminPage() {
                   {fmt(dashboardMetrics.railProfit)} ETB
                 </Text>
                 <View style={s.miniBarTrack}>
-                  <View style={[s.miniBarFill, { width: `${Math.min(100, Math.max(10, Math.abs(dashboardMetrics.railProfit) / 500))}%`, backgroundColor: '#38bdf8' }]} />
+                  <View style={[s.miniBarFill, { width: `${Math.min(100, Math.max(10, Math.abs(dashboardMetrics.railProfit) / 500))}%`, backgroundColor: C.primary }]} />
                 </View>
               </View>
 
@@ -440,7 +448,7 @@ export default function SpinAdminPage() {
                   {fmt(dashboardMetrics.fivepProfit)} ETB
                 </Text>
                 <View style={s.miniBarTrack}>
-                  <View style={[s.miniBarFill, { width: `${Math.min(100, Math.max(10, Math.abs(dashboardMetrics.fivepProfit) / 500))}%`, backgroundColor: '#a78bfa' }]} />
+                  <View style={[s.miniBarFill, { width: `${Math.min(100, Math.max(10, Math.abs(dashboardMetrics.fivepProfit) / 500))}%`, backgroundColor: C.success }]} />
                 </View>
               </View>
             </View>
@@ -449,10 +457,12 @@ export default function SpinAdminPage() {
           {/* 3-Switch Granular Spin Lock Controls */}
           <View style={s.lockSectionCard}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-              <Ionicons name="lock-closed" size={20} color={spinLockAll ? C.error : C.primary} />
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: spinLockAll ? 'rgba(251,84,84,0.12)' : '#313D4A', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="lock-closed" size={18} color={spinLockAll ? C.error : C.primary} />
+              </View>
               <View>
-                <Text style={{ color: '#fff', fontSize: 14, fontWeight: '900' }}>SPIN 3-SWITCH LOCK CONTROL PANEL</Text>
-                <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>Lock all spin modes or lock specific spin modes during system updates.</Text>
+                <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>SPIN 3-SWITCH LOCK CONTROL PANEL</Text>
+                <Text style={{ color: C.textSecondary, fontSize: 11 }}>Lock all spin modes or lock specific spin modes during system updates.</Text>
               </View>
             </View>
 
@@ -467,7 +477,7 @@ export default function SpinAdminPage() {
                   value={spinLockAll}
                   disabled={!isSuperAdmin || saving}
                   onValueChange={(v) => updateToggleSetting('spin_lock_all', v, setSpinLockAll)}
-                  trackColor={{ false: 'rgba(68,68,107,0.4)', true: 'rgba(239,68,68,0.35)' }}
+                  trackColor={{ false: '#313D4A', true: 'rgba(251,84,84,0.35)' }}
                   thumbColor={spinLockAll ? C.error : '#f4f3f4'}
                 />
               </View>
@@ -475,37 +485,37 @@ export default function SpinAdminPage() {
               {/* Switch 2: Lock Real Spin / Rail Only */}
               <View style={[s.switchRowBox, spinLockRail && s.switchRowBoxActive]}>
                 <View style={{ flex: 1, paddingRight: 12 }}>
-                  <Text style={[s.switchTitle, spinLockRail && { color: '#38bdf8' }]}>Switch 2: Lock Real Spin (Rail) Only</Text>
+                  <Text style={[s.switchTitle, spinLockRail && { color: C.warning }]}>Switch 2: Lock Real Spin (Rail) Only</Text>
                   <Text style={s.switchDesc}>Locks Real Spin mode. 5-Player mode remains accessible.</Text>
                 </View>
                 <Switch
                   value={spinLockRail}
                   disabled={!isSuperAdmin || saving}
                   onValueChange={(v) => updateToggleSetting('spin_lock_rail', v, setSpinLockRail)}
-                  trackColor={{ false: 'rgba(68,68,107,0.4)', true: 'rgba(56,189,248,0.35)' }}
-                  thumbColor={spinLockRail ? '#38bdf8' : '#f4f3f4'}
+                  trackColor={{ false: '#313D4A', true: 'rgba(240,149,12,0.35)' }}
+                  thumbColor={spinLockRail ? C.warning : '#f4f3f4'}
                 />
               </View>
 
               {/* Switch 3: Lock 5-Player Spin Only */}
               <View style={[s.switchRowBox, spinLock5p && s.switchRowBoxActive]}>
                 <View style={{ flex: 1, paddingRight: 12 }}>
-                  <Text style={[s.switchTitle, spinLock5p && { color: '#a78bfa' }]}>Switch 3: Lock 5-Player Spin Only</Text>
+                  <Text style={[s.switchTitle, spinLock5p && { color: C.warning }]}>Switch 3: Lock 5-Player Spin Only</Text>
                   <Text style={s.switchDesc}>Locks 5-Player Spin mode. Real Spin mode remains accessible.</Text>
                 </View>
                 <Switch
                   value={spinLock5p}
                   disabled={!isSuperAdmin || saving}
                   onValueChange={(v) => updateToggleSetting('spin_lock_5p', v, setSpinLock5p)}
-                  trackColor={{ false: 'rgba(68,68,107,0.4)', true: 'rgba(167,139,250,0.35)' }}
-                  thumbColor={spinLock5p ? '#a78bfa' : '#f4f3f4'}
+                  trackColor={{ false: '#313D4A', true: 'rgba(240,149,12,0.35)' }}
+                  thumbColor={spinLock5p ? C.warning : '#f4f3f4'}
                 />
               </View>
             </View>
           </View>
 
           {/* Dynamic Grid Layout containing Rail and 5-Player columns */}
-          <View style={{ flexDirection: isMobile ? 'column' : 'row', gap: 24, marginBottom: 24 }}>
+          <View style={{ flexDirection: isMobile ? 'column' : 'row', gap: 20, marginBottom: 24 }}>
             {renderStatsColumn('Rail Spin Mode', spinStats?.rail, railBotsEnabled, setRailBotsEnabled, 'spin_rail_bots_enabled')}
             {renderStatsColumn('5-Player Spin Mode', spinStats?.fivePlayer, fivepBotsEnabled, setFivepBotsEnabled, 'spin_5p_bots_enabled', true)}
           </View>
@@ -601,41 +611,41 @@ export default function SpinAdminPage() {
               >
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <View style={[s.historyStatusPill, { borderColor: round.status === 'paid' ? 'rgba(34,197,94,0.3)' : 'rgba(245,57,57,0.3)' }]}>
-                      <Text style={{ color: round.status === 'paid' ? C.success : C.error, fontSize: 9, fontWeight: '800' }}>{round.status?.toUpperCase()}</Text>
+                    <View style={[s.historyStatusPill, { backgroundColor: round.status === 'paid' ? 'rgba(16,185,129,0.1)' : 'rgba(251,84,84,0.1)', borderColor: round.status === 'paid' ? 'rgba(16,185,129,0.25)' : 'rgba(251,84,84,0.25)' }]}>
+                      <Text style={{ color: round.status === 'paid' ? C.success : C.error, fontSize: 9, fontWeight: '700' }}>{round.status?.toUpperCase()}</Text>
                     </View>
-                    <View style={[s.historyStatusPill, { backgroundColor: isRealSpin ? 'rgba(34,197,94,0.1)' : 'rgba(245,158,11,0.1)', borderColor: isRealSpin ? 'rgba(34,197,94,0.3)' : 'rgba(245,158,11,0.3)' }]}>
-                      <Text style={{ color: isRealSpin ? C.success : '#f59e0b', fontSize: 9, fontWeight: '800' }}>{isRealSpin ? 'REAL SPIN' : 'BOT ASSISTED'}</Text>
+                    <View style={[s.historyStatusPill, { backgroundColor: isRealSpin ? 'rgba(60,80,224,0.1)' : 'rgba(240,149,12,0.1)', borderColor: isRealSpin ? 'rgba(60,80,224,0.25)' : 'rgba(240,149,12,0.25)' }]}>
+                      <Text style={{ color: isRealSpin ? C.primary : C.warning, fontSize: 9, fontWeight: '700' }}>{isRealSpin ? 'REAL SPIN' : 'BOT ASSISTED'}</Text>
                     </View>
                     <View style={s.voiceBadge}>
-                      <Ionicons name="mic" size={10} color="#38bdf8" />
-                      <Text style={{ color: '#38bdf8', fontSize: 9, fontWeight: '800' }}>Voice Channel</Text>
+                      <Ionicons name="mic" size={10} color={C.primary} />
+                      <Text style={{ color: C.primary, fontSize: 9, fontWeight: '700' }}>Voice Channel</Text>
                     </View>
                   </View>
-                  <Text style={{ color: C.onSurfaceVariant, fontSize: 10, fontWeight: '600' }}>{timeFmt(round.created_at)}</Text>
+                  <Text style={{ color: C.textSecondary, fontSize: 10, fontWeight: '500' }}>{timeFmt(round.created_at)}</Text>
                 </View>
 
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                   <View>
-                    <Text style={{ color: '#e2e8f0', fontSize: 13, fontWeight: '800' }}>
-                      Winner: <Text style={{ color: round.winner_is_bot ? '#fbbf24' : '#38bdf8' }}>{winnerName}</Text>
+                    <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '700' }}>
+                      Winner: <Text style={{ color: round.winner_is_bot ? C.warning : '#ffffff' }}>{winnerName}</Text>
                     </Text>
-                    {round.winner_phone && <Text style={{ color: C.onSurfaceVariant, fontSize: 10 }}>{round.winner_phone}</Text>}
+                    {round.winner_phone && <Text style={{ color: C.textSecondary, fontSize: 10 }}>{round.winner_phone}</Text>}
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={{ color: C.success, fontSize: 14, fontWeight: '900' }}>+{fmt((round.prize_amount || 0) / 100)} ETB</Text>
-                    <Text style={{ color: C.onSurfaceVariant, fontSize: 10 }}>Pot: {fmt((round.pot_amount || 0) / 100)} ETB</Text>
+                    <Text style={{ color: C.success, fontSize: 14, fontWeight: '700' }}>+{fmt((round.prize_amount || 0) / 100)} ETB</Text>
+                    <Text style={{ color: C.textSecondary, fontSize: 10 }}>Pot: {fmt((round.pot_amount || 0) / 100)} ETB</Text>
                   </View>
                 </View>
 
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.04)' }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: C.border }}>
                   <View style={{ flexDirection: 'row', gap: 12 }}>
-                    <Text style={{ color: C.onSurfaceVariant, fontSize: 11, fontWeight: '600' }}>Mode: <Text style={{ color: '#fff' }}>{round.config_id === 2 ? 'Rail Spin' : '5-Player Spin'}</Text></Text>
-                    <Text style={{ color: C.onSurfaceVariant, fontSize: 11, fontWeight: '600' }}>Players: <Text style={{ color: '#fff' }}>{round.total_players || 5} Total</Text></Text>
+                    <Text style={{ color: C.textSecondary, fontSize: 11, fontWeight: '500' }}>Mode: <Text style={{ color: '#fff' }}>{round.config_id === 2 ? 'Rail Spin' : '5-Player Spin'}</Text></Text>
+                    <Text style={{ color: C.textSecondary, fontSize: 11, fontWeight: '500' }}>Players: <Text style={{ color: '#fff' }}>{round.total_players || 5} Total</Text></Text>
                   </View>
 
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                    <Text style={{ color: C.primary, fontSize: 11, fontWeight: '800' }}>View Details</Text>
+                    <Text style={{ color: C.primary, fontSize: 11, fontWeight: '700' }}>View Details</Text>
                     <Ionicons name="chevron-forward" size={12} color={C.primary} />
                   </View>
                 </View>
@@ -655,7 +665,7 @@ export default function SpinAdminPage() {
                 <Text style={s.pageBtnText}>Previous</Text>
               </TouchableOpacity>
               <View style={{ justifyContent: 'center' }}>
-                <Text style={{ color: C.onSurfaceVariant, fontSize: 11, fontWeight: '700' }}>Page {spinHistoryPage + 1} of {Math.ceil(spinHistoryTotal / 10)}</Text>
+                <Text style={{ color: C.textSecondary, fontSize: 11, fontWeight: '600' }}>Page {spinHistoryPage + 1} of {Math.ceil(spinHistoryTotal / 10)}</Text>
               </View>
               <TouchableOpacity
                 disabled={(spinHistoryPage + 1) * 10 >= spinHistoryTotal}
@@ -681,14 +691,16 @@ export default function SpinAdminPage() {
           <View style={[s.detailModalContent, isMobile && { width: '95%', padding: 16 }]}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <Ionicons name="disc-outline" size={24} color={C.primary} />
+                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#313D4A', alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="disc-outline" size={20} color={C.primary} />
+                </View>
                 <View>
-                  <Text style={{ color: '#fff', fontSize: 16, fontWeight: '900' }}>Round Details & Voice Log</Text>
-                  <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10 }}>ID: {selectedRound?.id || '—'}</Text>
+                  <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700' }}>Round Details & Voice Log</Text>
+                  <Text style={{ color: C.textSecondary, fontSize: 11 }}>ID: {selectedRound?.id || '—'}</Text>
                 </View>
               </View>
               <TouchableOpacity onPress={() => setDetailModalVisible(false)} style={s.closeCircle}>
-                <Ionicons name="close" size={18} color="#fff" />
+                <Ionicons name="close" size={16} color="#fff" />
               </TouchableOpacity>
             </View>
 
@@ -697,26 +709,26 @@ export default function SpinAdminPage() {
                 {/* Round Overview Header */}
                 <View style={s.roundOverviewBox}>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: '700' }}>WINNING PLAYER</Text>
-                    <Text style={{ color: '#38bdf8', fontSize: 16, fontWeight: '900', marginTop: 2 }}>
+                    <Text style={{ color: C.textSecondary, fontSize: 10, fontWeight: '600' }}>WINNING PLAYER</Text>
+                    <Text style={{ color: selectedRound.winner_username ? '#ffffff' : C.warning, fontSize: 16, fontWeight: '700', marginTop: 2 }}>
                       {selectedRound.winner_username || 'Bot Winner'}
                     </Text>
-                    <Text style={{ color: C.onSurfaceVariant, fontSize: 11 }}>
+                    <Text style={{ color: C.textSecondary, fontSize: 11 }}>
                       {selectedRound.winner_phone || 'System Bot Seat'}
                     </Text>
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={{ color: C.success, fontSize: 18, fontWeight: '900' }}>
+                    <Text style={{ color: C.success, fontSize: 18, fontWeight: '700' }}>
                       +{fmt((selectedRound.prize_amount || 0) / 100)} ETB
                     </Text>
-                    <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10 }}>
+                    <Text style={{ color: C.textSecondary, fontSize: 10 }}>
                       Pot: {fmt((selectedRound.pot_amount || 0) / 100)} ETB
                     </Text>
                   </View>
                 </View>
 
                 {/* Details Breakdown */}
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginVertical: 14 }}>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginVertical: 14 }}>
                   <View style={s.detailChip}><Text style={s.detailChipLabel}>Mode</Text><Text style={s.detailChipVal}>{selectedRound.config_id === 2 ? 'Rail Spin' : '5-Player'}</Text></View>
                   <View style={s.detailChip}><Text style={s.detailChipLabel}>Winning Slice</Text><Text style={s.detailChipVal}>#{selectedRound.winning_slice ?? 0}</Text></View>
                   <View style={s.detailChip}><Text style={s.detailChipLabel}>Created</Text><Text style={s.detailChipVal}>{timeFmt(selectedRound.created_at)}</Text></View>
@@ -724,32 +736,32 @@ export default function SpinAdminPage() {
                 </View>
 
                 {/* Player Roster Table */}
-                <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800', marginBottom: 8 }}>PLAYER SEATS & STAKES</Text>
+                <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700', marginBottom: 8 }}>PLAYER SEATS & STAKES</Text>
                 {selectedRound.players && selectedRound.players.length > 0 ? (
                   <View style={{ gap: 6, marginBottom: 16 }}>
                     {selectedRound.players.map((p: any, idx: number) => (
                       <View key={idx} style={s.rosterRow}>
-                        <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: '800' }}>#{p.seatIndex !== undefined ? p.seatIndex + 1 : idx + 1}</Text>
-                        <Text style={{ color: p.isBot ? 'rgba(255,255,255,0.5)' : '#fff', fontSize: 12, fontWeight: '700', flex: 1, marginLeft: 8 }}>
+                        <Text style={{ color: C.textSecondary, fontSize: 11, fontWeight: '700' }}>#{p.seatIndex !== undefined ? p.seatIndex + 1 : idx + 1}</Text>
+                        <Text style={{ color: p.isBot ? C.textSecondary : '#fff', fontSize: 12, fontWeight: '600', flex: 1, marginLeft: 8 }}>
                           {p.username || p.name} {p.isBot ? '(Bot)' : ''}
                         </Text>
-                        <Text style={{ color: C.success, fontSize: 12, fontWeight: '800' }}>
+                        <Text style={{ color: C.success, fontSize: 12, fontWeight: '700' }}>
                           {fmt((p.stake || selectedRound.pot_amount / (selectedRound.total_players || 5)) / 100)} ETB
                         </Text>
                       </View>
                     ))}
                   </View>
                 ) : (
-                  <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginBottom: 16 }}>Seat details recorded in DB log.</Text>
+                  <Text style={{ color: C.textSecondary, fontSize: 11, marginBottom: 16 }}>Seat details recorded in DB log.</Text>
                 )}
 
                 {/* Voice Session Activity Record */}
                 <View style={s.voiceSessionBox}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                    <Ionicons name="mic-circle" size={20} color="#38bdf8" />
-                    <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>Voice Communication Channel Record</Text>
+                    <Ionicons name="mic-circle" size={20} color={C.primary} />
+                    <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>Voice Communication Channel Record</Text>
                   </View>
-                  <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, lineHeight: 16 }}>
+                  <Text style={{ color: C.textSecondary, fontSize: 11, lineHeight: 16 }}>
                     🎙️ Voice channel session active for room #{selectedRound.id?.slice(0, 8)}. Real-time audio stream recorded zero packet drops or network degradation.
                   </Text>
                 </View>
@@ -763,7 +775,9 @@ export default function SpinAdminPage() {
       <Modal transparent visible={confirmState.visible} animationType="fade">
         <View style={s.modalOverlay}>
           <View style={s.modalContent}>
-            <Ionicons name="warning" size={40} color={C.primary} style={{ marginBottom: 12 }} />
+            <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(240,149,12,0.12)', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+              <Ionicons name="warning" size={24} color={C.warning} />
+            </View>
             <Text style={s.modalTitle}>Confirm Action</Text>
             <Text style={s.modalMessage}>{confirmState.message}</Text>
             <View style={s.modalActions}>
@@ -786,98 +800,98 @@ const s = StyleSheet.create({
   headerBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 },
   backCircle: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.lightPrimary, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { color: '#ffffff', fontSize: 20, fontWeight: '700', letterSpacing: -0.5 },
-  headerSub: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '600', letterSpacing: 1.5, marginTop: 2 },
+  headerSub: { color: C.textSecondary, fontSize: 10, fontWeight: '600', letterSpacing: 1.5, marginTop: 2 },
 
   // Graphical Dashboard
   graphicalDashboardCard: {
-    backgroundColor: 'rgba(17,17,25,0.85)',
-    borderRadius: 24,
-    padding: 24,
+    backgroundColor: C.surface,
+    borderRadius: 10,
+    padding: 20,
     borderWidth: 1,
-    borderColor: C.outlineVariant,
-    marginBottom: 24,
+    borderColor: C.border,
+    marginBottom: 20,
   },
   ratioMeterTrack: {
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: C.surfaceContainerLowest,
     flexDirection: 'row',
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: C.border,
   },
   ratioMeterFillRail: {
     height: '100%',
-    backgroundColor: '#38bdf8',
+    backgroundColor: C.primary,
   },
   ratioMeterFill5p: {
     height: '100%',
-    backgroundColor: '#a78bfa',
+    backgroundColor: C.success,
   },
   profitGraphGrid: {
     flexDirection: 'row',
     gap: 16,
-    marginTop: 20,
+    marginTop: 16,
   },
   profitGraphCard: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.02)',
-    borderRadius: 16,
-    padding: 16,
+    backgroundColor: C.surfaceContainerLowest,
+    borderRadius: 8,
+    padding: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.04)',
+    borderColor: C.border,
   },
   profitGraphLabel: {
-    color: 'rgba(255,255,255,0.4)',
+    color: C.textSecondary,
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   profitGraphVal: {
-    fontSize: 18,
-    fontWeight: '900',
+    fontSize: 16,
+    fontWeight: '700',
     marginTop: 4,
   },
   miniBarTrack: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#313D4A',
     marginTop: 10,
     overflow: 'hidden',
   },
   miniBarFill: {
     height: '100%',
-    borderRadius: 3,
+    borderRadius: 2,
   },
 
   // Lock section
   lockSectionCard: {
-    backgroundColor: 'rgba(17,17,25,0.8)',
-    borderRadius: 24,
+    backgroundColor: C.surface,
+    borderRadius: 10,
     padding: 20,
     borderWidth: 1,
-    borderColor: C.outlineVariant,
-    marginBottom: 24,
+    borderColor: C.border,
+    marginBottom: 20,
   },
   switchRowBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.02)',
-    borderRadius: 16,
+    backgroundColor: C.surfaceContainerLowest,
+    borderRadius: 8,
     padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    borderColor: C.border,
   },
   switchRowBoxActive: {
-    backgroundColor: 'rgba(239,68,68,0.04)',
-    borderColor: 'rgba(239,68,68,0.2)',
+    backgroundColor: 'rgba(251,84,84,0.06)',
+    borderColor: 'rgba(251,84,84,0.3)',
   },
   switchTitle: {
     color: '#fff',
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   switchDesc: {
-    color: 'rgba(255,255,255,0.4)',
+    color: C.textSecondary,
     fontSize: 11,
     marginTop: 4,
     lineHeight: 16,
@@ -885,22 +899,22 @@ const s = StyleSheet.create({
 
   card: {
     backgroundColor: C.surface,
-    borderRadius: 16,
-    padding: 24,
+    borderRadius: 10,
+    padding: 20,
     borderWidth: 1,
     borderColor: C.border,
   },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  sectionLabel: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '700', letterSpacing: 1.5, marginBottom: 12, textTransform: 'uppercase' },
+  sectionLabel: { color: C.textSecondary, fontSize: 11, fontWeight: '700', letterSpacing: 1.5, marginBottom: 12, textTransform: 'uppercase' },
 
   // input/save fields
-  inputRow: { flex: 1, backgroundColor: C.surfaceContainerLowest, borderRadius: 12, borderWidth: 1, borderColor: C.border, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12 },
-  input: { flex: 1, color: '#ffffff', padding: 12, fontSize: 14 },
-  saveBtn: { backgroundColor: C.primary, paddingHorizontal: 20, justifyContent: 'center', borderRadius: 12 },
+  inputRow: { flex: 1, backgroundColor: C.surfaceContainerLowest, borderRadius: 8, borderWidth: 1, borderColor: C.border, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12 },
+  input: { flex: 1, color: '#ffffff', padding: 10, fontSize: 14 },
+  saveBtn: { backgroundColor: C.primary, paddingHorizontal: 18, justifyContent: 'center', borderRadius: 8 },
   saveBtnText: { color: '#ffffff', fontSize: 13, fontWeight: '700' },
 
   refreshBtnSmall: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: C.primary, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
-  refreshBtnTextSmall: { color: '#ffffff', fontSize: 11, fontWeight: '800' },
+  refreshBtnTextSmall: { color: '#ffffff', fontSize: 11, fontWeight: '700' },
 
   // Lobbies list
   emptyState: {
@@ -909,41 +923,41 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     gap: 12,
     backgroundColor: C.surface,
-    borderRadius: 16,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: C.border,
   },
-  emptyStateText: { color: C.onSurfaceVariant, fontSize: 12, textAlign: 'center', lineHeight: 18 },
-  liveRoomCard: { backgroundColor: C.surface, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: C.border },
-  liveStatusBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 0.5, borderColor: C.border, alignSelf: 'flex-start' },
-  livePlayerRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, backgroundColor: C.surfaceContainerLowest },
+  emptyStateText: { color: C.textSecondary, fontSize: 12, textAlign: 'center', lineHeight: 18 },
+  liveRoomCard: { backgroundColor: C.surface, borderRadius: 10, padding: 16, borderWidth: 1, borderColor: C.border },
+  liveStatusBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: C.border, alignSelf: 'flex-start' },
+  livePlayerRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: C.surfaceContainerLowest },
   breakdownStatusDot: { width: 8, height: 8, borderRadius: 4 },
 
   // History list
-  historyCard: { backgroundColor: C.surface, borderRadius: 16, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: C.border },
+  historyCard: { backgroundColor: C.surface, borderRadius: 10, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: C.border },
   historyStatusPill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, alignSelf: 'flex-start' },
-  voiceBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(56,189,248,0.1)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(56,189,248,0.2)' },
-  pageBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: C.surface, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: C.border },
+  voiceBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: C.lightPrimary, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(60,80,224,0.2)' },
+  pageBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: C.surface, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: C.border },
   pageBtnText: { color: C.primary, fontSize: 12, fontWeight: '700' },
 
   // Detail Modal
-  detailModalContent: { backgroundColor: 'rgba(15,20,35,0.98)', borderRadius: 24, width: '100%', maxWidth: 540, maxHeight: '85%', borderWidth: 1, borderColor: C.border, padding: 24 },
-  closeCircle: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' },
-  roundOverviewBox: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.02)', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
-  detailChip: { backgroundColor: 'rgba(255,255,255,0.03)', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
-  detailChipLabel: { color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: '700' },
-  detailChipVal: { color: '#fff', fontSize: 12, fontWeight: '800', marginTop: 2 },
-  rosterRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.02)', paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)' },
-  voiceSessionBox: { backgroundColor: 'rgba(56,189,248,0.06)', padding: 14, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(56,189,248,0.2)', marginTop: 8 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  detailModalContent: { backgroundColor: C.surface, borderRadius: 12, width: '100%', maxWidth: 540, maxHeight: '85%', borderWidth: 1, borderColor: C.border, padding: 24 },
+  closeCircle: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#313D4A', alignItems: 'center', justifyContent: 'center' },
+  roundOverviewBox: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: C.surfaceContainerLowest, padding: 16, borderRadius: 8, borderWidth: 1, borderColor: C.border },
+  detailChip: { backgroundColor: C.surfaceContainerLowest, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: C.border },
+  detailChipLabel: { color: C.textSecondary, fontSize: 10, fontWeight: '600' },
+  detailChipVal: { color: '#fff', fontSize: 12, fontWeight: '700', marginTop: 2 },
+  rosterRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.surfaceContainerLowest, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: C.border },
+  voiceSessionBox: { backgroundColor: 'rgba(60,80,224,0.06)', padding: 14, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(60,80,224,0.2)', marginTop: 8 },
 
   // Confirm Modal
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(13,18,32,0.85)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  modalContent: { backgroundColor: C.surface, borderRadius: 20, width: '100%', maxWidth: 450, borderWidth: 1, borderColor: C.border, padding: 24, alignItems: 'center' },
+  modalContent: { backgroundColor: C.surface, borderRadius: 12, width: '100%', maxWidth: 450, borderWidth: 1, borderColor: C.border, padding: 24, alignItems: 'center' },
   modalTitle: { color: '#ffffff', fontSize: 16, fontWeight: '700', marginBottom: 8 },
-  modalMessage: { color: C.onSurfaceVariant, fontSize: 13, textAlign: 'center', marginBottom: 20 },
+  modalMessage: { color: C.textSecondary, fontSize: 13, textAlign: 'center', marginBottom: 20 },
   modalActions: { flexDirection: 'row', gap: 12, width: '100%' },
-  modalCancelBtn: { flex: 1, backgroundColor: C.surfaceContainerLowest, paddingVertical: 12, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: C.border },
+  modalCancelBtn: { flex: 1, backgroundColor: C.surfaceContainerLowest, paddingVertical: 12, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: C.border },
   modalCancelBtnText: { color: '#ffffff', fontSize: 13, fontWeight: '700' },
-  modalConfirmBtn: { flex: 1, backgroundColor: C.primary, paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
+  modalConfirmBtn: { flex: 1, backgroundColor: C.primary, paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
   modalConfirmBtnText: { color: '#ffffff', fontSize: 13, fontWeight: '700' },
 });

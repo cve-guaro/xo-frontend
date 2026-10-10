@@ -7,6 +7,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../../context/authContext';
 import { API_URL } from '../../../config';
 import User360View from '../../../components/User360View';
+import { AdminTheme as C } from './_layout';
 
 const fmt = (n: number) => {
   const num = Number(n || 0);
@@ -152,25 +153,25 @@ export default function UserDetail() {
       <View style={[s.headerBar, isMobile && { flexDirection: 'column', alignItems: 'flex-start' }]}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <TouchableOpacity onPress={() => router.back()} style={s.backCircle}>
-            <Ionicons name="arrow-back" size={18} color="#00e5ff" />
+            <Ionicons name="arrow-back" size={18} color="#ffffff" />
           </TouchableOpacity>
           <View>
-            <Text style={s.headerTitle}>User Profile: <Text style={{ color: '#00e5ff' }}>#{targetUser.id.slice(0, 6).toUpperCase()}</Text></Text>
+            <Text style={s.headerTitle}>User Profile: <Text style={{ color: C.primary }}>#{targetUser.id.slice(0, 6).toUpperCase()}</Text></Text>
             <Text style={s.headerSub}>USER MANAGEMENT / DETAIL VIEW</Text>
           </View>
         </View>
         <View style={[{ flexDirection: 'row', gap: 8 }, isMobile && { flexWrap: 'wrap', marginTop: 8 }]}>
-          <TouchableOpacity style={[s.headerBtn, { backgroundColor: '#00e5ff' }]} onPress={() => { setEditUsername(targetUser.username || ''); setEditNumber(targetUser.number || ''); setEditFullName(targetUser.display_name || ''); setEditRole(targetUser.role || 'user'); setShowRoleDropdown(false); setEditModal(true); }}>
-            <Ionicons name="create" size={14} color="#0a0f1c" />
-            <Text style={[s.headerBtnText, { color: '#0a0f1c' }]}>Edit Data</Text>
+          <TouchableOpacity style={[s.headerBtn, { backgroundColor: C.primary }]} onPress={() => { setEditUsername(targetUser.username || ''); setEditNumber(targetUser.number || ''); setEditFullName(targetUser.display_name || ''); setEditRole(targetUser.role || 'user'); setShowRoleDropdown(false); setEditModal(true); }}>
+            <Ionicons name="create" size={14} color="#ffffff" />
+            <Text style={[s.headerBtnText, { color: '#ffffff' }]}>Edit Data</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[s.headerBtn, { backgroundColor: '#ef4444' }]} disabled={actionLoading} onPress={() => setConfirmAction('ban')}>
+          <TouchableOpacity style={[s.headerBtn, { backgroundColor: C.error }]} disabled={actionLoading} onPress={() => setConfirmAction('ban')}>
             <Ionicons name="ban" size={14} color="#fff" />
             <Text style={s.headerBtnText}>{isBanned ? 'Unban User' : 'Ban User'}</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[s.headerBtn, { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#ef4444' }]} disabled={actionLoading} onPress={() => setConfirmAction('delete')}>
-            <Ionicons name="trash" size={14} color="#ef4444" />
-            <Text style={[s.headerBtnText, { color: '#ef4444' }]}>Delete Account</Text>
+          <TouchableOpacity style={[s.headerBtn, { backgroundColor: 'transparent', borderWidth: 1, borderColor: C.error }]} disabled={actionLoading} onPress={() => setConfirmAction('delete')}>
+            <Ionicons name="trash" size={14} color={C.error} />
+            <Text style={[s.headerBtnText, { color: C.error }]}>Delete Account</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -562,56 +563,56 @@ export default function UserDetail() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0a0f1c', padding: 24, paddingTop: 20 },
-  center: { flex: 1, backgroundColor: '#0a0f1c', alignItems: 'center', justifyContent: 'center' },
+  container: { flex: 1, backgroundColor: C.background, padding: 24, paddingTop: 20 },
+  center: { flex: 1, backgroundColor: C.background, alignItems: 'center', justifyContent: 'center' },
 
   // Header
   headerBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 },
-  backCircle: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0,229,255,0.08)', alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { color: '#fff', fontSize: 18, fontWeight: '900', letterSpacing: 0.5 },
-  headerSub: { color: '#475569', fontSize: 9, fontWeight: '700', letterSpacing: 1.5, marginTop: 2 },
-  headerBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 },
-  headerBtnText: { color: '#fff', fontSize: 11, fontWeight: '800' },
+  backCircle: { width: 36, height: 36, borderRadius: 8, backgroundColor: '#313D4A', alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { color: '#fff', fontSize: 18, fontWeight: '700', letterSpacing: 0.5 },
+  headerSub: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '700', letterSpacing: 1.5, marginTop: 2 },
+  headerBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 },
+  headerBtnText: { color: '#fff', fontSize: 11, fontWeight: '700' },
 
   // Cards
-  card: { backgroundColor: 'rgba(15,20,35,0.8)', borderRadius: 18, padding: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  card: { backgroundColor: C.surface, borderRadius: 10, padding: 20, borderWidth: 1, borderColor: C.border },
   topGrid: { flexDirection: 'row', gap: 12, marginBottom: 12, flexWrap: 'wrap' },
   bottomGrid: { flexDirection: 'row', gap: 12, marginBottom: 12, flexWrap: 'wrap' },
 
   // Avatar
-  avatarLarge: { width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(0,163,255,0.15)', borderWidth: 2, borderColor: 'rgba(0,163,255,0.3)', alignItems: 'center', justifyContent: 'center' },
-  avatarText: { color: '#00A3FF', fontSize: 28, fontWeight: '900' },
-  statusDot: { position: 'absolute', bottom: 2, right: 2, width: 14, height: 14, borderRadius: 7, borderWidth: 3, borderColor: '#0f1423' },
-  activeBadge: { position: 'absolute', top: -4, right: -20, backgroundColor: 'rgba(52,211,153,0.12)', borderWidth: 1, borderColor: 'rgba(52,211,153,0.3)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
-  activeBadgeText: { color: '#34d399', fontSize: 8, fontWeight: '900', letterSpacing: 0.5 },
-  profileName: { color: '#fff', fontSize: 16, fontWeight: '900', marginTop: 4 },
-  profilePhone: { color: '#475569', fontSize: 11, fontWeight: '600' },
+  avatarLarge: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#313D4A', borderWidth: 1, borderColor: C.border, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { color: '#ffffff', fontSize: 28, fontWeight: '700' },
+  statusDot: { position: 'absolute', bottom: 2, right: 2, width: 14, height: 14, borderRadius: 7, borderWidth: 3, borderColor: C.surface },
+  activeBadge: { position: 'absolute', top: -4, right: -20, backgroundColor: 'rgba(16,185,129,0.12)', borderWidth: 1, borderColor: 'rgba(16,185,129,0.3)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
+  activeBadgeText: { color: C.success, fontSize: 8, fontWeight: '800', letterSpacing: 0.5 },
+  profileName: { color: '#fff', fontSize: 16, fontWeight: '700', marginTop: 4 },
+  profilePhone: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '600' },
 
   // Stat Cards
   statCard: { flex: 1, minWidth: 120, gap: 8 },
-  statIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  statLabel: { color: '#475569', fontSize: 10, fontWeight: '700', letterSpacing: 1 },
-  statValue: { color: '#fff', fontSize: 28, fontWeight: '900' },
+  statIcon: { width: 36, height: 36, borderRadius: 8, backgroundColor: '#313D4A', alignItems: 'center', justifyContent: 'center' },
+  statLabel: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '700', letterSpacing: 1 },
+  statValue: { color: '#fff', fontSize: 24, fontWeight: '700' },
 
   // Balance & Big Values
-  cardLabel: { color: '#475569', fontSize: 10, fontWeight: '700', letterSpacing: 1, marginBottom: 8 },
-  balanceValue: { color: '#fff', fontSize: 24, fontWeight: '900' },
-  bigValue: { color: '#fff', fontSize: 24, fontWeight: '900' },
+  cardLabel: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '700', letterSpacing: 1, marginBottom: 8 },
+  balanceValue: { color: '#fff', fontSize: 24, fontWeight: '700' },
+  bigValue: { color: '#fff', fontSize: 24, fontWeight: '700' },
   cardIconBg: {},
 
   // Mini cards
-  miniLabel: { color: '#475569', fontSize: 9, fontWeight: '700', letterSpacing: 1, marginBottom: 4 },
-  miniValue: { color: '#fff', fontSize: 14, fontWeight: '900' },
+  miniLabel: { color: C.onSurfaceVariant, fontSize: 9, fontWeight: '700', letterSpacing: 1, marginBottom: 4 },
+  miniValue: { color: '#fff', fontSize: 14, fontWeight: '700' },
 
   // Table
-  tableCard: { backgroundColor: 'rgba(15,20,35,0.8)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', overflow: 'hidden' },
-  tableHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)', flexWrap: 'wrap', gap: 8 },
-  tableTitle: { color: '#fff', fontSize: 15, fontWeight: '900' },
-  filterBtn: { backgroundColor: 'rgba(255,255,255,0.06)', paddingHorizontal: 14, paddingVertical: 7, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
-  filterBtnText: { color: '#94a3b8', fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
-  thead: { flexDirection: 'row', paddingHorizontal: 20, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.04)' },
-  th: { color: '#334155', fontSize: 9, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase' },
-  trow: { flexDirection: 'row', paddingHorizontal: 20, alignItems: 'center', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.03)' },
-  td: { color: '#e2e8f0', fontSize: 12, fontWeight: '600', paddingVertical: 12 },
+  tableCard: { backgroundColor: C.surface, borderRadius: 10, borderWidth: 1, borderColor: C.border, overflow: 'hidden' },
+  tableHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, borderBottomColor: C.border, flexWrap: 'wrap', gap: 8 },
+  tableTitle: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  filterBtn: { backgroundColor: C.surfaceContainerLowest, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 8, borderWidth: 1, borderColor: C.border },
+  filterBtnText: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
+  thead: { flexDirection: 'row', paddingHorizontal: 20, paddingVertical: 12, backgroundColor: '#313D4A' },
+  th: { color: C.onSurfaceVariant, fontSize: 9, fontWeight: '700', letterSpacing: 1.2, textTransform: 'uppercase' },
+  trow: { flexDirection: 'row', paddingHorizontal: 20, alignItems: 'center', borderBottomWidth: 1, borderBottomColor: C.border },
+  td: { color: '#ffffff', fontSize: 12, fontWeight: '600', paddingVertical: 12 },
   statusPill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, alignSelf: 'flex-start' },
 });

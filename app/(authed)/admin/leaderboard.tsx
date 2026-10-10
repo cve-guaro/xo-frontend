@@ -22,22 +22,22 @@ import ActionConfirmModal from "../../../components/ActionConfirmModal";
 import User360View from "../../../components/User360View";
 
 const C = {
-  bg: '#0a0a1a',
-  card: 'rgba(17, 17, 24, 0.85)',
-  cardHeader: 'rgba(26, 26, 37, 0.4)',
-  border: 'rgba(255, 255, 255, 0.08)',
-  borderActive: 'rgba(0, 242, 255, 0.4)',
-  accent: '#00e5ff',
-  accentDim: 'rgba(0, 229, 255, 0.15)',
-  secondary: '#00e5ff',
-  gold: '#ffb84d',
-  silver: '#cbd5e1',
+  bg: '#1A222C',
+  card: '#24303F',
+  cardHeader: '#313D4A',
+  border: '#2E3A47',
+  borderActive: '#3C50E0',
+  accent: '#3C50E0',
+  accentDim: 'rgba(60, 80, 224, 0.12)',
+  secondary: '#10B981',
+  gold: '#F0950C',
+  silver: '#8A99AD',
   bronze: '#d97706',
-  green: '#10b981',
-  red: '#ef4444',
-  txt: '#f1f1f6',
-  dim: '#9090a8',
-  bgGlass: 'rgba(255, 255, 255, 0.02)',
+  green: '#10B981',
+  red: '#FB5454',
+  txt: '#FFFFFF',
+  dim: '#8A99AD',
+  bgGlass: '#1C2434',
 };
 
 type Standing = { id: string; username: string; number: string; wins: number; rank: number };
@@ -1423,10 +1423,10 @@ const s = StyleSheet.create({
   crownGlow: {
     width: 44,
     height: 44,
-    borderRadius: 12,
-    backgroundColor: 'rgba(250, 204, 21, 0.08)',
+    borderRadius: 8,
+    backgroundColor: '#313D4A',
     borderWidth: 1,
-    borderColor: 'rgba(250, 204, 21, 0.25)',
+    borderColor: C.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1487,7 +1487,7 @@ const s = StyleSheet.create({
 
   // Week Banner Card
   bannerCard: {
-    borderRadius: 16,
+    borderRadius: 10,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: C.border,
@@ -1560,7 +1560,7 @@ const s = StyleSheet.create({
   // Core Premium Card
   card: {
     backgroundColor: C.card,
-    borderRadius: 16,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: C.border,
     overflow: 'hidden',
@@ -1573,7 +1573,7 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.03)',
+    borderBottomColor: C.border,
   },
   titleRow: {
     flexDirection: 'row',
@@ -1592,9 +1592,9 @@ const s = StyleSheet.create({
 
   // Standings Lists
   countBadge: {
-    backgroundColor: 'rgba(0, 218, 243, 0.1)',
+    backgroundColor: 'rgba(60, 80, 224, 0.12)',
     borderWidth: 1,
-    borderColor: 'rgba(0, 218, 243, 0.2)',
+    borderColor: 'rgba(60, 80, 224, 0.25)',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
@@ -1602,7 +1602,7 @@ const s = StyleSheet.create({
   countBadgeText: {
     fontSize: 10,
     fontWeight: '800',
-    color: C.secondary,
+    color: C.accent,
   },
   standingRow: {
     flexDirection: 'row',

@@ -160,12 +160,6 @@ export default function AdminLedger() {
 
   return (
     <View style={{ flex: 1 }}>
-      {/* Ambient glows */}
-      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-        <View style={[styles.glow, { top: -100, right: -100, backgroundColor: `${C.primary}0d` }]} />
-        <View style={[styles.glow, { bottom: -100, left: 0, backgroundColor: `${C.secondary}0d`, width: 400, height: 400 }]} />
-      </View>
-
       <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
         {/* Header row — stacks on mobile */}
         <View style={[styles.pageHeader, isMobile && { flexDirection: 'column', alignItems: 'flex-start', gap: 12, padding: 16 }]}>
@@ -186,50 +180,58 @@ export default function AdminLedger() {
         </View>
 
         {/* Stats bento — wraps into 2x2 or 1x4 based on space */}
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: isMobile ? 12 : 20, marginBottom: isMobile ? 24 : 32 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: isMobile ? 12 : 16, marginBottom: isMobile ? 20 : 24 }}>
           {/* Card 1: Deposits */}
-          <View style={[styles.statCard, glass, { minWidth: isMobile ? '48%' : 180, flex: 1, padding: isMobile ? 16 : 24 }]}>
+          <View style={[styles.statCard, { minWidth: isMobile ? '48%' : 180, flex: 1, padding: isMobile ? 16 : 20 }]}>
             <View style={styles.statTop}>
-              <Text style={[styles.statLabel, isMobile && { fontSize: 9, letterSpacing: 1 }]} numberOfLines={1}>Total Deposit</Text>
-              <Ionicons name="arrow-down-circle" size={16} color={C.secondary} />
+              <Text style={[styles.statLabel, isMobile && { fontSize: 10 }]} numberOfLines={1}>Total Deposit</Text>
+              <View style={styles.statIconBadge}>
+                <Ionicons name="arrow-down-outline" size={18} color={C.success} />
+              </View>
             </View>
-            <Text style={[styles.statValue, { color: C.secondary }, isMobile && { fontSize: 18 }]} numberOfLines={1}>ETB {etb(s.totalDeposits || 0)}</Text>
-            <Text style={[styles.statSub, isMobile && { fontSize: 9 }]} numberOfLines={1}>Today: ETB {etb(s.volume24h || 0)}</Text>
+            <Text style={[styles.statValue, { color: '#ffffff' }, isMobile && { fontSize: 18 }]} numberOfLines={1}>ETB {etb(s.totalDeposits || 0)}</Text>
+            <Text style={[styles.statSub, isMobile && { fontSize: 10 }]} numberOfLines={1}>Today: ETB {etb(s.volume24h || 0)}</Text>
           </View>
 
           {/* Card 2: Withdrawals */}
-          <View style={[styles.statCard, glass, { minWidth: isMobile ? '48%' : 180, flex: 1, padding: isMobile ? 16 : 24 }]}>
+          <View style={[styles.statCard, { minWidth: isMobile ? '48%' : 180, flex: 1, padding: isMobile ? 16 : 20 }]}>
             <View style={styles.statTop}>
-              <Text style={[styles.statLabel, isMobile && { fontSize: 9, letterSpacing: 1 }]} numberOfLines={1}>Total Withdrawal</Text>
-              <Ionicons name="arrow-up-circle" size={16} color="#a68cff" />
+              <Text style={[styles.statLabel, isMobile && { fontSize: 10 }]} numberOfLines={1}>Total Withdrawal</Text>
+              <View style={styles.statIconBadge}>
+                <Ionicons name="arrow-up-outline" size={18} color={C.error} />
+              </View>
             </View>
-            <Text style={[styles.statValue, { color: '#a68cff' }, isMobile && { fontSize: 18 }]} numberOfLines={1}>ETB {etb(s.totalWithdrawals || 0)}</Text>
-            <Text style={[styles.statSub, isMobile && { fontSize: 9 }]} numberOfLines={1}>Today: —</Text>
+            <Text style={[styles.statValue, { color: '#ffffff' }, isMobile && { fontSize: 18 }]} numberOfLines={1}>ETB {etb(s.totalWithdrawals || 0)}</Text>
+            <Text style={[styles.statSub, isMobile && { fontSize: 10 }]} numberOfLines={1}>Total Settled</Text>
           </View>
 
           {/* Card 3: Pending */}
-          <View style={[styles.statCard, glass, { minWidth: isMobile ? '48%' : 180, flex: 1, padding: isMobile ? 16 : 24 }]}>
+          <View style={[styles.statCard, { minWidth: isMobile ? '48%' : 180, flex: 1, padding: isMobile ? 16 : 20 }]}>
             <View style={styles.statTop}>
-              <Text style={[styles.statLabel, isMobile && { fontSize: 9, letterSpacing: 1 }]} numberOfLines={1}>Admin Pending</Text>
-              <Ionicons name="hourglass" size={16} color="#ffabf3" />
+              <Text style={[styles.statLabel, isMobile && { fontSize: 10 }]} numberOfLines={1}>Admin Pending</Text>
+              <View style={styles.statIconBadge}>
+                <Ionicons name="hourglass-outline" size={18} color={C.accentGold} />
+              </View>
             </View>
-            <Text style={[styles.statValue, { color: '#ff51fa' }, isMobile && { fontSize: 18 }]} numberOfLines={1}>{pendingCount}</Text>
-            <Text style={[styles.statSub, isMobile && { fontSize: 9 }]} numberOfLines={1}>Total Pending: {s.pendingWithdrawalAmount || 0}</Text>
+            <Text style={[styles.statValue, { color: C.accentGold }, isMobile && { fontSize: 18 }]} numberOfLines={1}>{pendingCount}</Text>
+            <Text style={[styles.statSub, isMobile && { fontSize: 10 }]} numberOfLines={1}>Pending: {etb(s.pendingWithdrawalAmount || 0)} ETB</Text>
           </View>
 
           {/* Card 4: Failed */}
-          <View style={[styles.statCard, glass, { minWidth: isMobile ? '48%' : 180, flex: 1, padding: isMobile ? 16 : 24 }]}>
+          <View style={[styles.statCard, { minWidth: isMobile ? '48%' : 180, flex: 1, padding: isMobile ? 16 : 20 }]}>
             <View style={styles.statTop}>
-              <Text style={[styles.statLabel, isMobile && { fontSize: 9, letterSpacing: 1 }]} numberOfLines={1}>Failed Withdrawal</Text>
-              <Ionicons name="warning" size={16} color={C.error} />
+              <Text style={[styles.statLabel, isMobile && { fontSize: 10 }]} numberOfLines={1}>Failed Withdrawal</Text>
+              <View style={styles.statIconBadge}>
+                <Ionicons name="alert-circle-outline" size={18} color={C.error} />
+              </View>
             </View>
             <Text style={[styles.statValue, { color: C.error }, isMobile && { fontSize: 18 }]} numberOfLines={1}>{s.failedWithdrawals || 0}</Text>
-            <Text style={[styles.statSub, isMobile && { fontSize: 9 }]} numberOfLines={1}>Failed Deposit: 0</Text>
+            <Text style={[styles.statSub, isMobile && { fontSize: 10 }]} numberOfLines={1}>Failed Settled: 0</Text>
           </View>
         </View>
 
         {/* Table */}
-        <View style={[styles.tableCard, glass, { borderRadius: 24, overflow: 'hidden' }]}>
+        <View style={styles.tableCard}>
           <View style={[styles.tableHead, isMobile && { flexDirection: 'column', alignItems: 'flex-start', gap: 10, padding: 16 }]}>
             <Text style={[styles.tableTitle, isMobile && { fontSize: 16 }]}>{tab === 0 ? t('Recent Deposit Requests') : t('Recent Withdrawal Requests')}</Text>
             <View style={[{ flexDirection: 'row', alignItems: 'center', gap: 10 }, isMobile && { width: '100%' as any }]}>
@@ -587,7 +589,7 @@ export default function AdminLedger() {
                       <Text style={{ color: 'rgba(52,211,153,0.7)', fontSize: 10, marginBottom: 4 }}>TOTAL DEPOSIT</Text>
                       <Text style={{ color: '#fff', fontSize: 14, fontWeight: '800' }}>ETB {etb(reviewData.user.total_deposit || 0)}</Text>
                     </View>
-                    <View style={{ flex: 1, backgroundColor: 'rgba(253,111,133,0.7)', fontSize: 10, marginBottom: 4 }}>
+                    <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.02)', padding: 12, borderRadius: 8 }}>
                       <Text style={{ color: 'rgba(253,111,133,0.7)', fontSize: 10, marginBottom: 4 }}>TOTAL WITHDRAW</Text>
                       <Text style={{ color: '#fff', fontSize: 14, fontWeight: '800' }}>ETB {etb(reviewData.user.total_withdraw || 0)}</Text>
                     </View>
@@ -685,96 +687,96 @@ export default function AdminLedger() {
 }
 
 const styles = StyleSheet.create({
-  glow: { position: 'absolute', width: 500, height: 500, borderRadius: 250 },
-  pageHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 32 },
-  pageTitle: { color: '#ffffff', fontSize: 28, fontWeight: '700', letterSpacing: -0.5 },
-  pageSub: { color: C.onSurfaceVariant, fontSize: 13, marginTop: 6, fontWeight: '500' },
+  pageHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 24 },
+  pageTitle: { color: '#ffffff', fontSize: 24, fontWeight: '700', letterSpacing: -0.5 },
+  pageSub: { color: C.onSurfaceVariant, fontSize: 13, marginTop: 4, fontWeight: '500' },
   tabContainer: { 
-    backgroundColor: C.surfaceContainerLowest, borderRadius: 16, padding: 4, borderWidth: 1, borderColor: C.outlineVariant 
+    backgroundColor: C.surfaceContainerLowest, borderRadius: 8, padding: 3, borderWidth: 1, borderColor: C.border 
   },
   tabBar: { flexDirection: 'row', gap: 4 },
-  tabBtn: { paddingHorizontal: 28, paddingVertical: 12, borderRadius: 12 },
-  tabBtnActive: { backgroundColor: '#7c3aed' },
-  tabText: { color: C.onSurfaceVariant, fontSize: 14, fontWeight: '700' },
-  tabTextActive: { color: '#ffffff' },
+  tabBtn: { paddingHorizontal: 20, paddingVertical: 8, borderRadius: 6 },
+  tabBtnActive: { backgroundColor: C.primary },
+  tabText: { color: C.onSurfaceVariant, fontSize: 13, fontWeight: '600' },
+  tabTextActive: { color: '#ffffff', fontWeight: '700' },
 
-  statsRow: { flexDirection: 'row', gap: 24, marginBottom: 40 },
-  statCard: { flex: 1, borderRadius: 20, padding: 24 },
-  statTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  statLabel: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 2, flex: 1, paddingRight: 4 },
-  statValue: { color: '#ffffff', fontSize: 28, fontWeight: '700', letterSpacing: -0.5 },
-  statUnit: { color: 'rgba(255,255,255,0.4)', fontSize: 13, fontWeight: '600' },
-  statSub: { color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 4, letterSpacing: 1 },
+  statsRow: { flexDirection: 'row', gap: 16, marginBottom: 24 },
+  statCard: { flex: 1, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, borderRadius: 10, padding: 20 },
+  statTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  statIconBadge: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#313D4A', alignItems: 'center', justifyContent: 'center' },
+  statLabel: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8, flex: 1, paddingRight: 4 },
+  statValue: { color: '#ffffff', fontSize: 22, fontWeight: '700', letterSpacing: -0.5 },
+  statUnit: { color: C.onSurfaceVariant, fontSize: 12, fontWeight: '500' },
+  statSub: { color: C.onSurfaceVariant, fontSize: 11, marginTop: 4 },
 
-  tableCard: { flex: 1, marginBottom: 0, backgroundColor: 'transparent' },
+  tableCard: { flex: 1, marginBottom: 0, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, borderRadius: 10, overflow: 'hidden' },
   tableHead: { 
-    paddingHorizontal: 24, paddingVertical: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: C.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, borderWidth: 1, borderBottomWidth: 0, borderColor: C.outlineVariant
+    paddingHorizontal: 20, paddingVertical: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: C.surfaceContainerLowest, borderBottomWidth: 1, borderColor: C.border
   },
-  tableTitle: { color: '#fff', fontSize: 20, fontWeight: '700', letterSpacing: -0.5 },
-  searchBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.surfaceContainerLowest, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: C.outlineVariant, width: 220 },
-  searchInput: { flex: 1, color: '#fff', fontSize: 13, height: 20 },
-  filterChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 16, backgroundColor: C.lightPrimary, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(117,81,255,0.3)' },
-  filterChipText: { color: C.primary, fontSize: 13, fontWeight: '700' },
+  tableTitle: { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: -0.2 },
+  searchBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.surfaceContainerLowest, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 6, borderWidth: 1, borderColor: C.border, width: 220 },
+  searchInput: { flex: 1, color: '#fff', fontSize: 13, height: 24 },
+  filterChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, paddingHorizontal: 14, backgroundColor: 'rgba(60, 80, 224, 0.1)', borderRadius: 6, borderWidth: 1, borderColor: C.primary },
+  filterChipText: { color: C.primary, fontSize: 12, fontWeight: '700' },
   colRow: { 
-    flexDirection: 'row', paddingHorizontal: 24, paddingVertical: 14, alignItems: 'center',
-    backgroundColor: 'transparent'
+    flexDirection: 'row', paddingHorizontal: 20, paddingVertical: 12, alignItems: 'center',
+    backgroundColor: '#313D4A', borderBottomWidth: 1, borderColor: C.border,
   },
-  colHead: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1.5, flex: 1 },
-  txRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, backgroundColor: C.surface, borderRadius: 16, marginBottom: 8, borderWidth: 1, borderColor: C.outlineVariant, ...(Platform.OS === 'web' ? { boxShadow: '14px 17px 40px 4px rgba(112, 144, 176, 0.04)' } as any : {}) },
+  colHead: { color: '#8A99AD', fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8, flex: 1 },
+  txRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, backgroundColor: C.surface, borderBottomWidth: 1, borderColor: C.border },
   txUser: { flex: 2, flexDirection: 'row', alignItems: 'center', gap: 10, minWidth: 0, overflow: 'hidden' },
-  txAvatar: { width: 34, height: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center', flexShrink: 0, borderWidth: 1, borderColor: C.outlineVariant, backgroundColor: C.surfaceContainerLow },
+  txAvatar: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', flexShrink: 0, borderWidth: 1, borderColor: C.border, backgroundColor: '#313D4A' },
   txAvatarText: { fontSize: 12, fontWeight: '700' },
-  txName: { color: '#fff', fontSize: 13, fontWeight: '700', letterSpacing: -0.2 },
+  txName: { color: '#fff', fontSize: 13, fontWeight: '600', letterSpacing: -0.2 },
   txId: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '500' },
-  txAmount: { color: C.success, fontSize: 16, fontWeight: '700' },
-  methodPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  methodText: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
+  txAmount: { color: C.success, fontSize: 14, fontWeight: '700' },
+  methodPill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  methodText: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
   txTimestamp: { flex: 1.2 },
-  txDate: { color: '#fff', fontSize: 12, fontWeight: '600' },
-  txTime: { color: C.onSurfaceVariant, fontSize: 11, marginTop: 2, fontWeight: '500' },
-  statusPending: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(251,191,36,0.06)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(251,191,36,0.2)' },
-  statusDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#fbbf24', flexShrink: 0 },
-  statusSuccess: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(34,197,94,0.06)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(34,197,94,0.2)' },
-  statusFailed: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(245,57,57,0.06)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(245,57,57,0.2)' },
+  txDate: { color: '#fff', fontSize: 12, fontWeight: '500' },
+  txTime: { color: C.onSurfaceVariant, fontSize: 11, marginTop: 2, fontWeight: '400' },
+  statusPending: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(240, 149, 12, 0.1)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, borderColor: C.accentGold },
+  statusDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.accentGold, flexShrink: 0 },
+  statusSuccess: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(16, 185, 129, 0.1)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, borderColor: C.success },
+  statusFailed: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(251, 84, 84, 0.1)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, borderColor: C.error },
   statusText: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
   txActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 6, alignItems: 'center' },
-  approveBtn: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(106,210,255,0.4)', backgroundColor: 'rgba(106,210,255,0.05)' },
-  approveTxt: { color: C.secondary, fontSize: 12, fontWeight: '700' },
-  rejectBtn: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(245,57,57,0.4)', backgroundColor: 'rgba(245,57,57,0.05)' },
-  rejectTxt: { color: C.error, fontSize: 12, fontWeight: '700' },
-  receiptBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(117,81,255,0.4)', backgroundColor: C.lightPrimary },
-  receiptTxt: { color: C.primary, fontSize: 12, fontWeight: '700' },
-  empty: { color: C.onSurfaceVariant, textAlign: 'center', marginVertical: 40, fontSize: 14 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(11,20,55,0.85)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  receiptModal: { width: '100%', maxWidth: 450, backgroundColor: C.surface, borderRadius: 28, borderWidth: 1, borderColor: C.outlineVariant, overflow: 'hidden', ...(Platform.OS === 'web' ? { boxShadow: '14px 17px 40px 4px rgba(112, 144, 176, 0.08)' } as any : {}) },
-  receiptHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 24, borderBottomWidth: 1, borderBottomColor: C.outlineVariant },
-  receiptTitle: { color: '#fff', fontSize: 18, fontWeight: '700', flex: 1, marginLeft: 12, letterSpacing: -0.2 },
+  approveBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, borderWidth: 1, borderColor: C.success, backgroundColor: 'rgba(16, 185, 129, 0.1)' },
+  approveTxt: { color: C.success, fontSize: 11, fontWeight: '700' },
+  rejectBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, borderWidth: 1, borderColor: C.error, backgroundColor: 'rgba(251, 84, 84, 0.1)' },
+  rejectTxt: { color: C.error, fontSize: 11, fontWeight: '700' },
+  receiptBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, borderWidth: 1, borderColor: C.primary, backgroundColor: 'rgba(60, 80, 224, 0.1)' },
+  receiptTxt: { color: C.primary, fontSize: 11, fontWeight: '700' },
+  empty: { color: C.onSurfaceVariant, textAlign: 'center', marginVertical: 40, fontSize: 13 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  receiptModal: { width: '100%', maxWidth: 450, backgroundColor: C.surface, borderRadius: 10, borderWidth: 1, borderColor: C.border, overflow: 'hidden' },
+  receiptHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, borderBottomColor: C.border },
+  receiptTitle: { color: '#fff', fontSize: 16, fontWeight: '700', flex: 1, marginLeft: 10, letterSpacing: -0.2 },
   
-  receiptAmountRow: { alignItems: 'center', marginVertical: 32 },
-  receiptAmount: { fontSize: 44, fontWeight: '700', letterSpacing: -1 },
-  receiptCurrency: { color: C.onSurfaceVariant, fontSize: 14, fontWeight: '700', marginTop: 4 },
+  receiptAmountRow: { alignItems: 'center', marginVertical: 24 },
+  receiptAmount: { fontSize: 36, fontWeight: '700', letterSpacing: -1, color: '#ffffff' },
+  receiptCurrency: { color: C.onSurfaceVariant, fontSize: 13, fontWeight: '600', marginTop: 4 },
   
-  statusBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 10, borderRadius: 12, marginBottom: 32 },
-  statusBannerTxt: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
+  statusBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 8, borderRadius: 6, marginBottom: 24 },
+  statusBannerTxt: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
   
-  receiptGrid: { gap: 20, marginBottom: 40 },
-  receiptInfoItem: { gap: 4 },
-  receiptInfoLabel: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
-  receiptInfoVal: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  receiptGrid: { gap: 16, marginBottom: 32 },
+  receiptInfoItem: { gap: 3 },
+  receiptInfoLabel: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8 },
+  receiptInfoVal: { color: '#fff', fontSize: 14, fontWeight: '600' },
   
-  printBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: C.lightPrimary, height: 56, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(117,81,255,0.3)' },
-  printBtnTxt: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  printBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: C.primary, height: 44, borderRadius: 8 },
+  printBtnTxt: { color: '#fff', fontSize: 13, fontWeight: '700' },
   paginationRow: { 
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', 
-    padding: 20, marginTop: 8, borderRadius: 20, borderWidth: 1, borderColor: C.outlineVariant,
+    padding: 16, marginTop: 12, borderRadius: 10, borderWidth: 1, borderColor: C.border,
     backgroundColor: C.surface
   },
-  paginationInfo: { color: C.onSurfaceVariant, fontSize: 12, fontWeight: '700' },
+  paginationInfo: { color: C.onSurfaceVariant, fontSize: 12, fontWeight: '600' },
   pageBtn: { 
-    flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.lightPrimary, 
-    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(117,81,255,0.3)' 
+    flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(60, 80, 224, 0.1)', 
+    paddingHorizontal: 14, paddingVertical: 6, borderRadius: 6, borderWidth: 1, borderColor: C.primary 
   },
-  pageBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
-  reviewBtn: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: C.lightPrimary, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(117,81,255,0.3)' },
-  reviewBtnTxt: { color: '#fff', fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
+  pageBtnText: { color: C.primary, fontSize: 12, fontWeight: '700' },
+  reviewBtn: { paddingHorizontal: 12, paddingVertical: 6, backgroundColor: 'rgba(60, 80, 224, 0.1)', borderRadius: 6, borderWidth: 1, borderColor: C.primary },
+  reviewBtnTxt: { color: C.primary, fontSize: 11, fontWeight: '700' },
 });

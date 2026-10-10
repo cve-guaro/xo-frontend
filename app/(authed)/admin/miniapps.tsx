@@ -539,19 +539,13 @@ export default function AdminMiniApps() {
   if (!isGateUnlocked) {
     return (
       <View style={s.gateContainer}>
-        {/* Ambient Glows */}
-        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-          <View style={[s.glow, { top: -150, left: -100, backgroundColor: 'rgba(124,58,237,0.18)' }]} />
-          <View style={[s.glow, { bottom: -100, right: -100, backgroundColor: 'rgba(34,211,238,0.12)' }]} />
-        </View>
-
         <View style={s.gateCard}>
-          <LinearGradient colors={['rgba(26,29,45,0.95)', 'rgba(18,20,32,0.98)']} style={s.gateCardGradient}>
+          <View style={s.gateCardGradient}>
             {/* Lock Icon Badge */}
             <View style={s.gateIconWrap}>
-              <LinearGradient colors={['rgba(124,58,237,0.3)', 'rgba(34,211,238,0.15)']} style={s.gateIconBg}>
-                <Ionicons name="lock-closed" size={32} color={C.secondary} />
-              </LinearGradient>
+              <View style={s.gateIconBg}>
+                <Ionicons name="lock-closed" size={28} color="#ffffff" />
+              </View>
             </View>
 
             <Text style={s.gateTitle}>Maintenance Security Gate</Text>
@@ -598,7 +592,7 @@ export default function AdminMiniApps() {
               disabled={gateLoading}
               style={s.gateUnlockBtn}
             >
-              <LinearGradient colors={[C.primary, C.primaryContainer]} style={s.gateBtnGradient}>
+              <View style={s.gateBtnGradient}>
                 {gateLoading ? (
                   <ActivityIndicator color="#ffffff" />
                 ) : (
@@ -607,7 +601,7 @@ export default function AdminMiniApps() {
                     <Text style={s.gateBtnText}>Verify & Unlock Controller</Text>
                   </>
                 )}
-              </LinearGradient>
+              </View>
             </TouchableOpacity>
 
             {/* Return Link */}
@@ -620,7 +614,7 @@ export default function AdminMiniApps() {
                 Return to System Maintenance
               </Text>
             </TouchableOpacity>
-          </LinearGradient>
+          </View>
         </View>
       </View>
     );
@@ -1393,10 +1387,11 @@ const s = StyleSheet.create({
   gateCard: {
     width: '100%',
     maxWidth: 420,
-    borderRadius: 24,
+    borderRadius: 10,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(124,58,237,0.3)',
+    borderColor: C.border,
+    backgroundColor: C.surface,
   },
   gateCardGradient: {
     padding: 32,
@@ -1406,17 +1401,18 @@ const s = StyleSheet.create({
     marginBottom: 20,
   },
   gateIconBg: {
-    width: 72,
-    height: 72,
-    borderRadius: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#313D4A',
     borderWidth: 1,
-    borderColor: 'rgba(34,211,238,0.3)',
+    borderColor: C.border,
   },
   gateTitle: {
-    fontSize: 22,
-    fontWeight: '900',
+    fontSize: 20,
+    fontWeight: '700',
     color: '#ffffff',
     marginBottom: 8,
     textAlign: 'center',
@@ -1432,10 +1428,10 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(239,68,68,0.15)',
-    borderColor: C.error,
+    backgroundColor: 'rgba(251,84,84,0.12)',
+    borderColor: 'rgba(251,84,84,0.3)',
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 10,
     width: '100%',
@@ -1453,13 +1449,13 @@ const s = StyleSheet.create({
     backgroundColor: C.surfaceContainerLowest,
     borderWidth: 1,
     borderColor: C.border,
-    borderRadius: 14,
+    borderRadius: 8,
     width: '100%',
     marginBottom: 20,
   },
   gateInput: {
     flex: 1,
-    paddingVertical: 14,
+    paddingVertical: 12,
     paddingHorizontal: 12,
     color: '#ffffff',
     fontSize: 14,
@@ -1467,20 +1463,21 @@ const s = StyleSheet.create({
   },
   gateUnlockBtn: {
     width: '100%',
-    borderRadius: 14,
+    borderRadius: 8,
     overflow: 'hidden',
+    backgroundColor: C.primary,
   },
   gateBtnGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    paddingVertical: 14,
+    paddingVertical: 12,
   },
   gateBtnText: {
     color: '#ffffff',
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: '700',
     letterSpacing: 0.5,
   },
 

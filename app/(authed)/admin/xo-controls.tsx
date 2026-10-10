@@ -330,7 +330,7 @@ export default function XOControlsPage() {
                   </View>
                   <View style={s.statBox}>
                     <Text style={s.statLabel}>Live Matches</Text>
-                    <Text style={[s.statVal, { color: '#a78bfa' }]}>{r3Totals.liveMatches}</Text>
+                    <Text style={[s.statVal, { color: C.primary }]}>{r3Totals.liveMatches}</Text>
                   </View>
                 </View>
                 {renderBetBreakdown([1000, 2500, 5000, 7500, 10000])}
@@ -358,71 +358,71 @@ const s = StyleSheet.create({
   backCircle: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: C.surfaceContainer,
+    borderRadius: 8,
+    backgroundColor: '#313D4A',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: C.outlineVariant,
+    borderColor: C.border,
   },
   headerTitle: {
     color: '#fff',
-    fontSize: 22,
-    fontWeight: '900',
-    letterSpacing: 0.5,
+    fontSize: 20,
+    fontWeight: '700',
+    letterSpacing: -0.5,
   },
   headerSub: {
     color: C.onSurfaceVariant,
     fontSize: 10,
-    fontWeight: '800',
+    fontWeight: '700',
     letterSpacing: 1.2,
     marginTop: 2,
   },
   lockSectionCard: {
-    backgroundColor: 'rgba(17,17,25,0.8)',
-    borderRadius: 24,
+    backgroundColor: C.surface,
+    borderRadius: 10,
     padding: 20,
     borderWidth: 1,
-    borderColor: C.outlineVariant,
+    borderColor: C.border,
     marginBottom: 24,
   },
   sectionHeaderTitle: {
     color: '#fff',
     fontSize: 14,
-    fontWeight: '900',
+    fontWeight: '700',
     letterSpacing: 0.5,
   },
   sectionHeaderSub: {
-    color: 'rgba(255,255,255,0.4)',
+    color: C.onSurfaceVariant,
     fontSize: 11,
     marginTop: 2,
   },
   switchRowBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.02)',
-    borderRadius: 16,
+    backgroundColor: C.surfaceContainerLowest,
+    borderRadius: 8,
     padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    borderColor: C.border,
   },
   switchRowBoxActive: {
-    backgroundColor: 'rgba(239,68,68,0.04)',
-    borderColor: 'rgba(239,68,68,0.2)',
+    backgroundColor: 'rgba(251,84,84,0.06)',
+    borderColor: 'rgba(251,84,84,0.25)',
   },
   switchTitle: {
     color: '#fff',
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   switchDesc: {
-    color: 'rgba(255,255,255,0.4)',
+    color: C.onSurfaceVariant,
     fontSize: 11,
     marginTop: 4,
     lineHeight: 16,
   },
   activeLockBadge: {
-    backgroundColor: 'rgba(239,68,68,0.2)',
+    backgroundColor: 'rgba(251,84,84,0.15)',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
@@ -430,21 +430,21 @@ const s = StyleSheet.create({
   activeLockText: {
     color: C.error,
     fontSize: 9,
-    fontWeight: '900',
+    fontWeight: '700',
   },
   sectionLabel: {
     color: C.onSurfaceVariant,
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '700',
     letterSpacing: 1.2,
     marginBottom: 12,
   },
   card: {
-    backgroundColor: 'rgba(17,17,25,0.7)',
-    borderRadius: 20,
+    backgroundColor: C.surface,
+    borderRadius: 10,
     padding: 20,
     borderWidth: 1,
-    borderColor: C.outlineVariant,
+    borderColor: C.border,
   },
   roomHeader: {
     flexDirection: 'row',
@@ -455,7 +455,7 @@ const s = StyleSheet.create({
   cardTitle: {
     color: '#fff',
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   statusDot: {
     width: 10,
@@ -468,20 +468,20 @@ const s = StyleSheet.create({
   },
   statBox: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.02)',
-    borderRadius: 14,
+    backgroundColor: C.surfaceContainerLowest,
+    borderRadius: 8,
     padding: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.04)',
+    borderColor: C.border,
   },
   statLabel: {
-    color: 'rgba(255,255,255,0.4)',
+    color: C.onSurfaceVariant,
     fontSize: 10,
     fontWeight: '700',
   },
   statVal: {
     fontSize: 18,
-    fontWeight: '900',
+    fontWeight: '700',
     marginTop: 4,
   },
   betRow: {

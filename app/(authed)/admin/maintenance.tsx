@@ -223,13 +223,13 @@ export default function Maintenance() {
       </TouchableOpacity>
 
       {/* Emergency Lockout Card */}
-      <LinearGradient colors={isEmergencyLocked ? ['rgba(253,111,133,0.15)', 'rgba(138,22,50,0.1)'] : ['rgba(167,139,250,0.1)', 'rgba(0,218,243,0.05)']} style={[s.card, isEmergencyLocked && { borderColor: 'rgba(253,111,133,0.3)' }]}>
+      <View style={[s.card, isEmergencyLocked && { borderColor: C.error, backgroundColor: 'rgba(251,84,84,0.04)' }]}>
         <View style={s.lockdownHeader}>
           <View style={s.lockdownTitleWrap}>
-            <View style={[s.iconBg, { backgroundColor: isEmergencyLocked ? 'rgba(253,111,133,0.2)' : 'rgba(166,140,255,0.2)' }]}>
+            <View style={[s.iconBg, { backgroundColor: isEmergencyLocked ? 'rgba(251,84,84,0.15)' : '#313D4A' }]}>
               <Ionicons name="warning" size={20} color={isEmergencyLocked ? C.error : C.primary} />
             </View>
-            <Text style={[s.cardTitle, isEmergencyLocked && { color: C.error, textShadowColor: 'rgba(253,111,133,0.5)', textShadowRadius: 10 }]}>Emergency Maintenance Lockout</Text>
+            <Text style={[s.cardTitle, isEmergencyLocked && { color: C.error }]}>Emergency Maintenance Lockout</Text>
           </View>
           <Switch
             value={isEmergencyLocked}
@@ -280,7 +280,7 @@ export default function Maintenance() {
             </View>
           </View>
         )}
-      </LinearGradient>
+      </View>
 
       {/* Feature Toggles */}
       <View style={s.card}>
@@ -328,17 +328,17 @@ const s = StyleSheet.create({
   pageSubtitle: { fontSize: 14, color: C.onSurfaceVariant },
   
   card: {
-    backgroundColor: 'rgba(24, 24, 27, 0.65)',
-    borderRadius: 24,
+    backgroundColor: C.surface,
+    borderRadius: 10,
     padding: 24,
     marginBottom: 20,
     borderWidth: 1,
     borderColor: C.border,
   },
-  cardTitle: { fontSize: 18, fontWeight: '900', color: '#ffffff', marginBottom: 6, letterSpacing: 0.5 },
+  cardTitle: { fontSize: 18, fontWeight: '700', color: '#ffffff', marginBottom: 6, letterSpacing: 0.5 },
   cardDesc: { fontSize: 13, color: C.onSurfaceVariant, marginBottom: 20, lineHeight: 20 },
   
-  iconBg: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  iconBg: { width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   lockdownHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   lockdownTitleWrap: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   
@@ -361,32 +361,32 @@ const s = StyleSheet.create({
     backgroundColor: C.surfaceContainerLowest,
     borderWidth: 1,
     borderColor: C.border,
-    borderRadius: 12,
+    borderRadius: 8,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 10,
     color: '#ffffff',
     fontSize: 14,
   },
   addBtn: {
     backgroundColor: C.primary,
-    borderRadius: 12,
-    paddingHorizontal: 20,
+    borderRadius: 8,
+    paddingHorizontal: 18,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  addBtnText: { color: '#ffffff', fontWeight: 'bold' },
+  addBtnText: { color: '#ffffff', fontWeight: '700' },
   whitelistList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   whitelistChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(124,58,237,0.15)',
+    backgroundColor: 'rgba(60,80,224,0.12)',
     borderWidth: 1,
-    borderColor: C.border,
-    borderRadius: 10,
+    borderColor: 'rgba(60,80,224,0.25)',
+    borderRadius: 6,
     paddingLeft: 12,
     paddingRight: 4,
     paddingVertical: 6,
     gap: 8,
   },
-  whitelistText: { color: C.secondary, fontSize: 13, fontWeight: '800' }
+  whitelistText: { color: '#ffffff', fontSize: 13, fontWeight: '600' }
 });

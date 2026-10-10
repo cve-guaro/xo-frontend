@@ -14,33 +14,33 @@ import LogoutConfirmation from '../../../components/LogoutConfirmation';
 import { useBackgroundMusic } from '../../../context/BackgroundMusicProvider';
 import AdminGlobalSearch from '../../../components/AdminGlobalSearch';
 
-// ─── Design Tokens (Production Grade, Anti-Slop Palette) ──────
+// ─── Design Tokens (TailAdmin & Interface-Design System) ──────
 export const AdminTheme = {
-  primary: '#7c3aed',
-  primaryContainer: '#6d28d9',
-  secondary: '#22d3ee',
-  tertiaryDim: '#22d3ee',
-  tertiary: '#0284c7',
-  background: '#090d16',
-  surface: '#0f1422',
-  surfaceContainerLowest: '#060910',
-  surfaceContainerLow: '#0b0f19',
-  surfaceContainer: '#111625',
-  surfaceContainerHigh: '#182035',
-  surfaceContainerHighest: '#222c48',
-  border: 'rgba(255, 255, 255, 0.08)',
-  onSurface: '#f8fafc',
-  onSurfaceVariant: '#94a3b8',
-  outlineVariant: 'rgba(255, 255, 255, 0.06)',
-  error: '#f43f5e',
-  errorContainer: '#881337',
-  lightPrimary: 'rgba(124, 58, 237, 0.15)',
-  success: '#10b981',
-  accentViolet: '#7c3aed',
-  accentCyan: '#22d3ee',
-  accentGold: '#f59e0b',
-  accentGreen: '#10b981',
-  badgeRotation: ['#7c3aed', '#22d3ee', '#f59e0b', '#10b981'],
+  primary: '#3C50E0',
+  primaryContainer: '#2B3990',
+  secondary: '#10B981',
+  tertiaryDim: '#8A99AD',
+  tertiary: '#3C50E0',
+  background: '#1A222C',
+  surface: '#24303F',
+  surfaceContainerLowest: '#1C2434',
+  surfaceContainerLow: '#1E2634',
+  surfaceContainer: '#24303F',
+  surfaceContainerHigh: '#2C3A4B',
+  surfaceContainerHighest: '#313D4A',
+  border: '#2E3A47',
+  onSurface: '#FFFFFF',
+  onSurfaceVariant: '#8A99AD',
+  outlineVariant: '#2E3A47',
+  error: '#FB5454',
+  errorContainer: '#4B1A1A',
+  lightPrimary: 'rgba(60, 80, 224, 0.12)',
+  success: '#10B981',
+  accentViolet: '#3C50E0',
+  accentCyan: '#10B981',
+  accentGold: '#F0950C',
+  accentGreen: '#10B981',
+  badgeRotation: ['#3C50E0', '#10B981', '#F0950C', '#64748B'],
 };
 
 const C = AdminTheme;
@@ -783,14 +783,14 @@ const s = StyleSheet.create({
   },
   navItemCollapsed: { justifyContent: 'center', paddingHorizontal: 0, width: 44, height: 44, alignSelf: 'center', marginBottom: 4 },
   navItemActive: { 
-    backgroundColor: 'rgba(124, 58, 237, 0.15)', 
-    borderColor: 'rgba(124, 58, 237, 0.4)' 
+    backgroundColor: '#333A48', 
+    borderColor: '#3C50E0', 
   },
-  navIconWrap: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  navIconWrapActive: { backgroundColor: C.primary },
+  navIconWrap: { width: 28, height: 28, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
+  navIconWrapActive: { backgroundColor: '#3C50E0' },
   navLabel: { color: C.onSurfaceVariant, fontSize: 13, fontWeight: '600', flex: 1 },
   navLabelActive: { color: '#ffffff', fontWeight: '800' },
-  activeIndicator: { width: 4, height: 16, borderRadius: 2, backgroundColor: C.primary },
+  activeIndicator: { width: 4, height: 16, borderRadius: 2, backgroundColor: '#3C50E0' },
 
   sidebarFooter: { 
     paddingHorizontal: 14, paddingBottom: 20, 
@@ -811,7 +811,7 @@ const s = StyleSheet.create({
   emergencyText: { color: C.error, fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
   footerLink: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8 },
   footerLinkIcon: { width: 28, height: 28, borderRadius: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.03)' },
-  footerLinkIconActive: { backgroundColor: 'rgba(124, 58, 237, 0.15)' },
+  footerLinkIconActive: { backgroundColor: 'rgba(60, 80, 224, 0.15)' },
   footerLinkText: { color: C.onSurfaceVariant, fontSize: 12, fontWeight: '600' },
 
   topbar: { 
@@ -825,7 +825,7 @@ const s = StyleSheet.create({
   topbarRight: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   topbarHomeBadge: { 
     flexDirection: 'row', alignItems: 'center', gap: 6, 
-    backgroundColor: 'rgba(34, 211, 238, 0.08)', borderWidth: 1, borderColor: 'rgba(34, 211, 238, 0.25)', 
+    backgroundColor: 'rgba(60, 80, 224, 0.08)', borderWidth: 1, borderColor: 'rgba(60, 80, 224, 0.25)', 
     paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 
   },
   topbarHomeBadgeText: { color: C.secondary, fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
@@ -845,7 +845,7 @@ const s = StyleSheet.create({
     borderWidth: 1, borderColor: C.border 
   },
   avatarContainer: { position: 'relative' },
-  userAvatar: { width: 30, height: 30, borderRadius: 6, backgroundColor: 'rgba(124,58,237,0.15)', alignItems: 'center', justifyContent: 'center' },
+  userAvatar: { width: 30, height: 30, borderRadius: 6, backgroundColor: '#313D4A', alignItems: 'center', justifyContent: 'center' },
   statusIndicator: { position: 'absolute', bottom: -2, right: -2, width: 8, height: 8, borderRadius: 4, backgroundColor: C.success, borderWidth: 1.5, borderColor: C.surfaceContainerLowest },
   userName: { color: C.onSurface, fontSize: 12, fontWeight: '800', lineHeight: 14 },
   userOnline: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '500' },
@@ -872,7 +872,7 @@ const s = StyleSheet.create({
   mobileLangText: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '800' },
   mobileUserChip: { 
     width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', 
-    backgroundColor: 'rgba(124, 58, 237, 0.2)', borderWidth: 1, borderColor: C.primary 
+    backgroundColor: '#313D4A', borderWidth: 1, borderColor: C.border 
   },
   mobileUserInitial: { color: '#ffffff', fontSize: 12, fontWeight: '900' },
 
@@ -896,7 +896,7 @@ const s = StyleSheet.create({
   },
   drawerHomeBtn: { 
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, 
-    backgroundColor: 'rgba(34, 211, 238, 0.08)', borderWidth: 1, borderColor: 'rgba(34, 211, 238, 0.25)', 
+    backgroundColor: 'rgba(60, 80, 224, 0.08)', borderWidth: 1, borderColor: 'rgba(60, 80, 224, 0.25)', 
     paddingVertical: 12, borderRadius: 10 
   },
   drawerHomeBtnText: { color: C.secondary, fontSize: 12, fontWeight: '800' },
@@ -907,7 +907,7 @@ const s = StyleSheet.create({
   },
   bottomTabItem: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 8, gap: 3 },
   bottomTabIconBox: { width: 34, height: 28, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
-  bottomTabIconBoxActive: { backgroundColor: 'rgba(124, 58, 237, 0.15)' },
+  bottomTabIconBoxActive: { backgroundColor: 'rgba(60, 80, 224, 0.15)' },
   bottomTabLabel: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '600', textAlign: 'center' },
   bottomTabLabelActive: { color: '#ffffff', fontWeight: '800' },
 
@@ -915,11 +915,11 @@ const s = StyleSheet.create({
   lockScreen: { flex: 1, backgroundColor: C.background, alignItems: 'center', justifyContent: 'center', padding: 20 },
   lockBox: { 
     width: '100%', maxWidth: 360, padding: 28, backgroundColor: C.surfaceContainerLowest, 
-    borderRadius: 20, borderWidth: 1, borderColor: C.border, alignItems: 'center' 
+    borderRadius: 10, borderWidth: 1, borderColor: C.border, alignItems: 'center' 
   },
   lockIconWrap: { 
-    width: 56, height: 56, borderRadius: 14, backgroundColor: 'rgba(124,58,237,0.12)', 
-    borderWidth: 1, borderColor: 'rgba(124,58,237,0.3)', alignItems: 'center', justifyContent: 'center', marginBottom: 16 
+    width: 56, height: 56, borderRadius: 28, backgroundColor: '#313D4A', 
+    borderWidth: 1, borderColor: C.border, alignItems: 'center', justifyContent: 'center', marginBottom: 16 
   },
   lockTitle: { color: C.onSurface, fontSize: 18, fontWeight: '900', marginBottom: 6 },
   lockSubtitle: { color: C.onSurfaceVariant, fontSize: 12, textAlign: 'center', marginBottom: 20, lineHeight: 18 },

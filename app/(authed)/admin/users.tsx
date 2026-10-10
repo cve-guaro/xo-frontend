@@ -402,11 +402,11 @@ export default function AdminUsers() {
                 {!isMobile && <Text style={styles.tableSub}>Manage registered user accounts, balances, and permissions</Text>}
               </View>
               <TouchableOpacity 
-                style={{ backgroundColor: C.secondary, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                style={{ backgroundColor: C.primary, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, flexDirection: 'row', alignItems: 'center', gap: 8 }}
                 onPress={() => setCreateModalVisible(true)}
               >
-                <Ionicons name="add-circle" size={18} color="#0c0c1f" />
-                <Text style={{ color: '#0c0c1f', fontWeight: '800', fontSize: 12 }}>Add User</Text>
+                <Ionicons name="add-circle" size={18} color="#ffffff" />
+                <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 12 }}>Add User</Text>
               </TouchableOpacity>
             </View>
 
@@ -420,11 +420,11 @@ export default function AdminUsers() {
                       onChange={(e: any) => setRoleFilter(e.target.value)}
                       style={{ background: 'transparent', border: 'none', color: 'rgba(229,227,255,0.8)', fontSize: 12, fontWeight: 700, outlineStyle: 'none', cursor: 'pointer' as any, paddingRight: 4 } as any}
                     >
-                      <option value="all" style={{ background: '#111128' }}>All Roles</option>
-                      <option value="user" style={{ background: '#111128' }}>User</option>
-                      <option value="admin" style={{ background: '#111128' }}>Admin</option>
-                      <option value="superadmin" style={{ background: '#111128' }}>Superadmin</option>
-                      <option value="maintenance_admin" style={{ background: '#111128' }}>Maintenance</option>
+                      <option value="all" style={{ background: '#1A222C' }}>All Roles</option>
+                      <option value="user" style={{ background: '#1A222C' }}>User</option>
+                      <option value="admin" style={{ background: '#1A222C' }}>Admin</option>
+                      <option value="superadmin" style={{ background: '#1A222C' }}>Superadmin</option>
+                      <option value="maintenance_admin" style={{ background: '#1A222C' }}>Maintenance</option>
                     </select>
                   ) : (
                     <TouchableOpacity onPress={() => {
@@ -445,9 +445,9 @@ export default function AdminUsers() {
                       onChange={(e: any) => setStatusFilter(e.target.value)}
                       style={{ background: 'transparent', border: 'none', color: 'rgba(229,227,255,0.8)', fontSize: 12, fontWeight: 700, outlineStyle: 'none', cursor: 'pointer' as any, paddingRight: 4 } as any}
                     >
-                      <option value="all" style={{ background: '#111128' }}>All Status</option>
-                      <option value="active" style={{ background: '#111128' }}>Active</option>
-                      <option value="banned" style={{ background: '#111128' }}>Banned</option>
+                      <option value="all" style={{ background: '#1A222C' }}>All Status</option>
+                      <option value="active" style={{ background: '#1A222C' }}>Active</option>
+                      <option value="banned" style={{ background: '#1A222C' }}>Banned</option>
                     </select>
                   ) : (
                     <TouchableOpacity onPress={() => {
@@ -468,10 +468,10 @@ export default function AdminUsers() {
                       onChange={(e: any) => setAmountRange(e.target.value)}
                       style={{ background: 'transparent', border: 'none', color: 'rgba(229,227,255,0.8)', fontSize: 12, fontWeight: 700, outlineStyle: 'none', cursor: 'pointer' as any, paddingRight: 4 } as any}
                     >
-                      <option value="all" style={{ background: '#111128' }}>All Amounts</option>
-                      <option value="0-100" style={{ background: '#111128' }}>0 - 100 ETB</option>
-                      <option value="100-10000" style={{ background: '#111128' }}>100 - 10,000 ETB</option>
-                      <option value="10000-100000" style={{ background: '#111128' }}>10,000 - 100,000 ETB</option>
+                      <option value="all" style={{ background: '#1A222C' }}>All Amounts</option>
+                      <option value="0-100" style={{ background: '#1A222C' }}>0 - 100 ETB</option>
+                      <option value="100-10000" style={{ background: '#1A222C' }}>100 - 10,000 ETB</option>
+                      <option value="10000-100000" style={{ background: '#1A222C' }}>10,000 - 100,000 ETB</option>
                     </select>
                   ) : (
                     <TouchableOpacity onPress={() => {
@@ -512,8 +512,8 @@ export default function AdminUsers() {
                   <TouchableOpacity onPress={() => router.push(`/admin/user-detail?id=${u.id}` as any)} style={{ width: '100%', gap: 12 }}>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
                       <View style={[styles.tdUser, { flex: undefined }]}>
-                        <View style={[styles.avatar, { backgroundColor: u.banned ? 'rgba(138,22,50,0.2)' : 'rgba(34,34,70,0.8)', borderColor: u.banned ? 'rgba(253,111,133,0.3)' : 'rgba(166,140,255,0.3)' }]}>
-                          <Text style={[styles.avatarText, { color: u.banned ? C.error : C.primary }]}>{initials(u)}</Text>
+                        <View style={[styles.avatar, { backgroundColor: u.banned ? 'rgba(251,84,84,0.15)' : '#313D4A', borderColor: u.banned ? 'rgba(251,84,84,0.3)' : C.border }]}>
+                          <Text style={[styles.avatarText, { color: u.banned ? C.error : C.onSurface }]}>{initials(u)}</Text>
                         </View>
                         <View>
                           <Text style={styles.tdName} numberOfLines={1}>{u.username || 'Unknown'}</Text>
@@ -521,18 +521,18 @@ export default function AdminUsers() {
                         </View>
                       </View>
                       <View style={[styles.tdStatus, { flex: undefined }]}>
-                        <Text style={[styles.statusPill, { color: u.banned ? C.error : C.secondary, backgroundColor: u.banned ? 'rgba(138,22,50,0.15)' : 'rgba(0,42,48,0.5)', borderColor: u.banned ? 'rgba(253,111,133,0.2)' : 'rgba(0,218,243,0.2)' }]}>
+                        <Text style={[styles.statusPill, { color: u.banned ? C.error : C.secondary, backgroundColor: u.banned ? 'rgba(251,84,84,0.1)' : 'rgba(16,185,129,0.1)', borderColor: u.banned ? 'rgba(251,84,84,0.2)' : 'rgba(16,185,129,0.2)' }]}>
                           {u.banned ? 'Suspended' : 'Active'}
                         </Text>
                       </View>
                     </View>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.2)', padding: 12, borderRadius: 12 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', alignItems: 'center', backgroundColor: C.surfaceContainerLowest, padding: 12, borderRadius: 8, borderWidth: 1, borderColor: C.border }}>
                       <View>
-                        <Text style={{ color: 'rgba(168,167,212,0.6)', fontSize: 9, fontWeight: '800', marginBottom: 2 }}>BALANCE</Text>
+                        <Text style={{ color: C.onSurfaceVariant, fontSize: 9, fontWeight: '700', marginBottom: 2 }}>BALANCE</Text>
                         <Text style={styles.tdBal} numberOfLines={1}>ETB {balanceEtb(u.available_balance)}</Text>
                       </View>
                       <View style={{ alignItems: 'flex-end' }}>
-                        <Text style={{ color: 'rgba(168,167,212,0.6)', fontSize: 9, fontWeight: '800', marginBottom: 2 }}>LAST ACTIVE</Text>
+                        <Text style={{ color: C.onSurfaceVariant, fontSize: 9, fontWeight: '700', marginBottom: 2 }}>LAST ACTIVE</Text>
                         <Text style={styles.tdTime} numberOfLines={1}>{u.created_at ? timeSince(u.created_at) : '—'}</Text>
                       </View>
                     </View>
@@ -541,8 +541,8 @@ export default function AdminUsers() {
                   <>
                     <Text style={styles.tdId}>#{u.id.slice(0,8).toUpperCase()}</Text>
                     <View style={styles.tdUser}>
-                      <View style={[styles.avatar, { backgroundColor: u.banned ? 'rgba(138,22,50,0.2)' : 'rgba(34,34,70,0.8)', borderColor: u.banned ? 'rgba(253,111,133,0.3)' : 'rgba(166,140,255,0.3)' }]}>
-                        <Text style={[styles.avatarText, { color: u.banned ? C.error : C.primary }]}>{initials(u)}</Text>
+                      <View style={[styles.avatar, { backgroundColor: u.banned ? 'rgba(251,84,84,0.15)' : '#313D4A', borderColor: u.banned ? 'rgba(251,84,84,0.3)' : C.border }]}>
+                        <Text style={[styles.avatarText, { color: u.banned ? C.error : C.onSurface }]}>{initials(u)}</Text>
                       </View>
                       <View style={{ flex: 1, minWidth: 0 }}>
                         <Text style={styles.tdName} numberOfLines={1}>{u.username || 'Unknown'}</Text>
@@ -551,14 +551,14 @@ export default function AdminUsers() {
                     </View>
                     <Text style={styles.tdBal} numberOfLines={1}>ETB {balanceEtb(u.available_balance)}</Text>
                     <View style={styles.tdStatus}>
-                      <Text style={[styles.statusPill, { color: u.banned ? C.error : C.secondary, backgroundColor: u.banned ? 'rgba(138,22,50,0.15)' : 'rgba(0,42,48,0.5)', borderColor: u.banned ? 'rgba(253,111,133,0.2)' : 'rgba(0,218,243,0.2)' }]}>
+                      <Text style={[styles.statusPill, { color: u.banned ? C.error : C.secondary, backgroundColor: u.banned ? 'rgba(251,84,84,0.1)' : 'rgba(16,185,129,0.1)', borderColor: u.banned ? 'rgba(251,84,84,0.2)' : 'rgba(16,185,129,0.2)' }]}>
                         {u.banned ? 'Suspended' : 'Active'}
                       </Text>
                     </View>
                     <Text style={styles.tdTime} numberOfLines={1}>{u.created_at ? timeSince(u.created_at) : '—'}</Text>
                     <View style={styles.tdActions}>
                       <TouchableOpacity style={styles.viewBtn} onPress={() => router.push(`/admin/user-detail?id=${u.id}` as any)}>
-                        <Ionicons name="chevron-forward" size={16} color="#7c4dff" />
+                        <Ionicons name="chevron-forward" size={16} color={C.onSurfaceVariant} />
                       </TouchableOpacity>
                     </View>
                   </>
@@ -934,31 +934,31 @@ const styles = StyleSheet.create({
   tableTitle: { color: '#fff', fontSize: 20, fontWeight: '700', letterSpacing: -0.5, fontFamily: 'Inter' },
   tableSub: { color: C.onSurfaceVariant, fontSize: 12, marginTop: 4, fontWeight: '500', fontFamily: 'Inter' },
   tableActions: { flexDirection: 'row', gap: 10, alignItems: 'center' },
-  selectWrap: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.surfaceContainerLowest, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: C.outlineVariant },
-  searchBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.surfaceContainerLowest, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: C.outlineVariant, width: 180 },
+  selectWrap: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.surfaceContainerLowest, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: C.outlineVariant },
+  searchBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.surfaceContainerLowest, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: C.outlineVariant, width: 180 },
   searchInput: { flex: 1, color: '#fff', fontSize: 13, fontWeight: '600', fontFamily: 'Inter' },
-  thead: { flexDirection: 'row', paddingHorizontal: 20, paddingVertical: 12, backgroundColor: 'transparent' },
+  thead: { flexDirection: 'row', paddingHorizontal: 20, paddingVertical: 12, backgroundColor: '#313D4A', borderRadius: 8, marginBottom: 8 },
   th: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', fontFamily: 'Inter' },
-  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: C.surface, borderRadius: 16, marginBottom: 8, borderWidth: 1, borderColor: C.outlineVariant, ...(Platform.OS === 'web' ? { boxShadow: '14px 17px 40px 4px rgba(112, 144, 176, 0.04)' } as any : {}) },
-  rowSelected: { backgroundColor: C.lightPrimary, borderColor: 'rgba(117, 81, 255, 0.3)' },
+  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: C.surface, borderRadius: 10, marginBottom: 8, borderWidth: 1, borderColor: C.outlineVariant },
+  rowSelected: { backgroundColor: 'rgba(60, 80, 224, 0.08)', borderColor: C.primary },
   tdId: { flex: 0.8, color: C.primary, fontSize: 11, fontFamily: 'monospace', fontWeight: '700' },
   tdUser: { flex: 1.8, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  avatar: { width: 34, height: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.outlineVariant, backgroundColor: C.surfaceContainerLow },
+  avatar: { width: 34, height: 34, borderRadius: 8, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.border, backgroundColor: '#313D4A' },
   avatarText: { fontSize: 12, fontWeight: '700' },
   tdName: { color: '#fff', fontSize: 13, fontWeight: '700', letterSpacing: -0.2, fontFamily: 'Inter' },
   tdPhone: { color: C.onSurfaceVariant, fontSize: 9, fontFamily: 'Inter' },
   tdBal: { flex: 0.9, color: C.secondary, fontSize: 11, fontWeight: '700' },
   tdStatus: { flex: 0.8 },
-  statusPill: { fontSize: 8, fontWeight: '700', textTransform: 'uppercase', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, borderWidth: 1, textAlign: 'center', fontFamily: 'Inter' },
+  statusPill: { fontSize: 8, fontWeight: '700', textTransform: 'uppercase', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, borderWidth: 1, textAlign: 'center', fontFamily: 'Inter' },
   tdTime: { flex: 0.9, color: C.onSurfaceVariant, fontSize: 10, fontFamily: 'Inter' },
   tdActions: { flex: 0.4, alignItems: 'flex-end' },
   viewBtn: { padding: 4 },
   emptyText: { color: C.onSurfaceVariant, textAlign: 'center', padding: 30, fontFamily: 'Inter' },
   panel: { width: '100%', maxWidth: 380 },
-  profileCard: { padding: 16, borderRadius: 20, borderWidth: 1, borderColor: C.outlineVariant, backgroundColor: C.surface },
+  profileCard: { padding: 16, borderRadius: 10, borderWidth: 1, borderColor: C.outlineVariant, backgroundColor: C.surface },
   profileHeader: { flexDirection: 'row', gap: 12, marginBottom: 16 },
   profileAvatarWrap: { position: 'relative' },
-  profileAvatar: { width: 48, height: 48, borderRadius: 12, backgroundColor: C.surfaceContainerLow, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: C.outlineVariant },
+  profileAvatar: { width: 48, height: 48, borderRadius: 10, backgroundColor: '#313D4A', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.border },
   profileAvatarText: { color: C.primary, fontSize: 16, fontWeight: '700' },
   onlineIndicator: { position: 'absolute', bottom: -2, right: -2, width: 10, height: 10, borderRadius: 5, borderWidth: 2, borderColor: C.background },
   profileName: { color: '#fff', fontSize: 16, fontWeight: '700', fontFamily: 'Inter' },
@@ -969,14 +969,14 @@ const styles = StyleSheet.create({
   badgeRow: { flexDirection: 'row', gap: 6, marginTop: 6 },
   roleBadge: { fontSize: 8, fontWeight: '700', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, borderWidth: 1, fontFamily: 'Inter' },
   miniStats: { flexDirection: 'row', gap: 8, marginTop: 12 },
-  miniStatItem: { flex: 1, backgroundColor: C.surfaceContainerLowest, padding: 10, borderRadius: 10 },
+  miniStatItem: { flex: 1, backgroundColor: C.surfaceContainerLowest, padding: 10, borderRadius: 8 },
   miniStatLabel: { color: C.onSurfaceVariant, fontSize: 8, fontWeight: '700', textTransform: 'uppercase', fontFamily: 'Inter' },
   miniStatVal: { color: '#fff', fontSize: 14, fontWeight: '700', marginTop: 2, fontFamily: 'Inter' },
-  actionCard: { padding: 14, borderRadius: 20, gap: 10, borderWidth: 1, borderColor: C.outlineVariant, backgroundColor: C.surface },
-  editBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 12, backgroundColor: C.lightPrimary, borderRadius: 12 },
+  actionCard: { padding: 14, borderRadius: 10, gap: 10, borderWidth: 1, borderColor: C.outlineVariant, backgroundColor: C.surface },
+  editBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 12, backgroundColor: C.lightPrimary, borderRadius: 8 },
   actionRow: { flexDirection: 'row', gap: 8 },
-  banBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, padding: 10, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(245,57,57,0.3)', backgroundColor: 'rgba(245,57,57,0.04)' },
-  deleteBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, padding: 10, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(245,57,57,0.3)', backgroundColor: 'rgba(245,57,57,0.04)' },
+  banBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, padding: 10, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(251,84,84,0.3)', backgroundColor: 'rgba(251,84,84,0.08)' },
+  deleteBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, padding: 10, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(251,84,84,0.3)', backgroundColor: 'rgba(251,84,84,0.08)' },
   actionBtnText: { fontSize: 12, fontWeight: '700', fontFamily: 'Inter' },
   emptyPanel: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
   emptyPanelText: { color: C.onSurfaceVariant, fontSize: 13, fontFamily: 'Inter' },
@@ -992,19 +992,19 @@ const styles = StyleSheet.create({
     maxWidth: 800,
     maxHeight: '90%',
     backgroundColor: C.surface,
-    borderRadius: 20,
+    borderRadius: 10,
     padding: 24,
     borderWidth: 1,
     borderColor: C.border,
   },
-  userModalBox: { width: '100%', maxWidth: 480, padding: 28, borderRadius: 20, borderWidth: 1, borderColor: C.border, backgroundColor: C.surface, maxHeight: '90%' },
+  userModalBox: { width: '100%', maxWidth: 480, padding: 28, borderRadius: 10, borderWidth: 1, borderColor: C.border, backgroundColor: C.surface, maxHeight: '90%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   modalTitle: { color: '#ffffff', fontSize: 18, fontWeight: '700', fontFamily: 'Inter' },
-  inputField: { backgroundColor: C.surfaceContainerLowest, color: '#ffffff', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: C.border, fontSize: 13, fontFamily: 'Inter' },
-  saveBtn: { backgroundColor: C.primary, padding: 14, borderRadius: 12, alignItems: 'center', marginTop: 12 },
+  inputField: { backgroundColor: C.surfaceContainerLowest, color: '#ffffff', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: C.border, fontSize: 13, fontFamily: 'Inter' },
+  saveBtn: { backgroundColor: C.primary, padding: 14, borderRadius: 8, alignItems: 'center', marginTop: 12 },
   saveBtnText: { color: '#ffffff', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, fontFamily: 'Inter' },
   formLabel: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '700', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1, fontFamily: 'Inter' },
-  sectionCard: { padding: 12, borderRadius: 14, backgroundColor: C.surfaceContainerLowest },
+  sectionCard: { padding: 12, borderRadius: 8, backgroundColor: C.surfaceContainerLowest },
   sectionTitle: { color: C.onSurfaceVariant, fontSize: 9, fontWeight: '700', textTransform: 'uppercase', marginBottom: 10, letterSpacing: 0.5, fontFamily: 'Inter' },
   prizeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   prizeItem: { flex: 1, minWidth: '45%', backgroundColor: C.surfaceContainerLow, padding: 8, borderRadius: 8, borderWidth: 1, borderColor: C.border },
@@ -1018,7 +1018,7 @@ const styles = StyleSheet.create({
   rolePickerRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   pickerLabel: { color: C.onSurfaceVariant, fontSize: 12, fontWeight: '600', fontFamily: 'Inter' },
   roleBtn: { flex: 1, padding: 8, borderRadius: 8, borderWidth: 1, borderColor: C.border, alignItems: 'center' },
-  roleBtnActive: { backgroundColor: '#7c3aed', borderColor: '#7c3aed' },
+  roleBtnActive: { backgroundColor: C.primary, borderColor: C.primary },
   roleBtnText: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '700', fontFamily: 'Inter' },
   paginationRow: { 
     flexDirection: 'row', 
@@ -1026,7 +1026,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', 
     padding: 20, 
     marginTop: 8,
-    borderRadius: 16,
+    borderRadius: 10,
     borderWidth: 1, 
     borderColor: C.border,
     backgroundColor: C.surface
@@ -1036,12 +1036,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row', 
     alignItems: 'center', 
     gap: 4, 
-    backgroundColor: C.lightPrimary, 
+    backgroundColor: C.surfaceContainerHighest, 
     paddingHorizontal: 12, 
     paddingVertical: 6, 
-    borderRadius: 12,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(124,58,237,0.3)'
+    borderColor: C.border
   },
   pageBtnText: { color: '#ffffff', fontSize: 12, fontWeight: '700', fontFamily: 'Inter' },
 });
