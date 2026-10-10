@@ -72,7 +72,6 @@ export default function SpinWheel({
   speakingUserIds = [],
 }: SpinWheelProps) {
   const rotation = useRef(new Animated.Value(0)).current;
-  const idleLoopAnim = useRef(new Animated.Value(0)).current;
   const [hasSpun, setHasSpun] = useState(false);
 
   const cx = size / 2;
@@ -98,29 +97,6 @@ export default function SpinWheel({
       return { idx, startAngle, angle, endAngle };
     });
   }, [playerCount, hasStakes, totalStake, players, angleStep]);
-
-  // Infinite slow looping rotation animation for home page preview / idle state
-  useEffect(() => {
-    let loop: Animated.CompositeAnimation | null = null;
-    if (!isSpinning && status !== "spinning" && status !== "locked" && status !== "resolved") {
-      idleLoopAnim.setValue(0);
-      loop = Animated.loop(
-        Animated.timing(idleLoopAnim, {
-          toValue: 360,
-          duration: 18000, // smooth 18-second continuous loop
-          easing: Easing.linear,
-          useNativeDriver: Platform.OS !== "web",
-        })
-      );
-      loop.start();
-    } else {
-      idleLoopAnim.setValue(0);
-    }
-
-    return () => {
-      loop?.stop();
-    };
-  }, [isSpinning, status, idleLoopAnim]);
 
   // Trigger spin animation — ONLY when server has declared a confirmed winner
   useEffect(() => {
@@ -173,9 +149,10 @@ export default function SpinWheel({
     }
   }, [isSpinning, winningSlice, winnerId, status, players, hasStakes, totalStake, angleStep, is5Player, spinDuration, onSpinComplete]);
 
-  const activeRotateStyle = (isSpinning || status === "spinning" || status === "locked" || status === "resolved")
-    ? rotation.interpolate({ inputRange: [0, 360], outputRange: ["0deg", "360deg"] })
-    : idleLoopAnim.interpolate({ inputRange: [0, 360], outputRange: ["0deg", "360deg"] });
+  const activeRotateStyle = rotation.interpolate({
+    inputRange: [0, 360],
+    outputRange: ["0deg", "360deg"],
+  });
 
   // Collapsed/hidden layouts can briefly report a negative size (window tab-switch
   // on web reports width ≈ 1). Rendering the SVG with a negative size spams
@@ -289,9 +266,27 @@ export default function SpinWheel({
             })}
           </G>
 
-          {/* Center 3D Gold Hub with XO ETHIOPIA logo (Image 2) */}
-          <Circle cx={cx} cy={cy} r={r * 0.25} fill="url(#goldGrad)" stroke="#78350f" strokeWidth={2} />
-          <Circle cx={cx} cy={cy} r={r * 0.21} fill="url(#centerHubGrad)" stroke="#b45309" strokeWidth={1.5} />
+        </Svg>
+      </Animated.View>
+
+      {/* Center 3D Gold Hub with XO ETHIOPIA logo (Always Upright - never inverted) */}
+      <View style={[StyleSheet.absoluteFillObject, { pointerEvents: "none", zIndex: 6 }]} pointerEvents="none">
+        <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+          <Defs>
+            <RadialGradient id="staticCenterHubGrad" cx="50%" cy="50%" r="50%" fx="30%" fy="30%">
+              <Stop offset="0%" stopColor="#ffffff" />
+              <Stop offset="35%" stopColor="#fde047" />
+              <Stop offset="75%" stopColor="#ca8a04" />
+              <Stop offset="100%" stopColor="#854d0e" />
+            </RadialGradient>
+            <LinearGradient id="staticGoldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <Stop offset="0%" stopColor="#fde047" />
+              <Stop offset="50%" stopColor="#ca8a04" />
+              <Stop offset="100%" stopColor="#854d0e" />
+            </LinearGradient>
+          </Defs>
+          <Circle cx={cx} cy={cy} r={r * 0.25} fill="url(#staticGoldGrad)" stroke="#78350f" strokeWidth={2} />
+          <Circle cx={cx} cy={cy} r={r * 0.21} fill="url(#staticCenterHubGrad)" stroke="#b45309" strokeWidth={1.5} />
           <SvgText
             x={cx}
             y={cy - 2}
@@ -317,9 +312,9 @@ export default function SpinWheel({
             ETHIOPIA
           </SvgText>
         </Svg>
-      </Animated.View>
+      </View>
 
-      {/* Red Pointer with Inner White Triangle pointing down at top (Target Design Image 2) */}
+      {/* Red Pointer with Inner White Triangle pointing down at top rim */}
       <View style={[StyleSheet.absoluteFillObject, { pointerEvents: "none", zIndex: 10 }]} pointerEvents="none">
         <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
           <Defs>
@@ -336,19 +331,19 @@ export default function SpinWheel({
           <G>
             {/* Outer Drop Shadow */}
             <Path
-              d={`M ${cx - size * 0.07} ${cy - r * 1.25} L ${cx + size * 0.07} ${cy - r * 1.25} L ${cx} ${cy - r * 0.94} Z`}
-              fill="rgba(0,0,0,0.6)"
+              d={`M ${cx - size * 0.055} ${cy - r * 1.15} L ${cx + size * 0.055} ${cy - r * 1.15} L ${cx} ${cy - r * 0.88} Z`}
+              fill="rgba(0,0,0,0.4)"
             />
             {/* Main Outer Red Triangle Pointer */}
             <Path
-              d={`M ${cx - size * 0.065} ${cy - r * 1.26} L ${cx + size * 0.065} ${cy - r * 1.26} L ${cx} ${cy - r * 0.96} Z`}
+              d={`M ${cx - size * 0.05} ${cy - r * 1.16} L ${cx + size * 0.05} ${cy - r * 1.16} L ${cx} ${cy - r * 0.90} Z`}
               fill="url(#redPointerGrad)"
               stroke="url(#pointerGoldBorder)"
-              strokeWidth={2}
+              strokeWidth={1.5}
             />
             {/* Inner White Triangle */}
             <Path
-              d={`M ${cx - size * 0.03} ${cy - r * 1.23} L ${cx + size * 0.03} ${cy - r * 1.23} L ${cx} ${cy - r * 1.05} Z`}
+              d={`M ${cx - size * 0.024} ${cy - r * 1.14} L ${cx + size * 0.024} ${cy - r * 1.14} L ${cx} ${cy - r * 0.98} Z`}
               fill="#ffffff"
             />
           </G>

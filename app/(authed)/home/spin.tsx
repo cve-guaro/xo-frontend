@@ -58,73 +58,7 @@ function CrownIcon({ size = 36 }: { size?: number }) {
   );
 }
 
-// ── Celebration Confetti Rain Animation (Top to Bottom) ────────────────────
-function CelebrationConfetti() {
-  const { width: screenW, height: screenH } = useWindowDimensions();
-  const particles = useMemo(() => {
-    const colors = ["#f5b642", "#22d3ee", "#a855f7", "#22c55e", "#ef4444", "#ec4899", "#ffffff", "#fde047"];
-    return Array.from({ length: 45 }).map((_, i) => ({
-      id: i,
-      x: Math.random() * screenW,
-      size: Math.random() * 10 + 6,
-      color: colors[i % colors.length],
-      duration: Math.random() * 2400 + 1600,
-      delay: Math.random() * 1200,
-      anim: new Animated.Value(0),
-    }));
-  }, [screenW]);
 
-  useEffect(() => {
-    particles.forEach(p => {
-      Animated.loop(
-        Animated.sequence([
-          Animated.delay(p.delay),
-          Animated.timing(p.anim, {
-            toValue: 1,
-            duration: p.duration,
-            easing: Easing.linear,
-            useNativeDriver: Platform.OS !== "web",
-          }),
-        ])
-      ).start();
-    });
-  }, [particles]);
-
-  return (
-    <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
-      {particles.map(p => {
-        const translateY = p.anim.interpolate({
-          inputRange: [0, 1],
-          outputRange: [-60, screenH + 60],
-        });
-        const rotate = p.anim.interpolate({
-          inputRange: [0, 1],
-          outputRange: ["0deg", "720deg"],
-        });
-        const opacity = p.anim.interpolate({
-          inputRange: [0, 0.85, 1],
-          outputRange: [1, 1, 0],
-        });
-
-        return (
-          <Animated.View
-            key={p.id}
-            style={{
-              position: "absolute",
-              left: p.x,
-              width: p.size,
-              height: p.size * 1.5,
-              backgroundColor: p.color,
-              borderRadius: p.size > 10 ? p.size / 2 : 2,
-              transform: [{ translateY }, { rotate }],
-              opacity,
-            }}
-          />
-        );
-      })}
-    </View>
-  );
-}
 
 // ── Animated Voice Equalizer Wave ─────────────────────────────────────────
 function SpeakingWaveAnimation() {
@@ -1674,12 +1608,7 @@ export default function SpinGameScreen() {
                 paddingHorizontal: 20,
                 paddingVertical: 8,
                 borderWidth: 1,
-                borderColor: "#1e3a8a",
-                shadowColor: "#1d4ed8",
-                shadowOffset: { width: 0, height: 0 },
-                shadowOpacity: 0.5,
-                shadowRadius: 8,
-                elevation: 6,
+                borderColor: "rgba(30, 58, 138, 0.8)",
               }}>
                 <Ionicons name="time-outline" size={18} color="#facc15" />
                 <Text style={{ color: "#facc15", fontSize: 16, fontWeight: "800", fontFamily: "Inter, sans-serif" }}>
@@ -1727,6 +1656,7 @@ export default function SpinGameScreen() {
           </View>
 
           {/* Prize Pool Header Card (Exact Image 2 Style: Coin Stack, Flanking Magenta Rays, Glowing Bottom Accent) */}
+          {/* Prize Pool Header Card (Exact Image 2 Style: Coin Stack, Flanking Clean SVG Rays, Glowing Bottom Accent) */}
           <View style={{
             alignItems: "center",
             justifyContent: "center",
@@ -1748,24 +1678,24 @@ export default function SpinGameScreen() {
             </View>
 
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 14 }}>
-              {/* Left Magenta Rays */}
-              <View style={{ flexDirection: "column", gap: 3, alignItems: "center" }}>
-                <View style={{ width: 14, height: 3, backgroundColor: "#e879f9", borderRadius: 2, transform: [{ rotate: "-25deg" }, { translateX: -3 }] }} />
-                <View style={{ width: 18, height: 3, backgroundColor: "#d946ef", borderRadius: 2, transform: [{ rotate: "0deg" }, { translateX: -6 }] }} />
-                <View style={{ width: 14, height: 3, backgroundColor: "#c026d3", borderRadius: 2, transform: [{ rotate: "25deg" }, { translateX: -3 }] }} />
-              </View>
+              {/* Left Clean Burst Rays (SVG) */}
+              <Svg width={22} height={20} viewBox="0 0 22 20">
+                <Path d="M 2 3 L 18 7" stroke="#e879f9" strokeWidth={2.5} strokeLinecap="round" />
+                <Path d="M 0 10 L 20 10" stroke="#d946ef" strokeWidth={3} strokeLinecap="round" />
+                <Path d="M 2 17 L 18 13" stroke="#c026d3" strokeWidth={2.5} strokeLinecap="round" />
+              </Svg>
 
               {/* Amount */}
               <Text style={{ color: "#fbbf24", fontSize: 34, fontWeight: "900", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" }}>
                 {previewPot.toLocaleString()} ETB
               </Text>
 
-              {/* Right Magenta Rays */}
-              <View style={{ flexDirection: "column", gap: 3, alignItems: "center" }}>
-                <View style={{ width: 14, height: 3, backgroundColor: "#e879f9", borderRadius: 2, transform: [{ rotate: "25deg" }, { translateX: 3 }] }} />
-                <View style={{ width: 18, height: 3, backgroundColor: "#d946ef", borderRadius: 2, transform: [{ rotate: "0deg" }, { translateX: 6 }] }} />
-                <View style={{ width: 14, height: 3, backgroundColor: "#c026d3", borderRadius: 2, transform: [{ rotate: "-25deg" }, { translateX: 3 }] }} />
-              </View>
+              {/* Right Clean Burst Rays (SVG) */}
+              <Svg width={22} height={20} viewBox="0 0 22 20">
+                <Path d="M 4 7 L 20 3" stroke="#e879f9" strokeWidth={2.5} strokeLinecap="round" />
+                <Path d="M 2 10 L 22 10" stroke="#d946ef" strokeWidth={3} strokeLinecap="round" />
+                <Path d="M 4 13 L 20 17" stroke="#c026d3" strokeWidth={2.5} strokeLinecap="round" />
+              </Svg>
             </View>
 
             {/* Glowing magenta bottom bar */}
@@ -1775,17 +1705,13 @@ export default function SpinGameScreen() {
               backgroundColor: "#d946ef",
               borderRadius: 2,
               marginTop: 4,
-              shadowColor: "#d946ef",
-              shadowOpacity: 0.9,
-              shadowRadius: 8,
-              elevation: 4,
             }} />
           </View>
 
           {/* Center Spin Wheel */}
-          <View style={{ flex: 1, alignItems: "center", justifyContent: "center", marginVertical: 6, position: "relative" }}>
+          <View style={{ flex: 1, alignItems: "center", justifyContent: "center", marginVertical: 12, position: "relative" }}>
             <SpinWheel
-              size={Math.max(140, Math.min(screenW - 48, 330))}
+              size={Math.max(150, Math.min(screenW - 64, 280))}
               players={round ? round.players : previewPlayers}
               isSpinning={screenState === "spinning"}
               winningSlice={winningSlice}
@@ -1801,120 +1727,174 @@ export default function SpinGameScreen() {
             {(preSpinCountdown !== null || round?.status === "locked") && (
               <View style={{
                 position: "absolute",
-                width: Math.min(screenW - 48, 330),
-                height: Math.min(screenW - 48, 330),
-                borderRadius: Math.min(screenW - 48, 330) / 2,
+                width: Math.max(150, Math.min(screenW - 64, 280)),
+                height: Math.max(150, Math.min(screenW - 64, 280)),
+                borderRadius: Math.max(150, Math.min(screenW - 64, 280)) / 2,
                 backgroundColor: "rgba(6, 8, 20, 0.78)",
                 alignItems: "center",
                 justifyContent: "center",
                 zIndex: 25,
               }}>
-                <Text style={{ color: "#f5b642", fontSize: 72, fontWeight: "900", textShadowColor: "#000", textShadowRadius: 14 }}>
+                <Text style={{ color: "#f5b642", fontSize: 64, fontWeight: "900" }}>
                   {preSpinCountdown !== null ? preSpinCountdown : 3}
                 </Text>
-                <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "900", letterSpacing: 2, marginTop: 4 }}>
+                <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "900", letterSpacing: 2, marginTop: 4 }}>
                   GET READY!
                 </Text>
               </View>
             )}
           </View>
 
-          {/* Bottom Controls Area (Matching Image 2: Stepper, Full-width Pink ADD BET, Info, Drawer Trigger) */}
+          {/* Bottom Controls Area */}
           <View style={{ width: "100%", alignItems: "center", paddingBottom: 6 }}>
-            {/* Stepper Capsule */}
-            <View style={{
-              backgroundColor: "rgba(13, 20, 38, 0.85)",
-              borderRadius: 28,
-              borderWidth: 1,
-              borderColor: "rgba(255, 255, 255, 0.12)",
-              height: 52,
-              paddingHorizontal: 8,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-              width: "100%",
-            }}>
-              <TouchableOpacity
-                onPress={() => {
-                  if (round) setAddAmount(prev => Math.max(10, prev - 10));
-                  else setBetAmount(prev => Math.max(10, prev - 10));
-                }}
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 19,
-                  backgroundColor: "rgba(255, 255, 255, 0.08)",
+            {is5Player ? (
+              /* ── 5-PLAYER MODE CONTROLS: Fixed entry, no steppers or bet increment ── */
+              round && round.players.some(p => String(p.userId) === String(user?.id)) ? (
+                /* Already in 5-player round: Show waiting status card */
+                <View style={{
+                  width: "100%",
+                  backgroundColor: "rgba(13, 20, 38, 0.85)",
+                  borderRadius: 20,
+                  borderWidth: 1,
+                  borderColor: "rgba(99, 102, 241, 0.25)",
+                  paddingVertical: 14,
+                  paddingHorizontal: 16,
                   alignItems: "center",
                   justifyContent: "center",
-                }}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="remove" size={20} color="#ffffff" />
-              </TouchableOpacity>
-
-              <Text style={{ color: "#ffffff", fontSize: 17, fontWeight: "800", fontFamily: "Inter, sans-serif" }}>
-                +{round ? addAmount : betAmount} ETB
-              </Text>
-
-              <TouchableOpacity
-                onPress={() => {
-                  if (round) setAddAmount(prev => Math.min(10000, prev + 10));
-                  else setBetAmount(prev => Math.min(10000, prev + 10));
-                }}
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 19,
-                  backgroundColor: "rgba(255, 255, 255, 0.08)",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="add" size={20} color="#ffffff" />
-              </TouchableOpacity>
-            </View>
-
-            {/* ADD BET Full-width Pink Button */}
-            <TouchableOpacity
-              disabled={joinLoading || addLoading || isSpinning}
-              onPress={() => {
-                if (round) handleAddStake(addAmount);
-                else handleJoinRoom(is5Player ? "5_PLAYER" : "RAIL", betAmount);
-              }}
-              style={{
-                backgroundColor: "#f43f5e",
-                borderRadius: 28,
-                height: 54,
-                width: "100%",
-                alignItems: "center",
-                justifyContent: "center",
-                marginTop: 12,
-                shadowColor: "#f43f5e",
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.45,
-                shadowRadius: 12,
-                elevation: 8,
-                opacity: joinLoading || addLoading || isSpinning ? 0.7 : 1,
-              }}
-              activeOpacity={0.85}
-            >
-              {joinLoading || addLoading ? (
-                <ActivityIndicator size="small" color="#ffffff" />
+                }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#22c55e" }} />
+                    <Text style={{ color: "#ffffff", fontSize: 15, fontWeight: "800", fontFamily: "Inter, sans-serif" }}>
+                      Waiting for Players ({round.players.length}/5)
+                    </Text>
+                  </View>
+                  <Text style={{ color: "#94a3b8", fontSize: 12, fontWeight: "600" }}>
+                    Fixed 100 ETB entry • Round spins automatically when full
+                  </Text>
+                </View>
               ) : (
-                <Text style={{ color: "#ffffff", fontSize: 16, fontWeight: "900", letterSpacing: 1, fontFamily: "Inter, sans-serif" }}>
-                  ADD BET
-                </Text>
-              )}
-            </TouchableOpacity>
+                /* Not in round yet: Show single clean JOIN GAME button */
+                <TouchableOpacity
+                  disabled={Boolean(joinLoading || isSpinning || (round && round.players.length >= 5))}
+                  onPress={() => handleJoinRoom("5_PLAYER", 100)}
+                  style={{
+                    backgroundColor: "#f43f5e",
+                    borderRadius: 28,
+                    height: 52,
+                    width: "100%",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderWidth: 1,
+                    borderColor: "rgba(255, 255, 255, 0.15)",
+                    opacity: Boolean(joinLoading || isSpinning || (round && round.players.length >= 5)) ? 0.7 : 1,
+                  }}
+                  activeOpacity={0.85}
+                >
+                  {joinLoading ? (
+                    <ActivityIndicator size="small" color="#ffffff" />
+                  ) : (
+                    <Text style={{ color: "#ffffff", fontSize: 16, fontWeight: "900", letterSpacing: 1, fontFamily: "Inter, sans-serif" }}>
+                      JOIN GAME (100 ETB)
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              )
+            ) : (
+              /* ── RAIL MODE CONTROLS: Dynamic progressive pot with stepper ── */
+              <>
+                {/* Stepper Capsule */}
+                <View style={{
+                  backgroundColor: "rgba(13, 20, 38, 0.85)",
+                  borderRadius: 28,
+                  borderWidth: 1,
+                  borderColor: "rgba(255, 255, 255, 0.12)",
+                  height: 52,
+                  paddingHorizontal: 8,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  width: "100%",
+                }}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (round) setAddAmount(prev => Math.max(10, prev - 10));
+                      else setBetAmount(prev => Math.max(10, prev - 10));
+                    }}
+                    style={{
+                      width: 38,
+                      height: 38,
+                      borderRadius: 19,
+                      backgroundColor: "rgba(255, 255, 255, 0.08)",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="remove" size={20} color="#ffffff" />
+                  </TouchableOpacity>
 
-            {/* Helper Info Text */}
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 10 }}>
-              <Ionicons name="information-circle-outline" size={15} color="#64748b" />
-              <Text style={{ color: "#64748b", fontSize: 12, fontWeight: "600" }}>
-                Higher bet = higher chance to win
-              </Text>
-            </View>
+                  <Text style={{ color: "#ffffff", fontSize: 17, fontWeight: "800", fontFamily: "Inter, sans-serif" }}>
+                    +{round ? addAmount : betAmount} ETB
+                  </Text>
+
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (round) setAddAmount(prev => Math.min(10000, prev + 10));
+                      else setBetAmount(prev => Math.min(10000, prev + 10));
+                    }}
+                    style={{
+                      width: 38,
+                      height: 38,
+                      borderRadius: 19,
+                      backgroundColor: "rgba(255, 255, 255, 0.08)",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="add" size={20} color="#ffffff" />
+                  </TouchableOpacity>
+                </View>
+
+                {/* ADD BET Full-width Pink Button */}
+                <TouchableOpacity
+                  disabled={joinLoading || addLoading || isSpinning}
+                  onPress={() => {
+                    if (round) handleAddStake(addAmount);
+                    else handleJoinRoom("RAIL", betAmount);
+                  }}
+                  style={{
+                    backgroundColor: "#f43f5e",
+                    borderRadius: 28,
+                    height: 54,
+                    width: "100%",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginTop: 12,
+                    borderWidth: 1,
+                    borderColor: "rgba(255, 255, 255, 0.15)",
+                    opacity: joinLoading || addLoading || isSpinning ? 0.7 : 1,
+                  }}
+                  activeOpacity={0.85}
+                >
+                  {joinLoading || addLoading ? (
+                    <ActivityIndicator size="small" color="#ffffff" />
+                  ) : (
+                    <Text style={{ color: "#ffffff", fontSize: 16, fontWeight: "900", letterSpacing: 1, fontFamily: "Inter, sans-serif" }}>
+                      ADD BET
+                    </Text>
+                  )}
+                </TouchableOpacity>
+
+                {/* Helper Info Text */}
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 10 }}>
+                  <Ionicons name="information-circle-outline" size={15} color="#64748b" />
+                  <Text style={{ color: "#64748b", fontSize: 12, fontWeight: "600" }}>
+                    Higher bet = higher chance to win
+                  </Text>
+                </View>
+              </>
+            )}
 
             {/* View All Players Capsule Drawer Trigger */}
             <TouchableOpacity
@@ -1931,7 +1911,7 @@ export default function SpinGameScreen() {
                 justifyContent: "center",
                 gap: 8,
                 width: "100%",
-                marginTop: 18,
+                marginTop: 16,
               }}
               activeOpacity={0.8}
             >
@@ -1966,8 +1946,6 @@ export default function SpinGameScreen() {
          ════════════════════════════════════════════════════════════════ */}
       {screenState === "result" && resultData && (
         <View style={ds.overlayBackdrop}>
-          {isMyWin && <CelebrationConfetti />}
-
           <View style={{
             backgroundColor: "#0d1326",
             borderWidth: 1,
@@ -1977,11 +1955,6 @@ export default function SpinGameScreen() {
             alignItems: "center",
             width: "90%",
             maxWidth: 360,
-            shadowColor: isMyWin ? "#f59e0b" : "#7c3aed",
-            shadowOffset: { width: 0, height: 8 },
-            shadowOpacity: 0.6,
-            shadowRadius: 24,
-            elevation: 20,
           }}>
             {isMyWin ? (
               /* ── YOU WON! (Image 4 Left) ── */
@@ -1996,7 +1969,7 @@ export default function SpinGameScreen() {
                   </View>
                   <LinearGradient
                     colors={["#facc15", "#f59e0b", "#d97706"]}
-                    style={{ width: 72, height: 72, borderRadius: 20, alignItems: "center", justifyContent: "center", shadowColor: "#facc15", shadowOpacity: 0.6, shadowRadius: 16 }}
+                    style={{ width: 72, height: 72, borderRadius: 20, alignItems: "center", justifyContent: "center" }}
                   >
                     <CrownIcon size={38} />
                   </LinearGradient>
@@ -2052,11 +2025,8 @@ export default function SpinGameScreen() {
                     width: "100%",
                     alignItems: "center",
                     justifyContent: "center",
-                    shadowColor: "#f43f5e",
-                    shadowOffset: { width: 0, height: 4 },
-                    shadowOpacity: 0.4,
-                    shadowRadius: 10,
-                    elevation: 6,
+                    borderWidth: 1,
+                    borderColor: "rgba(255, 255, 255, 0.15)",
                   }}
                   activeOpacity={0.85}
                 >
@@ -2075,7 +2045,7 @@ export default function SpinGameScreen() {
                     <View style={{ position: "absolute", width: 10, height: 3, backgroundColor: "#c084fc", borderRadius: 2, top: 4, right: 16, transform: [{ rotate: "35deg" }] }} />
                     <View style={{ position: "absolute", width: 8, height: 3, backgroundColor: "#f472b6", borderRadius: 2, top: 18, right: 2, transform: [{ rotate: "45deg" }] }} />
                   </View>
-                  <View style={{ width: 68, height: 68, borderRadius: 34, backgroundColor: "#7c3aed", alignItems: "center", justifyContent: "center", shadowColor: "#7c3aed", shadowOpacity: 0.6, shadowRadius: 16 }}>
+                  <View style={{ width: 68, height: 68, borderRadius: 34, backgroundColor: "#7c3aed", alignItems: "center", justifyContent: "center" }}>
                     <Ionicons name="person" size={34} color="#ffffff" />
                   </View>
                 </View>
@@ -2136,11 +2106,8 @@ export default function SpinGameScreen() {
                     alignItems: "center",
                     justifyContent: "center",
                     marginTop: 18,
-                    shadowColor: "#7c3aed",
-                    shadowOffset: { width: 0, height: 4 },
-                    shadowOpacity: 0.4,
-                    shadowRadius: 10,
-                    elevation: 6,
+                    borderWidth: 1,
+                    borderColor: "rgba(255, 255, 255, 0.15)",
                   }}
                   activeOpacity={0.85}
                 >
