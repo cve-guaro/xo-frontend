@@ -4,10 +4,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../../context/authContext';
 import { API_URL } from '../../../config';
-import { AdminTheme as C } from './_layout';
+import { useAdminTheme } from './_layout';
 import Svg, { Path } from 'react-native-svg';
 
-function Sparkline({ data, width = 80, height = 30, color = '#3C50E0' }: { data: number[]; width?: number; height?: number; color?: string }) {
+function Sparkline({ data, width = 80, height = 30, color = '#FF2D55' }: { data: number[]; width?: number; height?: number; color?: string }) {
   if (!data || data.length < 2) return null;
   const max = Math.max(...data);
   const min = Math.min(...data);
@@ -72,7 +72,7 @@ function ACount({ value, prefix = '', suffix = '', style }: { value: number; pre
   return <Text style={style}>{prefix}{dv.toLocaleString()}{suffix}</Text>;
 }
 
-function AdminSkeleton({ isMobile }: { isMobile: boolean }) {
+function AdminSkeleton({ isMobile, C, isDark, st }: { isMobile: boolean; C: any; isDark: boolean; st: any }) {
   const pulseAnim = useRef(new Animated.Value(0.3)).current;
 
   useEffect(() => {
@@ -97,18 +97,21 @@ function AdminSkeleton({ isMobile }: { isMobile: boolean }) {
   }, [pulseAnim]);
 
   const styleWithPulse = (baseStyle: any) => [baseStyle, { opacity: pulseAnim }];
+  const skelBg1 = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+  const skelBg2 = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)';
+  const skelBg3 = isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)';
 
   return (
     <ScrollView style={st.container} showsVerticalScrollIndicator={false}>
       {/* Header Skeleton */}
       <View style={[st.header, isMobile && { flexDirection: 'column', gap: 12 }]}>
         <View style={{ gap: 6 }}>
-          <Animated.View style={styleWithPulse({ width: 180, height: 28, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 4 })} />
-          <Animated.View style={styleWithPulse({ width: 140, height: 14, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 4 })} />
+          <Animated.View style={styleWithPulse({ width: 180, height: 28, backgroundColor: skelBg1, borderRadius: 4 })} />
+          <Animated.View style={styleWithPulse({ width: 140, height: 14, backgroundColor: skelBg2, borderRadius: 4 })} />
         </View>
         <View style={{ flexDirection: 'row', gap: 10 }}>
-          <Animated.View style={styleWithPulse({ width: 120, height: 28, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 10 })} />
-          <Animated.View style={styleWithPulse({ width: 36, height: 36, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 10 })} />
+          <Animated.View style={styleWithPulse({ width: 120, height: 28, backgroundColor: skelBg2, borderRadius: 10 })} />
+          <Animated.View style={styleWithPulse({ width: 36, height: 36, backgroundColor: skelBg2, borderRadius: 10 })} />
         </View>
       </View>
 
@@ -116,8 +119,8 @@ function AdminSkeleton({ isMobile }: { isMobile: boolean }) {
       <View style={[st.topGrid, isMobile && { flexDirection: 'column' }]}>
         {[1, 2, 3, 4].map(i => (
           <View key={i} style={st.metricCard}>
-            <Animated.View style={styleWithPulse({ width: '60%', height: 10, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 2, marginBottom: 12 })} />
-            <Animated.View style={styleWithPulse({ width: '40%', height: 24, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 4 })} />
+            <Animated.View style={styleWithPulse({ width: '60%', height: 10, backgroundColor: skelBg2, borderRadius: 2, marginBottom: 12 })} />
+            <Animated.View style={styleWithPulse({ width: '40%', height: 24, backgroundColor: skelBg1, borderRadius: 4 })} />
           </View>
         ))}
       </View>
@@ -127,33 +130,33 @@ function AdminSkeleton({ isMobile }: { isMobile: boolean }) {
         <View style={[st.chartCard, { flex: 1.2, height: 320, justifyContent: 'space-between' }]}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
             <View style={{ gap: 6 }}>
-              <Animated.View style={styleWithPulse({ width: 160, height: 12, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 4 })} />
-              <Animated.View style={styleWithPulse({ width: 120, height: 8, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 2 })} />
+              <Animated.View style={styleWithPulse({ width: 160, height: 12, backgroundColor: skelBg1, borderRadius: 4 })} />
+              <Animated.View style={styleWithPulse({ width: 120, height: 8, backgroundColor: skelBg2, borderRadius: 2 })} />
             </View>
-            <Animated.View style={styleWithPulse({ width: 100, height: 24, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 10 })} />
+            <Animated.View style={styleWithPulse({ width: 100, height: 24, backgroundColor: skelBg2, borderRadius: 10 })} />
           </View>
-          <Animated.View style={styleWithPulse({ flex: 1, backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 12, marginTop: 16 })} />
+          <Animated.View style={styleWithPulse({ flex: 1, backgroundColor: skelBg3, borderRadius: 10, marginTop: 16 })} />
         </View>
         <View style={[st.chartCard, { flex: 0.8, height: 320, justifyContent: 'space-between' }]}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-            <View style={{ width: 120, height: 12, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 4 }} />
-            <View style={{ width: 60, height: 12, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 4 }} />
+            <View style={{ width: 120, height: 12, backgroundColor: skelBg1, borderRadius: 4 }} />
+            <View style={{ width: 60, height: 12, backgroundColor: skelBg2, borderRadius: 4 }} />
           </View>
-          <Animated.View style={styleWithPulse({ flex: 1, backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 12, marginTop: 16 })} />
+          <Animated.View style={styleWithPulse({ flex: 1, backgroundColor: skelBg3, borderRadius: 10, marginTop: 16 })} />
         </View>
       </View>
 
       {/* Live Matchmaking Rooms Skeleton */}
       <View style={[st.panelCard, { marginBottom: 16 }]}>
-        <Animated.View style={styleWithPulse({ width: 160, height: 12, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 4, marginBottom: 16 })} />
+        <Animated.View style={styleWithPulse({ width: 160, height: 12, backgroundColor: skelBg1, borderRadius: 4, marginBottom: 16 })} />
         <View style={{ gap: 12, flexDirection: isMobile ? 'column' : 'row' }}>
           {[1, 2, 3].map(i => (
-            <View key={i} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.02)', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', gap: 8 }}>
-              <Animated.View style={styleWithPulse({ width: 100, height: 10, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 2 })} />
-              <Animated.View style={styleWithPulse({ width: 60, height: 8, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 2 })} />
+            <View key={i} style={{ flex: 1, backgroundColor: skelBg3, padding: 16, borderRadius: 10, borderWidth: 1, borderColor: C.border, gap: 8 }}>
+              <Animated.View style={styleWithPulse({ width: 100, height: 10, backgroundColor: skelBg1, borderRadius: 2 })} />
+              <Animated.View style={styleWithPulse({ width: 60, height: 8, backgroundColor: skelBg2, borderRadius: 2 })} />
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 }}>
-                <Animated.View style={styleWithPulse({ width: 40, height: 16, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 4 })} />
-                <Animated.View style={styleWithPulse({ width: 40, height: 16, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 4 })} />
+                <Animated.View style={styleWithPulse({ width: 40, height: 16, backgroundColor: skelBg2, borderRadius: 4 })} />
+                <Animated.View style={styleWithPulse({ width: 40, height: 16, backgroundColor: skelBg2, borderRadius: 4 })} />
               </View>
             </View>
           ))}
@@ -164,6 +167,8 @@ function AdminSkeleton({ isMobile }: { isMobile: boolean }) {
 }
 
 export default function AdminOverview() {
+  const { theme: C, isDark } = useAdminTheme();
+  const st = useMemo(() => getStyles(C), [C]);
   const [isMounted, setIsMounted] = useState(false);
   useEffect(() => {
     setIsMounted(true);
@@ -245,12 +250,12 @@ export default function AdminOverview() {
       datasets: [{
         label: 'Wallet Net Position (ETB)',
         fill: true,
-        backgroundColor: 'rgba(60, 80, 224, 0.1)',
-        borderColor: '#3C50E0',
+        backgroundColor: C.lightPrimary,
+        borderColor: C.primary,
         tension: 0.4,
         borderWidth: 2,
         pointRadius: 3,
-        pointBackgroundColor: '#3C50E0',
+        pointBackgroundColor: C.primary,
         data: d.graphData.map((i: any) => i.profit)
       }]
     });
@@ -258,30 +263,30 @@ export default function AdminOverview() {
       maintainAspectRatio: false,
       plugins: { legend: { display: false } },
       scales: {
-        x: { ticks: { color: '#8A99AD', font: { size: 10 } }, grid: { display: false } },
-        y: { ticks: { color: '#8A99AD', font: { size: 10 }, callback: (v: number) => fmtK(v) }, grid: { color: 'rgba(46, 58, 71, 0.6)' } }
+        x: { ticks: { color: C.onSurfaceVariant, font: { size: 10 } }, grid: { display: false } },
+        y: { ticks: { color: C.onSurfaceVariant, font: { size: 10 }, callback: (v: number) => fmtK(v) }, grid: { color: C.border } }
       }
     });
-  }, [d.graphData]);
+  }, [d.graphData, C]);
 
   useEffect(() => {
     if (!d.newUserGraphData?.length) return;
     setUserChartData({
       labels: d.newUserGraphData.map((i: any) => i.date),
       datasets: [
-        { label: 'New Users', backgroundColor: '#3C50E0', borderRadius: 6, data: d.newUserGraphData.map((i: any) => i.count) },
-        { label: 'DAU', backgroundColor: '#10B981', borderRadius: 6, data: d.newUserGraphData.map((i: any) => i.dau || 0) },
+        { label: 'New Users', backgroundColor: C.primary, borderRadius: 6, data: d.newUserGraphData.map((i: any) => i.count) },
+        { label: 'DAU', backgroundColor: C.success, borderRadius: 6, data: d.newUserGraphData.map((i: any) => i.dau || 0) },
       ]
     });
     setUserChartOptions({
       maintainAspectRatio: false,
-      plugins: { legend: { labels: { color: '#8A99AD', font: { size: 10 } } } },
+      plugins: { legend: { labels: { color: C.onSurfaceVariant, font: { size: 10 } } } },
       scales: {
-        x: { ticks: { color: '#8A99AD', font: { size: 10 } }, grid: { display: false } },
-        y: { ticks: { color: '#94a3b8', stepSize: 1 }, grid: { color: 'rgba(31, 37, 64, 0.6)' } }
+        x: { ticks: { color: C.onSurfaceVariant, font: { size: 10 } }, grid: { display: false } },
+        y: { ticks: { color: C.onSurfaceVariant, stepSize: 1 }, grid: { color: C.border } }
       }
     });
-  }, [d.newUserGraphData, d.dau]);
+  }, [d.newUserGraphData, d.dau, C]);
 
   const combinedBreakdown = useMemo(() => {
     const flat: Record<number, { searching: number; liveMatches: number }> = {};
@@ -301,7 +306,7 @@ export default function AdminOverview() {
     return flat;
   }, [liveQueueStats]);
 
-  if (loading) return <View style={{ flex: 1, backgroundColor: C.background }}><AdminSkeleton isMobile={isMobile} /></View>;
+  if (loading) return <View style={{ flex: 1, backgroundColor: C.background }}><AdminSkeleton isMobile={isMobile} C={C} isDark={isDark} st={st} /></View>;
 
   const getRoomTotals = (bets: number[]) => {
     let searching = 0;
@@ -521,7 +526,7 @@ export default function AdminOverview() {
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: C.primary }} />
-                <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>Room 1 - Beginner</Text>
+                <Text style={{ color: C.onSurface, fontSize: 13, fontWeight: '700' }}>Room 1 - Beginner</Text>
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                 <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: C.success }} />
@@ -536,7 +541,7 @@ export default function AdminOverview() {
                 <Text style={{ color: C.onSurfaceVariant, fontSize: 9, fontWeight: '700', marginTop: 2, textTransform: 'uppercase' }}>Searching</Text>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
-                <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '700' }}>{r1Totals.liveMatches}</Text>
+                <Text style={{ color: C.onSurface, fontSize: 18, fontWeight: '700' }}>{r1Totals.liveMatches}</Text>
                 <Text style={{ color: C.onSurfaceVariant, fontSize: 9, fontWeight: '700', marginTop: 2, textTransform: 'uppercase' }}>Live Matches</Text>
               </View>
             </View>
@@ -567,7 +572,7 @@ export default function AdminOverview() {
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: C.primary }} />
-                <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>Room 2 - Intermediate</Text>
+                <Text style={{ color: C.onSurface, fontSize: 13, fontWeight: '700' }}>Room 2 - Intermediate</Text>
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                 <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: C.success }} />
@@ -582,7 +587,7 @@ export default function AdminOverview() {
                 <Text style={{ color: C.onSurfaceVariant, fontSize: 9, fontWeight: '700', marginTop: 2, textTransform: 'uppercase' }}>Searching</Text>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
-                <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '700' }}>{r2Totals.liveMatches}</Text>
+                <Text style={{ color: C.onSurface, fontSize: 18, fontWeight: '700' }}>{r2Totals.liveMatches}</Text>
                 <Text style={{ color: C.onSurfaceVariant, fontSize: 9, fontWeight: '700', marginTop: 2, textTransform: 'uppercase' }}>Live Matches</Text>
               </View>
             </View>
@@ -613,7 +618,7 @@ export default function AdminOverview() {
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: C.primary }} />
-                <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>Room 3 - Advanced</Text>
+                <Text style={{ color: C.onSurface, fontSize: 13, fontWeight: '700' }}>Room 3 - Advanced</Text>
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                 <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: C.success }} />
@@ -628,7 +633,7 @@ export default function AdminOverview() {
                 <Text style={{ color: C.onSurfaceVariant, fontSize: 9, fontWeight: '700', marginTop: 2, textTransform: 'uppercase' }}>Searching</Text>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
-                <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '700' }}>{r3Totals.liveMatches}</Text>
+                <Text style={{ color: C.onSurface, fontSize: 18, fontWeight: '700' }}>{r3Totals.liveMatches}</Text>
                 <Text style={{ color: C.onSurfaceVariant, fontSize: 9, fontWeight: '700', marginTop: 2, textTransform: 'uppercase' }}>Live Matches</Text>
               </View>
             </View>
@@ -678,7 +683,7 @@ export default function AdminOverview() {
                       <Ionicons name={isCredit ? 'arrow-down' : 'arrow-up'} color={badgeIconColor} size={15} />
                     </View>
                     <View>
-                      <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '600' }}>{tx.username || 'User'}</Text>
+                      <Text style={{ color: C.onSurface, fontSize: 13, fontWeight: '600' }}>{tx.username || 'User'}</Text>
                       <Text style={{ color: C.onSurfaceVariant, fontSize: 10, fontWeight: '500' }}>{tx.type} · {timeSince(tx.created_at)}</Text>
                     </View>
                   </View>
@@ -702,7 +707,7 @@ export default function AdminOverview() {
             {d.pendingList.length > 0 ? d.pendingList.map((pw: any, i: number) => (
               <View key={i} style={st.pendingRow}>
                 <View>
-                  <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '600' }}>...{pw.id}</Text>
+                  <Text style={{ color: C.onSurface, fontSize: 13, fontWeight: '600' }}>...{pw.id}</Text>
                   <Text style={{ color: C.onSurfaceVariant, fontSize: 11 }}>{pw.username}</Text>
                 </View>
                 <View style={[st.statusPill, { backgroundColor: 'rgba(240, 149, 12, 0.1)', borderColor: C.accentGold }]}>
@@ -745,7 +750,7 @@ export default function AdminOverview() {
                       <Ionicons name="person-outline" color={C.onSurfaceVariant} size={15} />
                     </View>
                     <View>
-                      <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '600' }}>
+                      <Text style={{ color: C.onSurface, fontSize: 13, fontWeight: '600' }}>
                         {usr.username || `User ${usr.number?.slice(-4)}`}
                       </Text>
                       <Text style={{ color: C.onSurfaceVariant, fontSize: 10, fontWeight: '500' }}>
@@ -779,7 +784,7 @@ export default function AdminOverview() {
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                   <View style={[st.healthDot, { backgroundColor: h.status === 'operational' ? C.success : C.error }]} />
                   <View>
-                    <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '700' }}>{h.name}</Text>
+                    <Text style={{ color: C.onSurface, fontSize: 12, fontWeight: '700' }}>{h.name}</Text>
                     <Text style={{ color: C.onSurfaceVariant, fontSize: 10 }}>{h.status === 'operational' ? 'Operational' : 'Attention Required'}</Text>
                   </View>
                 </View>
@@ -793,47 +798,47 @@ export default function AdminOverview() {
   );
 }
 
-const st = StyleSheet.create({
+const getStyles = (C: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: 'transparent', padding: 20, paddingTop: 32 },
   // Alert
-  alertBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'rgba(245,158,11,0.06)', borderWidth: 1, borderColor: 'rgba(245,158,11,0.3)', borderRadius: 16, padding: 16, marginBottom: 24 },
-  alertIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(245,158,11,0.15)', alignItems: 'center', justifyContent: 'center' },
-  alertTitle: { color: '#ffffff', fontSize: 13, fontWeight: '700', letterSpacing: 1 },
+  alertBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'rgba(240,149,12,0.08)', borderWidth: 1, borderColor: 'rgba(240,149,12,0.3)', borderRadius: 10, padding: 16, marginBottom: 24 },
+  alertIcon: { width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(240,149,12,0.15)', alignItems: 'center', justifyContent: 'center' },
+  alertTitle: { color: C.onSurface, fontSize: 13, fontWeight: '700', letterSpacing: 0.5 },
   alertSub: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '500', marginTop: 2 },
-  alertBtn: { backgroundColor: '#ffffff', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12 },
-  alertBtnText: { color: '#0d1220', fontSize: 11, fontWeight: '700' },
+  alertBtn: { backgroundColor: C.primary, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 },
+  alertBtnText: { color: '#ffffff', fontSize: 11, fontWeight: '700' },
   // Header
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 },
-  title: { fontSize: 24, fontWeight: '700', color: '#ffffff', letterSpacing: -0.5 },
+  title: { fontSize: 24, fontWeight: '700', color: C.onSurface, letterSpacing: -0.5 },
   subtitle: { color: C.onSurfaceVariant, fontSize: 13, fontWeight: '500', marginTop: 2 },
-  statusBadge: { backgroundColor: 'rgba(34,197,94,0.06)', borderWidth: 1, borderColor: 'rgba(34,197,94,0.2)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  statusBadge: { backgroundColor: 'rgba(16,185,129,0.08)', borderWidth: 1, borderColor: 'rgba(16,185,129,0.25)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, flexDirection: 'row', alignItems: 'center', gap: 8 },
   statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.success },
   statusText: { color: C.success, fontSize: 10, fontWeight: '700', letterSpacing: 1.5 },
-  refreshBtn: { backgroundColor: C.primary, width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  refreshBtn: { backgroundColor: C.primary, width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   // Top metric cards
   topGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginBottom: 20 },
   metricCard: { flex: 1, minWidth: 220, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, borderRadius: 10, padding: 20, justifyContent: 'space-between', minHeight: 110 },
-  metricIconBadge: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#313D4A', alignItems: 'center', justifyContent: 'center' },
+  metricIconBadge: { width: 44, height: 44, borderRadius: 22, backgroundColor: C.surfaceContainerHighest, alignItems: 'center', justifyContent: 'center' },
   metricLabel: { color: C.onSurfaceVariant, fontSize: 12, fontWeight: '500', marginBottom: 6 },
-  metricValue: { color: '#ffffff', fontSize: 26, fontWeight: '700', letterSpacing: -0.5 },
-  trendBadge: { backgroundColor: 'rgba(60, 80, 224, 0.1)', borderWidth: 1, borderColor: 'rgba(60, 80, 224, 0.25)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+  metricValue: { color: C.onSurface, fontSize: 26, fontWeight: '700', letterSpacing: -0.5 },
+  trendBadge: { backgroundColor: C.lightPrimary, borderWidth: 1, borderColor: C.border, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
   trendText: { color: C.primary, fontSize: 10, fontWeight: '700' },
   // Bento rows
   bentoRow: { flexDirection: 'row', gap: 16, marginBottom: 20 },
   chartCard: { backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, borderRadius: 10, padding: 24, overflow: 'hidden' },
-  chartTitle: { color: '#ffffff', fontSize: 13, fontWeight: '700', letterSpacing: 0.5 },
+  chartTitle: { color: C.onSurface, fontSize: 13, fontWeight: '700', letterSpacing: 0.5 },
   chartSub: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '500', marginTop: 2 },
   tfSelector: { flexDirection: 'row', gap: 4, padding: 3, backgroundColor: C.surfaceContainerLowest, borderRadius: 8, borderWidth: 1, borderColor: C.border },
   tfOpt: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 },
   tfText: { fontSize: 10, fontWeight: '700', letterSpacing: 1, color: C.onSurfaceVariant },
   // Bottom panels
   panelCard: { backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, borderRadius: 10, padding: 24 },
-  panelTitle: { color: '#ffffff', fontSize: 12, fontWeight: '700', letterSpacing: 1, marginBottom: 16, textTransform: 'uppercase' },
+  panelTitle: { color: C.onSurface, fontSize: 12, fontWeight: '700', letterSpacing: 1, marginBottom: 16, textTransform: 'uppercase' },
   txRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderColor: C.border },
-  txIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#313D4A', alignItems: 'center', justifyContent: 'center' },
+  txIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.surfaceContainerHighest, alignItems: 'center', justifyContent: 'center' },
   statusPill: { borderWidth: 1, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, marginTop: 2 },
   pendingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderColor: C.border },
-  goBtn: { backgroundColor: 'rgba(60, 80, 224, 0.1)', borderWidth: 1, borderColor: C.primary, paddingVertical: 10, borderRadius: 6, alignItems: 'center', marginTop: 8 },
+  goBtn: { backgroundColor: C.lightPrimary, borderWidth: 1, borderColor: C.primary, paddingVertical: 10, borderRadius: 8, alignItems: 'center', marginTop: 8 },
   goBtnText: { color: C.primary, fontSize: 12, fontWeight: '700' },
   healthRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: C.surfaceContainerLowest, borderWidth: 1, borderColor: C.border, borderRadius: 8, padding: 12 },
   healthDot: { width: 8, height: 8, borderRadius: 4 },

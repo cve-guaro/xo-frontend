@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../../context/authContext';
 import { API_URL } from '../../../config';
-import { AdminTheme as C } from './_layout';
+import { useAdminTheme } from './_layout';
 
 let PrimeChart: any = null;
 if (Platform.OS === 'web') {
@@ -35,6 +35,8 @@ type TimeRange = 'day' | 'week' | 'month' | 'all';
 type TabKey = 'deposits' | 'withdrawals' | 'bonuses' | 'giveaways' | 'refunds';
 
 export default function FinancialDashboard() {
+  const { theme: C, isDark } = useAdminTheme();
+  const st = useMemo(() => getStyles(C), [C]);
   const [isMounted, setIsMounted] = useState(false);
   useEffect(() => {
     setIsMounted(true);
@@ -540,10 +542,10 @@ export default function FinancialDashboard() {
   );
 }
 
-const st = StyleSheet.create({
+const getStyles = (C: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: 'transparent', padding: 20, paddingTop: 24 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
-  title: { fontSize: 24, fontWeight: '900', color: '#ffffff', letterSpacing: 1 },
+  title: { fontSize: 24, fontWeight: '900', color: C.onSurface, letterSpacing: 1 },
   subtitle: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '600', marginTop: 2 },
   tfSelector: { flexDirection: 'row', gap: 3, padding: 3, backgroundColor: C.surfaceContainerLowest, borderRadius: 10, borderWidth: 1, borderColor: C.border },
   tfOpt: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 8 },
@@ -555,11 +557,11 @@ const st = StyleSheet.create({
   kpiCard: {
     flex: 1, minWidth: 220, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, borderRadius: 10, padding: 20,
   },
-  kpiIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#313D4A', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  kpiIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: C.surfaceContainerHighest, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
   kpiLabel: { color: C.onSurfaceVariant, fontSize: 12, fontWeight: '500', marginBottom: 6 },
-  kpiValue: { color: '#ffffff', fontSize: 24, fontWeight: '700', letterSpacing: -0.5 },
+  kpiValue: { color: C.onSurface, fontSize: 24, fontWeight: '700', letterSpacing: -0.5 },
   kpiMini: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '500' },
-  kpiMiniVal: { color: '#ffffff', fontSize: 12, fontWeight: '700' },
+  kpiMiniVal: { color: C.onSurface, fontSize: 12, fontWeight: '700' },
   statusDot: { width: 6, height: 6, borderRadius: 3 },
 
   // Today row
@@ -569,7 +571,7 @@ const st = StyleSheet.create({
     backgroundColor: C.surface, borderWidth: 1, borderColor: C.border,
     borderRadius: 10, padding: 18,
   },
-  todayIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#313D4A', alignItems: 'center', justifyContent: 'center' },
+  todayIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.surfaceContainerHighest, alignItems: 'center', justifyContent: 'center' },
   todayLabel: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '600' },
   todayVal: { fontSize: 18, fontWeight: '700', marginTop: 2 },
 
@@ -579,7 +581,7 @@ const st = StyleSheet.create({
     backgroundColor: C.surface, borderWidth: 1, borderColor: C.border,
     borderRadius: 10, padding: 20, overflow: 'hidden',
   },
-  chartTitle: { color: '#ffffff', fontSize: 12, fontWeight: '700', letterSpacing: 0.5 },
+  chartTitle: { color: C.onSurface, fontSize: 12, fontWeight: '700', letterSpacing: 0.5 },
   chartSub: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '500', marginTop: 2 },
   chartTotal: { fontSize: 16, fontWeight: '700' },
 
@@ -588,22 +590,22 @@ const st = StyleSheet.create({
     backgroundColor: C.surface, borderWidth: 1, borderColor: C.border,
     borderRadius: 10, padding: 20, marginBottom: 20,
   },
-  drillTitle: { color: '#ffffff', fontSize: 14, fontWeight: '700' },
+  drillTitle: { color: C.onSurface, fontSize: 14, fontWeight: '700' },
   drillHeader: { flexDirection: 'row', paddingVertical: 10, borderBottomWidth: 1, borderColor: C.border },
   drillCell: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
   drillRow: { flexDirection: 'row', paddingVertical: 12, borderBottomWidth: 1, borderColor: C.border },
-  drillCellVal: { color: '#e2e8f0', fontSize: 12, fontWeight: '500' },
+  drillCellVal: { color: C.onSurface, fontSize: 12, fontWeight: '500' },
 
   // Section titles
-  sectionTitle: { color: '#ffffff', fontSize: 14, fontWeight: '700', letterSpacing: 0.5, marginBottom: 4, marginTop: 8 },
+  sectionTitle: { color: C.onSurface, fontSize: 14, fontWeight: '700', letterSpacing: 0.5, marginBottom: 4, marginTop: 8 },
   sectionSub: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '500', marginBottom: 16 },
 
   // Impact cards
   impactRow: { flexDirection: 'row', gap: 16, marginBottom: 20 },
   impactCard: {
-    flex: 1, backgroundColor: C.surface, borderWidth: 1, borderRadius: 10, padding: 18,
+    flex: 1, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, borderRadius: 10, padding: 18,
   },
-  impactIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#313D4A', alignItems: 'center', justifyContent: 'center' },
+  impactIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.surfaceContainerHighest, alignItems: 'center', justifyContent: 'center' },
   impactLabel: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '600', flex: 1 },
   impactVal: { fontSize: 18, fontWeight: '700' },
   impactMeta: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '500' },
@@ -628,6 +630,6 @@ const st = StyleSheet.create({
   tableHeader: { flexDirection: 'row', paddingVertical: 10, borderBottomWidth: 1, borderColor: C.border },
   thCell: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase' },
   tableRow: { flexDirection: 'row', paddingVertical: 12, borderBottomWidth: 1, borderColor: C.border, alignItems: 'center' },
-  tdCell: { color: '#e2e8f0', fontSize: 12, fontWeight: '500' },
+  tdCell: { color: C.onSurface, fontSize: 12, fontWeight: '500' },
   typeBadge: { borderWidth: 1, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
 });

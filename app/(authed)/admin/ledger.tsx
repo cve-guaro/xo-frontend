@@ -1,11 +1,11 @@
 // app/(authed)/admin/ledger.tsx — God Mode: Financial Ledger
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, StyleSheet, Platform, useWindowDimensions, Modal, Pressable } from 'react-native';
 import AnimatedList from '../../../components/AnimatedList';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../../context/authContext';
 import { API_URL } from '../../../config';
-import { AdminTheme as C } from './_layout';
+import { useAdminTheme } from './_layout';
 
 const glass: any = {
   backgroundColor: 'rgba(24, 24, 27, 0.65)',
@@ -22,6 +22,8 @@ interface Tx {
 const TABS = ['Deposits', 'Withdrawals'];
 
 export default function AdminLedger() {
+  const { theme: C, isDark } = useAdminTheme();
+  const styles = useMemo(() => getStyles(C), [C]);
   const { token, t, showAlert, isSuperAdmin } = useAuth();
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
@@ -265,10 +267,10 @@ export default function AdminLedger() {
                       onChange={(e: any) => setAmountRange(e.target.value as any)}
                       style={{ background: 'transparent', border: 'none', color: 'rgba(229,227,255,0.8)', fontSize: 12, fontWeight: 700, outlineStyle: 'none', cursor: 'pointer' as any, flex: 1 } as any}
                     >
-                      <option value="all" style={{ background: '#111128' }}>All Ranges</option>
-                      <option value="0-100" style={{ background: '#111128' }}>0-100 ETB</option>
-                      <option value="100-10000" style={{ background: '#111128' }}>100-10k ETB</option>
-                      <option value="10000-100000" style={{ background: '#111128' }}>10k-100k ETB</option>
+                      <option value="all" style={{ background: C.surface, color: C.onSurface }}>All Ranges</option>
+                      <option value="0-100" style={{ background: C.surface, color: C.onSurface }}>0-100 ETB</option>
+                      <option value="100-10000" style={{ background: C.surface, color: C.onSurface }}>100-10k ETB</option>
+                      <option value="10000-100000" style={{ background: C.surface, color: C.onSurface }}>10k-100k ETB</option>
                     </select>
                  ) : (
                     <TouchableOpacity style={{ flex: 1 }} onPress={() => {
@@ -288,9 +290,9 @@ export default function AdminLedger() {
                       onChange={(e: any) => setGameFilter(e.target.value as any)}
                       style={{ background: 'transparent', border: 'none', color: 'rgba(229,227,255,0.8)', fontSize: 12, fontWeight: 700, outlineStyle: 'none', cursor: 'pointer' as any, flex: 1 } as any}
                     >
-                      <option value="all" style={{ background: '#111128' }}>All Games</option>
-                      <option value="xo" style={{ background: '#111128' }}>XO Games</option>
-                      <option value="spin" disabled style={{ background: '#111128', color: '#555' }}>Spin Wheel (Coming Soon)</option>
+                      <option value="all" style={{ background: C.surface, color: C.onSurface }}>All Games</option>
+                      <option value="xo" style={{ background: C.surface, color: C.onSurface }}>XO Games</option>
+                      <option value="spin" disabled style={{ background: C.surface, color: C.onSurfaceVariant }}>Spin Wheel (Coming Soon)</option>
                     </select>
                  ) : (
                     <TouchableOpacity style={{ flex: 1 }} onPress={() => {
@@ -686,9 +688,9 @@ export default function AdminLedger() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (C: any) => StyleSheet.create({
   pageHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 24 },
-  pageTitle: { color: '#ffffff', fontSize: 24, fontWeight: '700', letterSpacing: -0.5 },
+  pageTitle: { color: C.onSurface, fontSize: 24, fontWeight: '700', letterSpacing: -0.5 },
   pageSub: { color: C.onSurfaceVariant, fontSize: 13, marginTop: 4, fontWeight: '500' },
   tabContainer: { 
     backgroundColor: C.surfaceContainerLowest, borderRadius: 8, padding: 3, borderWidth: 1, borderColor: C.border 
@@ -702,37 +704,37 @@ const styles = StyleSheet.create({
   statsRow: { flexDirection: 'row', gap: 16, marginBottom: 24 },
   statCard: { flex: 1, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, borderRadius: 10, padding: 20 },
   statTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  statIconBadge: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#313D4A', alignItems: 'center', justifyContent: 'center' },
+  statIconBadge: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.surfaceContainerHighest, alignItems: 'center', justifyContent: 'center' },
   statLabel: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8, flex: 1, paddingRight: 4 },
-  statValue: { color: '#ffffff', fontSize: 22, fontWeight: '700', letterSpacing: -0.5 },
+  statValue: { color: C.onSurface, fontSize: 22, fontWeight: '700', letterSpacing: -0.5 },
   statUnit: { color: C.onSurfaceVariant, fontSize: 12, fontWeight: '500' },
   statSub: { color: C.onSurfaceVariant, fontSize: 11, marginTop: 4 },
 
   tableCard: { flex: 1, marginBottom: 0, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, borderRadius: 10, overflow: 'hidden' },
   tableHead: { 
-    paddingHorizontal: 20, paddingVertical: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: C.surfaceContainerLowest, borderBottomWidth: 1, borderColor: C.border
+    paddingHorizontal: 20, paddingVertical: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: C.surface, borderBottomWidth: 1, borderColor: C.border
   },
-  tableTitle: { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: -0.2 },
+  tableTitle: { color: C.onSurface, fontSize: 16, fontWeight: '700', letterSpacing: -0.2 },
   searchBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.surfaceContainerLowest, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 6, borderWidth: 1, borderColor: C.border, width: 220 },
-  searchInput: { flex: 1, color: '#fff', fontSize: 13, height: 24 },
-  filterChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, paddingHorizontal: 14, backgroundColor: 'rgba(60, 80, 224, 0.1)', borderRadius: 6, borderWidth: 1, borderColor: C.primary },
+  searchInput: { flex: 1, color: C.onSurface, fontSize: 13, height: 24 },
+  filterChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, paddingHorizontal: 14, backgroundColor: C.lightPrimary, borderRadius: 6, borderWidth: 1, borderColor: C.primary },
   filterChipText: { color: C.primary, fontSize: 12, fontWeight: '700' },
   colRow: { 
     flexDirection: 'row', paddingHorizontal: 20, paddingVertical: 12, alignItems: 'center',
-    backgroundColor: '#313D4A', borderBottomWidth: 1, borderColor: C.border,
+    backgroundColor: C.surfaceContainerHighest, borderBottomWidth: 1, borderColor: C.border,
   },
-  colHead: { color: '#8A99AD', fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8, flex: 1 },
+  colHead: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8, flex: 1 },
   txRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, backgroundColor: C.surface, borderBottomWidth: 1, borderColor: C.border },
   txUser: { flex: 2, flexDirection: 'row', alignItems: 'center', gap: 10, minWidth: 0, overflow: 'hidden' },
-  txAvatar: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', flexShrink: 0, borderWidth: 1, borderColor: C.border, backgroundColor: '#313D4A' },
+  txAvatar: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', flexShrink: 0, borderWidth: 1, borderColor: C.border, backgroundColor: C.surfaceContainerHighest },
   txAvatarText: { fontSize: 12, fontWeight: '700' },
-  txName: { color: '#fff', fontSize: 13, fontWeight: '600', letterSpacing: -0.2 },
+  txName: { color: C.onSurface, fontSize: 13, fontWeight: '600', letterSpacing: -0.2 },
   txId: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '500' },
   txAmount: { color: C.success, fontSize: 14, fontWeight: '700' },
   methodPill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   methodText: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
   txTimestamp: { flex: 1.2 },
-  txDate: { color: '#fff', fontSize: 12, fontWeight: '500' },
+  txDate: { color: C.onSurface, fontSize: 12, fontWeight: '500' },
   txTime: { color: C.onSurfaceVariant, fontSize: 11, marginTop: 2, fontWeight: '400' },
   statusPending: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(240, 149, 12, 0.1)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, borderColor: C.accentGold },
   statusDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.accentGold, flexShrink: 0 },
@@ -744,16 +746,16 @@ const styles = StyleSheet.create({
   approveTxt: { color: C.success, fontSize: 11, fontWeight: '700' },
   rejectBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, borderWidth: 1, borderColor: C.error, backgroundColor: 'rgba(251, 84, 84, 0.1)' },
   rejectTxt: { color: C.error, fontSize: 11, fontWeight: '700' },
-  receiptBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, borderWidth: 1, borderColor: C.primary, backgroundColor: 'rgba(60, 80, 224, 0.1)' },
+  receiptBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, borderWidth: 1, borderColor: C.primary, backgroundColor: C.lightPrimary },
   receiptTxt: { color: C.primary, fontSize: 11, fontWeight: '700' },
   empty: { color: C.onSurfaceVariant, textAlign: 'center', marginVertical: 40, fontSize: 13 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   receiptModal: { width: '100%', maxWidth: 450, backgroundColor: C.surface, borderRadius: 10, borderWidth: 1, borderColor: C.border, overflow: 'hidden' },
   receiptHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, borderBottomColor: C.border },
-  receiptTitle: { color: '#fff', fontSize: 16, fontWeight: '700', flex: 1, marginLeft: 10, letterSpacing: -0.2 },
+  receiptTitle: { color: C.onSurface, fontSize: 16, fontWeight: '700', flex: 1, marginLeft: 10, letterSpacing: -0.2 },
   
   receiptAmountRow: { alignItems: 'center', marginVertical: 24 },
-  receiptAmount: { fontSize: 36, fontWeight: '700', letterSpacing: -1, color: '#ffffff' },
+  receiptAmount: { fontSize: 36, fontWeight: '700', letterSpacing: -1, color: C.onSurface },
   receiptCurrency: { color: C.onSurfaceVariant, fontSize: 13, fontWeight: '600', marginTop: 4 },
   
   statusBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 8, borderRadius: 6, marginBottom: 24 },
@@ -762,21 +764,21 @@ const styles = StyleSheet.create({
   receiptGrid: { gap: 16, marginBottom: 32 },
   receiptInfoItem: { gap: 3 },
   receiptInfoLabel: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8 },
-  receiptInfoVal: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  receiptInfoVal: { color: C.onSurface, fontSize: 14, fontWeight: '600' },
   
   printBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: C.primary, height: 44, borderRadius: 8 },
   printBtnTxt: { color: '#fff', fontSize: 13, fontWeight: '700' },
   paginationRow: { 
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', 
-    padding: 16, marginTop: 12, borderRadius: 10, borderWidth: 1, borderColor: C.border,
+    paddingHorizontal: 20, paddingVertical: 14, marginTop: 0, borderTopWidth: 1, borderTopColor: C.border,
     backgroundColor: C.surface
   },
   paginationInfo: { color: C.onSurfaceVariant, fontSize: 12, fontWeight: '600' },
   pageBtn: { 
-    flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(60, 80, 224, 0.1)', 
-    paddingHorizontal: 14, paddingVertical: 6, borderRadius: 6, borderWidth: 1, borderColor: C.primary 
+    flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.surfaceContainerHighest, 
+    paddingHorizontal: 14, paddingVertical: 6, borderRadius: 6, borderWidth: 1, borderColor: C.border 
   },
-  pageBtnText: { color: C.primary, fontSize: 12, fontWeight: '700' },
-  reviewBtn: { paddingHorizontal: 12, paddingVertical: 6, backgroundColor: 'rgba(60, 80, 224, 0.1)', borderRadius: 6, borderWidth: 1, borderColor: C.primary },
+  pageBtnText: { color: C.onSurface, fontSize: 12, fontWeight: '700' },
+  reviewBtn: { paddingHorizontal: 12, paddingVertical: 6, backgroundColor: C.lightPrimary, borderRadius: 6, borderWidth: 1, borderColor: C.primary },
   reviewBtnTxt: { color: C.primary, fontSize: 11, fontWeight: '700' },
 });

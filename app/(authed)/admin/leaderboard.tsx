@@ -26,9 +26,9 @@ const C = {
   card: '#24303F',
   cardHeader: '#313D4A',
   border: '#2E3A47',
-  borderActive: '#3C50E0',
-  accent: '#3C50E0',
-  accentDim: 'rgba(60, 80, 224, 0.12)',
+  borderActive: '#FF2D55',
+  accent: '#FF2D55',
+  accentDim: 'rgba(255, 45, 85, 0.12)',
   secondary: '#10B981',
   gold: '#F0950C',
   silver: '#8A99AD',
@@ -1592,9 +1592,9 @@ const s = StyleSheet.create({
 
   // Standings Lists
   countBadge: {
-    backgroundColor: 'rgba(60, 80, 224, 0.12)',
+    backgroundColor: C.accentDim,
     borderWidth: 1,
-    borderColor: 'rgba(60, 80, 224, 0.25)',
+    borderColor: 'rgba(255, 45, 85, 0.25)',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,

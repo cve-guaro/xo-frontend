@@ -1,11 +1,12 @@
 // app/(authed)/admin/_layout.tsx
 // Production-Grade Responsive Admin Shell — Desktop (Collapsible Sidebar) / Mobile (Fluid Drawer)
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, createContext, useContext } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Platform,
   Image, useWindowDimensions, ScrollView, SafeAreaView, Pressable,
   TextInput, ActivityIndicator,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Slot, usePathname, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../../context/authContext';
@@ -14,36 +15,86 @@ import LogoutConfirmation from '../../../components/LogoutConfirmation';
 import { useBackgroundMusic } from '../../../context/BackgroundMusicProvider';
 import AdminGlobalSearch from '../../../components/AdminGlobalSearch';
 
-// ─── Design Tokens (TailAdmin & Interface-Design System) ──────
-export const AdminTheme = {
-  primary: '#3C50E0',
-  primaryContainer: '#2B3990',
-  secondary: '#10B981',
+// ─── Design Tokens (XO Brand + TailAdmin Dark/Light System) ──
+export type AdminThemeMode = 'dark' | 'light';
+
+export const DarkAdminTheme = {
+  mode: 'dark' as AdminThemeMode,
+  primary: '#FF2D55', // XO Crimson / Red from brand identity
+  primaryContainer: '#BE123C',
+  secondary: '#10B981', // Emerald
   tertiaryDim: '#8A99AD',
-  tertiary: '#3C50E0',
-  background: '#1A222C',
-  surface: '#24303F',
-  surfaceContainerLowest: '#1C2434',
+  tertiary: '#FF2D55',
+  background: '#1A222C', // Flat slate dark canvas (no decoration)
+  surface: '#24303F', // TailAdmin card
+  surfaceContainerLowest: '#1C2434', // Inner inputs/sub-containers
   surfaceContainerLow: '#1E2634',
   surfaceContainer: '#24303F',
   surfaceContainerHigh: '#2C3A4B',
-  surfaceContainerHighest: '#313D4A',
+  surfaceContainerHighest: '#313D4A', // Table headers & icon wraps
   border: '#2E3A47',
   onSurface: '#FFFFFF',
   onSurfaceVariant: '#8A99AD',
   outlineVariant: '#2E3A47',
   error: '#FB5454',
   errorContainer: '#4B1A1A',
-  lightPrimary: 'rgba(60, 80, 224, 0.12)',
+  lightPrimary: 'rgba(255, 45, 85, 0.12)',
   success: '#10B981',
-  accentViolet: '#3C50E0',
+  accentViolet: '#FF2D55',
   accentCyan: '#10B981',
   accentGold: '#F0950C',
   accentGreen: '#10B981',
-  badgeRotation: ['#3C50E0', '#10B981', '#F0950C', '#64748B'],
+  badgeRotation: ['#FF2D55', '#10B981', '#F0950C', '#64748B'],
 };
 
+export const LightAdminTheme = {
+  mode: 'light' as AdminThemeMode,
+  primary: '#E11D48', // XO Deep Crimson
+  primaryContainer: '#FFE4E6',
+  secondary: '#10B981',
+  tertiaryDim: '#64748B',
+  tertiary: '#E11D48',
+  background: '#F1F5F9', // Clean flat slate white canvas
+  surface: '#FFFFFF', // Pure white card
+  surfaceContainerLowest: '#F8FAFC', // Inner inputs/sub-containers
+  surfaceContainerLow: '#F1F5F9',
+  surfaceContainer: '#FFFFFF',
+  surfaceContainerHigh: '#E2E8F0',
+  surfaceContainerHighest: '#F1F5F9', // Table headers & icon wraps
+  border: '#E2E8F0',
+  onSurface: '#0F172A',
+  onSurfaceVariant: '#64748B',
+  outlineVariant: '#E2E8F0',
+  error: '#EF4444',
+  errorContainer: '#FEE2E2',
+  lightPrimary: 'rgba(225, 29, 72, 0.08)',
+  success: '#10B981',
+  accentViolet: '#E11D48',
+  accentCyan: '#10B981',
+  accentGold: '#D97706',
+  accentGreen: '#10B981',
+  badgeRotation: ['#E11D48', '#10B981', '#D97706', '#64748B'],
+};
+
+export const AdminTheme = DarkAdminTheme; // default/fallback
 const C = AdminTheme;
+
+export interface AdminThemeContextType {
+  mode: AdminThemeMode;
+  theme: typeof DarkAdminTheme;
+  isDark: boolean;
+  toggleTheme: () => void;
+}
+
+export const AdminThemeContext = createContext<AdminThemeContextType>({
+  mode: 'dark',
+  theme: DarkAdminTheme,
+  isDark: true,
+  toggleTheme: () => {},
+});
+
+export const useAdminTheme = () => useContext(AdminThemeContext);
+
 const SIDEBAR_FULL = 244;
 const SIDEBAR_ICON = 68;
 const TOPBAR_H = 60;
@@ -187,6 +238,27 @@ export default function AdminLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const collapsed = isDesktop && sidebarCollapsed;
   const sidebarW  = isMobile ? 0 : (collapsed ? SIDEBAR_ICON : SIDEBAR_FULL);
+
+  // Theme Mode State (Dark / Light)
+  const [themeMode, setThemeMode] = useState<AdminThemeMode>('dark');
+
+  useEffect(() => {
+    AsyncStorage.getItem('admin_theme_mode').then((saved) => {
+      if (saved === 'light' || saved === 'dark') {
+        setThemeMode(saved);
+      }
+    }).catch(() => {});
+  }, []);
+
+  const toggleTheme = () => {
+    setThemeMode((prev) => {
+      const next = prev === 'dark' ? 'light' : 'dark';
+      AsyncStorage.setItem('admin_theme_mode', next).catch(() => {});
+      return next;
+    });
+  };
+
+  const currentTheme = themeMode === 'light' ? LightAdminTheme : DarkAdminTheme;
 
   const [stats, setStats] = useState<any>(null);
 
@@ -416,56 +488,65 @@ export default function AdminLayout() {
   // ─── MOBILE PHONE LAYOUT (< 1024px) ───────────────────────────
   if (isMobile) {
     return (
-      <View style={{ flex: 1, backgroundColor: C.background }}>
-        <SafeAreaView style={s.mobileSafeArea}>
-          <View style={s.mobileTopbar}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <TouchableOpacity 
-                onPress={() => setMobileSidebarVisible(true)} 
-                style={s.mobileHeaderIconBtn}
-                accessibilityLabel="Open Navigation Drawer"
-              >
-                <Ionicons name="menu" size={22} color={C.onSurface} />
-              </TouchableOpacity>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Image source={require('../../../assets/images/icon.jpg')} style={s.mobileLogo} />
-                <Text style={s.mobileTopbarTitle}>XOET ADMIN</Text>
+      <AdminThemeContext.Provider value={{ mode: themeMode, theme: currentTheme, isDark: themeMode === 'dark', toggleTheme }}>
+        <View style={{ flex: 1, backgroundColor: currentTheme.background }}>
+          <SafeAreaView style={[s.mobileSafeArea, { backgroundColor: currentTheme.surfaceContainerLowest }]}>
+            <View style={[s.mobileTopbar, { backgroundColor: currentTheme.surfaceContainerLowest, borderBottomColor: currentTheme.border }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <TouchableOpacity 
+                  onPress={() => setMobileSidebarVisible(true)} 
+                  style={[s.mobileHeaderIconBtn, { backgroundColor: currentTheme.surfaceContainer, borderColor: currentTheme.border }]}
+                  accessibilityLabel="Open Navigation Drawer"
+                >
+                  <Ionicons name="menu" size={22} color={currentTheme.onSurface} />
+                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Image source={require('../../../assets/images/icon.jpg')} style={[s.mobileLogo, { borderColor: currentTheme.border }]} />
+                  <Text style={[s.mobileTopbarTitle, { color: currentTheme.onSurface }]}>XOET ADMIN</Text>
+                </View>
               </View>
-            </View>
 
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <TouchableOpacity
-                onPress={() => router.push('/(authed)/home/gameplay' as any)}
-                style={s.mobileHeaderIconBtn}
-                accessibilityLabel="Back to Gameplay"
-              >
-                <Ionicons name="home-outline" size={17} color={C.secondary} />
-              </TouchableOpacity>
-              <TouchableOpacity 
-                onPress={toggleMusic} 
-                style={s.mobileHeaderIconBtn}
-                accessibilityLabel="Toggle Background Audio"
-              >
-                <Ionicons name={musicPlaying ? 'volume-high' : 'volume-mute'} size={17} color={musicPlaying ? C.secondary : C.onSurfaceVariant} />
-              </TouchableOpacity>
-              <TouchableOpacity 
-                onPress={() => switchLanguage()} 
-                style={s.mobileLangBtn}
-                accessibilityLabel="Switch Language"
-              >
-                <Text style={s.mobileLangText}>{language === 'am' ? 'AM' : 'EN'}</Text>
-              </TouchableOpacity>
-              <View style={s.mobileUserChip}>
-                <Text style={s.mobileUserInitial}>{user?.username?.[0]?.toUpperCase() || 'A'}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <TouchableOpacity
+                  onPress={() => router.push('/(authed)/home/gameplay' as any)}
+                  style={[s.mobileHeaderIconBtn, { backgroundColor: currentTheme.surfaceContainer, borderColor: currentTheme.border }]}
+                  accessibilityLabel="Back to Gameplay"
+                >
+                  <Ionicons name="home-outline" size={17} color={currentTheme.secondary} />
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  onPress={toggleMusic} 
+                  style={[s.mobileHeaderIconBtn, { backgroundColor: currentTheme.surfaceContainer, borderColor: currentTheme.border }]}
+                  accessibilityLabel="Toggle Background Audio"
+                >
+                  <Ionicons name={musicPlaying ? 'volume-high' : 'volume-mute'} size={17} color={musicPlaying ? currentTheme.secondary : currentTheme.onSurfaceVariant} />
+                </TouchableOpacity>
+                {/* Theme Mode Toggle (Dark / Light) */}
+                <TouchableOpacity 
+                  onPress={toggleTheme} 
+                  style={[s.mobileHeaderIconBtn, { backgroundColor: currentTheme.surfaceContainer, borderColor: currentTheme.border }]}
+                  accessibilityLabel="Toggle Dark / Light Theme"
+                >
+                  <Ionicons name={themeMode === 'dark' ? 'sunny-outline' : 'moon-outline'} size={17} color={themeMode === 'dark' ? '#F0950C' : currentTheme.primary} />
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  onPress={() => switchLanguage()} 
+                  style={[s.mobileLangBtn, { backgroundColor: currentTheme.surfaceContainer, borderColor: currentTheme.border }]}
+                  accessibilityLabel="Switch Language"
+                >
+                  <Text style={[s.mobileLangText, { color: currentTheme.onSurfaceVariant }]}>{language === 'am' ? 'AM' : 'EN'}</Text>
+                </TouchableOpacity>
+                <View style={[s.mobileUserChip, { backgroundColor: currentTheme.surfaceContainerHighest, borderColor: currentTheme.border }]}>
+                  <Text style={s.mobileUserInitial}>{user?.username?.[0]?.toUpperCase() || 'A'}</Text>
+                </View>
               </View>
             </View>
+          </SafeAreaView>
+
+          {/* Main Routed Content for Mobile */}
+          <View style={{ flex: 1, backgroundColor: currentTheme.background }}>
+            <Slot />
           </View>
-        </SafeAreaView>
-
-        {/* Main Routed Content for Mobile */}
-        <View style={{ flex: 1 }}>
-          <Slot />
-        </View>
 
         {/* Mobile Navigation Drawer Overlay */}
         {mobileSidebarVisible && (
@@ -556,188 +637,201 @@ export default function AdminLayout() {
           }}
         />
       </View>
+    </AdminThemeContext.Provider>
     );
   }
 
   // ─── DESKTOP LAYOUT (>= 1024px) ───────────────────────────────
   return (
-    <View style={s.root}>
-      {/* Collapsible Sidebar */}
-      <View style={[s.sidebar, { width: sidebarW }]}>
-        <View style={[s.sidebarBrand, collapsed && { justifyContent: 'center', paddingHorizontal: 0 }]}>
-          {!collapsed && <Image source={require('../../../assets/images/icon.jpg')} style={s.logoImg} />}
-          {!collapsed && <Text style={s.logoText}>XOET ADMIN</Text>}
-          <TouchableOpacity 
-            onPress={() => setSidebarCollapsed(p => !p)} 
-            style={[s.collapseToggleBtn, collapsed && { marginLeft: 0 }]}
-            accessibilityLabel={collapsed ? "Expand Sidebar" : "Collapse Sidebar"}
-          >
-            <Ionicons name={collapsed ? 'chevron-forward' : 'chevron-back'} size={15} color={C.onSurfaceVariant} />
-          </TouchableOpacity>
-        </View>
+    <AdminThemeContext.Provider value={{ mode: themeMode, theme: currentTheme, isDark: themeMode === 'dark', toggleTheme }}>
+      <View style={[s.root, { backgroundColor: currentTheme.background }]}>
+        {/* Collapsible Sidebar */}
+        <View style={[s.sidebar, { width: sidebarW, backgroundColor: currentTheme.surfaceContainerLowest, borderRightColor: currentTheme.border }]}>
+          <View style={[s.sidebarBrand, collapsed && { justifyContent: 'center', paddingHorizontal: 0 }]}>
+            {!collapsed && <Image source={require('../../../assets/images/icon.jpg')} style={[s.logoImg, { borderColor: currentTheme.border }]} />}
+            {!collapsed && <Text style={[s.logoText, { color: currentTheme.onSurface }]}>XOET ADMIN</Text>}
+            <TouchableOpacity 
+              onPress={() => setSidebarCollapsed(p => !p)} 
+              style={[s.collapseToggleBtn, { borderColor: currentTheme.border }, collapsed && { marginLeft: 0 }]}
+              accessibilityLabel={collapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+            >
+              <Ionicons name={collapsed ? 'chevron-forward' : 'chevron-back'} size={15} color={currentTheme.onSurfaceVariant} />
+            </TouchableOpacity>
+          </View>
 
-        {!collapsed && (
-          <Text style={s.sidebarRole} numberOfLines={1}>
-            {isSuperAdmin 
-              ? (isEN ? 'Super Administrator' : 'ዋና አድሚን') 
-              : (isEN ? 'System Administrator' : 'ሲስተም አድሚን')}
-          </Text>
-        )}
-
-        <ScrollView style={s.navList} showsVerticalScrollIndicator={false}>
-          <NavGroup 
-            title="General Platform"
-            items={generalGroup}
-            currentPath={pathname || ''}
-            collapsed={collapsed}
-          />
-          <NavGroup 
-            title="XO Game"
-            items={xoGroup}
-            currentPath={pathname || ''}
-            collapsed={collapsed}
-          />
-          <NavGroup 
-            title="Spin Game"
-            items={spinGroup}
-            currentPath={pathname || ''}
-            collapsed={collapsed}
-          />
-        </ScrollView>
-
-        <View style={[s.sidebarFooter, collapsed && { paddingHorizontal: 8, alignItems: 'center' }]}>
-          <TouchableOpacity
-            style={[s.footerHomeBtn, collapsed && s.footerBtnCollapsed]}
-            activeOpacity={0.7}
-            onPress={() => router.push('/(authed)/home/gameplay' as any)}
-            accessibilityLabel="Back to Home"
-          >
-            <Ionicons name="home-outline" size={17} color={C.secondary} />
-            {!collapsed && <Text style={s.footerHomeBtnText}>{isEN ? 'BACK TO GAME' : 'ወደ ጨዋታ'}</Text>}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[s.emergencyBtn, collapsed && s.footerBtnCollapsed]}
-            activeOpacity={0.7}
-            onPress={() => setLogoutModalVisible(true)}
-            accessibilityLabel="Logout"
-          >
-            <Ionicons name="log-out" size={17} color={C.error} />
-            {!collapsed && <Text style={s.emergencyText}>{isEN ? 'LOGOUT' : 'ውጣ'}</Text>}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[s.footerLink, collapsed && { justifyContent: 'center', paddingHorizontal: 0 }]}
-            activeOpacity={0.7}
-            onPress={() => router.push('/admin/settings' as any)}
-          >
-            <View style={[s.footerLinkIcon, (pathname || '') === '/admin/settings' && s.footerLinkIconActive]}>
-              <Ionicons name="settings" size={16} color={(pathname || '') === '/admin/settings' ? C.primary : C.onSurfaceVariant} />
-            </View>
-            {!collapsed && (
-              <Text style={[s.footerLinkText, (pathname || '') === '/admin/settings' && { color: C.onSurface }]}>
-                {isEN ? 'Settings' : 'ቅንብሮች'}
-              </Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Topbar */}
-      <View style={[s.topbar, { left: sidebarW }]}>
-        <View style={s.topbarLeft}>
-          <AdminGlobalSearch />
-        </View>
-
-        <View style={s.topbarRight}>
-          <TouchableOpacity
-            onPress={() => router.push('/(authed)/home/gameplay' as any)}
-            activeOpacity={0.8}
-            style={s.topbarHomeBadge}
-          >
-            <Ionicons name="home-outline" size={14} color={C.secondary} />
-            <Text style={s.topbarHomeBadgeText}>{isEN ? 'GAME CLIENT' : 'ጨዋታ'}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={s.balanceGroup} 
-            activeOpacity={0.7} 
-            onPress={() => router.push('/admin/ledger' as any)}
-          >
-            <Text style={s.balanceLabel}>{isEN ? 'PLATFORM BALANCE' : 'የሲስተም ሂሳብ'}</Text>
-            <Text style={s.balanceValue}>ETB {Number(stats?.totalProfit || 0).toLocaleString()}</Text>
-          </TouchableOpacity>
-
-          <View style={s.topbarSep} />
-
-          <TouchableOpacity 
-            style={s.balanceGroup} 
-            activeOpacity={0.7} 
-            onPress={() => router.push('/admin/ledger' as any)}
-          >
-            <Text style={[s.balanceLabel, { color: C.secondary }]}>{isEN ? 'WALLET POSITION' : 'ትክክለኛ ቻፓ'}</Text>
-            <Text style={[s.balanceValue, { color: '#ffffff' }]}>
-              ETB {Number(stats?.chapaBalance || stats?.chapaNetPosition || 0).toLocaleString()}
+          {!collapsed && (
+            <Text style={[s.sidebarRole, { color: currentTheme.onSurfaceVariant }]} numberOfLines={1}>
+              {isSuperAdmin 
+                ? (isEN ? 'Super Administrator' : 'ዋና አድሚን') 
+                : (isEN ? 'System Administrator' : 'ሲስተም አድሚን')}
             </Text>
-          </TouchableOpacity>
+          )}
 
-          <View style={s.topbarSep} />
+          <ScrollView style={s.navList} showsVerticalScrollIndicator={false}>
+            <NavGroup 
+              title="General Platform"
+              items={generalGroup}
+              currentPath={pathname || ''}
+              collapsed={collapsed}
+            />
+            <NavGroup 
+              title="XO Game"
+              items={xoGroup}
+              currentPath={pathname || ''}
+              collapsed={collapsed}
+            />
+            <NavGroup 
+              title="Spin Game"
+              items={spinGroup}
+              currentPath={pathname || ''}
+              collapsed={collapsed}
+            />
+          </ScrollView>
 
-          {/* Audio Sound Toggle */}
-          <TouchableOpacity
-            onPress={toggleMusic}
-            activeOpacity={0.7}
-            style={s.topbarActionBtn}
-            accessibilityLabel="Audio Toggle"
-          >
-            <Ionicons name={musicPlaying ? 'volume-high' : 'volume-mute'} size={16} color={musicPlaying ? C.secondary : C.onSurfaceVariant} />
-          </TouchableOpacity>
+          <View style={[s.sidebarFooter, { borderTopColor: currentTheme.border }, collapsed && { paddingHorizontal: 8, alignItems: 'center' }]}>
+            <TouchableOpacity
+              style={[s.footerHomeBtn, collapsed && s.footerBtnCollapsed]}
+              activeOpacity={0.7}
+              onPress={() => router.push('/(authed)/home/gameplay' as any)}
+              accessibilityLabel="Back to Home"
+            >
+              <Ionicons name="home-outline" size={17} color={currentTheme.secondary} />
+              {!collapsed && <Text style={[s.footerHomeBtnText, { color: currentTheme.secondary }]}>{isEN ? 'BACK TO GAME' : 'ወደ ጨዋታ'}</Text>}
+            </TouchableOpacity>
 
-          {/* Language Switch */}
-          <TouchableOpacity 
-            style={s.topbarActionBtn} 
-            onPress={() => switchLanguage()}
-            accessibilityLabel="Switch Language"
-          >
-            <Ionicons name="globe-outline" size={15} color={C.onSurfaceVariant} />
-            <Text style={s.topbarLangText}>{language === 'am' ? 'AM' : 'EN'}</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[s.emergencyBtn, collapsed && s.footerBtnCollapsed]}
+              activeOpacity={0.7}
+              onPress={() => setLogoutModalVisible(true)}
+              accessibilityLabel="Logout"
+            >
+              <Ionicons name="log-out" size={17} color={currentTheme.error} />
+              {!collapsed && <Text style={[s.emergencyText, { color: currentTheme.error }]}>{isEN ? 'LOGOUT' : 'ውጣ'}</Text>}
+            </TouchableOpacity>
 
-          {/* Admin User Chip */}
-          <View style={s.userChip}>
-            <View style={s.avatarContainer}>
-              {user?.avatar ? (
-                <Image source={{ uri: fixUrl(user.avatar) || undefined }} style={s.userAvatar} />
-              ) : (
-                <View style={s.userAvatar}>
-                  <Text style={{ color: C.primary, fontSize: 11, fontWeight: 'bold' }}>{user?.username?.[0] || 'A'}</Text>
-                </View>
+            <TouchableOpacity
+              style={[s.footerLink, collapsed && { justifyContent: 'center', paddingHorizontal: 0 }]}
+              activeOpacity={0.7}
+              onPress={() => router.push('/admin/settings' as any)}
+            >
+              <View style={[s.footerLinkIcon, (pathname || '') === '/admin/settings' && { backgroundColor: currentTheme.lightPrimary }]}>
+                <Ionicons name="settings" size={16} color={(pathname || '') === '/admin/settings' ? currentTheme.primary : currentTheme.onSurfaceVariant} />
+              </View>
+              {!collapsed && (
+                <Text style={[s.footerLinkText, { color: (pathname || '') === '/admin/settings' ? currentTheme.onSurface : currentTheme.onSurfaceVariant }]}>
+                  {isEN ? 'Settings' : 'ቅንብሮች'}
+                </Text>
               )}
-              <View style={s.statusIndicator} />
-            </View>
-            <View style={{ marginLeft: 8 }}>
-              <Text style={s.userName} numberOfLines={1}>{user?.username || 'Admin'}</Text>
-              <Text style={s.userOnline}>{isSuperAdmin ? 'Superadmin' : 'System Admin'}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Topbar */}
+        <View style={[s.topbar, { left: sidebarW, backgroundColor: currentTheme.surfaceContainerLowest, borderBottomColor: currentTheme.border }]}>
+          <View style={s.topbarLeft}>
+            <AdminGlobalSearch />
+          </View>
+
+          <View style={s.topbarRight}>
+            <TouchableOpacity
+              onPress={() => router.push('/(authed)/home/gameplay' as any)}
+              activeOpacity={0.8}
+              style={[s.topbarHomeBadge, { backgroundColor: currentTheme.lightPrimary, borderColor: currentTheme.border }]}
+            >
+              <Ionicons name="home-outline" size={14} color={currentTheme.secondary} />
+              <Text style={[s.topbarHomeBadgeText, { color: currentTheme.secondary }]}>{isEN ? 'GAME CLIENT' : 'ጨዋታ'}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={s.balanceGroup} 
+              activeOpacity={0.7} 
+              onPress={() => router.push('/admin/ledger' as any)}
+            >
+              <Text style={[s.balanceLabel, { color: currentTheme.onSurfaceVariant }]}>{isEN ? 'PLATFORM BALANCE' : 'የሲስተም ሂሳብ'}</Text>
+              <Text style={[s.balanceValue, { color: currentTheme.primary }]}>ETB {Number(stats?.totalProfit || 0).toLocaleString()}</Text>
+            </TouchableOpacity>
+
+            <View style={[s.topbarSep, { backgroundColor: currentTheme.border }]} />
+
+            <TouchableOpacity 
+              style={s.balanceGroup} 
+              activeOpacity={0.7} 
+              onPress={() => router.push('/admin/ledger' as any)}
+            >
+              <Text style={[s.balanceLabel, { color: currentTheme.secondary }]}>{isEN ? 'WALLET POSITION' : 'ትክክለኛ ቻፓ'}</Text>
+              <Text style={[s.balanceValue, { color: currentTheme.onSurface }]}>
+                ETB {Number(stats?.chapaBalance || stats?.chapaNetPosition || 0).toLocaleString()}
+              </Text>
+            </TouchableOpacity>
+
+            <View style={[s.topbarSep, { backgroundColor: currentTheme.border }]} />
+
+            {/* Audio Sound Toggle */}
+            <TouchableOpacity
+              onPress={toggleMusic}
+              activeOpacity={0.7}
+              style={[s.topbarActionBtn, { backgroundColor: currentTheme.surfaceContainer, borderColor: currentTheme.border }]}
+              accessibilityLabel="Audio Toggle"
+            >
+              <Ionicons name={musicPlaying ? 'volume-high' : 'volume-mute'} size={16} color={musicPlaying ? currentTheme.secondary : currentTheme.onSurfaceVariant} />
+            </TouchableOpacity>
+
+            {/* Theme Mode Toggle (Dark / Light) */}
+            <TouchableOpacity
+              onPress={toggleTheme}
+              activeOpacity={0.7}
+              style={[s.topbarActionBtn, { backgroundColor: currentTheme.surfaceContainer, borderColor: currentTheme.border }]}
+              accessibilityLabel="Toggle Dark / Light Theme"
+            >
+              <Ionicons name={themeMode === 'dark' ? 'sunny-outline' : 'moon-outline'} size={16} color={themeMode === 'dark' ? '#F0950C' : currentTheme.primary} />
+            </TouchableOpacity>
+
+            {/* Language Switch */}
+            <TouchableOpacity 
+              style={[s.topbarActionBtn, { backgroundColor: currentTheme.surfaceContainer, borderColor: currentTheme.border }]} 
+              onPress={() => switchLanguage()}
+              accessibilityLabel="Switch Language"
+            >
+              <Ionicons name="globe-outline" size={15} color={currentTheme.onSurfaceVariant} />
+              <Text style={[s.topbarLangText, { color: currentTheme.onSurfaceVariant }]}>{language === 'am' ? 'AM' : 'EN'}</Text>
+            </TouchableOpacity>
+
+            {/* Admin User Chip */}
+            <View style={[s.userChip, { backgroundColor: currentTheme.surfaceContainer, borderColor: currentTheme.border }]}>
+              <View style={s.avatarContainer}>
+                {user?.avatar ? (
+                  <Image source={{ uri: fixUrl(user.avatar) || undefined }} style={s.userAvatar} />
+                ) : (
+                  <View style={[s.userAvatar, { backgroundColor: currentTheme.surfaceContainerHighest }]}>
+                    <Text style={{ color: currentTheme.primary, fontSize: 11, fontWeight: 'bold' }}>{user?.username?.[0] || 'A'}</Text>
+                  </View>
+                )}
+                <View style={[s.statusIndicator, { backgroundColor: currentTheme.success, borderColor: currentTheme.surfaceContainerLowest }]} />
+              </View>
+              <View style={{ marginLeft: 8 }}>
+                <Text style={[s.userName, { color: currentTheme.onSurface }]} numberOfLines={1}>{user?.username || 'Admin'}</Text>
+                <Text style={[s.userOnline, { color: currentTheme.onSurfaceVariant }]}>{isSuperAdmin ? 'Superadmin' : 'System Admin'}</Text>
+              </View>
             </View>
           </View>
         </View>
-      </View>
 
-      {/* Main Routed View Canvas */}
-      <View style={[s.mainCanvas, { marginLeft: sidebarW }]}>
-        <Slot />
-      </View>
+        {/* Main Routed View Canvas (Clean flat background) */}
+        <View style={[s.mainCanvas, { marginLeft: sidebarW, backgroundColor: currentTheme.background }]}>
+          <Slot />
+        </View>
 
-      <LogoutConfirmation
-        visible={logoutModalVisible}
-        onCancel={() => setLogoutModalVisible(false)}
-        onConfirm={async () => {
-          setLogoutModalVisible(false);
-          await logout();
-          router.replace('/(auth)/login' as any);
-        }}
-      />
-    </View>
+        <LogoutConfirmation
+          visible={logoutModalVisible}
+          onCancel={() => setLogoutModalVisible(false)}
+          onConfirm={async () => {
+            setLogoutModalVisible(false);
+            await logout();
+            router.replace('/(auth)/login' as any);
+          }}
+        />
+      </View>
+    </AdminThemeContext.Provider>
   );
 }
 
@@ -784,13 +878,13 @@ const s = StyleSheet.create({
   navItemCollapsed: { justifyContent: 'center', paddingHorizontal: 0, width: 44, height: 44, alignSelf: 'center', marginBottom: 4 },
   navItemActive: { 
     backgroundColor: '#333A48', 
-    borderColor: '#3C50E0', 
+    borderColor: '#FF2D55', 
   },
   navIconWrap: { width: 28, height: 28, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
-  navIconWrapActive: { backgroundColor: '#3C50E0' },
+  navIconWrapActive: { backgroundColor: '#FF2D55' },
   navLabel: { color: C.onSurfaceVariant, fontSize: 13, fontWeight: '600', flex: 1 },
   navLabelActive: { color: '#ffffff', fontWeight: '800' },
-  activeIndicator: { width: 4, height: 16, borderRadius: 2, backgroundColor: '#3C50E0' },
+  activeIndicator: { width: 4, height: 16, borderRadius: 2, backgroundColor: '#FF2D55' },
 
   sidebarFooter: { 
     paddingHorizontal: 14, paddingBottom: 20, 
@@ -811,7 +905,7 @@ const s = StyleSheet.create({
   emergencyText: { color: C.error, fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
   footerLink: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8 },
   footerLinkIcon: { width: 28, height: 28, borderRadius: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.03)' },
-  footerLinkIconActive: { backgroundColor: 'rgba(60, 80, 224, 0.15)' },
+  footerLinkIconActive: { backgroundColor: 'rgba(255, 45, 85, 0.15)' },
   footerLinkText: { color: C.onSurfaceVariant, fontSize: 12, fontWeight: '600' },
 
   topbar: { 
@@ -825,7 +919,7 @@ const s = StyleSheet.create({
   topbarRight: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   topbarHomeBadge: { 
     flexDirection: 'row', alignItems: 'center', gap: 6, 
-    backgroundColor: 'rgba(60, 80, 224, 0.08)', borderWidth: 1, borderColor: 'rgba(60, 80, 224, 0.25)', 
+    backgroundColor: 'rgba(255, 45, 85, 0.08)', borderWidth: 1, borderColor: 'rgba(255, 45, 85, 0.25)', 
     paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 
   },
   topbarHomeBadgeText: { color: C.secondary, fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
@@ -896,7 +990,7 @@ const s = StyleSheet.create({
   },
   drawerHomeBtn: { 
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, 
-    backgroundColor: 'rgba(60, 80, 224, 0.08)', borderWidth: 1, borderColor: 'rgba(60, 80, 224, 0.25)', 
+    backgroundColor: 'rgba(255, 45, 85, 0.08)', borderWidth: 1, borderColor: 'rgba(255, 45, 85, 0.25)', 
     paddingVertical: 12, borderRadius: 10 
   },
   drawerHomeBtnText: { color: C.secondary, fontSize: 12, fontWeight: '800' },
@@ -907,7 +1001,7 @@ const s = StyleSheet.create({
   },
   bottomTabItem: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 8, gap: 3 },
   bottomTabIconBox: { width: 34, height: 28, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
-  bottomTabIconBoxActive: { backgroundColor: 'rgba(60, 80, 224, 0.15)' },
+  bottomTabIconBoxActive: { backgroundColor: 'rgba(255, 45, 85, 0.15)' },
   bottomTabLabel: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '600', textAlign: 'center' },
   bottomTabLabelActive: { color: '#ffffff', fontWeight: '800' },
 

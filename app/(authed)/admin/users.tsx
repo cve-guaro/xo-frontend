@@ -1,5 +1,4 @@
-// app/(authed)/admin/users.tsx — God Mode: Player Matrix + User 360 Panel
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, StyleSheet, Platform, Modal, useWindowDimensions, Image } from 'react-native';
 import AnimatedList from '../../../components/AnimatedList';
 import ReferralDetailsModal from '../../../components/ReferralDetailsModal';
@@ -7,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../../context/authContext';
 import { API_URL } from '../../../config';
 import { useRouter } from 'expo-router';
-import { AdminTheme as C } from './_layout';
+import { useAdminTheme } from './_layout';
 import ActionConfirmModal from '../../../components/ActionConfirmModal';
 import User360View from '../../../components/User360View';
 
@@ -26,6 +25,8 @@ interface User {
 }
 
 export default function AdminUsers() {
+  const { theme: C, isDark } = useAdminTheme();
+  const styles = useMemo(() => getStyles(C), [C]);
   const { token, t, showAlert, isSuperAdmin } = useAuth();
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
@@ -418,70 +419,70 @@ export default function AdminUsers() {
                     <select
                       value={roleFilter}
                       onChange={(e: any) => setRoleFilter(e.target.value)}
-                      style={{ background: 'transparent', border: 'none', color: 'rgba(229,227,255,0.8)', fontSize: 12, fontWeight: 700, outlineStyle: 'none', cursor: 'pointer' as any, paddingRight: 4 } as any}
+                      style={{ background: 'transparent', border: 'none', color: C.onSurface, fontSize: 12, fontWeight: 700, outlineStyle: 'none', cursor: 'pointer' as any, paddingRight: 4 } as any}
                     >
-                      <option value="all" style={{ background: '#1A222C' }}>All Roles</option>
-                      <option value="user" style={{ background: '#1A222C' }}>User</option>
-                      <option value="admin" style={{ background: '#1A222C' }}>Admin</option>
-                      <option value="superadmin" style={{ background: '#1A222C' }}>Superadmin</option>
-                      <option value="maintenance_admin" style={{ background: '#1A222C' }}>Maintenance</option>
+                      <option value="all" style={{ background: C.surface, color: C.onSurface }}>All Roles</option>
+                      <option value="user" style={{ background: C.surface, color: C.onSurface }}>User</option>
+                      <option value="admin" style={{ background: C.surface, color: C.onSurface }}>Admin</option>
+                      <option value="superadmin" style={{ background: C.surface, color: C.onSurface }}>Superadmin</option>
+                      <option value="maintenance_admin" style={{ background: C.surface, color: C.onSurface }}>Maintenance</option>
                     </select>
                   ) : (
                     <TouchableOpacity onPress={() => {
                       const order = ['all','user','admin','superadmin','maintenance_admin'] as const;
                       setRoleFilter(order[(order.indexOf(roleFilter) + 1) % order.length]);
                     }}>
-                      <Text style={{ color: '#e5e3ff', fontSize: 12, fontWeight: '700' }}>{roleFilter === 'maintenance_admin' ? 'MAINTENANCE' : roleFilter.toUpperCase()}</Text>
+                      <Text style={{ color: C.onSurface, fontSize: 12, fontWeight: '700' }}>{roleFilter === 'maintenance_admin' ? 'MAINTENANCE' : roleFilter.toUpperCase()}</Text>
                     </TouchableOpacity>
                   )}
-                  <Ionicons name="chevron-down" size={11} color="rgba(168,167,212,0.4)" />
+                  <Ionicons name="chevron-down" size={11} color={C.onSurfaceVariant} />
                 </View>
 
                 <View style={[styles.selectWrap, isMobile && { flex: 1 }]}>
-                  <Ionicons name="shield-checkmark-outline" size={13} color="rgba(168,167,212,0.6)" />
+                  <Ionicons name="shield-checkmark-outline" size={13} color={C.onSurfaceVariant} />
                   {Platform.OS === 'web' ? (
                     <select
                       value={statusFilter}
                       onChange={(e: any) => setStatusFilter(e.target.value)}
-                      style={{ background: 'transparent', border: 'none', color: 'rgba(229,227,255,0.8)', fontSize: 12, fontWeight: 700, outlineStyle: 'none', cursor: 'pointer' as any, paddingRight: 4 } as any}
+                      style={{ background: 'transparent', border: 'none', color: C.onSurface, fontSize: 12, fontWeight: 700, outlineStyle: 'none', cursor: 'pointer' as any, paddingRight: 4 } as any}
                     >
-                      <option value="all" style={{ background: '#1A222C' }}>All Status</option>
-                      <option value="active" style={{ background: '#1A222C' }}>Active</option>
-                      <option value="banned" style={{ background: '#1A222C' }}>Banned</option>
+                      <option value="all" style={{ background: C.surface, color: C.onSurface }}>All Status</option>
+                      <option value="active" style={{ background: C.surface, color: C.onSurface }}>Active</option>
+                      <option value="banned" style={{ background: C.surface, color: C.onSurface }}>Banned</option>
                     </select>
                   ) : (
                     <TouchableOpacity onPress={() => {
                       const order = ['all','active','banned'] as const;
                       setStatusFilter(order[(order.indexOf(statusFilter) + 1) % order.length]);
                     }}>
-                      <Text style={{ color: '#e5e3ff', fontSize: 12, fontWeight: '700' }}>{statusFilter.toUpperCase()}</Text>
+                      <Text style={{ color: C.onSurface, fontSize: 12, fontWeight: '700' }}>{statusFilter.toUpperCase()}</Text>
                     </TouchableOpacity>
                   )}
-                  <Ionicons name="chevron-down" size={11} color="rgba(168,167,212,0.4)" />
+                  <Ionicons name="chevron-down" size={11} color={C.onSurfaceVariant} />
                 </View>
 
                 <View style={[styles.selectWrap, isMobile && { flex: 1 }]}>
-                  <Ionicons name="cash-outline" size={13} color="rgba(168,167,212,0.6)" />
+                  <Ionicons name="cash-outline" size={13} color={C.onSurfaceVariant} />
                   {Platform.OS === 'web' ? (
                     <select
                       value={amountRange}
                       onChange={(e: any) => setAmountRange(e.target.value)}
-                      style={{ background: 'transparent', border: 'none', color: 'rgba(229,227,255,0.8)', fontSize: 12, fontWeight: 700, outlineStyle: 'none', cursor: 'pointer' as any, paddingRight: 4 } as any}
+                      style={{ background: 'transparent', border: 'none', color: C.onSurface, fontSize: 12, fontWeight: 700, outlineStyle: 'none', cursor: 'pointer' as any, paddingRight: 4 } as any}
                     >
-                      <option value="all" style={{ background: '#1A222C' }}>All Amounts</option>
-                      <option value="0-100" style={{ background: '#1A222C' }}>0 - 100 ETB</option>
-                      <option value="100-10000" style={{ background: '#1A222C' }}>100 - 10,000 ETB</option>
-                      <option value="10000-100000" style={{ background: '#1A222C' }}>10,000 - 100,000 ETB</option>
+                      <option value="all" style={{ background: C.surface, color: C.onSurface }}>All Amounts</option>
+                      <option value="0-100" style={{ background: C.surface, color: C.onSurface }}>0 - 100 ETB</option>
+                      <option value="100-10000" style={{ background: C.surface, color: C.onSurface }}>100 - 10,000 ETB</option>
+                      <option value="10000-100000" style={{ background: C.surface, color: C.onSurface }}>10,000 - 100,000 ETB</option>
                     </select>
                   ) : (
                     <TouchableOpacity onPress={() => {
                       const order = ['all','0-100','100-10000','10000-100000'] as const;
                       setAmountRange(order[(order.indexOf(amountRange) + 1) % order.length]);
                     }}>
-                      <Text style={{ color: '#e5e3ff', fontSize: 12, fontWeight: '700' }}>{amountRange === 'all' ? 'ALL AMTS' : amountRange}</Text>
+                      <Text style={{ color: C.onSurface, fontSize: 12, fontWeight: '700' }}>{amountRange === 'all' ? 'ALL AMTS' : amountRange}</Text>
                     </TouchableOpacity>
                   )}
-                  <Ionicons name="chevron-down" size={11} color="rgba(168,167,212,0.4)" />
+                  <Ionicons name="chevron-down" size={11} color={C.onSurfaceVariant} />
                 </View>
 
                 <View style={[styles.searchBox, isMobile && { width: '100%' as any }]}>
@@ -925,29 +926,29 @@ export default function AdminUsers() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (C: any) => StyleSheet.create({
   root: { flex: 1, gap: 16, padding: 12 },
   tableWrap: { flex: 1 },
-  tableCard: { flex: 1, backgroundColor: 'transparent' },
-  tableHeader: { padding: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: C.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, borderWidth: 1, borderBottomWidth: 0, borderColor: C.outlineVariant },
-  tableHeadUnder: { padding: 16, backgroundColor: C.surface, borderBottomLeftRadius: 20, borderBottomRightRadius: 20, borderWidth: 1, borderTopWidth: 0, borderColor: C.outlineVariant, marginBottom: 16 },
-  tableTitle: { color: '#fff', fontSize: 20, fontWeight: '700', letterSpacing: -0.5, fontFamily: 'Inter' },
-  tableSub: { color: C.onSurfaceVariant, fontSize: 12, marginTop: 4, fontWeight: '500', fontFamily: 'Inter' },
+  tableCard: { flex: 1, backgroundColor: C.surface, borderRadius: 10, borderWidth: 1, borderColor: C.border, overflow: 'hidden' },
+  tableHeader: { paddingHorizontal: 20, paddingVertical: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: C.surface, borderBottomWidth: 1, borderBottomColor: C.border },
+  tableHeadUnder: { paddingHorizontal: 20, paddingVertical: 12, backgroundColor: C.surfaceContainerLowest, borderBottomWidth: 1, borderBottomColor: C.border, marginBottom: 0 },
+  tableTitle: { color: C.onSurface, fontSize: 18, fontWeight: '700', letterSpacing: -0.3, fontFamily: 'Inter' },
+  tableSub: { color: C.onSurfaceVariant, fontSize: 12, marginTop: 3, fontWeight: '500', fontFamily: 'Inter' },
   tableActions: { flexDirection: 'row', gap: 10, alignItems: 'center' },
-  selectWrap: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.surfaceContainerLowest, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: C.outlineVariant },
-  searchBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.surfaceContainerLowest, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: C.outlineVariant, width: 180 },
-  searchInput: { flex: 1, color: '#fff', fontSize: 13, fontWeight: '600', fontFamily: 'Inter' },
-  thead: { flexDirection: 'row', paddingHorizontal: 20, paddingVertical: 12, backgroundColor: '#313D4A', borderRadius: 8, marginBottom: 8 },
-  th: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', fontFamily: 'Inter' },
-  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: C.surface, borderRadius: 10, marginBottom: 8, borderWidth: 1, borderColor: C.outlineVariant },
-  rowSelected: { backgroundColor: 'rgba(60, 80, 224, 0.08)', borderColor: C.primary },
+  selectWrap: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.surfaceContainer, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 8, borderWidth: 1, borderColor: C.border },
+  searchBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.surfaceContainer, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 8, borderWidth: 1, borderColor: C.border, width: 200 },
+  searchInput: { flex: 1, color: C.onSurface, fontSize: 13, fontWeight: '600', fontFamily: 'Inter' },
+  thead: { flexDirection: 'row', paddingHorizontal: 20, paddingVertical: 12, backgroundColor: C.surfaceContainerHighest, borderBottomWidth: 1, borderBottomColor: C.border },
+  th: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase', fontFamily: 'Inter' },
+  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, backgroundColor: 'transparent', borderBottomWidth: 1, borderBottomColor: C.border },
+  rowSelected: { backgroundColor: C.lightPrimary },
   tdId: { flex: 0.8, color: C.primary, fontSize: 11, fontFamily: 'monospace', fontWeight: '700' },
   tdUser: { flex: 1.8, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  avatar: { width: 34, height: 34, borderRadius: 8, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.border, backgroundColor: '#313D4A' },
+  avatar: { width: 34, height: 34, borderRadius: 8, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.border, backgroundColor: C.surfaceContainerHighest },
   avatarText: { fontSize: 12, fontWeight: '700' },
-  tdName: { color: '#fff', fontSize: 13, fontWeight: '700', letterSpacing: -0.2, fontFamily: 'Inter' },
-  tdPhone: { color: C.onSurfaceVariant, fontSize: 9, fontFamily: 'Inter' },
-  tdBal: { flex: 0.9, color: C.secondary, fontSize: 11, fontWeight: '700' },
+  tdName: { color: C.onSurface, fontSize: 13, fontWeight: '700', letterSpacing: -0.2, fontFamily: 'Inter' },
+  tdPhone: { color: C.onSurfaceVariant, fontSize: 10, fontFamily: 'Inter' },
+  tdBal: { flex: 0.9, color: C.secondary, fontSize: 12, fontWeight: '700' },
   tdStatus: { flex: 0.8 },
   statusPill: { fontSize: 8, fontWeight: '700', textTransform: 'uppercase', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, borderWidth: 1, textAlign: 'center', fontFamily: 'Inter' },
   tdTime: { flex: 0.9, color: C.onSurfaceVariant, fontSize: 10, fontFamily: 'Inter' },
@@ -955,13 +956,13 @@ const styles = StyleSheet.create({
   viewBtn: { padding: 4 },
   emptyText: { color: C.onSurfaceVariant, textAlign: 'center', padding: 30, fontFamily: 'Inter' },
   panel: { width: '100%', maxWidth: 380 },
-  profileCard: { padding: 16, borderRadius: 10, borderWidth: 1, borderColor: C.outlineVariant, backgroundColor: C.surface },
+  profileCard: { padding: 16, borderRadius: 10, borderWidth: 1, borderColor: C.border, backgroundColor: C.surface },
   profileHeader: { flexDirection: 'row', gap: 12, marginBottom: 16 },
   profileAvatarWrap: { position: 'relative' },
-  profileAvatar: { width: 48, height: 48, borderRadius: 10, backgroundColor: '#313D4A', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.border },
+  profileAvatar: { width: 48, height: 48, borderRadius: 10, backgroundColor: C.surfaceContainerHighest, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.border },
   profileAvatarText: { color: C.primary, fontSize: 16, fontWeight: '700' },
   onlineIndicator: { position: 'absolute', bottom: -2, right: -2, width: 10, height: 10, borderRadius: 5, borderWidth: 2, borderColor: C.background },
-  profileName: { color: '#fff', fontSize: 16, fontWeight: '700', fontFamily: 'Inter' },
+  profileName: { color: C.onSurface, fontSize: 16, fontWeight: '700', fontFamily: 'Inter' },
   profileId: { color: C.onSurfaceVariant, fontSize: 9, fontFamily: 'monospace' },
   profileBalRow: { flexDirection: 'row', gap: 6, marginTop: 2 },
   profileBalLabel: { color: C.onSurfaceVariant, fontSize: 11, fontFamily: 'Inter' },
@@ -971,8 +972,8 @@ const styles = StyleSheet.create({
   miniStats: { flexDirection: 'row', gap: 8, marginTop: 12 },
   miniStatItem: { flex: 1, backgroundColor: C.surfaceContainerLowest, padding: 10, borderRadius: 8 },
   miniStatLabel: { color: C.onSurfaceVariant, fontSize: 8, fontWeight: '700', textTransform: 'uppercase', fontFamily: 'Inter' },
-  miniStatVal: { color: '#fff', fontSize: 14, fontWeight: '700', marginTop: 2, fontFamily: 'Inter' },
-  actionCard: { padding: 14, borderRadius: 10, gap: 10, borderWidth: 1, borderColor: C.outlineVariant, backgroundColor: C.surface },
+  miniStatVal: { color: C.onSurface, fontSize: 14, fontWeight: '700', marginTop: 2, fontFamily: 'Inter' },
+  actionCard: { padding: 14, borderRadius: 10, gap: 10, borderWidth: 1, borderColor: C.border, backgroundColor: C.surface },
   editBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 12, backgroundColor: C.lightPrimary, borderRadius: 8 },
   actionRow: { flexDirection: 'row', gap: 8 },
   banBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, padding: 10, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(251,84,84,0.3)', backgroundColor: 'rgba(251,84,84,0.08)' },
@@ -982,7 +983,7 @@ const styles = StyleSheet.create({
   emptyPanelText: { color: C.onSurfaceVariant, fontSize: 13, fontFamily: 'Inter' },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(11,20,55,0.85)',
+    backgroundColor: 'rgba(0,0,0,0.75)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
@@ -999,8 +1000,8 @@ const styles = StyleSheet.create({
   },
   userModalBox: { width: '100%', maxWidth: 480, padding: 28, borderRadius: 10, borderWidth: 1, borderColor: C.border, backgroundColor: C.surface, maxHeight: '90%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  modalTitle: { color: '#ffffff', fontSize: 18, fontWeight: '700', fontFamily: 'Inter' },
-  inputField: { backgroundColor: C.surfaceContainerLowest, color: '#ffffff', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: C.border, fontSize: 13, fontFamily: 'Inter' },
+  modalTitle: { color: C.onSurface, fontSize: 18, fontWeight: '700', fontFamily: 'Inter' },
+  inputField: { backgroundColor: C.surfaceContainerLowest, color: C.onSurface, padding: 12, borderRadius: 8, borderWidth: 1, borderColor: C.border, fontSize: 13, fontFamily: 'Inter' },
   saveBtn: { backgroundColor: C.primary, padding: 14, borderRadius: 8, alignItems: 'center', marginTop: 12 },
   saveBtnText: { color: '#ffffff', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, fontFamily: 'Inter' },
   formLabel: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '700', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1, fontFamily: 'Inter' },
@@ -1008,10 +1009,10 @@ const styles = StyleSheet.create({
   sectionTitle: { color: C.onSurfaceVariant, fontSize: 9, fontWeight: '700', textTransform: 'uppercase', marginBottom: 10, letterSpacing: 0.5, fontFamily: 'Inter' },
   prizeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   prizeItem: { flex: 1, minWidth: '45%', backgroundColor: C.surfaceContainerLow, padding: 8, borderRadius: 8, borderWidth: 1, borderColor: C.border },
-  prizeAmt: { color: '#ffffff', fontSize: 10, fontWeight: '700', fontFamily: 'Inter' },
+  prizeAmt: { color: C.onSurface, fontSize: 10, fontWeight: '700', fontFamily: 'Inter' },
   prizeCount: { color: C.secondary, fontSize: 12, fontWeight: '700', marginTop: 2, fontFamily: 'Inter' },
   txRowSmall: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: C.border },
-  txType: { color: 'rgba(255,255,255,0.8)', fontSize: 10, fontWeight: '700', fontFamily: 'Inter' },
+  txType: { color: C.onSurface, fontSize: 10, fontWeight: '700', fontFamily: 'Inter' },
   txDate: { color: C.onSurfaceVariant, fontSize: 9, marginTop: 1, fontFamily: 'Inter' },
   txAmtSmall: { fontSize: 11, fontWeight: '700', fontFamily: 'Inter' },
   emptySubText: { color: C.onSurfaceVariant, fontSize: 10, textAlign: 'center', paddingVertical: 8, fontFamily: 'Inter' },
@@ -1024,11 +1025,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row', 
     justifyContent: 'space-between', 
     alignItems: 'center', 
-    padding: 20, 
-    marginTop: 8,
-    borderRadius: 10,
-    borderWidth: 1, 
-    borderColor: C.border,
+    paddingHorizontal: 20, 
+    paddingVertical: 14, 
+    borderTopWidth: 1, 
+    borderTopColor: C.border,
     backgroundColor: C.surface
   },
   paginationInfo: { color: C.onSurfaceVariant, fontSize: 12, fontWeight: '700', fontFamily: 'Inter' },
@@ -1040,8 +1040,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, 
     paddingVertical: 6, 
     borderRadius: 8,
-    borderWidth: 1,
+    borderWidth: 1, 
     borderColor: C.border
   },
-  pageBtnText: { color: '#ffffff', fontSize: 12, fontWeight: '700', fontFamily: 'Inter' },
+  pageBtnText: { color: C.onSurface, fontSize: 12, fontWeight: '700', fontFamily: 'Inter' },
 });
