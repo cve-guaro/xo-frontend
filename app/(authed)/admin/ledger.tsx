@@ -52,8 +52,11 @@ export default function AdminLedger() {
   };
 
   const [confirmAction, setConfirmAction] = useState<'approve'|'reject'|null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
   const execTxAction = async (action: 'approve'|'reject'|'ban'|'delete', txId: string, userId: string) => {
+    if (actionLoading) return;
+    setActionLoading(true);
     try {
       let url = ''; let method = 'PATCH';
       if (action === 'approve') url = `${API_URL}/admin/transactions/${txId}/approve`;
@@ -61,14 +64,18 @@ export default function AdminLedger() {
       if (action === 'ban') { url = `${API_URL}/admin/users/${userId}/ban`; method = 'POST'; }
       if (action === 'delete') { url = `${API_URL}/admin/users/${userId}`; method = 'DELETE'; }
 
-      const res = await fetch(url, { method, headers: { Authorization: `Bearer ${token}` }});
+      const res = await fetch(url, { method, headers: { Authorization: `Bearer ${token}`, 'x-platform': 'web' }});
       if (res.ok) {
          showAlert(`Success`, `Action ${action} completed successfully.`);
          setReviewModalVisible(false);
          setConfirmAction(null);
          fetchTxs();
-      } else showAlert('Error', 'Action failed');
+      } else {
+        const err = await res.json().catch(() => ({}));
+        showAlert('Error', err.error || `Action ${action} failed`);
+      }
     } catch { showAlert('Error', 'Network error'); }
+    finally { setActionLoading(false); }
   };
 
   const limit = 20;
@@ -295,107 +302,193 @@ export default function AdminLedger() {
             </View>
           </View>
 
-          {/* Table body — horizontal scroll on mobile */}
-          <ScrollView horizontal={isMobile} showsHorizontalScrollIndicator={isMobile}>
-            <View style={isMobile ? { minWidth: 900 } : undefined}>
-              {/* Column headers */}
-              <View style={[styles.colRow, { backgroundColor: 'rgba(17,17,40,0.8)', borderBottomWidth: 1, borderBottomColor: 'rgba(39, 39, 42, 0.4)' }]}>
-                <View style={{ flex: 2 }}><Text style={styles.colHead}>User Account</Text></View>
-                <View style={{ flex: 1.1 }}><Text style={styles.colHead}>Amount (ETB)</Text></View>
-                <View style={{ flex: 0.9 }}><Text style={styles.colHead}>Method</Text></View>
-                <View style={{ flex: 1.2 }}><Text style={styles.colHead}>Timestamp</Text></View>
-                <View style={{ flex: 0.9 }}><Text style={styles.colHead}>Status</Text></View>
-                <View style={{ flex: 1.3 }}><Text style={[styles.colHead, { textAlign: 'right' }]}>Receipt</Text></View>
-              </View>
+          {/* Table / Mobile Card List */}
+          {isMobile ? (
+            <View style={{ padding: 12 }}>
+              <AnimatedList
+                items={loading ? [] : filtered}
+                renderItem={(tx: Tx) => {
+                  const d = fmtDate(tx.created_at);
+                  const status = (tx.status || '').toUpperCase();
+                  const isPending = status === 'PENDING' || status === 'WAITING';
+                  const isAdminPending = status === 'PENDING_MANUAL';
+                  const isSuccess = status === 'SUCCESS' || status === 'SUCCEEDED' || status === 'COMPLETED' || status === 'PAID';
+                  const isFailed = status === 'FAILED' || status === 'REJECTED' || status === 'ERROR' || status === 'CANCELLED';
+                  
+                  const providerColor = tx.provider?.toUpperCase() === 'CHAPA' ? C.primary : C.secondary;
+                  const ini = initials(tx);
+                  const avatarBg = isPending ? 'rgba(192,132,252,0.15)' : isAdminPending ? 'rgba(251,191,36,0.15)' : isSuccess ? 'rgba(0,218,243,0.1)' : 'rgba(253,111,133,0.15)';
+                  const avatarColor = isPending ? '#c084fc' : isAdminPending ? '#fbbf24' : isSuccess ? C.secondary : C.error;
 
-          <AnimatedList
-            items={loading ? [] : filtered}
-            renderItem={(tx: Tx) => {
-              const d = fmtDate(tx.created_at);
-              const status = (tx.status || '').toUpperCase();
-              const isPending = status === 'PENDING' || status === 'WAITING';
-              const isAdminPending = status === 'PENDING_MANUAL';
-              const isSuccess = status === 'SUCCESS' || status === 'SUCCEEDED' || status === 'COMPLETED' || status === 'PAID';
-              const isFailed = status === 'FAILED' || status === 'REJECTED' || status === 'ERROR' || status === 'CANCELLED';
-              
-              const providerColor = tx.provider?.toUpperCase() === 'CHAPA' ? C.primary : C.secondary;
-              const ini = initials(tx);
-              const avatarBg = isPending ? 'rgba(192,132,252,0.15)' : isAdminPending ? 'rgba(251,191,36,0.15)' : isSuccess ? 'rgba(0,218,243,0.1)' : 'rgba(253,111,133,0.15)';
-              const avatarColor = isPending ? '#c084fc' : isAdminPending ? '#fbbf24' : isSuccess ? C.secondary : C.error;
+                  return (
+                    <View key={tx.id} style={[styles.txRow, { flexDirection: 'column', alignItems: 'stretch', padding: 14, gap: 10, marginBottom: 10 }]}>
+                      {/* Top Row: User & Amount */}
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+                          <View style={[styles.txAvatar, { backgroundColor: avatarBg }]}>
+                            <Text style={[styles.txAvatarText, { color: avatarColor }]}>{ini}</Text>
+                          </View>
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <Text style={styles.txName} numberOfLines={1}>{tx.username || 'Unknown'}</Text>
+                            <Text style={styles.txId}>ID: {tx.user_id?.slice(0, 7)}</Text>
+                          </View>
+                        </View>
+                        <Text style={[styles.txAmount, { color: tab === 1 ? '#f87171' : '#34d399', fontSize: 16 }]} numberOfLines={1}>
+                          {tab === 1 ? '- ' : '+ '}ETB {etb(tx.amount)}
+                        </Text>
+                      </View>
 
-              return (
-                <View key={tx.id} style={[styles.txRow, { borderBottomWidth: 0, marginBottom: 0 }]}>
-                  {/* User */}
-                  <View style={[styles.txUser, { flex: 2 }]}>
-                    <View style={[styles.txAvatar, { backgroundColor: avatarBg }]}>
-                      <Text style={[styles.txAvatarText, { color: avatarColor }]}>{ini}</Text>
-                    </View>
-                    <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text style={styles.txName} numberOfLines={1}>{tx.username || 'Unknown'}</Text>
-                      <Text style={styles.txId}>ID: {tx.user_id?.slice(0,7)}</Text>
-                    </View>
-                  </View>
-                  {/* Amount */}
-                  <View style={{ flex: 1.1 }}>
-                    <Text style={[styles.txAmount, { color: tab === 1 ? '#f87171' : '#34d399' }]} numberOfLines={1}>
-                      {tab === 1 ? '- ' : '+ '}ETB {etb(tx.amount)}
-                    </Text>
-                  </View>
-                  {/* Method */}
-                  <View style={{ flex: 0.9 }}>
-                    <View style={[styles.methodPill, { borderColor: `${providerColor}33`, backgroundColor: `${providerColor}0a`, alignSelf: 'flex-start' }]}>
-                      <Text style={[styles.methodText, { color: providerColor }]}>{tx.provider || 'N/A'}</Text>
-                    </View>
-                  </View>
-                  {/* Timestamp */}
-                  <View style={[styles.txTimestamp, { flex: 1.2 }]}>
-                    <Text style={styles.txDate}>{d.date}</Text>
-                    <Text style={styles.txTime}>{d.time}</Text>
-                  </View>
-                  {/* Status */}
-                  <View style={{ flex: 0.9 }}>
-                    {isPending ? (
-                      <View style={[styles.statusPending, { backgroundColor: 'rgba(192,132,252,0.1)', borderColor: 'rgba(192,132,252,0.3)' }]}>
-                        <View style={[styles.statusDot, { backgroundColor: '#c084fc' }]} />
-                        <Text style={[styles.statusText, { color: '#c084fc' }]}>SYS PEND</Text>
+                      {/* Middle Row: Method, Timestamp & Status */}
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.25)', padding: 10, borderRadius: 10 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <View style={[styles.methodPill, { borderColor: `${providerColor}33`, backgroundColor: `${providerColor}0a` }]}>
+                            <Text style={[styles.methodText, { color: providerColor }]}>{tx.provider || 'N/A'}</Text>
+                          </View>
+                          <Text style={styles.txTime}>{d.date} {d.time}</Text>
+                        </View>
+                        <View>
+                          {isPending ? (
+                            <View style={[styles.statusPending, { backgroundColor: 'rgba(192,132,252,0.1)', borderColor: 'rgba(192,132,252,0.3)' }]}>
+                              <View style={[styles.statusDot, { backgroundColor: '#c084fc' }]} />
+                              <Text style={[styles.statusText, { color: '#c084fc' }]}>SYS PEND</Text>
+                            </View>
+                          ) : isAdminPending ? (
+                            <View style={styles.statusPending}>
+                              <View style={[styles.statusDot, { backgroundColor: '#fbbf24' }]} />
+                              <Text style={[styles.statusText, { color: '#fbbf24' }]}>ADMIN REV</Text>
+                            </View>
+                          ) : isSuccess ? (
+                            <View style={styles.statusSuccess}>
+                              <Ionicons name="checkmark-circle" size={13} color={C.secondary} />
+                              <Text style={[styles.statusText, { color: C.secondary }]}>Success</Text>
+                            </View>
+                          ) : (
+                            <View style={styles.statusFailed}>
+                              <Ionicons name="close-circle" size={13} color={C.error} />
+                              <Text style={[styles.statusText, { color: C.error }]}>{status || 'Failed'}</Text>
+                            </View>
+                          )}
+                        </View>
                       </View>
-                    ) : isAdminPending ? (
-                      <View style={styles.statusPending}>
-                        <View style={[styles.statusDot, { backgroundColor: '#fbbf24' }]} />
-                        <Text style={[styles.statusText, { color: '#fbbf24' }]}>ADMIN REV</Text>
-                      </View>
-                    ) : isSuccess ? (
-                      <View style={styles.statusSuccess}>
-                        <Ionicons name="checkmark-circle" size={13} color={C.secondary} />
-                        <Text style={[styles.statusText, { color: C.secondary }]}>Success</Text>
-                      </View>
-                    ) : (
-                      <View style={styles.statusFailed}>
-                        <Ionicons name="close-circle" size={13} color={C.error} />
-                        <Text style={[styles.statusText, { color: C.error }]}>{status || 'Failed'}</Text>
-                      </View>
-                    )}
-                  </View>
-                  {/* Actions */}
-                  <View style={{ flex: 1.3, alignItems: 'flex-end' }}>
-                     <TouchableOpacity 
-                       onPress={() => openReviewModal(tx.id)}
-                       style={styles.reviewBtn}
-                     >
-                        <Text style={styles.reviewBtnTxt}>See More</Text>
-                     </TouchableOpacity>
-                  </View>
-                </View>
-              );
-            }}
-            showGradients={false}
-            enableArrowNavigation={true}
-          />
 
-          {loading && <ActivityIndicator color={C.primary} style={{ marginVertical: 40 }} />}
-          {!loading && filtered.length === 0 && <Text style={styles.empty}>No transactions found.</Text>}
+                      {/* Bottom Row: Review Action Button */}
+                      <TouchableOpacity 
+                        onPress={() => openReviewModal(tx.id)}
+                        style={[styles.reviewBtn, { alignItems: 'center', paddingVertical: 10, backgroundColor: 'rgba(124,58,237,0.15)', borderColor: 'rgba(124,58,237,0.35)' }]}
+                      >
+                        <Text style={[styles.reviewBtnTxt, { color: '#a78bfa', fontWeight: '800' }]}>Review & Details</Text>
+                      </TouchableOpacity>
+                    </View>
+                  );
+                }}
+                showGradients={false}
+                enableArrowNavigation={true}
+              />
+              {loading && <ActivityIndicator color={C.primary} style={{ marginVertical: 40 }} />}
+              {!loading && filtered.length === 0 && <Text style={styles.empty}>No transactions found.</Text>}
             </View>
-          </ScrollView>
+          ) : (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={{ minWidth: 900 }}>
+                {/* Column headers */}
+                <View style={[styles.colRow, { backgroundColor: 'rgba(17,17,40,0.8)', borderBottomWidth: 1, borderBottomColor: 'rgba(39, 39, 42, 0.4)' }]}>
+                  <View style={{ flex: 2 }}><Text style={styles.colHead}>User Account</Text></View>
+                  <View style={{ flex: 1.1 }}><Text style={styles.colHead}>Amount (ETB)</Text></View>
+                  <View style={{ flex: 0.9 }}><Text style={styles.colHead}>Method</Text></View>
+                  <View style={{ flex: 1.2 }}><Text style={styles.colHead}>Timestamp</Text></View>
+                  <View style={{ flex: 0.9 }}><Text style={styles.colHead}>Status</Text></View>
+                  <View style={{ flex: 1.3 }}><Text style={[styles.colHead, { textAlign: 'right' }]}>Receipt</Text></View>
+                </View>
+
+                <AnimatedList
+                  items={loading ? [] : filtered}
+                  renderItem={(tx: Tx) => {
+                    const d = fmtDate(tx.created_at);
+                    const status = (tx.status || '').toUpperCase();
+                    const isPending = status === 'PENDING' || status === 'WAITING';
+                    const isAdminPending = status === 'PENDING_MANUAL';
+                    const isSuccess = status === 'SUCCESS' || status === 'SUCCEEDED' || status === 'COMPLETED' || status === 'PAID';
+                    const isFailed = status === 'FAILED' || status === 'REJECTED' || status === 'ERROR' || status === 'CANCELLED';
+                    
+                    const providerColor = tx.provider?.toUpperCase() === 'CHAPA' ? C.primary : C.secondary;
+                    const ini = initials(tx);
+                    const avatarBg = isPending ? 'rgba(192,132,252,0.15)' : isAdminPending ? 'rgba(251,191,36,0.15)' : isSuccess ? 'rgba(0,218,243,0.1)' : 'rgba(253,111,133,0.15)';
+                    const avatarColor = isPending ? '#c084fc' : isAdminPending ? '#fbbf24' : isSuccess ? C.secondary : C.error;
+
+                    return (
+                      <View key={tx.id} style={[styles.txRow, { borderBottomWidth: 0, marginBottom: 0 }]}>
+                        {/* User */}
+                        <View style={[styles.txUser, { flex: 2 }]}>
+                          <View style={[styles.txAvatar, { backgroundColor: avatarBg }]}>
+                            <Text style={[styles.txAvatarText, { color: avatarColor }]}>{ini}</Text>
+                          </View>
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <Text style={styles.txName} numberOfLines={1}>{tx.username || 'Unknown'}</Text>
+                            <Text style={styles.txId}>ID: {tx.user_id?.slice(0,7)}</Text>
+                          </View>
+                        </View>
+                        {/* Amount */}
+                        <View style={{ flex: 1.1 }}>
+                          <Text style={[styles.txAmount, { color: tab === 1 ? '#f87171' : '#34d399' }]} numberOfLines={1}>
+                            {tab === 1 ? '- ' : '+ '}ETB {etb(tx.amount)}
+                          </Text>
+                        </View>
+                        {/* Method */}
+                        <View style={{ flex: 0.9 }}>
+                          <View style={[styles.methodPill, { borderColor: `${providerColor}33`, backgroundColor: `${providerColor}0a`, alignSelf: 'flex-start' }]}>
+                            <Text style={[styles.methodText, { color: providerColor }]}>{tx.provider || 'N/A'}</Text>
+                          </View>
+                        </View>
+                        {/* Timestamp */}
+                        <View style={[styles.txTimestamp, { flex: 1.2 }]}>
+                          <Text style={styles.txDate}>{d.date}</Text>
+                          <Text style={styles.txTime}>{d.time}</Text>
+                        </View>
+                        {/* Status */}
+                        <View style={{ flex: 0.9 }}>
+                          {isPending ? (
+                            <View style={[styles.statusPending, { backgroundColor: 'rgba(192,132,252,0.1)', borderColor: 'rgba(192,132,252,0.3)' }]}>
+                              <View style={[styles.statusDot, { backgroundColor: '#c084fc' }]} />
+                              <Text style={[styles.statusText, { color: '#c084fc' }]}>SYS PEND</Text>
+                            </View>
+                          ) : isAdminPending ? (
+                            <View style={styles.statusPending}>
+                              <View style={[styles.statusDot, { backgroundColor: '#fbbf24' }]} />
+                              <Text style={[styles.statusText, { color: '#fbbf24' }]}>ADMIN REV</Text>
+                            </View>
+                          ) : isSuccess ? (
+                            <View style={styles.statusSuccess}>
+                              <Ionicons name="checkmark-circle" size={13} color={C.secondary} />
+                              <Text style={[styles.statusText, { color: C.secondary }]}>Success</Text>
+                            </View>
+                          ) : (
+                            <View style={styles.statusFailed}>
+                              <Ionicons name="close-circle" size={13} color={C.error} />
+                              <Text style={[styles.statusText, { color: C.error }]}>{status || 'Failed'}</Text>
+                            </View>
+                          )}
+                        </View>
+                        {/* Actions */}
+                        <View style={{ flex: 1.3, alignItems: 'flex-end' }}>
+                           <TouchableOpacity 
+                             onPress={() => openReviewModal(tx.id)}
+                             style={styles.reviewBtn}
+                           >
+                              <Text style={styles.reviewBtnTxt}>See More</Text>
+                           </TouchableOpacity>
+                        </View>
+                      </View>
+                    );
+                  }}
+                  showGradients={false}
+                  enableArrowNavigation={true}
+                />
+
+                {loading && <ActivityIndicator color={C.primary} style={{ marginVertical: 40 }} />}
+                {!loading && filtered.length === 0 && <Text style={styles.empty}>No transactions found.</Text>}
+              </View>
+            </ScrollView>
+          )}
 
           {/* Pagination */}
           <View style={styles.paginationRow}>
@@ -449,7 +542,7 @@ export default function AdminLedger() {
                   <ActivityIndicator color={C.primary} />
                 </View>
               ) : (
-                <View style={{ padding: 24 }}>
+                <ScrollView style={{ maxHeight: 600 }} contentContainerStyle={{ padding: 24 }} showsVerticalScrollIndicator={true}>
                   <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '800', textTransform: 'uppercase', marginBottom: 12 }}>Transaction Context</Text>
                   <View style={{ flexDirection: 'row', gap: 12, marginBottom: 24 }}>
                     <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.03)', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: C.outlineVariant }}>
@@ -494,7 +587,7 @@ export default function AdminLedger() {
                       <Text style={{ color: 'rgba(52,211,153,0.7)', fontSize: 10, marginBottom: 4 }}>TOTAL DEPOSIT</Text>
                       <Text style={{ color: '#fff', fontSize: 14, fontWeight: '800' }}>ETB {etb(reviewData.user.total_deposit || 0)}</Text>
                     </View>
-                    <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.02)', padding: 12, borderRadius: 8 }}>
+                    <View style={{ flex: 1, backgroundColor: 'rgba(253,111,133,0.7)', fontSize: 10, marginBottom: 4 }}>
                       <Text style={{ color: 'rgba(253,111,133,0.7)', fontSize: 10, marginBottom: 4 }}>TOTAL WITHDRAW</Text>
                       <Text style={{ color: '#fff', fontSize: 14, fontWeight: '800' }}>ETB {etb(reviewData.user.total_withdraw || 0)}</Text>
                     </View>
@@ -507,10 +600,10 @@ export default function AdminLedger() {
                       {/* Step 1: Show action buttons */}
                       {!confirmAction && (
                         <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
-                          <TouchableOpacity onPress={() => setConfirmAction('approve')} style={{ flex: 1, backgroundColor: 'rgba(52,211,153,0.1)', paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: '#34d399', alignItems: 'center' }}>
+                          <TouchableOpacity disabled={actionLoading} onPress={() => setConfirmAction('approve')} style={{ flex: 1, backgroundColor: 'rgba(52,211,153,0.1)', paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: '#34d399', alignItems: 'center' }}>
                             <Text style={{ color: '#34d399', fontSize: 13, fontWeight: '900' }}>Approve Payout</Text>
                           </TouchableOpacity>
-                          <TouchableOpacity onPress={() => setConfirmAction('reject')} style={{ flex: 1, backgroundColor: 'rgba(251,191,36,0.1)', paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: '#fbbf24', alignItems: 'center' }}>
+                          <TouchableOpacity disabled={actionLoading} onPress={() => setConfirmAction('reject')} style={{ flex: 1, backgroundColor: 'rgba(251,191,36,0.1)', paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: '#fbbf24', alignItems: 'center' }}>
                             <Text style={{ color: '#fbbf24', fontSize: 13, fontWeight: '900' }}>Reject & Refund</Text>
                           </TouchableOpacity>
                         </View>
@@ -536,10 +629,10 @@ export default function AdminLedger() {
                             ⚠️ Only click "Confirm" AFTER you have already sent the money from your banking app.
                           </Text>
                           <View style={{ flexDirection: 'row', gap: 12 }}>
-                            <TouchableOpacity onPress={() => execTxAction('approve', reviewData.transaction.id, reviewData.user.id)} style={{ flex: 1, backgroundColor: '#34d399', paddingVertical: 14, borderRadius: 12, alignItems: 'center' }}>
-                              <Text style={{ color: '#000', fontSize: 13, fontWeight: '900' }}>✅ I Already Sent The Money</Text>
+                            <TouchableOpacity disabled={actionLoading} onPress={() => execTxAction('approve', reviewData.transaction.id, reviewData.user.id)} style={{ flex: 1, backgroundColor: '#34d399', paddingVertical: 14, borderRadius: 12, alignItems: 'center', opacity: actionLoading ? 0.6 : 1 }}>
+                              <Text style={{ color: '#000', fontSize: 13, fontWeight: '900' }}>{actionLoading ? 'Processing...' : '✅ I Already Sent The Money'}</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity onPress={() => setConfirmAction(null)} style={{ flex: 0.5, backgroundColor: 'rgba(255,255,255,0.05)', paddingVertical: 14, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+                            <TouchableOpacity disabled={actionLoading} onPress={() => setConfirmAction(null)} style={{ flex: 0.5, backgroundColor: 'rgba(255,255,255,0.05)', paddingVertical: 14, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
                               <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: '800' }}>Cancel</Text>
                             </TouchableOpacity>
                           </View>
@@ -560,10 +653,10 @@ export default function AdminLedger() {
                             The user will see their balance restored. No money needs to be sent manually.
                           </Text>
                           <View style={{ flexDirection: 'row', gap: 12 }}>
-                            <TouchableOpacity onPress={() => execTxAction('reject', reviewData.transaction.id, reviewData.user.id)} style={{ flex: 1, backgroundColor: C.error, paddingVertical: 14, borderRadius: 12, alignItems: 'center' }}>
-                              <Text style={{ color: '#fff', fontSize: 13, fontWeight: '900' }}>🔴 Reject & Refund User</Text>
+                            <TouchableOpacity disabled={actionLoading} onPress={() => execTxAction('reject', reviewData.transaction.id, reviewData.user.id)} style={{ flex: 1, backgroundColor: C.error, paddingVertical: 14, borderRadius: 12, alignItems: 'center', opacity: actionLoading ? 0.6 : 1 }}>
+                              <Text style={{ color: '#fff', fontSize: 13, fontWeight: '900' }}>{actionLoading ? 'Refunding...' : '🔴 Reject & Refund User'}</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity onPress={() => setConfirmAction(null)} style={{ flex: 0.5, backgroundColor: 'rgba(255,255,255,0.05)', paddingVertical: 14, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+                            <TouchableOpacity disabled={actionLoading} onPress={() => setConfirmAction(null)} style={{ flex: 0.5, backgroundColor: 'rgba(255,255,255,0.05)', paddingVertical: 14, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
                               <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: '800' }}>Cancel</Text>
                             </TouchableOpacity>
                           </View>
@@ -573,15 +666,15 @@ export default function AdminLedger() {
                   ) : null}
 
                   <View style={{ flexDirection: 'row', gap: 12 }}>
-                    <TouchableOpacity onPress={() => execTxAction('ban', reviewData.transaction.id, reviewData.user.id)} style={{ flex: 1, backgroundColor: 'rgba(253,111,133,0.1)', paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: C.error, alignItems: 'center' }}>
+                    <TouchableOpacity disabled={actionLoading} onPress={() => execTxAction('ban', reviewData.transaction.id, reviewData.user.id)} style={{ flex: 1, backgroundColor: 'rgba(253,111,133,0.1)', paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: C.error, alignItems: 'center', opacity: actionLoading ? 0.6 : 1 }}>
                       <Text style={{ color: C.error, fontSize: 13, fontWeight: '900' }}>Ban User</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => execTxAction('delete', reviewData.transaction.id, reviewData.user.id)} style={{ flex: 1, backgroundColor: 'rgba(253,111,133,0.3)', paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: C.error, alignItems: 'center' }}>
+                    <TouchableOpacity disabled={actionLoading} onPress={() => execTxAction('delete', reviewData.transaction.id, reviewData.user.id)} style={{ flex: 1, backgroundColor: 'rgba(253,111,133,0.3)', paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: C.error, alignItems: 'center', opacity: actionLoading ? 0.6 : 1 }}>
                       <Text style={{ color: '#fff', fontSize: 13, fontWeight: '900' }}>Delete Account</Text>
                     </TouchableOpacity>
                   </View>
 
-                </View>
+                </ScrollView>
               )}
             </View>
           </View>

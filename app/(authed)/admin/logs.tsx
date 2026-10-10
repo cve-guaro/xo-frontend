@@ -289,17 +289,8 @@ export default function AdminLogs() {
             </View>
           </View>
 
-          <ScrollView horizontal={isMobile} showsHorizontalScrollIndicator={isMobile}>
-            <View style={isMobile ? { minWidth: 800 } : { flex: 1 }}>
-              <View style={[styles.colRow, { backgroundColor: 'rgba(24, 24, 27, 0.5)' }]}>
-                <Text style={[styles.colHead, { flex: 1.5 }]}>{t('match_id')}</Text>
-                <Text style={[styles.colHead, { flex: 1.5 }]}>{t('participants')}</Text>
-                <Text style={[styles.colHead, { flex: 1 }]}>{t('stake')}</Text>
-                <Text style={[styles.colHead, { flex: 1 }]}>{t('result')}</Text>
-                <Text style={[styles.colHead, { flex: 1.2 }]}>{t('timestamp')}</Text>
-                <Text style={[styles.colHead, { flex: 0.8, textAlign: 'right' }]}>{t('action')}</Text>
-              </View>
-
+          {isMobile ? (
+            <View style={{ padding: 12 }}>
               <AnimatedList
                 items={loading ? [] : paginatedLogs}
                 renderItem={(g: GameLog) => {
@@ -308,35 +299,43 @@ export default function AdminLogs() {
                   const xInit = initials2(g.player_x_name);
                   const oInit = initials2(g.player_o_name);
                   return (
-                    <View key={g.id} style={[styles.tableRow, { borderBottomWidth: 0, marginBottom: 0 }]}>
-                      <Text style={[styles.matchId, { flex: 1.5 }]}>#{g.id.slice(0, 12).toUpperCase()}</Text>
-                      
-                      <View style={{ flex: 1.5, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                        <View style={styles.avatarStack}>
-                          <View style={[styles.stackAvatar, { backgroundColor: 'rgba(0,42,48,0.5)', borderColor: 'rgba(0,218,243,0.3)', zIndex: 2 }]}><Text style={[styles.stackAvatarTxt, { color: C.secondary }]}>{xInit}</Text></View>
-                          <View style={[styles.stackAvatar, { backgroundColor: 'rgba(34,34,70,0.5)', borderColor: 'rgba(255,171,243,0.3)', marginLeft: -12, zIndex: 1 }]}><Text style={[styles.stackAvatarTxt, { color: '#ffabf3' }]}>{oInit}</Text></View>
-                        </View>
-                        <View>
-                          <Text style={styles.playerName} numberOfLines={1}>{g.player_x_name}</Text>
-                          <Text style={styles.playerName} numberOfLines={1}>{g.player_o_name}</Text>
-                        </View>
-                      </View>
-
-                      <Text style={[styles.stakeVal, { flex: 1 }]}>ETB {etb(g.bet_amount)}</Text>
-                      
-                      <View style={{ flex: 1 }}>
+                    <TouchableOpacity 
+                      key={g.id} 
+                      onPress={() => { setSelected(g); setReplayStep(g.moves?.length || 0); }}
+                      style={{ backgroundColor: C.surface, padding: 14, borderRadius: 16, marginBottom: 10, borderWidth: 1, borderColor: C.outlineVariant, gap: 10 }}
+                    >
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Text style={[styles.matchId, { fontSize: 11 }]}>#{g.id.slice(0, 10).toUpperCase()}</Text>
                         <Text style={[styles.resultPill, { color: winColor, borderColor: winColor + '33', backgroundColor: winColor + '1a' }]}>{winner}</Text>
                       </View>
 
-                      <Text style={[styles.timeAgo, { flex: 1.2 }]}>{timeSince(g.created_at)}</Text>
-
-                      <View style={{ flex: 0.8, alignItems: 'flex-end' }}>
-                        <View style={styles.viewBtn}><Ionicons name="eye" size={18} color={C.primary} /></View>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.2)', padding: 10, borderRadius: 10 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                          <View style={styles.avatarStack}>
+                            <View style={[styles.stackAvatar, { backgroundColor: 'rgba(0,42,48,0.5)', borderColor: 'rgba(0,218,243,0.3)', zIndex: 2 }]}><Text style={[styles.stackAvatarTxt, { color: C.secondary }]}>{xInit}</Text></View>
+                            <View style={[styles.stackAvatar, { backgroundColor: 'rgba(34,34,70,0.5)', borderColor: 'rgba(255,171,243,0.3)', marginLeft: -12, zIndex: 1 }]}><Text style={[styles.stackAvatarTxt, { color: '#ffabf3' }]}>{oInit}</Text></View>
+                          </View>
+                          <View>
+                            <Text style={styles.playerName} numberOfLines={1}>{g.player_x_name} (X)</Text>
+                            <Text style={styles.playerName} numberOfLines={1}>{g.player_o_name} (O)</Text>
+                          </View>
+                        </View>
+                        <View style={{ alignItems: 'flex-end' }}>
+                          <Text style={{ color: 'rgba(168,167,212,0.6)', fontSize: 9, fontWeight: '800' }}>STAKE</Text>
+                          <Text style={[styles.stakeVal, { fontSize: 14 }]}>ETB {etb(g.bet_amount)}</Text>
+                        </View>
                       </View>
-                    </View>
+
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Text style={styles.timeAgo}>{timeSince(g.created_at)}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                          <Text style={{ color: C.primary, fontSize: 11, fontWeight: '700' }}>Replay Moves</Text>
+                          <Ionicons name="eye" size={14} color={C.primary} />
+                        </View>
+                      </View>
+                    </TouchableOpacity>
                   );
                 }}
-                onItemSelect={(g: GameLog) => { setSelected(g); setReplayStep(g.moves?.length || 0); }}
                 showGradients={false}
                 enableArrowNavigation={true}
               />
@@ -344,7 +343,64 @@ export default function AdminLogs() {
               {loading && <ActivityIndicator color={C.primary} style={{ marginVertical: 40 }} />}
               {!loading && paginatedLogs.length === 0 && <Text style={styles.emptyText}>{t('no_logs_found')}</Text>}
             </View>
-          </ScrollView>
+          ) : (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={{ minWidth: 800, flex: 1 }}>
+                <View style={[styles.colRow, { backgroundColor: 'rgba(24, 24, 27, 0.5)' }]}>
+                  <Text style={[styles.colHead, { flex: 1.5 }]}>{t('match_id')}</Text>
+                  <Text style={[styles.colHead, { flex: 1.5 }]}>{t('participants')}</Text>
+                  <Text style={[styles.colHead, { flex: 1 }]}>{t('stake')}</Text>
+                  <Text style={[styles.colHead, { flex: 1 }]}>{t('result')}</Text>
+                  <Text style={[styles.colHead, { flex: 1.2 }]}>{t('timestamp')}</Text>
+                  <Text style={[styles.colHead, { flex: 0.8, textAlign: 'right' }]}>{t('action')}</Text>
+                </View>
+
+                <AnimatedList
+                  items={loading ? [] : paginatedLogs}
+                  renderItem={(g: GameLog) => {
+                    const winner = getWinner(g);
+                    const winColor = getWinnerColor(g);
+                    const xInit = initials2(g.player_x_name);
+                    const oInit = initials2(g.player_o_name);
+                    return (
+                      <View key={g.id} style={[styles.tableRow, { borderBottomWidth: 0, marginBottom: 0 }]}>
+                        <Text style={[styles.matchId, { flex: 1.5 }]}>#{g.id.slice(0, 12).toUpperCase()}</Text>
+                        
+                        <View style={{ flex: 1.5, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                          <View style={styles.avatarStack}>
+                            <View style={[styles.stackAvatar, { backgroundColor: 'rgba(0,42,48,0.5)', borderColor: 'rgba(0,218,243,0.3)', zIndex: 2 }]}><Text style={[styles.stackAvatarTxt, { color: C.secondary }]}>{xInit}</Text></View>
+                            <View style={[styles.stackAvatar, { backgroundColor: 'rgba(34,34,70,0.5)', borderColor: 'rgba(255,171,243,0.3)', marginLeft: -12, zIndex: 1 }]}><Text style={[styles.stackAvatarTxt, { color: '#ffabf3' }]}>{oInit}</Text></View>
+                          </View>
+                          <View>
+                            <Text style={styles.playerName} numberOfLines={1}>{g.player_x_name}</Text>
+                            <Text style={styles.playerName} numberOfLines={1}>{g.player_o_name}</Text>
+                          </View>
+                        </View>
+
+                        <Text style={[styles.stakeVal, { flex: 1 }]}>ETB {etb(g.bet_amount)}</Text>
+                        
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.resultPill, { color: winColor, borderColor: winColor + '33', backgroundColor: winColor + '1a' }]}>{winner}</Text>
+                        </View>
+
+                        <Text style={[styles.timeAgo, { flex: 1.2 }]}>{timeSince(g.created_at)}</Text>
+
+                        <View style={{ flex: 0.8, alignItems: 'flex-end' }}>
+                          <View style={styles.viewBtn}><Ionicons name="eye" size={18} color={C.primary} /></View>
+                        </View>
+                      </View>
+                    );
+                  }}
+                  onItemSelect={(g: GameLog) => { setSelected(g); setReplayStep(g.moves?.length || 0); }}
+                  showGradients={false}
+                  enableArrowNavigation={true}
+                />
+
+                {loading && <ActivityIndicator color={C.primary} style={{ marginVertical: 40 }} />}
+                {!loading && paginatedLogs.length === 0 && <Text style={styles.emptyText}>{t('no_logs_found')}</Text>}
+              </View>
+            </ScrollView>
+          )}
 
           {/* Pagination Controls */}
           <View style={styles.pagination}>

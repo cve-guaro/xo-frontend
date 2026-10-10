@@ -200,11 +200,11 @@ export default function FinancialDashboard() {
       </View>
 
       {/* ═══ Top KPI Cards ═══ */}
-      <View style={[st.kpiRow, isMobile && { flexDirection: 'column' }]}>
-        {/* Card 1: Violet */}
-        <View style={[st.kpiCard, { borderColor: C.border }]}>
+      <View style={[st.kpiRow, isMobile ? { flexDirection: 'column' } : (width < 1280 ? { flexWrap: 'wrap' } : {})]}>
+        {/* Card 1: Violet — Platform Balance Breakdown */}
+        <View style={[st.kpiCard, !isMobile && width < 1280 && { flexBasis: '48%' }]}>
           <View style={[st.kpiIcon, { backgroundColor: 'rgba(124, 58, 237, 0.15)' }]}>
-            <Ionicons name="wallet" size={20} color="#7c3aed" />
+            <Ionicons name="wallet" size={19} color="#7c3aed" />
           </View>
           <Text style={st.kpiLabel}>TOTAL PLATFORM BALANCE</Text>
           <ACount value={d.totalPlatformAmount || 0} style={st.kpiValue} suffix=" ETB" />
@@ -230,42 +230,42 @@ export default function FinancialDashboard() {
           </View>
         </View>
 
-        {/* Card 2: Cyan */}
-        <View style={[st.kpiCard, { borderColor: C.border }]}>
+        {/* Card 2: Cyan — Chapa Gateway Settlement */}
+        <View style={[st.kpiCard, !isMobile && width < 1280 && { flexBasis: '48%' }]}>
           <View style={[st.kpiIcon, { backgroundColor: 'rgba(34, 211, 238, 0.15)' }]}>
-            <Ionicons name="card" size={20} color="#22d3ee" />
+            <Ionicons name="card" size={19} color="#22d3ee" />
           </View>
-          <Text style={st.kpiLabel}>CHAPA BALANCE</Text>
+          <Text style={st.kpiLabel}>CHAPA SETTLEMENT BALANCE</Text>
           <ACount value={d.chapaBalance || 0} style={[st.kpiValue, { color: '#22d3ee' }]} suffix=" ETB" />
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 }}>
-            <View style={[st.statusDot, { backgroundColor: d.chapaBalance > 0 ? '#22c55e' : '#ef4444' }]} />
-            <Text style={{ color: '#94a3b8', fontSize: 10, fontWeight: '600' as any }}>
-              {d.chapaBalance > 0 ? 'Connected & Active' : 'Low Balance'}
+            <View style={[st.statusDot, { backgroundColor: d.chapaBalance > 0 ? '#10b981' : '#f43f5e' }]} />
+            <Text style={{ color: '#94a3b8', fontSize: 10, fontWeight: '700' as any }}>
+              {d.chapaBalance > 0 ? 'Gateway Connected & Active' : 'Low Settlement Balance'}
             </Text>
           </View>
         </View>
 
-        {/* Card 3: Gold */}
-        <View style={[st.kpiCard, { borderColor: C.border }]}>
+        {/* Card 3: Gold — Gross Gaming Revenue (GGR) */}
+        <View style={[st.kpiCard, !isMobile && width < 1280 && { flexBasis: '48%' }]}>
           <View style={[st.kpiIcon, { backgroundColor: 'rgba(245, 182, 66, 0.15)' }]}>
-            <Ionicons name="trending-up" size={20} color="#f5b642" />
+            <Ionicons name="trending-up" size={19} color="#f5b642" />
           </View>
-          <Text style={st.kpiLabel}>GROSS PLATFORM PROFIT</Text>
+          <Text style={st.kpiLabel}>GROSS GAMING REVENUE (GGR)</Text>
           <ACount value={d.purePlatformProfit || 0} style={[st.kpiValue, { color: '#f5b642' }]} suffix=" ETB" />
-          <Text style={{ color: '#94a3b8', fontSize: 10, marginTop: 4 }}>
-            Commission earned from {fmt(d.totalGamesFinished || 0)} game rounds
+          <Text style={{ color: '#94a3b8', fontSize: 10, marginTop: 6, fontWeight: '600' }}>
+            Commission from {fmt(d.totalGamesFinished || 0)} finished games (2×bet - prize)
           </Text>
         </View>
 
-        {/* Card 4: Green */}
-        <View style={[st.kpiCard, { borderColor: C.border }]}>
-          <View style={[st.kpiIcon, { backgroundColor: d.netPlatformProfit >= 0 ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)' }]}>
-            <Ionicons name="analytics" size={20} color={d.netPlatformProfit >= 0 ? '#22c55e' : '#ef4444'} />
+        {/* Card 4: Green — Net Platform Gaming Profit */}
+        <View style={[st.kpiCard, !isMobile && width < 1280 && { flexBasis: '48%' }]}>
+          <View style={[st.kpiIcon, { backgroundColor: d.netPlatformProfit >= 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(244, 63, 94, 0.15)' }]}>
+            <Ionicons name="analytics" size={19} color={d.netPlatformProfit >= 0 ? '#10b981' : '#f43f5e'} />
           </View>
-          <Text style={st.kpiLabel}>NET PLATFORM PROFIT</Text>
-          <ACount value={d.netPlatformProfit || 0} style={[st.kpiValue, { color: d.netPlatformProfit >= 0 ? '#22c55e' : '#ef4444' }]} suffix=" ETB" />
-          <Text style={{ color: '#ef4444', fontSize: 10, marginTop: 4 }}>
-            -{profitImpactPct}% deducted ({fmtK(profitImpactTotal)})
+          <Text style={st.kpiLabel}>NET GAMING PROFIT</Text>
+          <ACount value={d.netPlatformProfit || 0} style={[st.kpiValue, { color: d.netPlatformProfit >= 0 ? '#10b981' : '#f43f5e' }]} suffix=" ETB" />
+          <Text style={{ color: d.netPlatformProfit >= 0 ? '#94a3b8' : '#f43f5e', fontSize: 10, marginTop: 6, fontWeight: '600' }}>
+            -{profitImpactPct}% deducted by bonuses & refunds ({fmtK(profitImpactTotal)})
           </Text>
         </View>
       </View>
@@ -553,7 +553,7 @@ const st = StyleSheet.create({
   // KPI Cards
   kpiRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
   kpiCard: {
-    flex: 1, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, borderRadius: 16, padding: 20,
+    flex: 1, minWidth: 220, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, borderRadius: 16, padding: 20,
   },
   kpiIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
   kpiLabel: { color: C.onSurfaceVariant, fontSize: 9, fontWeight: '800', letterSpacing: 1.5, marginBottom: 6 },
