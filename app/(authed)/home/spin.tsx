@@ -105,6 +105,212 @@ function SpeakingWaveAnimation() {
   );
 }
 
+// ── Celebration Boom Animation (Confetti Explosion & Shockwaves) ───────────
+const CELEBRATION_COLORS = [
+  "#facc15", "#ff2d55", "#a855f7", "#10b981", "#38bdf8", "#f97316", "#ec4899", "#ffffff"
+];
+
+const PARTICLES_CONFIG = Array.from({ length: 48 }, (_, i) => {
+  const angle = (i / 48) * (Math.PI * 2) + (Math.random() * 0.2 - 0.1);
+  const distance = 110 + Math.random() * 240;
+  const size = 6 + Math.random() * 8;
+  const isCircle = i % 3 === 0;
+  const isStar = i % 5 === 0;
+  const color = CELEBRATION_COLORS[i % CELEBRATION_COLORS.length];
+  const spin = (Math.random() > 0.5 ? 1 : -1) * (360 + Math.random() * 720);
+  return {
+    angle,
+    targetX: Math.cos(angle) * distance,
+    targetY: Math.sin(angle) * distance,
+    size,
+    isCircle,
+    isStar,
+    color,
+    spin,
+    delay: Math.floor(Math.random() * 120),
+  };
+});
+
+function CelebrationBoom() {
+  const blastAnim = useRef(new Animated.Value(0)).current;
+  const shock1Anim = useRef(new Animated.Value(0)).current;
+  const shock2Anim = useRef(new Animated.Value(0)).current;
+  const glowAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(blastAnim, {
+        toValue: 1,
+        duration: 1600,
+        useNativeDriver: Platform.OS !== "web",
+      }),
+      Animated.timing(shock1Anim, {
+        toValue: 1,
+        duration: 1200,
+        useNativeDriver: Platform.OS !== "web",
+      }),
+      Animated.sequence([
+        Animated.delay(150),
+        Animated.timing(shock2Anim, {
+          toValue: 1,
+          duration: 1300,
+          useNativeDriver: Platform.OS !== "web",
+        }),
+      ]),
+      Animated.sequence([
+        Animated.timing(glowAnim, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: Platform.OS !== "web",
+        }),
+        Animated.timing(glowAnim, {
+          toValue: 0.35,
+          duration: 1200,
+          useNativeDriver: Platform.OS !== "web",
+        }),
+      ]),
+    ]).start();
+  }, [blastAnim, shock1Anim, shock2Anim, glowAnim]);
+
+  const shock1Scale = shock1Anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.2, 3.2],
+  });
+  const shock1Opacity = shock1Anim.interpolate({
+    inputRange: [0, 0.2, 0.8, 1],
+    outputRange: [1, 0.85, 0.2, 0],
+  });
+
+  const shock2Scale = shock2Anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.2, 2.6],
+  });
+  const shock2Opacity = shock2Anim.interpolate({
+    inputRange: [0, 0.2, 0.8, 1],
+    outputRange: [0.9, 0.8, 0.15, 0],
+  });
+
+  return (
+    <View
+      pointerEvents="none"
+      style={[
+        StyleSheet.absoluteFillObject,
+        {
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 10,
+        },
+      ]}
+    >
+      {/* Central Radiating Glow Aura */}
+      <Animated.View
+        style={{
+          position: "absolute",
+          width: 260,
+          height: 260,
+          borderRadius: 130,
+          backgroundColor: "rgba(250, 204, 21, 0.28)",
+          opacity: glowAnim,
+          transform: [
+            {
+              scale: glowAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0.8, 1.8],
+              }),
+            },
+          ],
+        }}
+      />
+
+      {/* Shockwave 1: Golden Explosion Ring */}
+      <Animated.View
+        style={{
+          position: "absolute",
+          width: 200,
+          height: 200,
+          borderRadius: 100,
+          borderWidth: 4,
+          borderColor: "#facc15",
+          opacity: shock1Opacity,
+          transform: [{ scale: shock1Scale }],
+          shadowColor: "#facc15",
+          shadowOpacity: 0.9,
+          shadowRadius: 16,
+        }}
+      />
+
+      {/* Shockwave 2: Crimson Pink Shockwave */}
+      <Animated.View
+        style={{
+          position: "absolute",
+          width: 200,
+          height: 200,
+          borderRadius: 100,
+          borderWidth: 3,
+          borderColor: "#f43f5e",
+          opacity: shock2Opacity,
+          transform: [{ scale: shock2Scale }],
+          shadowColor: "#f43f5e",
+          shadowOpacity: 0.8,
+          shadowRadius: 14,
+        }}
+      />
+
+      {/* 48 Confetti & Sparkle Shards Exploding Outward */}
+      {PARTICLES_CONFIG.map((p, idx) => {
+        const transX = blastAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, p.targetX],
+        });
+        const transY = blastAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, p.targetY],
+        });
+        const rot = blastAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: ["0deg", `${p.spin}deg`],
+        });
+        const scale = blastAnim.interpolate({
+          inputRange: [0, 0.2, 0.7, 1],
+          outputRange: [0, 1.4, 1.1, 0.85],
+        });
+        const opacity = blastAnim.interpolate({
+          inputRange: [0, 0.1, 0.75, 1],
+          outputRange: [0, 1, 0.95, 0],
+        });
+
+        return (
+          <Animated.View
+            key={`confetti-${idx}`}
+            style={{
+              position: "absolute",
+              width: p.isCircle ? p.size : p.isStar ? p.size * 1.4 : p.size * 1.8,
+              height: p.isCircle ? p.size : p.isStar ? p.size * 1.4 : p.size * 0.7,
+              borderRadius: p.isCircle ? p.size / 2 : 2,
+              backgroundColor: p.isStar ? "transparent" : p.color,
+              alignItems: "center",
+              justifyContent: "center",
+              opacity,
+              transform: [
+                { translateX: transX },
+                { translateY: transY },
+                { rotate: rot },
+                { scale },
+              ],
+            }}
+          >
+            {p.isStar && (
+              <Text style={{ color: p.color, fontSize: p.size * 1.2, fontWeight: "900" }}>
+                ✦
+              </Text>
+            )}
+          </Animated.View>
+        );
+      })}
+    </View>
+  );
+}
+
 // ── Types ──────────────────────────────────────────────────────────────────
 type SpinPlayer = {
   userId: string;
@@ -149,16 +355,40 @@ export default function SpinGameScreen() {
   const addMoneySound = useAudioPlayer(require("../../../assets/sounds/add_money.mp3"));
 
   const playClick = useCallback(() => {
-    if (!bgMusicPlaying) return;
-    try { clickSound.play(); } catch (e) { console.warn("clickSound error:", e); }
-  }, [bgMusicPlaying, clickSound]);
+    try {
+      clickSound.seekTo(0);
+      clickSound.play();
+    } catch (e) { console.warn("clickSound error:", e); }
+  }, [clickSound]);
 
   const playWin = useCallback(() => {
-    try { winSound.play(); } catch (e) { console.warn("winSound error:", e); }
+    try {
+      winSound.seekTo(0);
+      winSound.volume = 1;
+      winSound.play();
+    } catch (e) { console.warn("winSound error:", e); }
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      try {
+        const audio = new Audio(require("../../../assets/sounds/win.mp3"));
+        audio.volume = 1;
+        audio.play().catch(() => {});
+      } catch {}
+    }
   }, [winSound]);
 
   const playLose = useCallback(() => {
-    try { loseSound.play(); } catch (e) { console.warn("loseSound error:", e); }
+    try {
+      loseSound.seekTo(0);
+      loseSound.volume = 1;
+      loseSound.play();
+    } catch (e) { console.warn("loseSound error:", e); }
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      try {
+        const audio = new Audio(require("../../../assets/sounds/lose.wav"));
+        audio.volume = 1;
+        audio.play().catch(() => {});
+      } catch {}
+    }
   }, [loseSound]);
 
   const playSpinLoop = useCallback(() => {
@@ -193,13 +423,20 @@ export default function SpinGameScreen() {
       pendingResultDataRef.current = null;
       setResultData(res);
       setScreenState("result");
-      if (res.winnerId === user?.id) {
+      const isWinner = Boolean(
+        user && (
+          String(res.winnerId) === String(user.id) ||
+          String(res.winnerId) === String((user as any)?._id) ||
+          (res.winnerName && user.username && res.winnerName.toLowerCase() === user.username.toLowerCase())
+        )
+      );
+      if (isWinner) {
         playWin();
       } else {
         playLose();
       }
     }
-  }, [stopSpinLoop, user?.id, playWin, playLose]);
+  }, [stopSpinLoop, user, playWin, playLose]);
 
   const stopAllSounds = useCallback(() => {
     try { spinLoopSound.pause(); spinLoopSound.seekTo(0); } catch (e) {}
@@ -980,7 +1217,21 @@ export default function SpinGameScreen() {
     return (roomCount * roomBet) + betAmount;
   }, [round, preJoinRoom?.currentPlayers, preJoinRoom?.betAmount, betAmount]);
 
-  const isMyWin = resultData?.winnerId === user?.id;
+  const isMyWin = Boolean(
+    resultData &&
+    user &&
+    (String(resultData.winnerId) === String(user.id) ||
+     String(resultData.winnerId) === String((user as any)?._id) ||
+     (resultData.winnerName && user.username && resultData.winnerName.toLowerCase() === user.username.toLowerCase()))
+  );
+
+  useEffect(() => {
+    if (screenState === "result" && resultData) {
+      if (isMyWin) {
+        playWin();
+      }
+    }
+  }, [screenState, resultData, isMyWin, playWin]);
   const wheelSize = isDesktop ? Math.min(screenW * 0.32, 400) : Math.min(screenW * 0.86, 330);
 
   // ══════════════════════════════════════════════════════════════════════
@@ -1946,6 +2197,7 @@ export default function SpinGameScreen() {
          ════════════════════════════════════════════════════════════════ */}
       {screenState === "result" && resultData && (
         <View style={ds.overlayBackdrop}>
+          {isMyWin && <CelebrationBoom />}
           <View style={{
             backgroundColor: "#0d1326",
             borderWidth: 1,
@@ -1955,6 +2207,7 @@ export default function SpinGameScreen() {
             alignItems: "center",
             width: "90%",
             maxWidth: 360,
+            zIndex: 20,
           }}>
             {isMyWin ? (
               /* ── YOU WON! (Image 4 Left) ── */
@@ -2013,11 +2266,7 @@ export default function SpinGameScreen() {
 
                 {/* Pink OK Button */}
                 <TouchableOpacity
-                  onPress={() => {
-                    setResultData(null);
-                    setScreenState("waiting");
-                    handlePlayAgain();
-                  }}
+                  onPress={doLeaveRoom}
                   style={{
                     backgroundColor: "#f43f5e",
                     borderRadius: 24,

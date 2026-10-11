@@ -10,7 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../../context/authContext';
 import { useToast } from '../../../context/ToastContext';
 import { API_URL } from '../../../config';
-import { AdminTheme as C } from './_layout';
+import { useAdminTheme } from './_layout';
 import ActionConfirmModal from '../../../components/ActionConfirmModal';
 
 // ─── Standard Permission Definitions ──────────────────────────────
@@ -80,6 +80,8 @@ interface ApiLog {
 }
 
 export default function AdminMiniApps() {
+  const { theme: C, isDark } = useAdminTheme();
+  const s = useMemo(() => getStyles(C, isDark), [C, isDark]);
   const router = useRouter();
   const { width } = useWindowDimensions();
   const { token, user } = useAuth();
@@ -1359,7 +1361,7 @@ export default function AdminMiniApps() {
 }
 
 // ─── Stylesheet ──────────────────────────────────────────────────
-const s = StyleSheet.create({
+const getStyles = (C: any, isDark: boolean) => StyleSheet.create({
   container: { flex: 1, backgroundColor: C.background },
   content: {
     padding: 24,
@@ -1406,14 +1408,14 @@ const s = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#313D4A',
+    backgroundColor: isDark ? '#313D4A' : C.surfaceContainerHigh,
     borderWidth: 1,
     borderColor: C.border,
   },
   gateTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#ffffff',
+    color: C.onSurface,
     marginBottom: 8,
     textAlign: 'center',
   },
@@ -1438,7 +1440,7 @@ const s = StyleSheet.create({
     marginBottom: 16,
   },
   gateErrorText: {
-    color: '#fca5a5',
+    color: C.error,
     fontSize: 12,
     fontWeight: '600',
     flex: 1,
@@ -1457,7 +1459,7 @@ const s = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     paddingHorizontal: 12,
-    color: '#ffffff',
+    color: C.onSurface,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -1641,7 +1643,7 @@ const s = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    color: '#ffffff',
+    color: C.onSurface,
     fontSize: 13,
   },
   filterPillGroup: {
@@ -1671,7 +1673,7 @@ const s = StyleSheet.create({
 
   // Cards
   card: {
-    backgroundColor: 'rgba(19, 24, 44, 0.75)',
+    backgroundColor: C.surface,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: C.border,
@@ -1694,7 +1696,7 @@ const s = StyleSheet.create({
   cardTitle: {
     fontSize: 18,
     fontWeight: '900',
-    color: '#ffffff',
+    color: C.onSurface,
   },
   cardSubtitle: {
     fontSize: 12,
@@ -1707,7 +1709,7 @@ const s = StyleSheet.create({
     gap: 16,
   },
   appCard: {
-    backgroundColor: 'rgba(19, 24, 44, 0.8)',
+    backgroundColor: C.surface,
     borderRadius: 18,
     borderWidth: 1,
     borderColor: C.border,
@@ -1741,7 +1743,7 @@ const s = StyleSheet.create({
   appNameText: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#ffffff',
+    color: C.onSurface,
   },
   appDescText: {
     fontSize: 12,
@@ -1750,7 +1752,7 @@ const s = StyleSheet.create({
     lineHeight: 16,
   },
   categoryBadge: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 6,
@@ -1779,7 +1781,7 @@ const s = StyleSheet.create({
   // Permissions section
   appPermsSection: {
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.05)',
+    borderTopColor: C.border,
     paddingTop: 10,
     marginBottom: 12,
   },
@@ -1830,7 +1832,7 @@ const s = StyleSheet.create({
   appStatVal: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#ffffff',
+    color: C.onSurface,
   },
   appStatLbl: {
     fontSize: 10,
@@ -1849,7 +1851,7 @@ const s = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.05)',
+    borderTopColor: C.border,
     paddingTop: 12,
   },
   appActionBtn: {
@@ -1873,7 +1875,7 @@ const s = StyleSheet.create({
   fieldLabel: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#ffffff',
+    color: C.onSurface,
     marginBottom: 6,
   },
   fieldDesc: {
@@ -1889,7 +1891,7 @@ const s = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    color: '#ffffff',
+    color: C.onSurface,
     fontSize: 13,
   },
   appLogoPreview: {
@@ -2077,7 +2079,7 @@ const s = StyleSheet.create({
     gap: 12,
     backgroundColor: C.surfaceContainerLowest,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    borderColor: C.border,
     borderRadius: 12,
     padding: 12,
   },
@@ -2093,7 +2095,7 @@ const s = StyleSheet.create({
   logEndpointText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#ffffff',
+    color: C.onSurface,
   },
   logMetaText: {
     fontSize: 11,
@@ -2119,7 +2121,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 48,
-    backgroundColor: 'rgba(19, 24, 44, 0.5)',
+    backgroundColor: C.surface,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: C.border,
@@ -2127,7 +2129,7 @@ const s = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#ffffff',
+    color: C.onSurface,
     marginTop: 14,
     marginBottom: 4,
   },

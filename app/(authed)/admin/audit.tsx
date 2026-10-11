@@ -51,7 +51,7 @@ const formatDetails = (details: any) => {
 
 export default function AdminAudit() {
   const { theme: C, isDark } = useAdminTheme();
-  const styles = useMemo(() => getStyles(C), [C]);
+  const styles = useMemo(() => getStyles(C, isDark), [C, isDark]);
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
   const { token, t } = useAuth();
@@ -95,7 +95,7 @@ export default function AdminAudit() {
   const totalPages = Math.max(1, Math.ceil(filteredLogs.length / itemsPerPage));
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: C.background }}>
       <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
         <View style={[styles.pageHeader, isMobile && { flexDirection: 'column', alignItems: 'flex-start', gap: 16 }]}>
           <View>
@@ -108,15 +108,15 @@ export default function AdminAudit() {
           </TouchableOpacity>
         </View>
 
-        <View style={[styles.tableWrap, { borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: C.border, backgroundColor: C.surface }]}>
+        <View style={styles.tableWrap}>
           <View style={[styles.tableTopBar, isMobile && { flexDirection: 'column', gap: 12 }]}>
             <Text style={styles.tableTitle}>{t('activity_logs')}</Text>
             <View style={[styles.searchBox, isMobile && { width: '100%' as any }]}>
-              <Ionicons name="search" size={16} color="rgba(168,167,212,0.5)" />
+              <Ionicons name="search" size={16} color={C.onSurfaceVariant} />
               <TextInput 
                 style={styles.searchInput} 
                 placeholder={t('search_audit')} 
-                placeholderTextColor="rgba(168,167,212,0.4)" 
+                placeholderTextColor={C.onSurfaceVariant} 
                 value={query} 
                 onChangeText={setQuery}
                 {...(Platform.OS === 'web' ? { outlineStyle: 'none' } as any : {})}
@@ -210,7 +210,7 @@ export default function AdminAudit() {
               onPress={() => setCurrentPage(p => p - 1)}
               style={[styles.pageBtn, currentPage === 1 && { opacity: 0.3 }]}
             >
-              <Ionicons name="chevron-back" size={20} color="#fff" />
+              <Ionicons name="chevron-back" size={20} color={C.onSurface} />
             </TouchableOpacity>
             <Text style={styles.pageInfo}>Page {currentPage} of {totalPages}</Text>
             <TouchableOpacity 
@@ -218,7 +218,7 @@ export default function AdminAudit() {
               onPress={() => setCurrentPage(p => p + 1)}
               style={[styles.pageBtn, currentPage === totalPages && { opacity: 0.3 }]}
             >
-              <Ionicons name="chevron-forward" size={20} color="#fff" />
+              <Ionicons name="chevron-forward" size={20} color={C.onSurface} />
             </TouchableOpacity>
           </View>
         </View>
@@ -228,8 +228,8 @@ export default function AdminAudit() {
   );
 }
 
-const getStyles = (C: any) => StyleSheet.create({
-  pageHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 28, paddingHorizontal: 24 },
+const getStyles = (C: any, isDark: boolean) => StyleSheet.create({
+  pageHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 28, paddingHorizontal: 24, paddingTop: 16 },
   pageTitle: { color: C.onSurface, fontSize: 28, fontWeight: '800', letterSpacing: -0.5 },
   pageSub: { color: C.onSurfaceVariant, fontSize: 13, marginTop: 4, maxWidth: 500 },
   refreshBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: C.primary, borderRadius: 8 },

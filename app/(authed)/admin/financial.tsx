@@ -36,7 +36,7 @@ type TabKey = 'deposits' | 'withdrawals' | 'bonuses' | 'giveaways' | 'refunds';
 
 export default function FinancialDashboard() {
   const { theme: C, isDark } = useAdminTheme();
-  const st = useMemo(() => getStyles(C), [C]);
+  const st = useMemo(() => getStyles(C, isDark), [C, isDark]);
   const [isMounted, setIsMounted] = useState(false);
   useEffect(() => {
     setIsMounted(true);
@@ -542,94 +542,102 @@ export default function FinancialDashboard() {
   );
 }
 
-const getStyles = (C: any) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: 'transparent', padding: 20, paddingTop: 24 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
-  title: { fontSize: 24, fontWeight: '900', color: C.onSurface, letterSpacing: 1 },
-  subtitle: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '600', marginTop: 2 },
-  tfSelector: { flexDirection: 'row', gap: 3, padding: 3, backgroundColor: C.surfaceContainerLowest, borderRadius: 10, borderWidth: 1, borderColor: C.border },
-  tfOpt: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 8 },
-  tfText: { fontSize: 9, fontWeight: '700', letterSpacing: 1, color: C.onSurfaceVariant },
-  refreshBtn: { backgroundColor: C.primary, width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+const getStyles = (C: any, isDark: boolean) => {
+  const bgSurface = isDark ? '#0c1424' : '#ffffff';
+  const bgCard = isDark ? '#080e1b' : '#f8fafc';
+  const borderColor = isDark ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0';
+  const textPrimary = isDark ? '#ffffff' : '#0f172a';
+  const textSecondary = isDark ? '#94a3b8' : '#64748b';
 
-  // KPI Cards
-  kpiRow: { flexDirection: 'row', gap: 16, marginBottom: 20 },
-  kpiCard: {
-    flex: 1, minWidth: 220, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, borderRadius: 10, padding: 20,
-  },
-  kpiIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: C.surfaceContainerHighest, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
-  kpiLabel: { color: C.onSurfaceVariant, fontSize: 12, fontWeight: '500', marginBottom: 6 },
-  kpiValue: { color: C.onSurface, fontSize: 24, fontWeight: '700', letterSpacing: -0.5 },
-  kpiMini: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '500' },
-  kpiMiniVal: { color: C.onSurface, fontSize: 12, fontWeight: '700' },
-  statusDot: { width: 6, height: 6, borderRadius: 3 },
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: 'transparent', padding: 20, paddingTop: 24 },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
+    title: { fontSize: 24, fontWeight: '900', color: textPrimary, letterSpacing: 1 },
+    subtitle: { color: textSecondary, fontSize: 11, fontWeight: '600', marginTop: 2 },
+    tfSelector: { flexDirection: 'row', gap: 3, padding: 3, backgroundColor: bgCard, borderRadius: 10, borderWidth: 1, borderColor },
+    tfOpt: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 8 },
+    tfText: { fontSize: 9, fontWeight: '700', letterSpacing: 1, color: textSecondary },
+    refreshBtn: { backgroundColor: '#FF2D55', width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
 
-  // Today row
-  todayRow: { flexDirection: 'row', gap: 16, marginBottom: 20 },
-  todayCard: {
-    flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: C.surface, borderWidth: 1, borderColor: C.border,
-    borderRadius: 10, padding: 18,
-  },
-  todayIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.surfaceContainerHighest, alignItems: 'center', justifyContent: 'center' },
-  todayLabel: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '600' },
-  todayVal: { fontSize: 18, fontWeight: '700', marginTop: 2 },
+    // KPI Cards
+    kpiRow: { flexDirection: 'row', gap: 16, marginBottom: 20 },
+    kpiCard: {
+      flex: 1, minWidth: 220, backgroundColor: bgSurface, borderWidth: 1, borderColor, borderRadius: 12, padding: 20,
+    },
+    kpiIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: bgCard, alignItems: 'center', justifyContent: 'center', marginBottom: 12, borderWidth: 1, borderColor },
+    kpiLabel: { color: textSecondary, fontSize: 12, fontWeight: '500', marginBottom: 6 },
+    kpiValue: { color: textPrimary, fontSize: 24, fontWeight: '700', letterSpacing: -0.5 },
+    kpiMini: { color: textSecondary, fontSize: 10, fontWeight: '500' },
+    kpiMiniVal: { color: textPrimary, fontSize: 12, fontWeight: '700' },
+    statusDot: { width: 6, height: 6, borderRadius: 3 },
 
-  // Charts
-  chartsRow: { flexDirection: 'row', gap: 16, marginBottom: 20 },
-  chartCard: {
-    backgroundColor: C.surface, borderWidth: 1, borderColor: C.border,
-    borderRadius: 10, padding: 20, overflow: 'hidden',
-  },
-  chartTitle: { color: C.onSurface, fontSize: 12, fontWeight: '700', letterSpacing: 0.5 },
-  chartSub: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '500', marginTop: 2 },
-  chartTotal: { fontSize: 16, fontWeight: '700' },
+    // Today row
+    todayRow: { flexDirection: 'row', gap: 16, marginBottom: 20 },
+    todayCard: {
+      flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      backgroundColor: bgSurface, borderWidth: 1, borderColor,
+      borderRadius: 12, padding: 18,
+    },
+    todayIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: bgCard, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor },
+    todayLabel: { color: textSecondary, fontSize: 11, fontWeight: '600' },
+    todayVal: { fontSize: 18, fontWeight: '700', marginTop: 2, color: textPrimary },
 
-  // Drill-down
-  drillPanel: {
-    backgroundColor: C.surface, borderWidth: 1, borderColor: C.border,
-    borderRadius: 10, padding: 20, marginBottom: 20,
-  },
-  drillTitle: { color: C.onSurface, fontSize: 14, fontWeight: '700' },
-  drillHeader: { flexDirection: 'row', paddingVertical: 10, borderBottomWidth: 1, borderColor: C.border },
-  drillCell: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
-  drillRow: { flexDirection: 'row', paddingVertical: 12, borderBottomWidth: 1, borderColor: C.border },
-  drillCellVal: { color: C.onSurface, fontSize: 12, fontWeight: '500' },
+    // Charts
+    chartsRow: { flexDirection: 'row', gap: 16, marginBottom: 20 },
+    chartCard: {
+      backgroundColor: bgSurface, borderWidth: 1, borderColor,
+      borderRadius: 12, padding: 20, overflow: 'hidden',
+    },
+    chartTitle: { color: textPrimary, fontSize: 12, fontWeight: '700', letterSpacing: 0.5 },
+    chartSub: { color: textSecondary, fontSize: 10, fontWeight: '500', marginTop: 2 },
+    chartTotal: { fontSize: 16, fontWeight: '700', color: textPrimary },
 
-  // Section titles
-  sectionTitle: { color: C.onSurface, fontSize: 14, fontWeight: '700', letterSpacing: 0.5, marginBottom: 4, marginTop: 8 },
-  sectionSub: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '500', marginBottom: 16 },
+    // Drill-down
+    drillPanel: {
+      backgroundColor: bgSurface, borderWidth: 1, borderColor,
+      borderRadius: 12, padding: 20, marginBottom: 20,
+    },
+    drillTitle: { color: textPrimary, fontSize: 14, fontWeight: '700' },
+    drillHeader: { flexDirection: 'row', paddingVertical: 10, borderBottomWidth: 1, borderColor, backgroundColor: bgCard },
+    drillCell: { color: textSecondary, fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
+    drillRow: { flexDirection: 'row', paddingVertical: 12, borderBottomWidth: 1, borderColor },
+    drillCellVal: { color: textPrimary, fontSize: 12, fontWeight: '500' },
 
-  // Impact cards
-  impactRow: { flexDirection: 'row', gap: 16, marginBottom: 20 },
-  impactCard: {
-    flex: 1, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, borderRadius: 10, padding: 18,
-  },
-  impactIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.surfaceContainerHighest, alignItems: 'center', justifyContent: 'center' },
-  impactLabel: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '600', flex: 1 },
-  impactVal: { fontSize: 18, fontWeight: '700' },
-  impactMeta: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '500' },
-  impactBar: { height: 4, backgroundColor: C.border, borderRadius: 2, marginTop: 8 },
-  impactBarFill: { height: 4, borderRadius: 2 },
+    // Section titles
+    sectionTitle: { color: textPrimary, fontSize: 14, fontWeight: '700', letterSpacing: 0.5, marginBottom: 4, marginTop: 8 },
+    sectionSub: { color: textSecondary, fontSize: 11, fontWeight: '500', marginBottom: 16 },
 
-  // Tabs
-  tabRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
-  tab: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8,
-    backgroundColor: C.surface, borderWidth: 1, borderColor: C.border,
-  },
-  tabActive: { backgroundColor: C.primary, borderColor: C.primary },
-  tabText: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '600' },
+    // Impact cards
+    impactRow: { flexDirection: 'row', gap: 16, marginBottom: 20 },
+    impactCard: {
+      flex: 1, backgroundColor: bgSurface, borderWidth: 1, borderColor, borderRadius: 12, padding: 18,
+    },
+    impactIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: bgCard, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor },
+    impactLabel: { color: textSecondary, fontSize: 11, fontWeight: '600', flex: 1 },
+    impactVal: { fontSize: 18, fontWeight: '700', color: textPrimary },
+    impactMeta: { color: textSecondary, fontSize: 10, fontWeight: '500' },
+    impactBar: { height: 4, backgroundColor: borderColor, borderRadius: 2, marginTop: 8 },
+    impactBarFill: { height: 4, borderRadius: 2 },
 
-  // Tables
-  tableCard: {
-    backgroundColor: C.surface, borderWidth: 1, borderColor: C.border,
-    borderRadius: 10, padding: 16, marginBottom: 20,
-  },
-  tableHeader: { flexDirection: 'row', paddingVertical: 10, borderBottomWidth: 1, borderColor: C.border },
-  thCell: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase' },
-  tableRow: { flexDirection: 'row', paddingVertical: 12, borderBottomWidth: 1, borderColor: C.border, alignItems: 'center' },
-  tdCell: { color: C.onSurface, fontSize: 12, fontWeight: '500' },
-  typeBadge: { borderWidth: 1, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
-});
+    // Tabs
+    tabRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+    tab: {
+      flexDirection: 'row', alignItems: 'center', gap: 6,
+      paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8,
+      backgroundColor: bgSurface, borderWidth: 1, borderColor,
+    },
+    tabActive: { backgroundColor: '#FF2D55', borderColor: '#FF2D55' },
+    tabText: { color: textSecondary, fontSize: 11, fontWeight: '600' },
+
+    // Tables
+    tableCard: {
+      backgroundColor: bgSurface, borderWidth: 1, borderColor,
+      borderRadius: 12, padding: 16, marginBottom: 20,
+    },
+    tableHeader: { flexDirection: 'row', paddingVertical: 10, borderBottomWidth: 1, borderColor, backgroundColor: bgCard },
+    thCell: { color: textSecondary, fontSize: 10, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase' },
+    tableRow: { flexDirection: 'row', paddingVertical: 12, borderBottomWidth: 1, borderColor, alignItems: 'center' },
+    tdCell: { color: textPrimary, fontSize: 12, fontWeight: '500' },
+    typeBadge: { borderWidth: 1, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+  });
+};

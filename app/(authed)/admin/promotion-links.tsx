@@ -1,10 +1,10 @@
 // app/(authed)/admin/promotion-links.tsx — Promotion Link Management
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, StyleSheet, Platform, Modal, Switch, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../../context/authContext';
 import { API_URL, APP_URL } from '../../../config';
-import { AdminTheme as C } from './_layout';
+import { useAdminTheme } from './_layout';
 import ActionConfirmModal from '../../../components/ActionConfirmModal';
 
 interface PromotionLink {
@@ -20,6 +20,8 @@ interface PromotionLink {
 }
 
 export default function PromotionLinks() {
+  const { theme: C, isDark } = useAdminTheme();
+  const styles = useMemo(() => getStyles(C, isDark), [C, isDark]);
   const { token, t, isSuperAdmin, showAlert, fixUrl } = useAuth();
   const [links, setLinks] = useState<PromotionLink[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1047,348 +1049,356 @@ export default function PromotionLinks() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 16,
-    backgroundColor: '#060614',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  title: {
-    color: '#e5e3ff',
-    fontSize: 22,
-    fontWeight: '900',
-  },
-  subtitle: {
-    color: 'rgba(168,167,212,0.55)',
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  createBtn: {
-    backgroundColor: C.secondary,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  createBtnText: {
-    color: '#0c0c1f',
-    fontWeight: '800',
-    fontSize: 12,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 20,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: 'rgba(24, 24, 27, 0.65)',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(39, 39, 42, 0.2)',
-  },
-  popupCard: {
-    backgroundColor: 'rgba(24, 24, 27, 0.65)',
-    borderRadius: 24,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(39, 39, 42, 0.2)',
-  },
-  modeBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
-  modeBtnActive: {
-    backgroundColor: '#34d399',
-  },
-  modeBtnText: {
-    color: 'rgba(168,167,212,0.6)',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  modeBtnTextActive: {
-    color: '#004d57',
-  },
-  webSelect: {
-    height: 52,
-    backgroundColor: 'rgba(167,139,250,0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(167,139,250,0.3)',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    color: '#e5e3ff',
-    fontSize: 14,
-    fontWeight: '700',
-    ...({ outlineStyle: 'none' } as any),
-  },
-  statLabel: {
-    color: 'rgba(168,167,212,0.6)',
-    fontSize: 10,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    marginBottom: 4,
-  },
-  statValue: {
-    color: '#e5e3ff',
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  list: {
-    flex: 1,
-  },
-  linkCard: {
-    backgroundColor: C.surface,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: C.border,
-    padding: 20,
-    marginBottom: 12,
-  },
-  linkHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  linkName: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  linkCode: {
-    color: C.primary,
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  linkStats: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 16,
-    marginBottom: 16,
-  },
-  linkStat: {
-    minWidth: 80,
-  },
-  linkStatLabel: {
-    color: C.onSurfaceVariant,
-    fontSize: 10,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    marginBottom: 2,
-  },
-  linkStatValue: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  linkActions: {
-    flexDirection: 'row',
-    gap: 12,
-    borderTopWidth: 1,
-    borderTopColor: C.border,
-    paddingTop: 12,
-  },
-  actionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: C.border,
-    backgroundColor: C.surfaceContainerLowest,
-  },
-  actionBtnText: {
-    color: C.onSurfaceVariant,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(11,20,55,0.85)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalBox: {
-    width: '100%',
-    maxWidth: 480,
-    backgroundColor: C.surface,
-    borderRadius: 10,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  modalTitle: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  modalSubtitle: {
-    color: C.onSurfaceVariant,
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  form: {
-    gap: 16,
-  },
-  formLabel: {
-    color: C.onSurfaceVariant,
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    marginBottom: 6,
-  },
-  input: {
-    height: 46,
-    backgroundColor: C.surfaceContainerLowest,
-    borderWidth: 1,
-    borderColor: C.border,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  saveBtn: {
-    width: '100%',
-    height: 48,
-    borderRadius: 8,
-    backgroundColor: C.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 8,
-  },
-  saveBtnText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  emptyState: {
-    alignItems: 'center',
-    padding: 40,
-    gap: 12,
-  },
-  emptyText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  emptySubtext: {
-    color: C.onSurfaceVariant,
-    fontSize: 13,
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-  claimItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
-  },
-  claimUser: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  claimPhone: {
-    color: C.onSurfaceVariant,
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  claimDate: {
-    color: C.onSurfaceVariant,
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  // Tab styles
-  tabBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: C.surfaceContainerLowest,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  tabBtnActive: {
-    backgroundColor: C.primary,
-    borderColor: C.primary,
-  },
-  tabBtnText: {
-    color: C.onSurfaceVariant,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  tabBtnTextActive: {
-    color: '#ffffff',
-  },
-  // Popup config styles
-  imagePreview: {
-    borderRadius: 8,
-    overflow: 'hidden',
-    backgroundColor: C.surfaceContainerLowest,
-    marginBottom: 8,
-  },
-  replaceBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderRadius: 6,
-    position: 'absolute',
-    bottom: 12,
-    right: 12,
-  },
-  dropZone: {
-    borderWidth: 1,
-    borderColor: C.border,
-    borderStyle: 'dashed',
-    borderRadius: 8,
-    padding: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: C.primary,
-  },
-  addBtnText: {
-    color: '#ffffff',
-    fontSize: 13,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  }
-});
+const getStyles = (C: any, isDark: boolean) => {
+  const bgSurface = isDark ? '#0c1424' : '#ffffff';
+  const bgCard = isDark ? '#080e1b' : '#f8fafc';
+  const borderColor = isDark ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0';
+  const textPrimary = isDark ? '#ffffff' : '#0f172a';
+  const textSecondary = isDark ? '#94a3b8' : '#64748b';
+
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      padding: 16,
+      backgroundColor: 'transparent',
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 20,
+    },
+    title: {
+      color: textPrimary,
+      fontSize: 22,
+      fontWeight: '900',
+    },
+    subtitle: {
+      color: textSecondary,
+      fontSize: 12,
+      fontWeight: '600',
+      marginTop: 2,
+    },
+    createBtn: {
+      backgroundColor: '#FF2D55',
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderRadius: 12,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    createBtnText: {
+      color: '#ffffff',
+      fontWeight: '800',
+      fontSize: 12,
+    },
+    statsRow: {
+      flexDirection: 'row',
+      gap: 12,
+      marginBottom: 20,
+    },
+    statCard: {
+      flex: 1,
+      backgroundColor: bgSurface,
+      borderRadius: 16,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: borderColor,
+    },
+    popupCard: {
+      backgroundColor: bgSurface,
+      borderRadius: 24,
+      padding: 24,
+      borderWidth: 1,
+      borderColor: borderColor,
+    },
+    modeBtn: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 6,
+    },
+    modeBtnActive: {
+      backgroundColor: '#FF2D55',
+    },
+    modeBtnText: {
+      color: textSecondary,
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    modeBtnTextActive: {
+      color: '#ffffff',
+    },
+    webSelect: {
+      height: 52,
+      backgroundColor: bgCard,
+      borderWidth: 1,
+      borderColor: borderColor,
+      borderRadius: 16,
+      paddingHorizontal: 16,
+      color: textPrimary,
+      fontSize: 14,
+      fontWeight: '700',
+      ...({ outlineStyle: 'none' } as any),
+    },
+    statLabel: {
+      color: textSecondary,
+      fontSize: 10,
+      fontWeight: '800',
+      textTransform: 'uppercase',
+      marginBottom: 4,
+    },
+    statValue: {
+      color: textPrimary,
+      fontSize: 18,
+      fontWeight: '800',
+    },
+    list: {
+      flex: 1,
+    },
+    linkCard: {
+      backgroundColor: bgSurface,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: borderColor,
+      padding: 20,
+      marginBottom: 12,
+    },
+    linkHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 16,
+    },
+    linkName: {
+      color: textPrimary,
+      fontSize: 16,
+      fontWeight: '700',
+      marginBottom: 4,
+    },
+    linkCode: {
+      color: '#FF2D55',
+      fontSize: 11,
+      fontWeight: '700',
+    },
+    linkStats: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 16,
+      marginBottom: 16,
+    },
+    linkStat: {
+      minWidth: 80,
+    },
+    linkStatLabel: {
+      color: textSecondary,
+      fontSize: 10,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      marginBottom: 2,
+    },
+    linkStatValue: {
+      color: textPrimary,
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    linkActions: {
+      flexDirection: 'row',
+      gap: 12,
+      borderTopWidth: 1,
+      borderTopColor: borderColor,
+      paddingTop: 12,
+    },
+    actionBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: borderColor,
+      backgroundColor: bgCard,
+    },
+    actionBtnText: {
+      color: textSecondary,
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.75)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 20,
+    },
+    modalBox: {
+      width: '100%',
+      maxWidth: 480,
+      backgroundColor: bgSurface,
+      borderRadius: 10,
+      padding: 24,
+      borderWidth: 1,
+      borderColor: borderColor,
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 24,
+    },
+    modalTitle: {
+      color: textPrimary,
+      fontSize: 18,
+      fontWeight: '700',
+    },
+    modalSubtitle: {
+      color: textSecondary,
+      fontSize: 12,
+      fontWeight: '600',
+      marginTop: 2,
+    },
+    form: {
+      gap: 16,
+    },
+    formLabel: {
+      color: textSecondary,
+      fontSize: 11,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      marginBottom: 6,
+    },
+    input: {
+      height: 46,
+      backgroundColor: bgCard,
+      borderWidth: 1,
+      borderColor: borderColor,
+      borderRadius: 8,
+      paddingHorizontal: 16,
+      color: textPrimary,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    saveBtn: {
+      width: '100%',
+      height: 48,
+      borderRadius: 8,
+      backgroundColor: '#FF2D55',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 8,
+    },
+    saveBtnText: {
+      color: '#ffffff',
+      fontSize: 14,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    emptyState: {
+      alignItems: 'center',
+      padding: 40,
+      gap: 12,
+    },
+    emptyText: {
+      color: textPrimary,
+      fontSize: 16,
+      fontWeight: '700',
+    },
+    emptySubtext: {
+      color: textSecondary,
+      fontSize: 13,
+      fontWeight: '500',
+      textAlign: 'center',
+    },
+    claimItem: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: borderColor,
+    },
+    claimUser: {
+      color: textPrimary,
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    claimPhone: {
+      color: textSecondary,
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    claimDate: {
+      color: textSecondary,
+      fontSize: 11,
+      fontWeight: '500',
+    },
+    // Tab styles
+    tabBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 8,
+      backgroundColor: bgCard,
+      borderWidth: 1,
+      borderColor: borderColor,
+    },
+    tabBtnActive: {
+      backgroundColor: '#FF2D55',
+      borderColor: '#FF2D55',
+    },
+    tabBtnText: {
+      color: textSecondary,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    tabBtnTextActive: {
+      color: '#ffffff',
+    },
+    // Popup config styles
+    imagePreview: {
+      borderRadius: 8,
+      overflow: 'hidden',
+      backgroundColor: bgCard,
+      marginBottom: 8,
+    },
+    replaceBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      borderRadius: 6,
+      position: 'absolute',
+      bottom: 12,
+      right: 12,
+    },
+    dropZone: {
+      borderWidth: 1,
+      borderColor: borderColor,
+      borderStyle: 'dashed',
+      borderRadius: 8,
+      padding: 32,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    addBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 8,
+      backgroundColor: '#FF2D55',
+    },
+    addBtnText: {
+      color: '#ffffff',
+      fontSize: 13,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+    },
+  });
+};

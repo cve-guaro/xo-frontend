@@ -1,15 +1,17 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Switch, TouchableOpacity, TextInput, ActivityIndicator, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { AdminTheme as C } from './_layout';
+import { useAdminTheme } from './_layout';
 import { useAuth } from '../../../context/authContext';
 import { useToast } from '../../../context/ToastContext';
 import { API_URL } from '../../../config';
 import ActionConfirmModal from '../../../components/ActionConfirmModal';
 
 export default function Maintenance() {
+  const { theme: C, isDark } = useAdminTheme();
+  const s = useMemo(() => getStyles(C, isDark), [C, isDark]);
   const router = useRouter();
   const { token, user, isSuperAdmin } = useAuth();
   const toast = useToast();
@@ -320,73 +322,81 @@ export default function Maintenance() {
   );
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1 },
-  content: { paddingBottom: 60, maxWidth: 800, marginHorizontal: Platform.OS === 'web' ? 'auto' : 0, width: '100%' },
-  header: { marginBottom: 30 },
-  pageTitle: { fontSize: 28, fontWeight: '900', color: C.onSurface, marginBottom: 8 },
-  pageSubtitle: { fontSize: 14, color: C.onSurfaceVariant },
-  
-  card: {
-    backgroundColor: C.surface,
-    borderRadius: 10,
-    padding: 24,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  cardTitle: { fontSize: 18, fontWeight: '700', color: '#ffffff', marginBottom: 6, letterSpacing: 0.5 },
-  cardDesc: { fontSize: 13, color: C.onSurfaceVariant, marginBottom: 20, lineHeight: 20 },
-  
-  iconBg: { width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  lockdownHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  lockdownTitleWrap: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  
-  featureRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 16,
-    borderTopWidth: 1,
-    borderTopColor: C.border,
-  },
-  featureTitle: { fontSize: 15, fontWeight: '700', color: '#ffffff', marginBottom: 4 },
-  featureDesc: { fontSize: 12, color: C.onSurfaceVariant },
-  
-  whitelistContainer: { marginTop: 20, borderTopWidth: 1, borderTopColor: C.border, paddingTop: 20 },
-  sectionTitle: { fontSize: 14, fontWeight: '700', color: C.onSurface, marginBottom: 12 },
-  whitelistInputRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
-  input: {
-    flex: 1,
-    backgroundColor: C.surfaceContainerLowest,
-    borderWidth: 1,
-    borderColor: C.border,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    color: '#ffffff',
-    fontSize: 14,
-  },
-  addBtn: {
-    backgroundColor: C.primary,
-    borderRadius: 8,
-    paddingHorizontal: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  addBtnText: { color: '#ffffff', fontWeight: '700' },
-  whitelistList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  whitelistChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(60,80,224,0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(60,80,224,0.25)',
-    borderRadius: 6,
-    paddingLeft: 12,
-    paddingRight: 4,
-    paddingVertical: 6,
-    gap: 8,
-  },
-  whitelistText: { color: '#ffffff', fontSize: 13, fontWeight: '600' }
-});
+const getStyles = (C: any, isDark: boolean) => {
+  const bgSurface = isDark ? '#0c1424' : '#ffffff';
+  const bgCard = isDark ? '#080e1b' : '#f8fafc';
+  const borderColor = isDark ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0';
+  const textPrimary = isDark ? '#ffffff' : '#0f172a';
+  const textSecondary = isDark ? '#94a3b8' : '#64748b';
+
+  return StyleSheet.create({
+    container: { flex: 1 },
+    content: { paddingBottom: 60, maxWidth: 800, marginHorizontal: Platform.OS === 'web' ? 'auto' : 0, width: '100%' },
+    header: { marginBottom: 30 },
+    pageTitle: { fontSize: 28, fontWeight: '900', color: textPrimary, marginBottom: 8 },
+    pageSubtitle: { fontSize: 14, color: textSecondary },
+
+    card: {
+      backgroundColor: bgSurface,
+      borderRadius: 12,
+      padding: 24,
+      marginBottom: 20,
+      borderWidth: 1,
+      borderColor,
+    },
+    cardTitle: { fontSize: 18, fontWeight: '700', color: textPrimary, marginBottom: 6, letterSpacing: 0.5 },
+    cardDesc: { fontSize: 13, color: textSecondary, marginBottom: 20, lineHeight: 20 },
+
+    iconBg: { width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+    lockdownHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+    lockdownTitleWrap: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+
+    featureRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 16,
+      borderTopWidth: 1,
+      borderTopColor: borderColor,
+    },
+    featureTitle: { fontSize: 15, fontWeight: '700', color: textPrimary, marginBottom: 4 },
+    featureDesc: { fontSize: 12, color: textSecondary },
+
+    whitelistContainer: { marginTop: 20, borderTopWidth: 1, borderTopColor: borderColor, paddingTop: 20 },
+    sectionTitle: { fontSize: 14, fontWeight: '700', color: textPrimary, marginBottom: 12 },
+    whitelistInputRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
+    input: {
+      flex: 1,
+      backgroundColor: bgCard,
+      borderWidth: 1,
+      borderColor,
+      borderRadius: 8,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      color: textPrimary,
+      fontSize: 14,
+    },
+    addBtn: {
+      backgroundColor: '#FF2D55',
+      borderRadius: 8,
+      paddingHorizontal: 18,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    addBtnText: { color: '#ffffff', fontWeight: '700' },
+    whitelistList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    whitelistChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: isDark ? 'rgba(255,45,85,0.1)' : 'rgba(255,45,85,0.06)',
+      borderWidth: 1,
+      borderColor: 'rgba(255,45,85,0.25)',
+      borderRadius: 6,
+      paddingLeft: 12,
+      paddingRight: 4,
+      paddingVertical: 6,
+      gap: 8,
+    },
+    whitelistText: { color: textPrimary, fontSize: 13, fontWeight: '600' },
+  });
+};

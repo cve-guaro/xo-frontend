@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, Switch, TouchableOpacity, ScrollView, StyleSheet, Platform, Alert, TextInput, ActivityIndicator, Image, useWindowDimensions, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../../context/authContext';
 import { API_URL } from '../../../config';
-import { AdminTheme as C } from './_layout';
+import { useAdminTheme } from './_layout';
 import ReferralDetailsModal from '../../../components/ReferralDetailsModal';
 
 import { LinearGradient } from 'expo-linear-gradient';
@@ -17,11 +17,10 @@ const timeSince = (iso?: string) => {
   return `${Math.floor(d / 86400000)}d ago`;
 };
 
-const glass: any = {
-  backgroundColor: C.surface,
-};
-
 export default function AdminSettings() {
+  const { theme: C, isDark } = useAdminTheme();
+  const styles = useMemo(() => getStyles(C, isDark), [C, isDark]);
+  const glass = useMemo(() => ({ backgroundColor: C.surface, borderColor: C.border }), [C]);
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
   const { t, token, user, language, switchLanguage, isSuperAdmin, showAlert } = useAuth();
@@ -1106,105 +1105,112 @@ export default function AdminSettings() {
   );
 }
 
-const styles = StyleSheet.create({
-  pageHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 40, marginTop: 24 },
-  pageTitle: { color: '#fff', fontSize: 32, fontWeight: '900', letterSpacing: -0.5 },
-  pageSub: { color: 'rgba(168,167,212,0.6)', fontSize: 14, marginTop: 4, fontWeight: '600' },
-  saveBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
-  saveTxt: { color: '#fff', fontSize: 14, fontWeight: '700' },
-  settingsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 24, maxWidth: 1200 },
-  card: { flex: 1, minWidth: 320, borderRadius: 10, padding: 24, borderWidth: 1, borderColor: C.border, backgroundColor: C.surface },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 24, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: C.border },
-  cardHeaderIcon: { width: 36, height: 36, borderRadius: 8, backgroundColor: '#313D4A', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.border },
-  cardTitle: { color: '#ffffff', fontSize: 18, fontWeight: '700', letterSpacing: 0.5 },
-  cardSubTitle: { color: C.onSurfaceVariant, fontSize: 12, marginTop: 2, fontWeight: '500' },
-  
-  settingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 18, borderBottomWidth: 1, borderBottomColor: C.border },
-  settingName: { color: '#ffffff', fontSize: 15, fontWeight: '700', marginBottom: 4 },
-  settingDesc: { color: C.onSurfaceVariant, fontSize: 12, maxWidth: 450, lineHeight: 20 },
+const getStyles = (C: any, isDark: boolean) => {
+  const bgSurface = isDark ? '#0c1424' : '#ffffff';
+  const bgCard = isDark ? '#080e1b' : '#f8fafc';
+  const borderColor = isDark ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0';
+  const textPrimary = isDark ? '#ffffff' : '#0f172a';
+  const textSecondary = isDark ? '#94a3b8' : '#64748b';
 
-  actionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 18 },
-  inputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.surfaceContainerLowest, paddingHorizontal: 16, borderRadius: 8, borderWidth: 1, borderColor: C.border },
-  currencyPrefix: { color: C.onSurfaceVariant, fontSize: 13, fontWeight: '700', marginRight: 8 },
-  inputField: { width: 90, height: 44, color: '#ffffff', fontSize: 18, fontWeight: '700', ...Platform.select({ web: { outlineStyle: 'none' as any } }) },
+  return StyleSheet.create({
+    pageHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 40, marginTop: 24 },
+    pageTitle: { color: textPrimary, fontSize: 32, fontWeight: '900', letterSpacing: -0.5 },
+    pageSub: { color: textSecondary, fontSize: 14, marginTop: 4, fontWeight: '600' },
+    saveBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#FF2D55', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
+    saveTxt: { color: '#ffffff', fontSize: 14, fontWeight: '700' },
+    settingsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 24, maxWidth: 1200 },
+    card: { flex: 1, minWidth: 320, borderRadius: 12, padding: 24, borderWidth: 1, borderColor, backgroundColor: bgSurface },
+    cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 24, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: borderColor },
+    cardHeaderIcon: { width: 36, height: 36, borderRadius: 8, backgroundColor: bgCard, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor },
+    cardTitle: { color: textPrimary, fontSize: 18, fontWeight: '700', letterSpacing: 0.5 },
+    cardSubTitle: { color: textSecondary, fontSize: 12, marginTop: 2, fontWeight: '500' },
 
-  logContainer: { marginTop: 24, padding: 20, backgroundColor: C.surfaceContainerLowest, borderRadius: 10, borderWidth: 1, borderColor: C.border },
-  logHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
-  logHeaderTitle: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
-  logEmpty: { color: C.onSurfaceVariant, fontSize: 13, textAlign: 'center', paddingVertical: 10 },
-  logItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
-  logIndicator: { width: 4, height: 16, borderRadius: 2 },
-  logAction: { color: '#ffffff', fontSize: 13, fontWeight: '700' },
-  logDetails: { color: C.onSurfaceVariant, fontSize: 11, marginTop: 2 },
-  logTime: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '600' },
+    settingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 18, borderBottomWidth: 1, borderBottomColor: borderColor },
+    settingName: { color: textPrimary, fontSize: 15, fontWeight: '700', marginBottom: 4 },
+    settingDesc: { color: textSecondary, fontSize: 12, maxWidth: 450, lineHeight: 20 },
 
-  passportHeader: { padding: 32, position: 'relative' },
-  passportPattern: { ...StyleSheet.absoluteFillObject, opacity: 0.03, backgroundColor: 'rgba(255,255,255,0.1)' },
-  passportTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
-  passportBrand: { color: C.onSurfaceVariant, fontSize: 9, fontWeight: '700', letterSpacing: 2 },
-  passportChip: { width: 32, height: 24, borderRadius: 4, backgroundColor: 'rgba(255,215,0,0.15)', borderWidth: 1, borderColor: 'rgba(255,215,0,0.2)' },
-  passportBody: { flexDirection: 'row', gap: 32, alignItems: 'center' },
-  passportAvatarWrap: { position: 'relative' },
-  passportAvatar: { width: 100, height: 100, borderRadius: 10, backgroundColor: '#313D4A', borderWidth: 1, borderColor: C.border },
-  passportLiveBadge: { position: 'absolute', bottom: -8, left: 0, right: 0, backgroundColor: C.error, paddingVertical: 2, borderRadius: 4, alignItems: 'center' },
-  passportLiveText: { color: '#fff', fontSize: 7, fontWeight: '700' },
-  passportInfo: { flex: 1, gap: 16 },
-  passportField: { gap: 2 },
-  passportLabel: { color: C.onSurfaceVariant, fontSize: 8, fontWeight: '700', letterSpacing: 1 },
-  passportValue: { color: '#fff', fontSize: 15, fontWeight: '700', letterSpacing: 0.5 },
-  passportFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 32, paddingTop: 16, borderTopWidth: 1, borderTopColor: C.border },
-  passportSerial: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '700', letterSpacing: 2 },
-  profileActionBtn: { flexDirection: 'row', alignItems: 'center', gap: 16, padding: 16, backgroundColor: C.surfaceContainerLowest, borderRadius: 8, borderWidth: 1, borderColor: C.border },
-  profileActionTxt: { color: '#ffffff', fontSize: 14, fontWeight: '700' },
-  searchBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.surfaceContainerLowest, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: C.border },
-  searchInput: { flex: 1, color: '#ffffff', fontSize: 13, height: 20 },
-  
-  // New Styles
-  addGiveawayBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.primary, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 },
-  addGiveawayTxt: { color: '#ffffff', fontSize: 12, fontWeight: '700' },
-  
-  giveawayItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: C.surfaceContainerLowest, padding: 16, borderRadius: 8, borderWidth: 1, borderColor: C.border },
-  giveawayInfo: { flex: 1 },
-  giveawayTitle: { color: '#fff', fontSize: 15, fontWeight: '700' },
-  giveawayMeta: { color: C.onSurfaceVariant, fontSize: 12, marginTop: 4 },
-  giveawayBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
-  giveawayBadgeTxt: { fontSize: 10, fontWeight: '700' },
-  giveawayActionBtn: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: C.surfaceContainerHighest, borderWidth: 1, borderColor: C.border },
-  
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(11,20,55,0.85)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  modalContent: { width: '100%', backgroundColor: C.surface, borderRadius: 10, borderWidth: 1, borderColor: C.border, overflow: 'hidden' },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: C.border },
-  modalTitle: { color: '#fff', fontSize: 18, fontWeight: '700' },
-  
-  formGroup: { marginBottom: 20 },
-  formLabel: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '700', marginBottom: 8, textTransform: 'uppercase' },
-  formInput: { backgroundColor: C.surfaceContainerLowest, borderWidth: 1, borderColor: C.border, borderRadius: 8, height: 46, paddingHorizontal: 16, color: '#fff', fontSize: 14 },
-  
-  typeBtn: { flex: 1, height: 40, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: C.surfaceContainerLowest, borderWidth: 1, borderColor: C.border },
-  typeBtnActive: { backgroundColor: C.primary, borderColor: C.primary },
-  typeBtnTxt: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '700' },
-  
-  submitBtn: { backgroundColor: C.primary, height: 48, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginTop: 20 },
-  submitBtnTxt: { color: '#ffffff', fontSize: 15, fontWeight: '700' },
+    actionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 18 },
+    inputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: bgCard, paddingHorizontal: 16, borderRadius: 8, borderWidth: 1, borderColor },
+    currencyPrefix: { color: textSecondary, fontSize: 13, fontWeight: '700', marginRight: 8 },
+    inputField: { width: 90, height: 44, color: textPrimary, fontSize: 18, fontWeight: '700', ...Platform.select({ web: { outlineStyle: 'none' as any } }) },
 
-  claimRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(39, 39, 42, 0.2)' },
-  claimUser: { color: '#fff', fontSize: 14, fontWeight: '700' },
-  claimPhone: { color: 'rgba(168,167,212,0.6)', fontSize: 12 },
-  claimTime: { color: 'rgba(168,167,212,0.4)', fontSize: 11 },
-  btnSecondary: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(168,167,212,0.2)',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.02)',
-  },
-  btnSecondaryText: {
-    color: '#e5e3ff',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-});
+    logContainer: { marginTop: 24, padding: 20, backgroundColor: bgCard, borderRadius: 10, borderWidth: 1, borderColor },
+    logHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
+    logHeaderTitle: { color: textSecondary, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
+    logEmpty: { color: textSecondary, fontSize: 13, textAlign: 'center', paddingVertical: 10 },
+    logItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
+    logIndicator: { width: 4, height: 16, borderRadius: 2 },
+    logAction: { color: textPrimary, fontSize: 13, fontWeight: '700' },
+    logDetails: { color: textSecondary, fontSize: 11, marginTop: 2 },
+    logTime: { color: textSecondary, fontSize: 11, fontWeight: '600' },
+
+    passportHeader: { padding: 32, position: 'relative' },
+    passportPattern: { ...StyleSheet.absoluteFillObject, opacity: 0.03, backgroundColor: 'rgba(255,255,255,0.1)' },
+    passportTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
+    passportBrand: { color: textSecondary, fontSize: 9, fontWeight: '700', letterSpacing: 2 },
+    passportChip: { width: 32, height: 24, borderRadius: 4, backgroundColor: 'rgba(255,215,0,0.15)', borderWidth: 1, borderColor: 'rgba(255,215,0,0.2)' },
+    passportBody: { flexDirection: 'row', gap: 32, alignItems: 'center' },
+    passportAvatarWrap: { position: 'relative' },
+    passportAvatar: { width: 100, height: 100, borderRadius: 10, backgroundColor: bgCard, borderWidth: 1, borderColor },
+    passportLiveBadge: { position: 'absolute', bottom: -8, left: 0, right: 0, backgroundColor: '#FF2D55', paddingVertical: 2, borderRadius: 4, alignItems: 'center' },
+    passportLiveText: { color: '#ffffff', fontSize: 7, fontWeight: '700' },
+    passportInfo: { flex: 1, gap: 16 },
+    passportField: { gap: 2 },
+    passportLabel: { color: textSecondary, fontSize: 8, fontWeight: '700', letterSpacing: 1 },
+    passportValue: { color: textPrimary, fontSize: 15, fontWeight: '700', letterSpacing: 0.5 },
+    passportFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 32, paddingTop: 16, borderTopWidth: 1, borderTopColor: borderColor },
+    passportSerial: { color: textSecondary, fontSize: 10, fontWeight: '700', letterSpacing: 2 },
+    profileActionBtn: { flexDirection: 'row', alignItems: 'center', gap: 16, padding: 16, backgroundColor: bgCard, borderRadius: 8, borderWidth: 1, borderColor },
+    profileActionTxt: { color: textPrimary, fontSize: 14, fontWeight: '700' },
+    searchBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: bgCard, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor },
+    searchInput: { flex: 1, color: textPrimary, fontSize: 13, height: 20 },
+
+    addGiveawayBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FF2D55', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 },
+    addGiveawayTxt: { color: '#ffffff', fontSize: 12, fontWeight: '700' },
+
+    giveawayItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: bgCard, padding: 16, borderRadius: 8, borderWidth: 1, borderColor },
+    giveawayInfo: { flex: 1 },
+    giveawayTitle: { color: textPrimary, fontSize: 15, fontWeight: '700' },
+    giveawayMeta: { color: textSecondary, fontSize: 12, marginTop: 4 },
+    giveawayBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+    giveawayBadgeTxt: { fontSize: 10, fontWeight: '700' },
+    giveawayActionBtn: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: bgCard, borderWidth: 1, borderColor },
+
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+    modalContent: { width: '100%', backgroundColor: bgSurface, borderRadius: 12, borderWidth: 1, borderColor, overflow: 'hidden' },
+    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: borderColor },
+    modalTitle: { color: textPrimary, fontSize: 18, fontWeight: '700' },
+
+    formGroup: { marginBottom: 20 },
+    formLabel: { color: textSecondary, fontSize: 11, fontWeight: '700', marginBottom: 8, textTransform: 'uppercase' },
+    formInput: { backgroundColor: bgCard, borderWidth: 1, borderColor, borderRadius: 8, height: 46, paddingHorizontal: 16, color: textPrimary, fontSize: 14 },
+
+    typeBtn: { flex: 1, height: 40, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: bgCard, borderWidth: 1, borderColor },
+    typeBtnActive: { backgroundColor: '#FF2D55', borderColor: '#FF2D55' },
+    typeBtnTxt: { color: textSecondary, fontSize: 11, fontWeight: '700' },
+
+    submitBtn: { backgroundColor: '#FF2D55', height: 48, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginTop: 20 },
+    submitBtnTxt: { color: '#ffffff', fontSize: 15, fontWeight: '700' },
+
+    claimRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: borderColor },
+    claimUser: { color: textPrimary, fontSize: 14, fontWeight: '700' },
+    claimPhone: { color: textSecondary, fontSize: 12 },
+    claimTime: { color: textSecondary, fontSize: 11 },
+    btnSecondary: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      borderWidth: 1,
+      borderColor,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderRadius: 12,
+      backgroundColor: bgCard,
+    },
+    btnSecondaryText: {
+      color: textPrimary,
+      fontSize: 12,
+      fontWeight: '700',
+    },
+  });
+};
