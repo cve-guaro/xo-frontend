@@ -1,5 +1,5 @@
 // app/(authed)/admin/xo-controls.tsx — XO specific controls with 3-Switch Granular Locks
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -15,12 +15,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../../context/authContext';
 import { API_URL } from '../../../config';
-import { AdminTheme as C } from './_layout';
+import { useAdminTheme } from './_layout';
 import { SkeletonRow } from '../../../components/SkeletonLoading';
 
 const fmt = (n: number) => Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export default function XOControlsPage() {
+  const { theme: C, isDark } = useAdminTheme();
+  const s = useMemo(() => getStyles(C, isDark), [C, isDark]);
   const { token, user, isSuperAdmin, showAlert } = useAuth();
   const router = useRouter();
   const { width } = useWindowDimensions();
@@ -41,7 +43,7 @@ export default function XOControlsPage() {
     activeGamesCount: 0
   });
 
-  const headers = { Authorization: `Bearer ${token}`, 'x-platform': 'web' };
+  const headers = useMemo(() => ({ Authorization: `Bearer ${token}`, 'x-platform': 'web' }), [token]);
 
   // Fetch rooms settings config
   const fetchConfig = useCallback(async () => {
@@ -58,7 +60,7 @@ export default function XOControlsPage() {
     } catch (e) {
       console.error('[XO Controls] Fetch settings config failed:', e);
     }
-  }, [token]);
+  }, [headers]);
 
   // Toggle Granular XO Lock Switch
   const toggleXoLockSetting = async (key: string, value: boolean, setter: (val: boolean) => void) => {
@@ -107,7 +109,7 @@ export default function XOControlsPage() {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [headers]);
 
   useEffect(() => {
     fetchConfig();
@@ -116,7 +118,7 @@ export default function XOControlsPage() {
     return () => clearInterval(statsInterval);
   }, [fetchConfig, fetchLiveStats]);
 
-  const combinedBreakdown = React.useMemo(() => {
+  const combinedBreakdown = useMemo(() => {
     const flat: Record<number, { searching: number; liveMatches: number }> = {};
     [1, 2, 3].forEach(roomNum => {
       const breakdown = liveStats.roomStats?.[roomNum]?.betBreakdown || {};
@@ -147,7 +149,7 @@ export default function XOControlsPage() {
   const renderBetBreakdown = (bets: number[]) => {
     const breakdown = combinedBreakdown;
     return (
-      <View style={{ marginTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)', paddingTop: 10 }}>
+      <View style={{ marginTop: 12, borderTopWidth: 1, borderTopColor: C.border, paddingTop: 10 }}>
         {bets.map(bet => {
           const item = breakdown[bet] || { searching: 0, liveMatches: 0 };
           return (
@@ -157,7 +159,7 @@ export default function XOControlsPage() {
                 <Text style={{ color: C.secondary, fontSize: 11, fontWeight: '700' }}>
                   {item.searching || 0} searching
                 </Text>
-                <Text style={{ color: '#a78bfa', fontSize: 11, fontWeight: '700' }}>
+                <Text style={{ color: C.primary, fontSize: 11, fontWeight: '700' }}>
                   {item.liveMatches || 0} live games
                 </Text>
               </View>
@@ -207,7 +209,7 @@ export default function XOControlsPage() {
               value={xoLockAll}
               disabled={!isSuperAdmin || saving}
               onValueChange={(val) => toggleXoLockSetting('xo_lock_all', val, setXoLockAll)}
-              trackColor={{ false: 'rgba(68,68,107,0.4)', true: 'rgba(239,68,68,0.35)' }}
+              trackColor={{ false: isDark ? 'rgba(68,68,107,0.4)' : '#CBD5E1', true: 'rgba(239,68,68,0.35)' }}
               thumbColor={xoLockAll ? C.error : '#f4f3f4'}
             />
           </View>
@@ -216,8 +218,8 @@ export default function XOControlsPage() {
           <View style={[s.switchRowBox, xoLockRooms && s.switchRowBoxActive]}>
             <View style={{ flex: 1, paddingRight: 12 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Text style={[s.switchTitle, xoLockRooms && { color: '#f59e0b' }]}>Switch 2: Lock Rooms Only</Text>
-                {xoLockRooms && <View style={[s.activeLockBadge, { backgroundColor: 'rgba(245,158,11,0.2)' }]}><Text style={[s.activeLockText, { color: '#f59e0b' }]}>LOCKED</Text></View>}
+                <Text style={[s.switchTitle, xoLockRooms && { color: C.accentGold }]}>Switch 2: Lock Rooms Only</Text>
+                {xoLockRooms && <View style={[s.activeLockBadge, { backgroundColor: 'rgba(245,158,11,0.2)' }]}><Text style={[s.activeLockText, { color: C.accentGold }]}>LOCKED</Text></View>}
               </View>
               <Text style={s.switchDesc}>Locks public matchmaking lobbies only. Direct friend requests remain open.</Text>
             </View>
@@ -225,8 +227,8 @@ export default function XOControlsPage() {
               value={xoLockRooms}
               disabled={!isSuperAdmin || saving}
               onValueChange={(val) => toggleXoLockSetting('xo_lock_rooms', val, setXoLockRooms)}
-              trackColor={{ false: 'rgba(68,68,107,0.4)', true: 'rgba(245,158,11,0.35)' }}
-              thumbColor={xoLockRooms ? '#f59e0b' : '#f4f3f4'}
+              trackColor={{ false: isDark ? 'rgba(68,68,107,0.4)' : '#CBD5E1', true: 'rgba(245,158,11,0.35)' }}
+              thumbColor={xoLockRooms ? C.accentGold : '#f4f3f4'}
             />
           </View>
 
@@ -234,8 +236,8 @@ export default function XOControlsPage() {
           <View style={[s.switchRowBox, xoLockFriends && s.switchRowBoxActive]}>
             <View style={{ flex: 1, paddingRight: 12 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Text style={[s.switchTitle, xoLockFriends && { color: '#38bdf8' }]}>Switch 3: Lock Friend Requests Only</Text>
-                {xoLockFriends && <View style={[s.activeLockBadge, { backgroundColor: 'rgba(56,189,248,0.2)' }]}><Text style={[s.activeLockText, { color: '#38bdf8' }]}>LOCKED</Text></View>}
+                <Text style={[s.switchTitle, xoLockFriends && { color: C.primary }]}>Switch 3: Lock Friend Requests Only</Text>
+                {xoLockFriends && <View style={[s.activeLockBadge, { backgroundColor: C.lightPrimary }]}><Text style={[s.activeLockText, { color: C.primary }]}>LOCKED</Text></View>}
               </View>
               <Text style={s.switchDesc}>Locks direct 1v1 friend challenges. Matchmaking rooms remain open.</Text>
             </View>
@@ -243,8 +245,8 @@ export default function XOControlsPage() {
               value={xoLockFriends}
               disabled={!isSuperAdmin || saving}
               onValueChange={(val) => toggleXoLockSetting('xo_lock_friends', val, setXoLockFriends)}
-              trackColor={{ false: 'rgba(68,68,107,0.4)', true: 'rgba(56,189,248,0.35)' }}
-              thumbColor={xoLockFriends ? '#38bdf8' : '#f4f3f4'}
+              trackColor={{ false: isDark ? 'rgba(68,68,107,0.4)' : '#CBD5E1', true: 'rgba(255,45,85,0.35)' }}
+              thumbColor={xoLockFriends ? C.primary : '#f4f3f4'}
             />
           </View>
         </View>
@@ -267,7 +269,7 @@ export default function XOControlsPage() {
               <View style={s.card}>
                 <View style={s.roomHeader}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <View style={[s.statusDot, { backgroundColor: '#38bdf8' }]} />
+                    <View style={[s.statusDot, { backgroundColor: C.primary }]} />
                     <Text style={s.cardTitle}>Room 1 — Beginner (10 - 100 ETB)</Text>
                   </View>
                 </View>
@@ -278,7 +280,7 @@ export default function XOControlsPage() {
                   </View>
                   <View style={s.statBox}>
                     <Text style={s.statLabel}>Live Matches</Text>
-                    <Text style={[s.statVal, { color: '#a78bfa' }]}>{r1Totals.liveMatches}</Text>
+                    <Text style={[s.statVal, { color: C.primary }]}>{r1Totals.liveMatches}</Text>
                   </View>
                 </View>
                 {renderBetBreakdown([10, 25, 50, 100])}
@@ -304,7 +306,7 @@ export default function XOControlsPage() {
                   </View>
                   <View style={s.statBox}>
                     <Text style={s.statLabel}>Live Matches</Text>
-                    <Text style={[s.statVal, { color: '#a78bfa' }]}>{r2Totals.liveMatches}</Text>
+                    <Text style={[s.statVal, { color: C.primary }]}>{r2Totals.liveMatches}</Text>
                   </View>
                 </View>
                 {renderBetBreakdown([100, 250, 500, 1000])}
@@ -319,7 +321,7 @@ export default function XOControlsPage() {
               <View style={s.card}>
                 <View style={s.roomHeader}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <View style={[s.statusDot, { backgroundColor: '#f59e0b' }]} />
+                    <View style={[s.statusDot, { backgroundColor: C.accentGold }]} />
                     <Text style={s.cardTitle}>Room 3 — Advanced (1,000 - 10,000 ETB)</Text>
                   </View>
                 </View>
@@ -343,10 +345,10 @@ export default function XOControlsPage() {
   );
 }
 
-const s = StyleSheet.create({
+const getStyles = (C: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: C.background,
+    backgroundColor: 'transparent',
     padding: 24,
   },
   headerBar: {
@@ -359,14 +361,14 @@ const s = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 8,
-    backgroundColor: '#313D4A',
+    backgroundColor: C.surfaceContainerHighest,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: C.border,
   },
   headerTitle: {
-    color: '#fff',
+    color: C.onSurface,
     fontSize: 20,
     fontWeight: '700',
     letterSpacing: -0.5,
@@ -387,7 +389,7 @@ const s = StyleSheet.create({
     marginBottom: 24,
   },
   sectionHeaderTitle: {
-    color: '#fff',
+    color: C.onSurface,
     fontSize: 14,
     fontWeight: '700',
     letterSpacing: 0.5,
@@ -407,11 +409,11 @@ const s = StyleSheet.create({
     borderColor: C.border,
   },
   switchRowBoxActive: {
-    backgroundColor: 'rgba(251,84,84,0.06)',
-    borderColor: 'rgba(251,84,84,0.25)',
+    backgroundColor: isDark ? 'rgba(239,68,68,0.06)' : '#FEF2F2',
+    borderColor: isDark ? 'rgba(239,68,68,0.25)' : '#FCA5A5',
   },
   switchTitle: {
-    color: '#fff',
+    color: C.onSurface,
     fontSize: 13,
     fontWeight: '700',
   },
@@ -422,7 +424,7 @@ const s = StyleSheet.create({
     lineHeight: 16,
   },
   activeLockBadge: {
-    backgroundColor: 'rgba(251,84,84,0.15)',
+    backgroundColor: 'rgba(239,68,68,0.15)',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
@@ -453,7 +455,7 @@ const s = StyleSheet.create({
     marginBottom: 14,
   },
   cardTitle: {
-    color: '#fff',
+    color: C.onSurface,
     fontSize: 15,
     fontWeight: '700',
   },
@@ -491,7 +493,7 @@ const s = StyleSheet.create({
     paddingVertical: 6,
   },
   betStake: {
-    color: '#fff',
+    color: C.onSurface,
     fontSize: 12,
     fontWeight: '700',
   },

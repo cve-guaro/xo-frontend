@@ -12,20 +12,13 @@ import {
   Switch,
   TextInput,
   Modal,
-  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../../context/authContext';
 import { API_URL } from '../../../config';
 import { SkeletonRow } from '../../../components/SkeletonLoading';
-import { AdminTheme as BaseTheme } from './_layout';
-
-const C = {
-  ...BaseTheme,
-  textSecondary: BaseTheme.onSurfaceVariant,
-  warning: BaseTheme.accentGold,
-};
+import { useAdminTheme } from './_layout';
 
 const fmt = (n: number) => Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const timeFmt = (d: string) => {
@@ -36,13 +29,15 @@ const timeFmt = (d: string) => {
 };
 
 export default function SpinAdminPage() {
+  const { theme: C, isDark } = useAdminTheme();
+  const s = useMemo(() => getStyles(C, isDark), [C, isDark]);
   const { token, isSuperAdmin, showAlert } = useAuth();
   const router = useRouter();
   const params = useLocalSearchParams();
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'rooms' | 'history' | 'leaderboard' | 'moderation'>((params.tab as any) || 'overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'rooms' | 'history'>((params.tab as any) || 'overview');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -63,6 +58,11 @@ export default function SpinAdminPage() {
   const [spinHistoryTotal, setSpinHistoryTotal] = useState(0);
   const [spinHistoryPage, setSpinHistoryPage] = useState(0);
   const [spinHistoryLoading, setSpinHistoryLoading] = useState(false);
+
+  // Filters for Live Lobbies
+  const [lobbySearch, setLobbySearch] = useState('');
+  const [lobbyModeFilter, setLobbyModeFilter] = useState<'all' | 'rail' | '5p'>('all');
+  const [lobbyStatusFilter, setLobbyStatusFilter] = useState<'all' | 'waiting' | 'spinning'>('all');
 
   // Selected Round for Detail Modal
   const [selectedRound, setSelectedRound] = useState<any>(null);
@@ -93,7 +93,7 @@ export default function SpinAdminPage() {
     });
   };
 
-  const headers = { Authorization: `Bearer ${token}`, 'x-platform': 'web' };
+  const headers = useMemo(() => ({ Authorization: `Bearer ${token}`, 'x-platform': 'web' }), [token]);
 
   // Fetch settings config
   const fetchConfig = useCallback(async () => {
@@ -119,7 +119,7 @@ export default function SpinAdminPage() {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [headers]);
 
   // Fetch Spin Stats
   const fetchSpinStats = useCallback(async () => {
@@ -132,7 +132,7 @@ export default function SpinAdminPage() {
     } catch (e) {
       console.error('spin stats err', e);
     }
-  }, [token]);
+  }, [headers]);
 
   // Fetch Live Rooms
   const fetchSpinLive = useCallback(async () => {
@@ -145,7 +145,7 @@ export default function SpinAdminPage() {
     } catch (e) {
       console.error('spin live err', e);
     }
-  }, [token]);
+  }, [headers]);
 
   // Fetch History Log
   const fetchSpinHistory = useCallback(async (page = 0) => {
@@ -163,7 +163,7 @@ export default function SpinAdminPage() {
     } finally {
       setSpinHistoryLoading(false);
     }
-  }, [token]);
+  }, [headers]);
 
   // Save Spin Game Switch status
   const updateToggleSetting = async (key: string, val: boolean, setter: (v: boolean) => void) => {
@@ -235,6 +235,9 @@ export default function SpinAdminPage() {
     const fivepProfit = Number(spinStats?.fivePlayer?.netHouseProfit || 0) / 100;
     const totalProfit = railProfit + fivepProfit;
 
+    const railMargin = railBets > 0 ? ((railProfit / railBets) * 100).toFixed(1) : '15.0';
+    const fivepMargin = fivepBets > 0 ? ((fivepProfit / fivepBets) * 100).toFixed(1) : '15.0';
+
     return {
       railBets,
       fivepBets,
@@ -244,6 +247,8 @@ export default function SpinAdminPage() {
       railProfit,
       fivepProfit,
       totalProfit,
+      railMargin,
+      fivepMargin,
     };
   }, [spinStats]);
 
@@ -252,17 +257,32 @@ export default function SpinAdminPage() {
     setDetailModalVisible(true);
   };
 
+  // Filtered live lobbies
+  const filteredLiveRooms = useMemo(() => {
+    return spinLive.filter((r) => {
+      const name = (r.roomName || r.mode || '').toLowerCase();
+      if (lobbySearch && !name.includes(lobbySearch.toLowerCase())) return false;
+      if (lobbyModeFilter !== 'all') {
+        const isRail = r.configId === 2 || String(r.mode).toLowerCase().includes('rail');
+        if (lobbyModeFilter === 'rail' && !isRail) return false;
+        if (lobbyModeFilter === '5p' && isRail) return false;
+      }
+      if (lobbyStatusFilter !== 'all' && r.status !== lobbyStatusFilter) return false;
+      return true;
+    });
+  }, [spinLive, lobbySearch, lobbyModeFilter, lobbyStatusFilter]);
+
   const renderStatsColumn = (title: string, modeStats: any, botVal: boolean, botSetter: (v: boolean) => void, settingKey: string, showEntryAmount: boolean = false) => {
     return (
       <View style={{ flex: 1, backgroundColor: C.surface, borderRadius: 10, padding: 20, borderWidth: 1, borderColor: C.border }}>
-        <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700', marginBottom: 16 }}>{title}</Text>
+        <Text style={{ color: C.onSurface, fontSize: 16, fontWeight: '700', marginBottom: 16 }}>{title}</Text>
         
         {/* Controls Card */}
         <View style={{ backgroundColor: C.surfaceContainerLowest, borderRadius: 8, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: C.border }}>
           <View style={s.switchRow}>
             <View style={{ flex: 1, paddingRight: 12 }}>
-              <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>Bot Assistance</Text>
-              <Text style={{ color: C.textSecondary, fontSize: 11, fontWeight: '500', marginTop: 4 }}>
+              <Text style={{ color: C.onSurface, fontSize: 13, fontWeight: '700' }}>Bot Assistance</Text>
+              <Text style={{ color: C.onSurfaceVariant, fontSize: 11, fontWeight: '500', marginTop: 4 }}>
                 When active, bots automatically seed the room.
               </Text>
             </View>
@@ -270,28 +290,28 @@ export default function SpinAdminPage() {
               value={botVal}
               disabled={!isSuperAdmin || saving}
               onValueChange={(v) => updateToggleSetting(settingKey, v, botSetter)}
-              trackColor={{ false: '#313D4A', true: 'rgba(60,80,224,0.4)' }}
+              trackColor={{ false: isDark ? '#313D4A' : '#CBD5E1', true: 'rgba(255,45,85,0.35)' }}
               thumbColor={botVal ? C.primary : '#f4f3f4'}
             />
           </View>
 
           {showEntryAmount && (
             <View style={{ borderTopWidth: 1, borderTopColor: C.border, paddingTop: 16, marginTop: 16 }}>
-              <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700', marginBottom: 8 }}>Entry Amount (ETB)</Text>
+              <Text style={{ color: C.onSurface, fontSize: 13, fontWeight: '700', marginBottom: 8 }}>Entry Amount (ETB)</Text>
               <View style={{ flexDirection: 'row', gap: 10 }}>
                 <View style={[s.inputRow, { flex: 1 }]}>
-                  <Ionicons name="wallet-outline" size={16} color={C.textSecondary} style={{ marginRight: 8 }} />
+                  <Ionicons name="wallet-outline" size={16} color={C.onSurfaceVariant} style={{ marginRight: 8 }} />
                   <TextInput
                     value={spinEntryAmount}
                     onChangeText={setSpinEntryAmount}
                     placeholder="e.g. 100"
                     style={s.input}
-                    placeholderTextColor="rgba(138,153,173,0.5)"
+                    placeholderTextColor={C.onSurfaceVariant}
                     keyboardType="numeric"
                   />
                 </View>
                 <TouchableOpacity onPress={saveSpinEntryAmount} disabled={saving} style={s.saveBtn}>
-                  {saving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={s.saveBtnText}>Save</Text>}
+                  {saving ? <ActivityIndicator size="small" color="#ffffff" /> : <Text style={s.saveBtnText}>Save</Text>}
                 </TouchableOpacity>
               </View>
             </View>
@@ -299,24 +319,24 @@ export default function SpinAdminPage() {
         </View>
 
         {/* Analytics Card */}
-        <Text style={{ color: C.textSecondary, fontSize: 11, fontWeight: '700', letterSpacing: 1.2, marginBottom: 12 }}>ANALYTICS</Text>
+        <Text style={{ color: C.onSurfaceVariant, fontSize: 11, fontWeight: '700', letterSpacing: 1.2, marginBottom: 12 }}>ANALYTICS</Text>
         {modeStats ? (
           <View style={{ gap: 10 }}>
             {[
               { label: 'Total Bets', value: `${fmt(modeStats.totalBets / 100)} ETB`, icon: 'trending-up', color: C.primary },
-              { label: 'Total Payouts', value: `${fmt(modeStats.totalPayouts / 100)} ETB`, icon: 'arrow-down-circle', color: C.warning },
-              { label: 'Total Refunds', value: `${fmt(modeStats.totalRefunds / 100)} ETB`, icon: 'refresh-circle', color: C.warning },
+              { label: 'Total Payouts', value: `${fmt(modeStats.totalPayouts / 100)} ETB`, icon: 'arrow-down-circle', color: C.accentGold },
+              { label: 'Total Refunds', value: `${fmt(modeStats.totalRefunds / 100)} ETB`, icon: 'refresh-circle', color: C.accentGold },
               { label: 'Net House Profit', value: `${fmt(modeStats.netHouseProfit / 100)} ETB`, icon: 'cash', color: modeStats.netHouseProfit >= 0 ? C.success : C.error },
               { label: 'Total Rounds', value: String(modeStats.totalRounds), icon: 'repeat', color: C.primary },
-              { label: 'Unique Players', value: String(modeStats.uniquePlayers), icon: 'people', color: C.textSecondary },
+              { label: 'Unique Players', value: String(modeStats.uniquePlayers), icon: 'people', color: C.onSurfaceVariant },
             ].map((card, i) => (
               <View key={i} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: C.surfaceContainerLowest, padding: 12, borderRadius: 8, borderWidth: 1, borderColor: C.border }}>
-                <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#313D4A', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: C.surfaceContainerHighest, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
                   <Ionicons name={card.icon as any} size={16} color={card.color} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ color: C.textSecondary, fontSize: 11, fontWeight: '600' }}>{card.label}</Text>
-                  <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700', marginTop: 2 }}>{card.value}</Text>
+                  <Text style={{ color: C.onSurfaceVariant, fontSize: 11, fontWeight: '600' }}>{card.label}</Text>
+                  <Text style={{ color: C.onSurface, fontSize: 14, fontWeight: '700', marginTop: 2 }}>{card.value}</Text>
                 </View>
               </View>
             ))}
@@ -351,7 +371,7 @@ export default function SpinAdminPage() {
 
         <TouchableOpacity
           onPress={() => router.replace('/(authed)/home/gameplay' as any)}
-          style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.lightPrimary, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(60,80,224,0.2)' }}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.lightPrimary, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: C.border }}
         >
           <Ionicons name="play" size={14} color={C.primary} />
           <Text style={{ color: C.primary, fontSize: 12, fontWeight: '700' }}>Launch Game</Text>
@@ -380,32 +400,32 @@ export default function SpinAdminPage() {
               borderColor: activeTab === t.id ? C.primary : C.border,
             }}
           >
-            <Ionicons name={t.icon as any} size={16} color={activeTab === t.id ? '#fff' : C.textSecondary} />
-            <Text style={{ color: activeTab === t.id ? '#fff' : C.textSecondary, fontSize: 12, fontWeight: '700' }}>
+            <Ionicons name={t.icon as any} size={16} color={activeTab === t.id ? '#ffffff' : C.onSurfaceVariant} />
+            <Text style={{ color: activeTab === t.id ? '#ffffff' : C.onSurfaceVariant, fontSize: 12, fontWeight: '700' }}>
               {t.label}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      {/* --- GRAPHICAL OVERVIEW TAB --- */}
-      {(activeTab === 'overview') && (
+      {/* ══════════════ TAB 1: GRAPHICAL OVERVIEW ══════════════ */}
+      {activeTab === 'overview' && (
         <>
-          {/* Graphical Ratio & Net Profit Dashboard Card */}
+          {/* Graphical Ratio & Net Profit Dashboard Card (Mockup Image 3) */}
           <View style={s.graphicalDashboardCard}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#313D4A', alignItems: 'center', justifyContent: 'center' }}>
+                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: C.surfaceContainerHighest, alignItems: 'center', justifyContent: 'center' }}>
                   <Ionicons name="stats-chart" size={18} color={C.primary} />
                 </View>
                 <View>
-                  <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700' }}>WAGER VOLUME & MODE DISTRIBUTION</Text>
-                  <Text style={{ color: C.textSecondary, fontSize: 11 }}>Real Spin Mode vs 5-Player Mode breakdown</Text>
+                  <Text style={{ color: C.onSurface, fontSize: 15, fontWeight: '700' }}>WAGER VOLUME & PROFIT DYNAMICS</Text>
+                  <Text style={{ color: C.onSurfaceVariant, fontSize: 11 }}>Real Spin Mode vs 5-Player Mode breakdown</Text>
                 </View>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
                 <Text style={{ color: C.success, fontSize: 18, fontWeight: '700' }}>{fmt(dashboardMetrics.totalWagered)} ETB</Text>
-                <Text style={{ color: C.textSecondary, fontSize: 10, fontWeight: '600' }}>Total Cumulative Wagered</Text>
+                <Text style={{ color: C.onSurfaceVariant, fontSize: 10, fontWeight: '600' }}>Total Cumulative Wagered</Text>
               </View>
             </View>
 
@@ -416,30 +436,31 @@ export default function SpinAdminPage() {
             </View>
 
             {/* Mode Breakdown Legends */}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 12, flexWrap: 'wrap', gap: 8 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: C.primary }} />
-                <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>Real Spin (Rail): {dashboardMetrics.railRatio.toFixed(1)}%</Text>
-                <Text style={{ color: C.textSecondary, fontSize: 11 }}>({fmt(dashboardMetrics.railBets)} ETB)</Text>
+                <Text style={{ color: C.onSurface, fontSize: 12, fontWeight: '700' }}>Rail Spin: {dashboardMetrics.railRatio.toFixed(1)}%</Text>
+                <Text style={{ color: C.onSurfaceVariant, fontSize: 11 }}>({fmt(dashboardMetrics.railBets)} ETB)</Text>
               </View>
 
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: C.success }} />
-                <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>5-Player Spin: {dashboardMetrics.fivepRatio.toFixed(1)}%</Text>
-                <Text style={{ color: C.textSecondary, fontSize: 11 }}>({fmt(dashboardMetrics.fivepBets)} ETB)</Text>
+                <Text style={{ color: C.onSurface, fontSize: 12, fontWeight: '700' }}>5-Player Spin: {dashboardMetrics.fivepRatio.toFixed(1)}%</Text>
+                <Text style={{ color: C.onSurfaceVariant, fontSize: 11 }}>({fmt(dashboardMetrics.fivepBets)} ETB)</Text>
               </View>
             </View>
 
-            {/* Comparative Net Profit Graphs */}
+            {/* Comparative Net Profit Graphs / Margins */}
             <View style={s.profitGraphGrid}>
               <View style={s.profitGraphCard}>
-                <Text style={s.profitGraphLabel}>Real Spin Net Profit</Text>
+                <Text style={s.profitGraphLabel}>Rail Spin Net Profit</Text>
                 <Text style={[s.profitGraphVal, { color: dashboardMetrics.railProfit >= 0 ? C.success : C.error }]}>
                   {fmt(dashboardMetrics.railProfit)} ETB
                 </Text>
                 <View style={s.miniBarTrack}>
                   <View style={[s.miniBarFill, { width: `${Math.min(100, Math.max(10, Math.abs(dashboardMetrics.railProfit) / 500))}%`, backgroundColor: C.primary }]} />
                 </View>
+                <Text style={{ color: C.onSurfaceVariant, fontSize: 10, marginTop: 6 }}>Margin: <Text style={{ color: C.primary, fontWeight: '700' }}>{dashboardMetrics.railMargin}%</Text></Text>
               </View>
 
               <View style={s.profitGraphCard}>
@@ -450,6 +471,18 @@ export default function SpinAdminPage() {
                 <View style={s.miniBarTrack}>
                   <View style={[s.miniBarFill, { width: `${Math.min(100, Math.max(10, Math.abs(dashboardMetrics.fivepProfit) / 500))}%`, backgroundColor: C.success }]} />
                 </View>
+                <Text style={{ color: C.onSurfaceVariant, fontSize: 10, marginTop: 6 }}>Margin: <Text style={{ color: C.success, fontWeight: '700' }}>{dashboardMetrics.fivepMargin}%</Text></Text>
+              </View>
+
+              <View style={s.profitGraphCard}>
+                <Text style={s.profitGraphLabel}>Total Net GGR</Text>
+                <Text style={[s.profitGraphVal, { color: dashboardMetrics.totalProfit >= 0 ? C.success : C.error }]}>
+                  {fmt(dashboardMetrics.totalProfit)} ETB
+                </Text>
+                <View style={s.miniBarTrack}>
+                  <View style={[s.miniBarFill, { width: '100%', backgroundColor: C.accentGold }]} />
+                </View>
+                <Text style={{ color: C.onSurfaceVariant, fontSize: 10, marginTop: 6 }}>Cumulative Platform Cut</Text>
               </View>
             </View>
           </View>
@@ -457,12 +490,12 @@ export default function SpinAdminPage() {
           {/* 3-Switch Granular Spin Lock Controls */}
           <View style={s.lockSectionCard}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: spinLockAll ? 'rgba(251,84,84,0.12)' : '#313D4A', alignItems: 'center', justifyContent: 'center' }}>
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: spinLockAll ? 'rgba(239,68,68,0.15)' : C.surfaceContainerHighest, alignItems: 'center', justifyContent: 'center' }}>
                 <Ionicons name="lock-closed" size={18} color={spinLockAll ? C.error : C.primary} />
               </View>
               <View>
-                <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>SPIN 3-SWITCH LOCK CONTROL PANEL</Text>
-                <Text style={{ color: C.textSecondary, fontSize: 11 }}>Lock all spin modes or lock specific spin modes during system updates.</Text>
+                <Text style={{ color: C.onSurface, fontSize: 14, fontWeight: '700' }}>SPIN 3-SWITCH LOCK CONTROL PANEL</Text>
+                <Text style={{ color: C.onSurfaceVariant, fontSize: 11 }}>Emergency locks or mode-specific maintenance toggles.</Text>
               </View>
             </View>
 
@@ -471,13 +504,13 @@ export default function SpinAdminPage() {
               <View style={[s.switchRowBox, spinLockAll && s.switchRowBoxActive]}>
                 <View style={{ flex: 1, paddingRight: 12 }}>
                   <Text style={[s.switchTitle, spinLockAll && { color: C.error }]}>Switch 1: Lock ALL Spin Modes</Text>
-                  <Text style={s.switchDesc}>Locks both Real Spin / Rail Mode AND 5-Player Mode globally.</Text>
+                  <Text style={s.switchDesc}>Locks both Rail Mode AND 5-Player Mode globally.</Text>
                 </View>
                 <Switch
                   value={spinLockAll}
                   disabled={!isSuperAdmin || saving}
                   onValueChange={(v) => updateToggleSetting('spin_lock_all', v, setSpinLockAll)}
-                  trackColor={{ false: '#313D4A', true: 'rgba(251,84,84,0.35)' }}
+                  trackColor={{ false: isDark ? '#313D4A' : '#CBD5E1', true: 'rgba(239,68,68,0.35)' }}
                   thumbColor={spinLockAll ? C.error : '#f4f3f4'}
                 />
               </View>
@@ -485,30 +518,30 @@ export default function SpinAdminPage() {
               {/* Switch 2: Lock Real Spin / Rail Only */}
               <View style={[s.switchRowBox, spinLockRail && s.switchRowBoxActive]}>
                 <View style={{ flex: 1, paddingRight: 12 }}>
-                  <Text style={[s.switchTitle, spinLockRail && { color: C.warning }]}>Switch 2: Lock Real Spin (Rail) Only</Text>
+                  <Text style={[s.switchTitle, spinLockRail && { color: C.accentGold }]}>Switch 2: Lock Real Spin (Rail) Only</Text>
                   <Text style={s.switchDesc}>Locks Real Spin mode. 5-Player mode remains accessible.</Text>
                 </View>
                 <Switch
                   value={spinLockRail}
                   disabled={!isSuperAdmin || saving}
                   onValueChange={(v) => updateToggleSetting('spin_lock_rail', v, setSpinLockRail)}
-                  trackColor={{ false: '#313D4A', true: 'rgba(240,149,12,0.35)' }}
-                  thumbColor={spinLockRail ? C.warning : '#f4f3f4'}
+                  trackColor={{ false: isDark ? '#313D4A' : '#CBD5E1', true: 'rgba(245,158,11,0.35)' }}
+                  thumbColor={spinLockRail ? C.accentGold : '#f4f3f4'}
                 />
               </View>
 
               {/* Switch 3: Lock 5-Player Spin Only */}
               <View style={[s.switchRowBox, spinLock5p && s.switchRowBoxActive]}>
                 <View style={{ flex: 1, paddingRight: 12 }}>
-                  <Text style={[s.switchTitle, spinLock5p && { color: C.warning }]}>Switch 3: Lock 5-Player Spin Only</Text>
+                  <Text style={[s.switchTitle, spinLock5p && { color: C.accentGold }]}>Switch 3: Lock 5-Player Spin Only</Text>
                   <Text style={s.switchDesc}>Locks 5-Player Spin mode. Real Spin mode remains accessible.</Text>
                 </View>
                 <Switch
                   value={spinLock5p}
                   disabled={!isSuperAdmin || saving}
                   onValueChange={(v) => updateToggleSetting('spin_lock_5p', v, setSpinLock5p)}
-                  trackColor={{ false: '#313D4A', true: 'rgba(240,149,12,0.35)' }}
-                  thumbColor={spinLock5p ? C.warning : '#f4f3f4'}
+                  trackColor={{ false: isDark ? '#313D4A' : '#CBD5E1', true: 'rgba(245,158,11,0.35)' }}
+                  thumbColor={spinLock5p ? C.accentGold : '#f4f3f4'}
                 />
               </View>
             </View>
@@ -522,64 +555,206 @@ export default function SpinAdminPage() {
         </>
       )}
 
-      {/* --- LIVE ROOMS TAB --- */}
-      {(activeTab === 'overview' || activeTab === 'rooms') && (
+      {/* ══════════════ TAB 2: LIVE LOBBIES (Mockup Image 4) ══════════════ */}
+      {activeTab === 'rooms' && (
         <View style={{ marginBottom: 24 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <Text style={s.sectionLabel}>LIVE SPIN LOBBIES ({spinLive.length})</Text>
-            <TouchableOpacity onPress={fetchSpinLive} style={s.refreshBtnSmall}>
-              <Ionicons name="refresh" size={12} color="#fff" />
-              <Text style={s.refreshBtnTextSmall}>Refresh</Text>
-            </TouchableOpacity>
+          {/* Top 4 KPI Cards */}
+          <View style={[s.kpiGrid, isMobile && { flexDirection: 'column' }]}>
+            <View style={s.kpiCard}>
+              <Text style={s.kpiLabel}>Active Wheel Lobbies</Text>
+              <Text style={s.kpiValue}>{spinLive.length}</Text>
+              <Text style={s.kpiSub}>● Live in memory</Text>
+            </View>
+
+            <View style={s.kpiCard}>
+              <Text style={s.kpiLabel}>Real Players Seated</Text>
+              <Text style={[s.kpiValue, { color: C.primary }]}>
+                {spinLive.reduce((acc, r) => acc + (r.realPlayersCount || 0), 0)}
+              </Text>
+              <Text style={s.kpiSub}>Across active tables</Text>
+            </View>
+
+            <View style={s.kpiCard}>
+              <Text style={s.kpiLabel}>Active Bot Seats</Text>
+              <Text style={[s.kpiValue, { color: C.accentGold }]}>
+                {spinLive.reduce((acc, r) => acc + (r.botsCount || 0), 0)}
+              </Text>
+              <Text style={s.kpiSub}>Auto seeding</Text>
+            </View>
+
+            <View style={s.kpiCard}>
+              <Text style={s.kpiLabel}>Live Pot Pool</Text>
+              <Text style={[s.kpiValue, { color: C.success }]}>
+                {fmt(spinLive.reduce((acc, r) => acc + (r.pot || 0), 0))} ETB
+              </Text>
+              <Text style={s.kpiSub}>Current combined pot</Text>
+            </View>
           </View>
-          {spinLive.length === 0 ? (
+
+          {/* Filter and Search Bar */}
+          <View style={[s.filterBar, isMobile && { flexDirection: 'column', alignItems: 'stretch' }]}>
+            <View style={[s.searchBox, isMobile && { width: '100%' }]}>
+              <Ionicons name="search" size={16} color={C.onSurfaceVariant} />
+              <TextInput
+                value={lobbySearch}
+                onChangeText={setLobbySearch}
+                placeholder="Search lobby name or ID..."
+                placeholderTextColor={C.onSurfaceVariant}
+                style={s.searchInput}
+              />
+              {lobbySearch.length > 0 && (
+                <TouchableOpacity onPress={() => setLobbySearch('')}>
+                  <Ionicons name="close-circle" size={16} color={C.onSurfaceVariant} />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap' }}>
+              <View style={s.selectWrap}>
+                <Ionicons name="options-outline" size={14} color={C.onSurfaceVariant} />
+                {Platform.OS === 'web' ? (
+                  <select
+                    value={lobbyModeFilter}
+                    onChange={(e: any) => setLobbyModeFilter(e.target.value)}
+                    style={{ background: 'transparent', border: 'none', color: C.onSurface, fontSize: 12, fontWeight: 700, outlineStyle: 'none', cursor: 'pointer' as any }}
+                  >
+                    <option value="all" style={{ background: C.surface, color: C.onSurface }}>All Modes</option>
+                    <option value="rail" style={{ background: C.surface, color: C.onSurface }}>Rail Spin</option>
+                    <option value="5p" style={{ background: C.surface, color: C.onSurface }}>5-Player</option>
+                  </select>
+                ) : (
+                  <Text style={{ color: C.onSurface, fontSize: 12, fontWeight: '700' }}>{lobbyModeFilter.toUpperCase()}</Text>
+                )}
+              </View>
+
+              <View style={s.selectWrap}>
+                <Ionicons name="radio-outline" size={14} color={C.onSurfaceVariant} />
+                {Platform.OS === 'web' ? (
+                  <select
+                    value={lobbyStatusFilter}
+                    onChange={(e: any) => setLobbyStatusFilter(e.target.value)}
+                    style={{ background: 'transparent', border: 'none', color: C.onSurface, fontSize: 12, fontWeight: 700, outlineStyle: 'none', cursor: 'pointer' as any }}
+                  >
+                    <option value="all" style={{ background: C.surface, color: C.onSurface }}>All Statuses</option>
+                    <option value="waiting" style={{ background: C.surface, color: C.onSurface }}>Waiting</option>
+                    <option value="spinning" style={{ background: C.surface, color: C.onSurface }}>Spinning</option>
+                  </select>
+                ) : (
+                  <Text style={{ color: C.onSurface, fontSize: 12, fontWeight: '700' }}>{lobbyStatusFilter.toUpperCase()}</Text>
+                )}
+              </View>
+
+              <TouchableOpacity onPress={fetchSpinLive} style={s.refreshBtnSmall}>
+                <Ionicons name="refresh" size={14} color="#ffffff" />
+                <Text style={s.refreshBtnTextSmall}>Refresh</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Lobby Table / Card list */}
+          {filteredLiveRooms.length === 0 ? (
             <View style={s.emptyState}>
-              <Ionicons name="game-controller-outline" size={24} color="rgba(255,255,255,0.1)" />
-              <Text style={s.emptyStateText}>No Spin Wheel lobbies are running. Lobbies spin up dynamically when players enter.</Text>
+              <Ionicons name="game-controller-outline" size={32} color={C.onSurfaceVariant} />
+              <Text style={s.emptyStateText}>
+                {spinLive.length === 0
+                  ? 'No Spin Wheel lobbies currently running. Lobbies initialize when players wager.'
+                  : 'No lobbies match the active filter criteria.'}
+              </Text>
             </View>
           ) : (
             <View style={{ gap: 12 }}>
-              {spinLive.map((room: any, i: number) => (
-                <View key={room.roundId || i} style={s.liveRoomCard}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <View style={[s.breakdownStatusDot, { backgroundColor: room.status === 'waiting' ? '#fbbf24' : room.status === 'spinning' ? C.success : C.secondary }]} />
-                      <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>{room.roomName || room.mode}</Text>
-                    </View>
-                    <View style={s.liveStatusBadge}>
-                      <Text style={{ color: room.status === 'waiting' ? '#fbbf24' : C.success, fontSize: 9, fontWeight: '800' }}>{room.status?.toUpperCase()}</Text>
-                    </View>
-                  </View>
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-                    <Text style={{ color: C.onSurfaceVariant, fontSize: 12 }}>Players: <Text style={{ color: '#fff', fontWeight: '700' }}>{room.realPlayersCount}/{room.maxPlayers}</Text> (bots: {room.botsCount})</Text>
-                    <Text style={{ color: C.onSurfaceVariant, fontSize: 12 }}>Pot: <Text style={{ color: C.success, fontWeight: '700' }}>{fmt(room.pot)} ETB</Text></Text>
-                    {room.countdown > 0 && <Text style={{ color: C.onSurfaceVariant, fontSize: 12 }}>Timer: <Text style={{ color: '#fbbf24', fontWeight: '700' }}>{room.countdown}s</Text></Text>}
-                  </View>
-                  {room.players && room.players.length > 0 && (
-                    <View style={{ marginTop: 8, gap: 4 }}>
-                      {room.players.map((p: any, pi: number) => (
-                        <View key={pi} style={s.livePlayerRow}>
-                          <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: '600' }}>#{p.seatIndex + 1}</Text>
-                          <Text style={{ color: p.isBot ? 'rgba(255,255,255,0.4)' : '#fff', fontSize: 11, fontWeight: '700', flex: 1 }}>{p.username}{p.isBot ? ' (Bot)' : ''}</Text>
-                          <Text style={{ color: C.success, fontSize: 11, fontWeight: '700' }}>{fmt(p.stake)} ETB</Text>
+              {filteredLiveRooms.map((room: any, i: number) => {
+                const isSpinning = room.status === 'spinning';
+                const statusColor = isSpinning ? C.success : C.accentGold;
+                const statusBg = isSpinning ? 'rgba(16,185,129,0.12)' : 'rgba(245,158,11,0.12)';
+
+                return (
+                  <View key={room.roundId || i} style={s.liveRoomCard}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                        <View style={s.lobbyThumbnail}>
+                          <Ionicons name="disc-outline" size={22} color={C.primary} />
                         </View>
-                      ))}
+                        <View>
+                          <Text style={{ color: C.onSurface, fontSize: 15, fontWeight: '700' }}>
+                            {room.roomName || room.mode || 'Spin Lobby'}
+                          </Text>
+                          <Text style={{ color: C.onSurfaceVariant, fontSize: 11 }}>
+                            ID: #{String(room.roundId || room.id || i).slice(0, 8)}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <View style={[s.liveStatusBadge, { backgroundColor: statusBg, borderColor: statusColor }]}>
+                          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: statusColor, marginRight: 5 }} />
+                          <Text style={{ color: statusColor, fontSize: 10, fontWeight: '800' }}>
+                            {room.status ? room.status.toUpperCase() : 'WAITING'}
+                          </Text>
+                        </View>
+
+                        <TouchableOpacity 
+                          style={s.manageBtn}
+                          onPress={() => showAlert('Lobby Admin', `Monitoring Lobby #${String(room.roundId || i).slice(0, 8)}`)}
+                        >
+                          <Text style={s.manageBtnText}>Manage</Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
-                  )}
-                </View>
-              ))}
+
+                    {/* Quick Stats Grid inside Lobby Card */}
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16, backgroundColor: C.surfaceContainerLowest, padding: 12, borderRadius: 8, borderWidth: 1, borderColor: C.border }}>
+                      <View>
+                        <Text style={s.miniLobbyLabel}>PLAYERS SEATED</Text>
+                        <Text style={[s.miniLobbyVal, { color: C.onSurface }]}>
+                          {room.realPlayersCount || 0} / {room.maxPlayers || 5} <Text style={{ color: C.onSurfaceVariant, fontSize: 11 }}>(Bots: {room.botsCount || 0})</Text>
+                        </Text>
+                      </View>
+
+                      <View>
+                        <Text style={s.miniLobbyLabel}>TOTAL POT</Text>
+                        <Text style={[s.miniLobbyVal, { color: C.success }]}>{fmt(room.pot || 0)} ETB</Text>
+                      </View>
+
+                      {room.countdown > 0 && (
+                        <View>
+                          <Text style={s.miniLobbyLabel}>COUNTDOWN</Text>
+                          <Text style={[s.miniLobbyVal, { color: C.accentGold }]}>{room.countdown}s</Text>
+                        </View>
+                      )}
+                    </View>
+
+                    {/* Players Row */}
+                    {room.players && room.players.length > 0 && (
+                      <View style={{ marginTop: 10, gap: 6 }}>
+                        {room.players.map((p: any, pi: number) => (
+                          <View key={pi} style={s.livePlayerRow}>
+                            <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: C.surfaceContainerHighest, alignItems: 'center', justifyContent: 'center' }}>
+                              <Text style={{ color: C.onSurfaceVariant, fontSize: 10, fontWeight: '700' }}>#{p.seatIndex !== undefined ? p.seatIndex + 1 : pi + 1}</Text>
+                            </View>
+                            <Text style={{ color: p.isBot ? C.onSurfaceVariant : C.onSurface, fontSize: 12, fontWeight: '700', flex: 1 }}>
+                              {p.username || p.name} {p.isBot ? '(Bot)' : ''}
+                            </Text>
+                            <Text style={{ color: C.success, fontSize: 12, fontWeight: '700' }}>{fmt(p.stake || 0)} ETB</Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
             </View>
           )}
         </View>
       )}
 
-      {/* --- MATCH HISTORY TAB (Interactive Cards + Detail Modal) --- */}
-      {(activeTab === 'overview' || activeTab === 'history') && (
+      {/* ══════════════ TAB 3: MATCH HISTORY ══════════════ */}
+      {activeTab === 'history' && (
         <View style={{ marginBottom: 24 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
             <Text style={s.sectionLabel}>SPIN HISTORY LOG ({spinHistoryTotal})</Text>
             <TouchableOpacity onPress={() => fetchSpinHistory(spinHistoryPage)} style={s.refreshBtnSmall}>
-              <Ionicons name="refresh" size={12} color="#fff" />
+              <Ionicons name="refresh" size={14} color="#ffffff" />
               <Text style={s.refreshBtnTextSmall}>Refresh</Text>
             </TouchableOpacity>
           </View>
@@ -611,37 +786,37 @@ export default function SpinAdminPage() {
               >
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <View style={[s.historyStatusPill, { backgroundColor: round.status === 'paid' ? 'rgba(16,185,129,0.1)' : 'rgba(251,84,84,0.1)', borderColor: round.status === 'paid' ? 'rgba(16,185,129,0.25)' : 'rgba(251,84,84,0.25)' }]}>
+                    <View style={[s.historyStatusPill, { backgroundColor: round.status === 'paid' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', borderColor: round.status === 'paid' ? C.success : C.error }]}>
                       <Text style={{ color: round.status === 'paid' ? C.success : C.error, fontSize: 9, fontWeight: '700' }}>{round.status?.toUpperCase()}</Text>
                     </View>
-                    <View style={[s.historyStatusPill, { backgroundColor: isRealSpin ? 'rgba(60,80,224,0.1)' : 'rgba(240,149,12,0.1)', borderColor: isRealSpin ? 'rgba(60,80,224,0.25)' : 'rgba(240,149,12,0.25)' }]}>
-                      <Text style={{ color: isRealSpin ? C.primary : C.warning, fontSize: 9, fontWeight: '700' }}>{isRealSpin ? 'REAL SPIN' : 'BOT ASSISTED'}</Text>
+                    <View style={[s.historyStatusPill, { backgroundColor: isRealSpin ? C.lightPrimary : 'rgba(245,158,11,0.1)', borderColor: isRealSpin ? C.primary : C.accentGold }]}>
+                      <Text style={{ color: isRealSpin ? C.primary : C.accentGold, fontSize: 9, fontWeight: '700' }}>{isRealSpin ? 'REAL SPIN' : 'BOT ASSISTED'}</Text>
                     </View>
                     <View style={s.voiceBadge}>
                       <Ionicons name="mic" size={10} color={C.primary} />
                       <Text style={{ color: C.primary, fontSize: 9, fontWeight: '700' }}>Voice Channel</Text>
                     </View>
                   </View>
-                  <Text style={{ color: C.textSecondary, fontSize: 10, fontWeight: '500' }}>{timeFmt(round.created_at)}</Text>
+                  <Text style={{ color: C.onSurfaceVariant, fontSize: 10, fontWeight: '500' }}>{timeFmt(round.created_at)}</Text>
                 </View>
 
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                   <View>
-                    <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '700' }}>
-                      Winner: <Text style={{ color: round.winner_is_bot ? C.warning : '#ffffff' }}>{winnerName}</Text>
+                    <Text style={{ color: C.onSurface, fontSize: 13, fontWeight: '700' }}>
+                      Winner: <Text style={{ color: round.winner_is_bot ? C.accentGold : C.onSurface }}>{winnerName}</Text>
                     </Text>
-                    {round.winner_phone && <Text style={{ color: C.textSecondary, fontSize: 10 }}>{round.winner_phone}</Text>}
+                    {round.winner_phone && <Text style={{ color: C.onSurfaceVariant, fontSize: 10 }}>{round.winner_phone}</Text>}
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
                     <Text style={{ color: C.success, fontSize: 14, fontWeight: '700' }}>+{fmt((round.prize_amount || 0) / 100)} ETB</Text>
-                    <Text style={{ color: C.textSecondary, fontSize: 10 }}>Pot: {fmt((round.pot_amount || 0) / 100)} ETB</Text>
+                    <Text style={{ color: C.onSurfaceVariant, fontSize: 10 }}>Pot: {fmt((round.pot_amount || 0) / 100)} ETB</Text>
                   </View>
                 </View>
 
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: C.border }}>
                   <View style={{ flexDirection: 'row', gap: 12 }}>
-                    <Text style={{ color: C.textSecondary, fontSize: 11, fontWeight: '500' }}>Mode: <Text style={{ color: '#fff' }}>{round.config_id === 2 ? 'Rail Spin' : '5-Player Spin'}</Text></Text>
-                    <Text style={{ color: C.textSecondary, fontSize: 11, fontWeight: '500' }}>Players: <Text style={{ color: '#fff' }}>{round.total_players || 5} Total</Text></Text>
+                    <Text style={{ color: C.onSurfaceVariant, fontSize: 11, fontWeight: '500' }}>Mode: <Text style={{ color: C.onSurface, fontWeight: '700' }}>{round.config_id === 2 ? 'Rail Spin' : '5-Player Spin'}</Text></Text>
+                    <Text style={{ color: C.onSurfaceVariant, fontSize: 11, fontWeight: '500' }}>Players: <Text style={{ color: C.onSurface, fontWeight: '700' }}>{round.total_players || 5} Total</Text></Text>
                   </View>
 
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
@@ -665,7 +840,7 @@ export default function SpinAdminPage() {
                 <Text style={s.pageBtnText}>Previous</Text>
               </TouchableOpacity>
               <View style={{ justifyContent: 'center' }}>
-                <Text style={{ color: C.textSecondary, fontSize: 11, fontWeight: '600' }}>Page {spinHistoryPage + 1} of {Math.ceil(spinHistoryTotal / 10)}</Text>
+                <Text style={{ color: C.onSurfaceVariant, fontSize: 11, fontWeight: '600' }}>Page {spinHistoryPage + 1} of {Math.ceil(spinHistoryTotal / 10)}</Text>
               </View>
               <TouchableOpacity
                 disabled={(spinHistoryPage + 1) * 10 >= spinHistoryTotal}
@@ -691,16 +866,16 @@ export default function SpinAdminPage() {
           <View style={[s.detailModalContent, isMobile && { width: '95%', padding: 16 }]}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#313D4A', alignItems: 'center', justifyContent: 'center' }}>
+                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: C.surfaceContainerHighest, alignItems: 'center', justifyContent: 'center' }}>
                   <Ionicons name="disc-outline" size={20} color={C.primary} />
                 </View>
                 <View>
-                  <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700' }}>Round Details & Voice Log</Text>
-                  <Text style={{ color: C.textSecondary, fontSize: 11 }}>ID: {selectedRound?.id || '—'}</Text>
+                  <Text style={{ color: C.onSurface, fontSize: 15, fontWeight: '700' }}>Round Details & Voice Log</Text>
+                  <Text style={{ color: C.onSurfaceVariant, fontSize: 11 }}>ID: {selectedRound?.id || '—'}</Text>
                 </View>
               </View>
               <TouchableOpacity onPress={() => setDetailModalVisible(false)} style={s.closeCircle}>
-                <Ionicons name="close" size={16} color="#fff" />
+                <Ionicons name="close" size={16} color={C.onSurface} />
               </TouchableOpacity>
             </View>
 
@@ -709,11 +884,11 @@ export default function SpinAdminPage() {
                 {/* Round Overview Header */}
                 <View style={s.roundOverviewBox}>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ color: C.textSecondary, fontSize: 10, fontWeight: '600' }}>WINNING PLAYER</Text>
-                    <Text style={{ color: selectedRound.winner_username ? '#ffffff' : C.warning, fontSize: 16, fontWeight: '700', marginTop: 2 }}>
+                    <Text style={{ color: C.onSurfaceVariant, fontSize: 10, fontWeight: '600' }}>WINNING PLAYER</Text>
+                    <Text style={{ color: selectedRound.winner_username ? C.onSurface : C.accentGold, fontSize: 16, fontWeight: '700', marginTop: 2 }}>
                       {selectedRound.winner_username || 'Bot Winner'}
                     </Text>
-                    <Text style={{ color: C.textSecondary, fontSize: 11 }}>
+                    <Text style={{ color: C.onSurfaceVariant, fontSize: 11 }}>
                       {selectedRound.winner_phone || 'System Bot Seat'}
                     </Text>
                   </View>
@@ -721,7 +896,7 @@ export default function SpinAdminPage() {
                     <Text style={{ color: C.success, fontSize: 18, fontWeight: '700' }}>
                       +{fmt((selectedRound.prize_amount || 0) / 100)} ETB
                     </Text>
-                    <Text style={{ color: C.textSecondary, fontSize: 10 }}>
+                    <Text style={{ color: C.onSurfaceVariant, fontSize: 10 }}>
                       Pot: {fmt((selectedRound.pot_amount || 0) / 100)} ETB
                     </Text>
                   </View>
@@ -736,13 +911,13 @@ export default function SpinAdminPage() {
                 </View>
 
                 {/* Player Roster Table */}
-                <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700', marginBottom: 8 }}>PLAYER SEATS & STAKES</Text>
+                <Text style={{ color: C.onSurface, fontSize: 13, fontWeight: '700', marginBottom: 8 }}>PLAYER SEATS & STAKES</Text>
                 {selectedRound.players && selectedRound.players.length > 0 ? (
                   <View style={{ gap: 6, marginBottom: 16 }}>
                     {selectedRound.players.map((p: any, idx: number) => (
                       <View key={idx} style={s.rosterRow}>
-                        <Text style={{ color: C.textSecondary, fontSize: 11, fontWeight: '700' }}>#{p.seatIndex !== undefined ? p.seatIndex + 1 : idx + 1}</Text>
-                        <Text style={{ color: p.isBot ? C.textSecondary : '#fff', fontSize: 12, fontWeight: '600', flex: 1, marginLeft: 8 }}>
+                        <Text style={{ color: C.onSurfaceVariant, fontSize: 11, fontWeight: '700' }}>#{p.seatIndex !== undefined ? p.seatIndex + 1 : idx + 1}</Text>
+                        <Text style={{ color: p.isBot ? C.onSurfaceVariant : C.onSurface, fontSize: 12, fontWeight: '600', flex: 1, marginLeft: 8 }}>
                           {p.username || p.name} {p.isBot ? '(Bot)' : ''}
                         </Text>
                         <Text style={{ color: C.success, fontSize: 12, fontWeight: '700' }}>
@@ -752,16 +927,16 @@ export default function SpinAdminPage() {
                     ))}
                   </View>
                 ) : (
-                  <Text style={{ color: C.textSecondary, fontSize: 11, marginBottom: 16 }}>Seat details recorded in DB log.</Text>
+                  <Text style={{ color: C.onSurfaceVariant, fontSize: 11, marginBottom: 16 }}>Seat details recorded in DB log.</Text>
                 )}
 
                 {/* Voice Session Activity Record */}
                 <View style={s.voiceSessionBox}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                     <Ionicons name="mic-circle" size={20} color={C.primary} />
-                    <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>Voice Communication Channel Record</Text>
+                    <Text style={{ color: C.onSurface, fontSize: 13, fontWeight: '700' }}>Voice Communication Channel Record</Text>
                   </View>
-                  <Text style={{ color: C.textSecondary, fontSize: 11, lineHeight: 16 }}>
+                  <Text style={{ color: C.onSurfaceVariant, fontSize: 11, lineHeight: 16 }}>
                     🎙️ Voice channel session active for room #{selectedRound.id?.slice(0, 8)}. Real-time audio stream recorded zero packet drops or network degradation.
                   </Text>
                 </View>
@@ -775,8 +950,8 @@ export default function SpinAdminPage() {
       <Modal transparent visible={confirmState.visible} animationType="fade">
         <View style={s.modalOverlay}>
           <View style={s.modalContent}>
-            <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(240,149,12,0.12)', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
-              <Ionicons name="warning" size={24} color={C.warning} />
+            <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(245,158,11,0.12)', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+              <Ionicons name="warning" size={24} color={C.accentGold} />
             </View>
             <Text style={s.modalTitle}>Confirm Action</Text>
             <Text style={s.modalMessage}>{confirmState.message}</Text>
@@ -795,12 +970,12 @@ export default function SpinAdminPage() {
   );
 }
 
-const s = StyleSheet.create({
+const getStyles = (C: any, isDark: boolean) => StyleSheet.create({
   container: { flex: 1, backgroundColor: 'transparent', padding: 24, paddingTop: 20 },
   headerBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 },
   backCircle: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.lightPrimary, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { color: '#ffffff', fontSize: 20, fontWeight: '700', letterSpacing: -0.5 },
-  headerSub: { color: C.textSecondary, fontSize: 10, fontWeight: '600', letterSpacing: 1.5, marginTop: 2 },
+  headerTitle: { color: C.onSurface, fontSize: 20, fontWeight: '700', letterSpacing: -0.5 },
+  headerSub: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '600', letterSpacing: 1.5, marginTop: 2 },
 
   // Graphical Dashboard
   graphicalDashboardCard: {
@@ -842,7 +1017,7 @@ const s = StyleSheet.create({
     borderColor: C.border,
   },
   profitGraphLabel: {
-    color: C.textSecondary,
+    color: C.onSurfaceVariant,
     fontSize: 11,
     fontWeight: '600',
   },
@@ -854,7 +1029,7 @@ const s = StyleSheet.create({
   miniBarTrack: {
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#313D4A',
+    backgroundColor: C.surfaceContainerHighest,
     marginTop: 10,
     overflow: 'hidden',
   },
@@ -882,43 +1057,49 @@ const s = StyleSheet.create({
     borderColor: C.border,
   },
   switchRowBoxActive: {
-    backgroundColor: 'rgba(251,84,84,0.06)',
-    borderColor: 'rgba(251,84,84,0.3)',
+    backgroundColor: isDark ? 'rgba(239,68,68,0.06)' : '#FEF2F2',
+    borderColor: isDark ? 'rgba(239,68,68,0.3)' : '#FCA5A5',
   },
   switchTitle: {
-    color: '#fff',
+    color: C.onSurface,
     fontSize: 13,
     fontWeight: '700',
   },
   switchDesc: {
-    color: C.textSecondary,
+    color: C.onSurfaceVariant,
     fontSize: 11,
     marginTop: 4,
     lineHeight: 16,
   },
 
-  card: {
-    backgroundColor: C.surface,
-    borderRadius: 10,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  sectionLabel: { color: C.textSecondary, fontSize: 11, fontWeight: '700', letterSpacing: 1.5, marginBottom: 12, textTransform: 'uppercase' },
+  sectionLabel: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '700', letterSpacing: 1.5, marginBottom: 12, textTransform: 'uppercase' },
 
   // input/save fields
   inputRow: { flex: 1, backgroundColor: C.surfaceContainerLowest, borderRadius: 8, borderWidth: 1, borderColor: C.border, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12 },
-  input: { flex: 1, color: '#ffffff', padding: 10, fontSize: 14 },
+  input: { flex: 1, color: C.onSurface, padding: 10, fontSize: 14 },
   saveBtn: { backgroundColor: C.primary, paddingHorizontal: 18, justifyContent: 'center', borderRadius: 8 },
   saveBtnText: { color: '#ffffff', fontSize: 13, fontWeight: '700' },
 
-  refreshBtnSmall: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: C.primary, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
+  refreshBtnSmall: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.primary, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 },
   refreshBtnTextSmall: { color: '#ffffff', fontSize: 11, fontWeight: '700' },
+
+  // KPI Grid for Live Lobbies
+  kpiGrid: { flexDirection: 'row', gap: 16, marginBottom: 20 },
+  kpiCard: { flex: 1, backgroundColor: C.surface, borderRadius: 10, padding: 18, borderWidth: 1, borderColor: C.border },
+  kpiLabel: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '600' },
+  kpiValue: { color: C.onSurface, fontSize: 24, fontWeight: '700', marginTop: 4, letterSpacing: -0.5 },
+  kpiSub: { color: C.onSurfaceVariant, fontSize: 10, marginTop: 4 },
+
+  // Filter bar
+  filterBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, gap: 12 },
+  searchBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, flex: 1 },
+  searchInput: { flex: 1, color: C.onSurface, fontSize: 13, outlineStyle: 'none' as any },
+  selectWrap: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
 
   // Lobbies list
   emptyState: {
-    padding: 32,
+    padding: 36,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
@@ -927,37 +1108,41 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.border,
   },
-  emptyStateText: { color: C.textSecondary, fontSize: 12, textAlign: 'center', lineHeight: 18 },
-  liveRoomCard: { backgroundColor: C.surface, borderRadius: 10, padding: 16, borderWidth: 1, borderColor: C.border },
-  liveStatusBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: C.border, alignSelf: 'flex-start' },
+  emptyStateText: { color: C.onSurfaceVariant, fontSize: 13, textAlign: 'center', lineHeight: 18 },
+  liveRoomCard: { backgroundColor: C.surface, borderRadius: 10, padding: 18, borderWidth: 1, borderColor: C.border },
+  lobbyThumbnail: { width: 40, height: 40, borderRadius: 10, backgroundColor: isDark ? 'rgba(255,45,85,0.12)' : '#FFE4E6', alignItems: 'center', justifyContent: 'center' },
+  liveStatusBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1 },
+  manageBtn: { backgroundColor: C.primary, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 },
+  manageBtnText: { color: '#ffffff', fontSize: 11, fontWeight: '700' },
+  miniLobbyLabel: { color: C.onSurfaceVariant, fontSize: 9, fontWeight: '700', letterSpacing: 0.5 },
+  miniLobbyVal: { fontSize: 13, fontWeight: '700', marginTop: 2 },
   livePlayerRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, backgroundColor: C.surfaceContainerLowest },
-  breakdownStatusDot: { width: 8, height: 8, borderRadius: 4 },
 
   // History list
   historyCard: { backgroundColor: C.surface, borderRadius: 10, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: C.border },
   historyStatusPill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, alignSelf: 'flex-start' },
-  voiceBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: C.lightPrimary, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(60,80,224,0.2)' },
+  voiceBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: C.lightPrimary, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: C.border },
   pageBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: C.surface, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: C.border },
   pageBtnText: { color: C.primary, fontSize: 12, fontWeight: '700' },
 
   // Detail Modal
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  modalOverlay: { flex: 1, backgroundColor: isDark ? 'rgba(0,0,0,0.75)' : 'rgba(15,23,42,0.4)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   detailModalContent: { backgroundColor: C.surface, borderRadius: 12, width: '100%', maxWidth: 540, maxHeight: '85%', borderWidth: 1, borderColor: C.border, padding: 24 },
-  closeCircle: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#313D4A', alignItems: 'center', justifyContent: 'center' },
+  closeCircle: { width: 32, height: 32, borderRadius: 16, backgroundColor: C.surfaceContainerHighest, alignItems: 'center', justifyContent: 'center' },
   roundOverviewBox: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: C.surfaceContainerLowest, padding: 16, borderRadius: 8, borderWidth: 1, borderColor: C.border },
   detailChip: { backgroundColor: C.surfaceContainerLowest, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: C.border },
-  detailChipLabel: { color: C.textSecondary, fontSize: 10, fontWeight: '600' },
-  detailChipVal: { color: '#fff', fontSize: 12, fontWeight: '700', marginTop: 2 },
+  detailChipLabel: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '600' },
+  detailChipVal: { color: C.onSurface, fontSize: 12, fontWeight: '700', marginTop: 2 },
   rosterRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.surfaceContainerLowest, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: C.border },
-  voiceSessionBox: { backgroundColor: 'rgba(60,80,224,0.06)', padding: 14, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(60,80,224,0.2)', marginTop: 8 },
+  voiceSessionBox: { backgroundColor: C.surfaceContainerLowest, padding: 14, borderRadius: 8, borderWidth: 1, borderColor: C.border, marginTop: 8 },
 
   // Confirm Modal
   modalContent: { backgroundColor: C.surface, borderRadius: 12, width: '100%', maxWidth: 450, borderWidth: 1, borderColor: C.border, padding: 24, alignItems: 'center' },
-  modalTitle: { color: '#ffffff', fontSize: 16, fontWeight: '700', marginBottom: 8 },
-  modalMessage: { color: C.textSecondary, fontSize: 13, textAlign: 'center', marginBottom: 20 },
+  modalTitle: { color: C.onSurface, fontSize: 16, fontWeight: '700', marginBottom: 8 },
+  modalMessage: { color: C.onSurfaceVariant, fontSize: 13, textAlign: 'center', marginBottom: 20 },
   modalActions: { flexDirection: 'row', gap: 12, width: '100%' },
   modalCancelBtn: { flex: 1, backgroundColor: C.surfaceContainerLowest, paddingVertical: 12, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: C.border },
-  modalCancelBtnText: { color: '#ffffff', fontSize: 13, fontWeight: '700' },
+  modalCancelBtnText: { color: C.onSurface, fontSize: 13, fontWeight: '700' },
   modalConfirmBtn: { flex: 1, backgroundColor: C.primary, paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
   modalConfirmBtnText: { color: '#ffffff', fontSize: 13, fontWeight: '700' },
 });

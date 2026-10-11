@@ -20,31 +20,31 @@ export type AdminThemeMode = 'dark' | 'light';
 
 export const DarkAdminTheme = {
   mode: 'dark' as AdminThemeMode,
-  primary: '#FF2D55', // XO Crimson / Red from brand identity
-  primaryContainer: '#BE123C',
-  secondary: '#10B981', // Emerald
-  tertiaryDim: '#8A99AD',
+  primary: '#FF2D55', // Authentic XO Coral Crimson Red
+  primaryContainer: 'rgba(255, 45, 85, 0.15)',
+  secondary: '#10B981', // Emerald for active, online, normal
+  tertiaryDim: '#8292A6',
   tertiary: '#FF2D55',
-  background: '#1A222C', // Flat slate dark canvas (no decoration)
-  surface: '#24303F', // TailAdmin card
-  surfaceContainerLowest: '#1C2434', // Inner inputs/sub-containers
-  surfaceContainerLow: '#1E2634',
-  surfaceContainer: '#24303F',
-  surfaceContainerHigh: '#2C3A4B',
-  surfaceContainerHighest: '#313D4A', // Table headers & icon wraps
-  border: '#2E3A47',
+  background: '#070C16', // Sleek dark navy black canvas from reference mockups
+  surface: '#0C1424', // Card background from mockups
+  surfaceContainerLowest: '#060A13', // Deepest dark container / inputs / sidebar
+  surfaceContainerLow: '#09101E',
+  surfaceContainer: '#0C1424',
+  surfaceContainerHigh: '#111C30',
+  surfaceContainerHighest: '#152238', // Table header & badge background
+  border: '#19273E', // Clean subtle borders from mockups
   onSurface: '#FFFFFF',
-  onSurfaceVariant: '#8A99AD',
-  outlineVariant: '#2E3A47',
+  onSurfaceVariant: '#8292A6',
+  outlineVariant: '#19273E',
   error: '#FB5454',
   errorContainer: '#4B1A1A',
   lightPrimary: 'rgba(255, 45, 85, 0.12)',
   success: '#10B981',
   accentViolet: '#FF2D55',
-  accentCyan: '#10B981',
-  accentGold: '#F0950C',
+  accentCyan: '#06B6D4',
+  accentGold: '#F59E0B',
   accentGreen: '#10B981',
-  badgeRotation: ['#FF2D55', '#10B981', '#F0950C', '#64748B'],
+  badgeRotation: ['#FF2D55', '#10B981', '#F59E0B', '#64748B'],
 };
 
 export const LightAdminTheme = {
@@ -54,15 +54,15 @@ export const LightAdminTheme = {
   secondary: '#10B981',
   tertiaryDim: '#64748B',
   tertiary: '#E11D48',
-  background: '#F1F5F9', // Clean flat slate white canvas
+  background: '#F8FAFC', // Crisp clean light canvas
   surface: '#FFFFFF', // Pure white card
-  surfaceContainerLowest: '#F8FAFC', // Inner inputs/sub-containers
-  surfaceContainerLow: '#F1F5F9',
+  surfaceContainerLowest: '#FFFFFF', // Topbar / sidebar / card
+  surfaceContainerLow: '#F8FAFC',
   surfaceContainer: '#FFFFFF',
-  surfaceContainerHigh: '#E2E8F0',
-  surfaceContainerHighest: '#F1F5F9', // Table headers & icon wraps
-  border: '#E2E8F0',
-  onSurface: '#0F172A',
+  surfaceContainerHigh: '#F1F5F9',
+  surfaceContainerHighest: '#F1F5F9', // Table header & inputs
+  border: '#E2E8F0', // Clean light border
+  onSurface: '#0F172A', // Deep dark slate text (100% readable)
   onSurfaceVariant: '#64748B',
   outlineVariant: '#E2E8F0',
   error: '#EF4444',
@@ -70,7 +70,7 @@ export const LightAdminTheme = {
   lightPrimary: 'rgba(225, 29, 72, 0.08)',
   success: '#10B981',
   accentViolet: '#E11D48',
-  accentCyan: '#10B981',
+  accentCyan: '#0891B2',
   accentGold: '#D97706',
   accentGreen: '#10B981',
   badgeRotation: ['#E11D48', '#10B981', '#D97706', '#64748B'],
@@ -97,7 +97,7 @@ export const useAdminTheme = () => useContext(AdminThemeContext);
 
 const SIDEBAR_FULL = 244;
 const SIDEBAR_ICON = 68;
-const TOPBAR_H = 60;
+const TOPBAR_H = 64;
 
 // ─── NavItem for sidebar & drawer ─────────────────────────────
 function SideNavItem({
@@ -105,10 +105,11 @@ function SideNavItem({
 }: { icon: any; label: string; path: string; currentPath: string; collapsed: boolean; onSelect?: () => void }) {
   const router = useRouter();
   const { t } = useAuth();
+  const { theme: C, isDark } = useAdminTheme();
   const safePath = currentPath || '';
   const isActive = path === '/admin'
     ? safePath === '/admin'
-    : safePath.startsWith(path);
+    : (path !== '/admin' && safePath.startsWith(path));
 
   const handlePress = () => {
     if (onSelect) onSelect();
@@ -120,28 +121,52 @@ function SideNavItem({
       activeOpacity={0.75}
       onPress={handlePress}
       style={[
-        s.navItem, 
-        isActive && s.navItemActive, 
-        collapsed && s.navItemCollapsed,
+        {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 12,
+          paddingHorizontal: 12,
+          paddingVertical: 9,
+          borderRadius: 8,
+          marginBottom: 3,
+          borderWidth: 1,
+          borderColor: isActive ? C.primary : 'transparent',
+          backgroundColor: isActive ? (isDark ? 'rgba(255, 45, 85, 0.14)' : 'rgba(225, 29, 72, 0.08)') : 'transparent',
+        },
+        collapsed && { justifyContent: 'center', paddingHorizontal: 0, width: 44, height: 44, alignSelf: 'center', marginBottom: 4 },
         Platform.OS === 'web' && { transition: 'background-color 0.15s ease, border-color 0.15s ease' } as any
       ]}
       accessibilityRole="button"
       accessibilityState={{ selected: isActive }}
       accessibilityLabel={label}
     >
-      <View style={[s.navIconWrap, isActive && s.navIconWrapActive]}>
+      <View style={{
+        width: 28,
+        height: 28,
+        borderRadius: 6,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: isActive ? C.primary : 'transparent',
+      }}>
         <Ionicons
           name={isActive ? icon : `${icon}-outline` as any}
-          size={18}
-          color={isActive ? '#ffffff' : C.onSurfaceVariant}
+          size={17}
+          color={isActive ? '#FFFFFF' : C.onSurfaceVariant}
         />
       </View>
       {!collapsed && (
-        <Text style={[s.navLabel, isActive && s.navLabelActive]} numberOfLines={1}>
+        <Text style={{
+          color: isActive ? C.onSurface : C.onSurfaceVariant,
+          fontSize: 13,
+          fontWeight: isActive ? '700' : '500',
+          flex: 1
+        }} numberOfLines={1}>
           {t(label as any) || label}
         </Text>
       )}
-      {isActive && !collapsed && <View style={s.activeIndicator} />}
+      {isActive && !collapsed && (
+        <View style={{ width: 3, height: 16, borderRadius: 2, backgroundColor: C.primary }} />
+      )}
     </TouchableOpacity>
   );
 }
@@ -151,27 +176,40 @@ function NavGroup({
   title, items, currentPath, collapsed, onSelect,
 }: { title: string; items: any[]; currentPath: string; collapsed: boolean; onSelect?: () => void }) {
   const { t } = useAuth();
+  const { theme: C } = useAdminTheme();
   const isActive = items.some(item => (currentPath || '').startsWith(item.path) && item.path !== '/admin');
   const [open, setOpen] = useState(true);
 
   return (
-    <View style={{ marginBottom: 12 }}>
+    <View style={{ marginBottom: 14 }}>
       {!collapsed ? (
         <TouchableOpacity 
           onPress={() => setOpen(!open)} 
           activeOpacity={0.7}
-          style={s.groupHeader}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            paddingHorizontal: 16,
+            paddingVertical: 6,
+          }}
         >
-          <Text style={[s.groupHeaderText, isActive && { color: C.primary }]}>
+          <Text style={{
+            fontSize: 10,
+            fontWeight: '800',
+            letterSpacing: 1.2,
+            textTransform: 'uppercase',
+            color: isActive ? C.primary : C.onSurfaceVariant,
+          }}>
             {t(title as any) || title}
           </Text>
           <Ionicons name={open ? "chevron-up" : "chevron-down"} size={12} color={C.onSurfaceVariant} />
         </TouchableOpacity>
       ) : (
-        <View style={s.groupDividerCollapsed} />
+        <View style={{ height: 1, backgroundColor: C.border, marginVertical: 8, marginHorizontal: 12 }} />
       )}
       {(open || collapsed) && (
-        <View style={!collapsed ? s.groupItemsContainer : { alignItems: 'center' }}>
+        <View style={!collapsed ? { paddingHorizontal: 8 } : { alignItems: 'center' }}>
           {items.map(item => (
             <SideNavItem 
               key={item.path} 
@@ -189,31 +227,52 @@ function NavGroup({
 
 // ─── Bottom tab item for phone view ───────────────────────────
 function BottomTabItem({
-  icon, label, path, currentPath,
-}: { icon: any; label: string; path: string; currentPath: string }) {
+  icon, label, path, currentPath, onPress,
+}: { icon: any; label: string; path: string; currentPath: string; onPress?: () => void }) {
   const router = useRouter();
   const { t } = useAuth();
+  const { theme: C } = useAdminTheme();
   const safePath = currentPath || '';
   const isActive = path === '/admin'
     ? safePath === '/admin'
-    : safePath.startsWith(path);
+    : (path !== '/admin' && path !== '#more' && safePath.startsWith(path));
+
+  const handlePress = () => {
+    if (onPress) {
+      onPress();
+    } else {
+      router.push(path as any);
+    }
+  };
 
   return (
     <TouchableOpacity
       activeOpacity={0.8}
-      onPress={() => router.push(path as any)}
-      style={s.bottomTabItem}
+      onPress={handlePress}
+      style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 8, gap: 3 }}
       accessibilityRole="tab"
       accessibilityState={{ selected: isActive }}
     >
-      <View style={[s.bottomTabIconBox, isActive && s.bottomTabIconBoxActive]}>
+      <View style={{
+        width: 36,
+        height: 28,
+        borderRadius: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: isActive ? C.primaryContainer : 'transparent',
+      }}>
         <Ionicons
           name={isActive ? icon : `${icon}-outline` as any}
           size={19}
           color={isActive ? C.primary : C.onSurfaceVariant}
         />
       </View>
-      <Text style={[s.bottomTabLabel, isActive && s.bottomTabLabelActive]} numberOfLines={1}>
+      <Text style={{
+        color: isActive ? C.primary : C.onSurfaceVariant,
+        fontSize: 10,
+        fontWeight: isActive ? '800' : '600',
+        textAlign: 'center'
+      }} numberOfLines={1}>
         {t(label as any) || label}
       </Text>
     </TouchableOpacity>
@@ -259,6 +318,7 @@ export default function AdminLayout() {
   };
 
   const currentTheme = themeMode === 'light' ? LightAdminTheme : DarkAdminTheme;
+  const isDark = themeMode === 'dark';
 
   const [stats, setStats] = useState<any>(null);
 
@@ -287,13 +347,13 @@ export default function AdminLayout() {
 
   const spinGroup = [
     { icon: 'color-palette', label: 'Spin Hub', path: '/admin/spin' },
+    { icon: 'radio', label: 'Live Lobbies', path: '/admin/spin?activeTab=lobbies' },
   ];
 
   const bottomTabItems = [
-    { icon: 'grid', label: 'Overview', path: '/admin' },
-    { icon: 'wallet', label: 'Financial', path: '/admin/financial' },
+    { icon: 'home', label: 'Overview', path: '/admin' },
+    { icon: 'game-controller', label: 'Games', path: '/admin/spin' },
     { icon: 'people', label: 'Users', path: '/admin/users' },
-    { icon: 'podium', label: 'Leaderboard', path: '/admin/leaderboard' },
   ];
 
   // ─── 2FA SECURITY GATE ────────────────────────────────────────
@@ -498,46 +558,34 @@ export default function AdminLayout() {
                   style={[s.mobileHeaderIconBtn, { backgroundColor: currentTheme.surfaceContainer, borderColor: currentTheme.border }]}
                   accessibilityLabel="Open Navigation Drawer"
                 >
-                  <Ionicons name="menu" size={22} color={currentTheme.onSurface} />
+                  <Ionicons name="menu" size={20} color={currentTheme.onSurface} />
                 </TouchableOpacity>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Image source={require('../../../assets/images/icon.jpg')} style={[s.mobileLogo, { borderColor: currentTheme.border }]} />
-                  <Text style={[s.mobileTopbarTitle, { color: currentTheme.onSurface }]}>XOET ADMIN</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={{ fontSize: 18, fontWeight: '900', color: currentTheme.primary, letterSpacing: -0.5 }}>XO</Text>
+                  <Text style={{ fontSize: 9, fontWeight: '900', color: currentTheme.onSurface, letterSpacing: 2 }}>ETHIOPIA</Text>
                 </View>
               </View>
 
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <TouchableOpacity
-                  onPress={() => router.push('/(authed)/home/gameplay' as any)}
-                  style={[s.mobileHeaderIconBtn, { backgroundColor: currentTheme.surfaceContainer, borderColor: currentTheme.border }]}
-                  accessibilityLabel="Back to Gameplay"
-                >
-                  <Ionicons name="home-outline" size={17} color={currentTheme.secondary} />
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  onPress={toggleMusic} 
-                  style={[s.mobileHeaderIconBtn, { backgroundColor: currentTheme.surfaceContainer, borderColor: currentTheme.border }]}
-                  accessibilityLabel="Toggle Background Audio"
-                >
-                  <Ionicons name={musicPlaying ? 'volume-high' : 'volume-mute'} size={17} color={musicPlaying ? currentTheme.secondary : currentTheme.onSurfaceVariant} />
-                </TouchableOpacity>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: currentTheme.success }} />
+                  <View>
+                    <Text style={{ color: currentTheme.success, fontSize: 9, fontWeight: '800' }}>Online</Text>
+                    <Text style={{ color: currentTheme.onSurfaceVariant, fontSize: 8 }}>{isSuperAdmin ? 'Super Admin' : 'Admin'}</Text>
+                  </View>
+                </View>
+
                 {/* Theme Mode Toggle (Dark / Light) */}
                 <TouchableOpacity 
                   onPress={toggleTheme} 
                   style={[s.mobileHeaderIconBtn, { backgroundColor: currentTheme.surfaceContainer, borderColor: currentTheme.border }]}
                   accessibilityLabel="Toggle Dark / Light Theme"
                 >
-                  <Ionicons name={themeMode === 'dark' ? 'sunny-outline' : 'moon-outline'} size={17} color={themeMode === 'dark' ? '#F0950C' : currentTheme.primary} />
+                  <Ionicons name={themeMode === 'dark' ? 'sunny-outline' : 'moon-outline'} size={16} color={themeMode === 'dark' ? '#F0950C' : currentTheme.primary} />
                 </TouchableOpacity>
-                <TouchableOpacity 
-                  onPress={() => switchLanguage()} 
-                  style={[s.mobileLangBtn, { backgroundColor: currentTheme.surfaceContainer, borderColor: currentTheme.border }]}
-                  accessibilityLabel="Switch Language"
-                >
-                  <Text style={[s.mobileLangText, { color: currentTheme.onSurfaceVariant }]}>{language === 'am' ? 'AM' : 'EN'}</Text>
-                </TouchableOpacity>
-                <View style={[s.mobileUserChip, { backgroundColor: currentTheme.surfaceContainerHighest, borderColor: currentTheme.border }]}>
-                  <Text style={s.mobileUserInitial}>{user?.username?.[0]?.toUpperCase() || 'A'}</Text>
+
+                <View style={[s.mobileUserChip, { backgroundColor: currentTheme.primary, borderColor: currentTheme.border }]}>
+                  <Text style={[s.mobileUserInitial, { color: '#ffffff' }]}>{user?.username?.[0]?.toUpperCase() || 'Y'}</Text>
                 </View>
               </View>
             </View>
@@ -556,21 +604,18 @@ export default function AdminLayout() {
               onPress={() => setMobileSidebarVisible(false)} 
               accessibilityLabel="Close Drawer"
             />
-            <View style={s.drawerContainer}>
+            <View style={[s.drawerContainer, { backgroundColor: currentTheme.surfaceContainerLowest, borderRightColor: currentTheme.border }]}>
               <SafeAreaView style={{ flex: 1 }}>
-                <View style={s.drawerHeader}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                    <Image source={require('../../../assets/images/icon.jpg')} style={s.logoImg} />
-                    <View>
-                      <Text style={s.drawerHeaderTitle}>XOET Admin</Text>
-                      <Text style={s.drawerHeaderSubtitle}>{isSuperAdmin ? 'Superadmin' : 'Console'}</Text>
-                    </View>
+                <View style={[s.drawerHeader, { borderBottomColor: currentTheme.border }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={{ fontSize: 20, fontWeight: '900', color: currentTheme.primary, letterSpacing: -0.5 }}>XO</Text>
+                    <Text style={{ fontSize: 10, fontWeight: '900', color: currentTheme.onSurface, letterSpacing: 2 }}>ETHIOPIA</Text>
                   </View>
                   <TouchableOpacity 
                     onPress={() => setMobileSidebarVisible(false)}
-                    style={s.drawerCloseBtn}
+                    style={[s.drawerCloseBtn, { backgroundColor: currentTheme.surfaceContainer, borderColor: currentTheme.border }]}
                   >
-                    <Ionicons name="close" size={20} color={C.onSurfaceVariant} />
+                    <Ionicons name="close" size={18} color={currentTheme.onSurfaceVariant} />
                   </TouchableOpacity>
                 </View>
 
@@ -598,21 +643,21 @@ export default function AdminLayout() {
                   />
                 </ScrollView>
 
-                <View style={s.drawerFooter}>
+                <View style={[s.drawerFooter, { borderTopColor: currentTheme.border }]}>
                   <TouchableOpacity 
-                    style={s.drawerHomeBtn} 
+                    style={[s.drawerHomeBtn, { backgroundColor: isDark ? 'rgba(6, 182, 212, 0.08)' : 'rgba(8, 145, 178, 0.08)', borderColor: isDark ? 'rgba(6, 182, 212, 0.3)' : 'rgba(8, 145, 178, 0.3)' }]} 
                     onPress={() => { setMobileSidebarVisible(false); router.push('/(authed)/home/gameplay' as any); }}
                   >
-                    <Ionicons name="home-outline" size={17} color={C.secondary} />
-                    <Text style={s.drawerHomeBtnText}>{isEN ? 'BACK TO GAME' : 'ወደ ጨዋታ ተመለስ'}</Text>
+                    <Ionicons name="game-controller-outline" size={17} color={currentTheme.accentCyan} />
+                    <Text style={[s.drawerHomeBtnText, { color: currentTheme.accentCyan }]}>{isEN ? 'BACK TO GAME' : 'ወደ ጨዋታ ተመለስ'}</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity 
-                    style={s.emergencyBtn} 
+                    style={[s.emergencyBtn, { backgroundColor: isDark ? 'rgba(255, 45, 85, 0.08)' : 'rgba(225, 29, 72, 0.08)', borderColor: isDark ? 'rgba(255, 45, 85, 0.3)' : 'rgba(225, 29, 72, 0.3)' }]} 
                     onPress={() => { setMobileSidebarVisible(false); setLogoutModalVisible(true); }}
                   >
-                    <Ionicons name="log-out" size={17} color={C.error} />
-                    <Text style={s.emergencyText}>{isEN ? 'LOGOUT' : 'ውጣ'}</Text>
+                    <Ionicons name="log-out-outline" size={17} color={currentTheme.primary} />
+                    <Text style={[s.emergencyText, { color: currentTheme.primary }]}>{isEN ? 'LOGOUT' : 'ውጣ'}</Text>
                   </TouchableOpacity>
                 </View>
               </SafeAreaView>
@@ -620,11 +665,18 @@ export default function AdminLayout() {
           </View>
         )}
 
-        {/* Bottom Tab Bar for Quick Phone Navigation */}
-        <SafeAreaView style={s.bottomBar}>
+        {/* Bottom Tab Bar for Quick Phone Navigation matching Image 1 & 2 */}
+        <SafeAreaView style={[s.bottomBar, { backgroundColor: currentTheme.surfaceContainerLowest, borderTopColor: currentTheme.border }]}>
           {bottomTabItems.map(item => (
             <BottomTabItem key={item.path} {...item} currentPath={pathname} />
           ))}
+          <BottomTabItem
+            icon="ellipsis-horizontal"
+            label="More"
+            path="#more"
+            currentPath={pathname}
+            onPress={() => setMobileSidebarVisible(true)}
+          />
         </SafeAreaView>
 
         <LogoutConfirmation
@@ -648,8 +700,12 @@ export default function AdminLayout() {
         {/* Collapsible Sidebar */}
         <View style={[s.sidebar, { width: sidebarW, backgroundColor: currentTheme.surfaceContainerLowest, borderRightColor: currentTheme.border }]}>
           <View style={[s.sidebarBrand, collapsed && { justifyContent: 'center', paddingHorizontal: 0 }]}>
-            {!collapsed && <Image source={require('../../../assets/images/icon.jpg')} style={[s.logoImg, { borderColor: currentTheme.border }]} />}
-            {!collapsed && <Text style={[s.logoText, { color: currentTheme.onSurface }]}>XOET ADMIN</Text>}
+            {!collapsed && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                <Text style={{ fontSize: 20, fontWeight: '900', color: currentTheme.primary, letterSpacing: -0.5 }}>XO</Text>
+                <Text style={{ fontSize: 10, fontWeight: '900', color: currentTheme.onSurface, letterSpacing: 2 }}>ETHIOPIA</Text>
+              </View>
+            )}
             <TouchableOpacity 
               onPress={() => setSidebarCollapsed(p => !p)} 
               style={[s.collapseToggleBtn, { borderColor: currentTheme.border }, collapsed && { marginLeft: 0 }]}
@@ -690,23 +746,23 @@ export default function AdminLayout() {
 
           <View style={[s.sidebarFooter, { borderTopColor: currentTheme.border }, collapsed && { paddingHorizontal: 8, alignItems: 'center' }]}>
             <TouchableOpacity
-              style={[s.footerHomeBtn, collapsed && s.footerBtnCollapsed]}
+              style={[s.footerHomeBtn, { backgroundColor: isDark ? 'rgba(6, 182, 212, 0.08)' : 'rgba(8, 145, 178, 0.08)', borderColor: isDark ? 'rgba(6, 182, 212, 0.3)' : 'rgba(8, 145, 178, 0.3)' }, collapsed && s.footerBtnCollapsed]}
               activeOpacity={0.7}
               onPress={() => router.push('/(authed)/home/gameplay' as any)}
               accessibilityLabel="Back to Home"
             >
-              <Ionicons name="home-outline" size={17} color={currentTheme.secondary} />
-              {!collapsed && <Text style={[s.footerHomeBtnText, { color: currentTheme.secondary }]}>{isEN ? 'BACK TO GAME' : 'ወደ ጨዋታ'}</Text>}
+              <Ionicons name="game-controller-outline" size={17} color={currentTheme.accentCyan} />
+              {!collapsed && <Text style={[s.footerHomeBtnText, { color: currentTheme.accentCyan }]}>{isEN ? 'BACK TO GAME' : 'ወደ ጨዋታ'}</Text>}
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[s.emergencyBtn, collapsed && s.footerBtnCollapsed]}
+              style={[s.emergencyBtn, { backgroundColor: isDark ? 'rgba(255, 45, 85, 0.08)' : 'rgba(225, 29, 72, 0.08)', borderColor: isDark ? 'rgba(255, 45, 85, 0.3)' : 'rgba(225, 29, 72, 0.3)' }, collapsed && s.footerBtnCollapsed]}
               activeOpacity={0.7}
               onPress={() => setLogoutModalVisible(true)}
               accessibilityLabel="Logout"
             >
-              <Ionicons name="log-out" size={17} color={currentTheme.error} />
-              {!collapsed && <Text style={[s.emergencyText, { color: currentTheme.error }]}>{isEN ? 'LOGOUT' : 'ውጣ'}</Text>}
+              <Ionicons name="log-out-outline" size={17} color={currentTheme.primary} />
+              {!collapsed && <Text style={[s.emergencyText, { color: currentTheme.primary }]}>{isEN ? 'LOGOUT' : 'ውጣ'}</Text>}
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -715,7 +771,7 @@ export default function AdminLayout() {
               onPress={() => router.push('/admin/settings' as any)}
             >
               <View style={[s.footerLinkIcon, (pathname || '') === '/admin/settings' && { backgroundColor: currentTheme.lightPrimary }]}>
-                <Ionicons name="settings" size={16} color={(pathname || '') === '/admin/settings' ? currentTheme.primary : currentTheme.onSurfaceVariant} />
+                <Ionicons name="settings-outline" size={16} color={(pathname || '') === '/admin/settings' ? currentTheme.primary : currentTheme.onSurfaceVariant} />
               </View>
               {!collapsed && (
                 <Text style={[s.footerLinkText, { color: (pathname || '') === '/admin/settings' ? currentTheme.onSurface : currentTheme.onSurfaceVariant }]}>
@@ -726,7 +782,7 @@ export default function AdminLayout() {
           </View>
         </View>
 
-        {/* Topbar */}
+        {/* Topbar matching Image 1 & 2 */}
         <View style={[s.topbar, { left: sidebarW, backgroundColor: currentTheme.surfaceContainerLowest, borderBottomColor: currentTheme.border }]}>
           <View style={s.topbarLeft}>
             <AdminGlobalSearch />
@@ -736,10 +792,10 @@ export default function AdminLayout() {
             <TouchableOpacity
               onPress={() => router.push('/(authed)/home/gameplay' as any)}
               activeOpacity={0.8}
-              style={[s.topbarHomeBadge, { backgroundColor: currentTheme.lightPrimary, borderColor: currentTheme.border }]}
+              style={[s.topbarHomeBadge, { backgroundColor: isDark ? 'rgba(255, 45, 85, 0.08)' : 'rgba(225, 29, 72, 0.06)', borderColor: isDark ? 'rgba(255, 45, 85, 0.3)' : 'rgba(225, 29, 72, 0.3)' }]}
             >
-              <Ionicons name="home-outline" size={14} color={currentTheme.secondary} />
-              <Text style={[s.topbarHomeBadgeText, { color: currentTheme.secondary }]}>{isEN ? 'GAME CLIENT' : 'ጨዋታ'}</Text>
+              <Ionicons name="game-controller-outline" size={14} color={currentTheme.primary} />
+              <Text style={[s.topbarHomeBadgeText, { color: currentTheme.primary }]}>{isEN ? 'GAME CLIENT' : 'ጨዋታ'}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity 
@@ -748,7 +804,7 @@ export default function AdminLayout() {
               onPress={() => router.push('/admin/ledger' as any)}
             >
               <Text style={[s.balanceLabel, { color: currentTheme.onSurfaceVariant }]}>{isEN ? 'PLATFORM BALANCE' : 'የሲስተም ሂሳብ'}</Text>
-              <Text style={[s.balanceValue, { color: currentTheme.primary }]}>ETB {Number(stats?.totalProfit || 0).toLocaleString()}</Text>
+              <Text style={[s.balanceValue, { color: currentTheme.onSurface }]}>ETB {Number(stats?.totalProfit || 0).toLocaleString()}</Text>
             </TouchableOpacity>
 
             <View style={[s.topbarSep, { backgroundColor: currentTheme.border }]} />
@@ -758,13 +814,24 @@ export default function AdminLayout() {
               activeOpacity={0.7} 
               onPress={() => router.push('/admin/ledger' as any)}
             >
-              <Text style={[s.balanceLabel, { color: currentTheme.secondary }]}>{isEN ? 'WALLET POSITION' : 'ትክክለኛ ቻፓ'}</Text>
+              <Text style={[s.balanceLabel, { color: currentTheme.onSurfaceVariant }]}>{isEN ? 'WALLET POSITION' : 'ትክክለኛ ቻፓ'}</Text>
               <Text style={[s.balanceValue, { color: currentTheme.onSurface }]}>
                 ETB {Number(stats?.chapaBalance || stats?.chapaNetPosition || 0).toLocaleString()}
               </Text>
             </TouchableOpacity>
 
             <View style={[s.topbarSep, { backgroundColor: currentTheme.border }]} />
+
+            {/* Notification Bell with indicator */}
+            <TouchableOpacity
+              onPress={() => router.push('/admin/audit' as any)}
+              activeOpacity={0.7}
+              style={[s.topbarActionBtn, { backgroundColor: currentTheme.surfaceContainer, borderColor: currentTheme.border }]}
+              accessibilityLabel="Notifications"
+            >
+              <Ionicons name="notifications-outline" size={16} color={currentTheme.onSurfaceVariant} />
+              <View style={{ position: 'absolute', top: 6, right: 6, width: 6, height: 6, borderRadius: 3, backgroundColor: currentTheme.primary }} />
+            </TouchableOpacity>
 
             {/* Audio Sound Toggle */}
             <TouchableOpacity
@@ -792,25 +859,18 @@ export default function AdminLayout() {
               onPress={() => switchLanguage()}
               accessibilityLabel="Switch Language"
             >
-              <Ionicons name="globe-outline" size={15} color={currentTheme.onSurfaceVariant} />
               <Text style={[s.topbarLangText, { color: currentTheme.onSurfaceVariant }]}>{language === 'am' ? 'AM' : 'EN'}</Text>
+              <Ionicons name="chevron-down" size={11} color={currentTheme.onSurfaceVariant} />
             </TouchableOpacity>
 
-            {/* Admin User Chip */}
+            {/* Admin User Chip matching mockups */}
             <View style={[s.userChip, { backgroundColor: currentTheme.surfaceContainer, borderColor: currentTheme.border }]}>
-              <View style={s.avatarContainer}>
-                {user?.avatar ? (
-                  <Image source={{ uri: fixUrl(user.avatar) || undefined }} style={s.userAvatar} />
-                ) : (
-                  <View style={[s.userAvatar, { backgroundColor: currentTheme.surfaceContainerHighest }]}>
-                    <Text style={{ color: currentTheme.primary, fontSize: 11, fontWeight: 'bold' }}>{user?.username?.[0] || 'A'}</Text>
-                  </View>
-                )}
-                <View style={[s.statusIndicator, { backgroundColor: currentTheme.success, borderColor: currentTheme.surfaceContainerLowest }]} />
+              <View style={[s.userAvatar, { backgroundColor: currentTheme.primary }]}>
+                <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '900' }}>{user?.username?.[0]?.toUpperCase() || 'Y'}</Text>
               </View>
               <View style={{ marginLeft: 8 }}>
-                <Text style={[s.userName, { color: currentTheme.onSurface }]} numberOfLines={1}>{user?.username || 'Admin'}</Text>
-                <Text style={[s.userOnline, { color: currentTheme.onSurfaceVariant }]}>{isSuperAdmin ? 'Superadmin' : 'System Admin'}</Text>
+                <Text style={[s.userName, { color: currentTheme.onSurface }]} numberOfLines={1}>{user?.username || 'yared'}</Text>
+                <Text style={[s.userOnline, { color: currentTheme.onSurfaceVariant }]}>{isSuperAdmin ? 'SuperAdmin' : 'Admin'}</Text>
               </View>
             </View>
           </View>

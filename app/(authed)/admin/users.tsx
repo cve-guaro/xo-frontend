@@ -414,7 +414,7 @@ export default function AdminUsers() {
             <View style={[styles.tableHeadUnder, isMobile && { flexDirection: 'column', alignItems: 'flex-start', gap: 12, padding: 16 }]}>
               <View style={[styles.tableActions, isMobile && { flexWrap: 'wrap' }]}>
                 <View style={styles.selectWrap}>
-                  <Ionicons name="people-outline" size={13} color="rgba(168,167,212,0.6)" />
+                  <Ionicons name="people-outline" size={13} color={C.onSurfaceVariant} />
                   {Platform.OS === 'web' ? (
                     <select
                       value={roleFilter}
@@ -486,8 +486,8 @@ export default function AdminUsers() {
                 </View>
 
                 <View style={[styles.searchBox, isMobile && { width: '100%' as any }]}>
-                  <Ionicons name="search" size={16} color="rgba(168,167,212,0.5)" />
-                  <TextInput style={styles.searchInput} placeholder="Search users..." placeholderTextColor="rgba(168,167,212,0.4)" value={query} onChangeText={setQuery} {...(Platform.OS === 'web' ? { outlineStyle: 'none' } as any : {})} />
+                  <Ionicons name="search" size={16} color={C.onSurfaceVariant} />
+                  <TextInput style={styles.searchInput} placeholder="Search users..." placeholderTextColor={C.onSurfaceVariant} value={query} onChangeText={setQuery} {...(Platform.OS === 'web' ? { outlineStyle: 'none' } as any : {})} />
                 </View>
               </View>
             </View>
@@ -888,15 +888,15 @@ export default function AdminUsers() {
 
       {/* Generic Centered Confirm Modal */}
       <Modal transparent visible={genericModal.visible} animationType="fade">
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+        <View style={{ flex: 1, backgroundColor: isDark ? 'rgba(0,0,0,0.85)' : 'rgba(15,23,42,0.4)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
           <View style={{ width: '100%', maxWidth: 360, backgroundColor: C.surface, borderRadius: 20, padding: 28, borderWidth: 1, borderColor: genericModal.isDestructive ? 'rgba(239,68,68,0.3)' : C.border }}>
             <View style={{ alignItems: 'center', marginBottom: 20 }}>
                <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: genericModal.isDestructive ? 'rgba(253,111,133,0.1)' : 'rgba(166,140,255,0.1)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: genericModal.isDestructive ? 'rgba(253,111,133,0.2)' : 'rgba(166,140,255,0.2)' }}>
                   <Ionicons name={genericModal.isDestructive ? "warning" : "information-circle"} size={32} color={genericModal.isDestructive ? C.error : C.primary} />
                </View>
             </View>
-            <Text style={{ color: '#fff', fontSize: 20, fontWeight: '900', textAlign: 'center', marginBottom: 12 }}>{genericModal.title}</Text>
-            <Text style={{ color: 'rgba(168,167,212,0.8)', fontSize: 13, textAlign: 'center', marginBottom: 32, lineHeight: 20 }}>{genericModal.message}</Text>
+            <Text style={{ color: C.onSurface, fontSize: 20, fontWeight: '900', textAlign: 'center', marginBottom: 12 }}>{genericModal.title}</Text>
+            <Text style={{ color: C.onSurfaceVariant, fontSize: 13, textAlign: 'center', marginBottom: 32, lineHeight: 20 }}>{genericModal.message}</Text>
             
             <View style={{ gap: 12 }}>
                <TouchableOpacity 
@@ -906,10 +906,10 @@ export default function AdminUsers() {
                   <Text style={{ color: '#fff', fontWeight: '900', fontSize: 14 }}>{genericModal.confirmText}</Text>
                </TouchableOpacity>
                <TouchableOpacity 
-                 style={{ backgroundColor: 'rgba(255,255,255,0.05)', paddingVertical: 16, borderRadius: 16, alignItems: 'center' }} 
+                 style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#F1F5F9', paddingVertical: 16, borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: C.border }} 
                  onPress={() => setGenericModal(p => ({...p, visible: false}))}
                >
-                  <Text style={{ color: '#a8a7d4', fontWeight: '700', fontSize: 14 }}>{t('Cancel')}</Text>
+                  <Text style={{ color: C.onSurfaceVariant, fontWeight: '700', fontSize: 14 }}>{t('Cancel')}</Text>
                </TouchableOpacity>
             </View>
           </View>
