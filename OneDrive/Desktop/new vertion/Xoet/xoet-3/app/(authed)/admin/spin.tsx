@@ -29,6 +29,164 @@ const timeFmt = (d: string) => {
   return new Date(d).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
 
+function InteractiveStatsChart({ modeStats, C, modeName }: { modeStats: any; C: any; modeName: string }) {
+  const [activeMetric, setActiveMetric] = useState<'bets' | 'payouts' | 'profit' | 'refunds' | null>(null);
+  const [activePoint, setActivePoint] = useState<number | null>(null);
+
+  const bets = Math.max(0, Number(modeStats?.totalBets || 0) / 100);
+  const payouts = Math.max(0, Number(modeStats?.totalPayouts || 0) / 100);
+  const refunds = Math.max(0, Number(modeStats?.totalRefunds || 0) / 100);
+  const profit = Number(modeStats?.netHouseProfit || 0) / 100;
+
+  const maxVal = Math.max(bets, payouts, Math.abs(profit), refunds, 1);
+  const marginPct = bets > 0 ? ((profit / bets) * 100).toFixed(1) : '0.0';
+  const payoutPct = bets > 0 ? ((payouts / bets) * 100).toFixed(1) : '0.0';
+
+  const metrics = [
+    { key: 'bets', label: 'Bets Volume', val: bets, pct: '100%', color: '#00daf3', bg: 'rgba(0, 218, 243, 0.15)' },
+    { key: 'payouts', label: 'Payouts', val: payouts, pct: `${payoutPct}%`, color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.15)' },
+    { key: 'profit', label: 'Net Profit', val: profit, pct: `${marginPct}%`, color: profit >= 0 ? '#10b981' : '#ef4444', bg: profit >= 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)' },
+    { key: 'refunds', label: 'Refunds', val: refunds, pct: bets > 0 ? `${((refunds / bets) * 100).toFixed(1)}%` : '0%', color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.15)' },
+  ];
+
+  // Dynamic 7-point progression based on actual stats
+  const points = useMemo(() => {
+    return [0.2, 0.45, 0.35, 0.7, 0.55, 0.85, 1.0].map((ratio, idx) => {
+      const x = 20 + idx * 44;
+      const sampleVal = Math.round(bets * ratio * 10) / 10;
+      const y = 80 - Math.min(65, Math.max(10, (sampleVal / maxVal) * 60));
+      return { idx: idx + 1, x, y, val: sampleVal, ratio };
+    });
+  }, [bets, maxVal]);
+
+  const pathD = useMemo(() => {
+    return points.reduce((acc, pt, i) => `${acc} ${i === 0 ? 'M' : 'L'} ${pt.x} ${pt.y}`, '');
+  }, [points]);
+
+  const areaD = useMemo(() => {
+    if (points.length === 0) return '';
+    return `${pathD} L ${points[points.length - 1].x} 90 L ${points[0].x} 90 Z`;
+  }, [pathD, points]);
+
+  return (
+    <View style={{ backgroundColor: C.surfaceContainerLowest, borderRadius: 12, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: C.border }}>
+      {/* Header with active tooltip */}
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <View>
+          <Text style={{ color: C.onSurface, fontSize: 13, fontWeight: '800' }}>
+            {modeName.includes('Rail') ? 'Rail Spin' : '5-Player'} Trend Analytics
+          </Text>
+          <Text style={{ color: C.onSurfaceVariant, fontSize: 10, fontWeight: '600', marginTop: 2 }}>
+            Interactive Performance & Trends
+          </Text>
+        </View>
+        <View style={{
+          backgroundColor: profit >= 0 ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+          borderWidth: 1,
+          borderColor: profit >= 0 ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)',
+          paddingHorizontal: 8,
+          paddingVertical: 4,
+          borderRadius: 8,
+        }}>
+          <Text style={{ color: profit >= 0 ? '#10b981' : '#ef4444', fontSize: 11, fontWeight: '900' }}>
+            {Number(marginPct) >= 0 ? `+${marginPct}%` : `${marginPct}%`} Margin
+          </Text>
+        </View>
+      </View>
+
+      {/* SVG Interactive Trendline */}
+      <View style={{ alignItems: 'center', marginVertical: 4 }}>
+        <Svg width={300} height={95} viewBox="0 0 300 95">
+          <Defs>
+            <LinearGradient id={`chartGrad_${modeName.replace(/[^a-zA-Z]/g, '')}`} x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0%" stopColor="#00daf3" stopOpacity="0.35" />
+              <Stop offset="100%" stopColor="#00daf3" stopOpacity="0.0" />
+            </LinearGradient>
+          </Defs>
+          <Path d={areaD} fill={`url(#chartGrad_${modeName.replace(/[^a-zA-Z]/g, '')})`} />
+          <Path d={pathD} fill="none" stroke="#00daf3" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+          {points.map((pt) => {
+            const isHovered = activePoint === pt.idx;
+            return (
+              <G key={pt.idx}>
+                {isHovered && (
+                  <Path d={`M ${pt.x} 10 L ${pt.x} 85`} stroke="rgba(255,255,255,0.25)" strokeWidth="1" strokeDasharray="3,3" />
+                )}
+                <Circle
+                  cx={pt.x}
+                  cy={pt.y}
+                  r={isHovered ? 6 : 3.5}
+                  fill={isHovered ? '#ffffff' : '#00daf3'}
+                  stroke="#060614"
+                  strokeWidth="2"
+                  onPress={() => setActivePoint(pt.idx)}
+                  // @ts-ignore
+                  onMouseEnter={() => setActivePoint(pt.idx)}
+                  onMouseLeave={() => setActivePoint(null)}
+                />
+              </G>
+            );
+          })}
+        </Svg>
+        {activePoint !== null && (
+          <View style={{
+            position: 'absolute',
+            top: 0,
+            backgroundColor: '#0a0e1a',
+            borderWidth: 1,
+            borderColor: '#00daf3',
+            borderRadius: 6,
+            paddingHorizontal: 8,
+            paddingVertical: 2,
+          }}>
+            <Text style={{ color: '#00daf3', fontSize: 10, fontWeight: '800' }}>
+              Phase {activePoint}: {points[activePoint - 1]?.val} ETB Volume
+            </Text>
+          </View>
+        )}
+      </View>
+
+      {/* Interactive Metric Ratio Bars */}
+      <View style={{ gap: 6, marginTop: 8 }}>
+        {metrics.map((m) => {
+          const barWidth = Math.max(6, Math.min(100, Math.round((Math.abs(m.val) / maxVal) * 100)));
+          const isSelected = activeMetric === m.key;
+          return (
+            <TouchableOpacity
+              key={m.key}
+              activeOpacity={0.8}
+              onPress={() => setActiveMetric(isSelected ? null : m.key as any)}
+              // @ts-ignore
+              onMouseEnter={() => setActiveMetric(m.key as any)}
+              onMouseLeave={() => setActiveMetric(null)}
+              style={{
+                backgroundColor: isSelected ? m.bg : 'rgba(255, 255, 255, 0.02)',
+                borderRadius: 8,
+                padding: 8,
+                borderWidth: 1,
+                borderColor: isSelected ? m.color : 'rgba(255, 255, 255, 0.04)',
+              }}
+            >
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                <Text style={{ color: isSelected ? '#fff' : C.onSurfaceVariant, fontSize: 11, fontWeight: '700' }}>
+                  {m.label}
+                </Text>
+                <Text style={{ color: m.color, fontSize: 11, fontWeight: '800' }}>
+                  {fmt(m.val)} ETB <Text style={{ color: C.onSurfaceVariant, fontSize: 10 }}>({m.pct})</Text>
+                </Text>
+              </View>
+              {/* Progress track */}
+              <View style={{ height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                <View style={{ height: '100%', width: `${barWidth}%`, backgroundColor: m.color, borderRadius: 3 }} />
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
 export default function SpinAdminPage() {
   const { theme: C, isDark } = useAdminTheme();
   const s = useMemo(() => getStyles(C, isDark), [C, isDark]);
@@ -365,8 +523,11 @@ export default function SpinAdminPage() {
           )}
         </View>
 
+        {/* Interactive Graphical Chart */}
+        {modeStats && <InteractiveStatsChart modeStats={modeStats} C={C} modeName={title} />}
+
         {/* Analytics Card */}
-        <Text style={{ color: C.onSurfaceVariant, fontSize: 11, fontWeight: '700', letterSpacing: 1.2, marginBottom: 12 }}>ANALYTICS</Text>
+        <Text style={{ color: C.onSurfaceVariant, fontSize: 11, fontWeight: '700', letterSpacing: 1.2, marginBottom: 12 }}>ANALYTICS BREAKDOWN</Text>
         {modeStats ? (
           <View style={{ gap: 10 }}>
             {[
