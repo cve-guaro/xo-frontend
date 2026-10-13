@@ -8,6 +8,7 @@ import { useAudioPlayer } from 'expo-audio';
 type BackgroundMusicContextType = {
   isPlaying: boolean;
   toggleMusic: () => Promise<void>;
+  muteMusic: () => Promise<void>;
   setVolume: (volume: number) => Promise<void>;
   unlockAudio: () => Promise<void>;
 };
@@ -105,6 +106,23 @@ export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = 
     }
   };
 
+  const muteMusic = async () => {
+    setIsPlaying(false);
+    isPlayingRef.current = false;
+    
+    AsyncStorage.setItem('xoet_music_muted', 'true').catch(() => {});
+    
+    if (token) {
+      fetch(`${API_URL}/account/settings`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ soundMuted: true })
+      }).catch(() => {});
+    }
+    
+    if (player && player.pause) player.pause();
+  };
+
   const toggleMusic = async () => {
     const nextState = !isPlaying;
     setIsPlaying(nextState);
@@ -135,7 +153,7 @@ export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = 
   };
 
   return (
-    <BackgroundMusicContext.Provider value={{ isPlaying, toggleMusic, setVolume, unlockAudio }}>
+    <BackgroundMusicContext.Provider value={{ isPlaying, toggleMusic, muteMusic, setVolume, unlockAudio }}>
       {children}
     </BackgroundMusicContext.Provider>
   );

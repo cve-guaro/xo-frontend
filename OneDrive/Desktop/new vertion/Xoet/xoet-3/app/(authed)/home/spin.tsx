@@ -422,7 +422,11 @@ export default function SpinGameScreen() {
   const { mode, stake } = useLocalSearchParams();
   const { ensureConnected, emitAck, onMessage, send } = useSocket();
 
-  const { isPlaying: bgMusicPlaying } = useBackgroundMusic();
+  const { isPlaying: bgMusicPlaying, muteMusic } = useBackgroundMusic();
+  const muteMusicRef = useRef(muteMusic);
+  useEffect(() => {
+    muteMusicRef.current = muteMusic;
+  }, [muteMusic]);
 
   // ---------- Sound Effects ----------
   const clickSound = useAudioPlayer(require("../../../assets/sounds/click.wav"));
@@ -967,6 +971,7 @@ export default function SpinGameScreen() {
       const result = await emitAck("spin:join", { mode: roomMode, stake: stakeVal, token });
       
       if (result.ok && result.data) {
+        muteMusicRef.current?.();
         const state = result.data as RoundState;
         setRound(state);
         const serverCountdown = state.countdown || 0;
@@ -1039,6 +1044,7 @@ export default function SpinGameScreen() {
   // ── Auto-join room when screen comes into focus & cleanup audio on leave ──
   useFocusEffect(
     useCallback(() => {
+      muteMusicRef.current?.();
       if (!joinAttemptedRef.current) {
         if (mode === "RAIL" && stake && !roundRef.current) {
           joinAttemptedRef.current = true;
@@ -1418,7 +1424,9 @@ export default function SpinGameScreen() {
                   <View>
                     <Text style={ds.waitingTitle}>5-PLAYER SPIN</Text>
                     <Text style={ds.waitingSubtitle}>
-                      {round ? `Waiting for players… ${round.players.length}/5` : "Connecting to room..."}
+                      {round
+                        ? `Waiting for players… ${round.players.length}/5`
+                        : "Click Join to enter 5-player room"}
                     </Text>
                   </View>
                   {/* Voice mic & speaker controls for Web / Desktop layout */}
@@ -1514,11 +1522,43 @@ export default function SpinGameScreen() {
                   })}
                 </View>
 
-                {/* Leave Room Button */}
-                <TouchableOpacity onPress={handleLeaveRoom} style={ds.leaveBtn} activeOpacity={0.85}>
-                  <Ionicons name="exit-outline" size={16} color="#ef4444" />
-                  <Text style={ds.leaveBtnText}>LEAVE ROOM</Text>
-                </TouchableOpacity>
+                {/* Join / Leave Room Button */}
+                {round && round.players.some(p => String(p.userId) === String(user?.id)) ? (
+                  <TouchableOpacity onPress={handleLeaveRoom} style={ds.leaveBtn} activeOpacity={0.85}>
+                    <Ionicons name="exit-outline" size={16} color="#ef4444" />
+                    <Text style={ds.leaveBtnText}>LEAVE ROOM</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <View style={{ alignItems: "center", gap: 10, marginTop: 16 }}>
+                    <TouchableOpacity
+                      disabled={Boolean(joinLoading || isSpinning || (round && round.players.length >= 5))}
+                      onPress={() => handleJoinRoom("5_PLAYER", 100)}
+                      style={[
+                        ds.joinBtn5P,
+                        Boolean(joinLoading || isSpinning || (round && round.players.length >= 5)) && { opacity: 0.6 }
+                      ]}
+                      activeOpacity={0.85}
+                    >
+                      {joinLoading ? (
+                        <ActivityIndicator size="small" color="#ffffff" />
+                      ) : (
+                        <>
+                          <Ionicons name="play" size={18} color="#ffffff" />
+                          <Text style={ds.joinBtn5PText}>
+                            {round && round.players.length >= 5 ? "ROOM FULL" : "JOIN GAME (100 ETB)"}
+                          </Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => router.replace("/(authed)/home/gameplay")}
+                      style={{ paddingVertical: 6, paddingHorizontal: 16 }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={{ color: "#8b93a7", fontSize: 12, fontWeight: "600" }}>Back to Rooms</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
 
               {/* RIGHT SIDE: Active Room Players & Per-User Voice Controls Panel */}
@@ -1578,11 +1618,6 @@ export default function SpinGameScreen() {
                     );
                   })}
                 </View>
-                {/* Invite Players */}
-                <TouchableOpacity style={ds.standingsBtn}>
-                  <Ionicons name="person-add" size={14} color="#8b93a7" style={{ marginRight: 6 }} />
-                  <Text style={ds.standingsBtnText}>Invite Players</Text>
-                </TouchableOpacity>
               </View>
             </View>
           ) : (
@@ -1906,33 +1941,35 @@ export default function SpinGameScreen() {
               <Ionicons name="chevron-back" size={22} color="#ffffff" />
             </TouchableOpacity>
 
-            {/* Dead-Centered Countdown Timer Pill */}
-            <View style={{
-              position: "absolute",
-              left: 0,
-              right: 0,
-              alignItems: "center",
-              justifyContent: "center",
-              zIndex: 1,
-              pointerEvents: "none",
-            }}>
+            {/* Dead-Centered Countdown Timer Pill (Rail mode only) */}
+            {!is5Player && (
               <View style={{
-                flexDirection: "row",
+                position: "absolute",
+                left: 0,
+                right: 0,
                 alignItems: "center",
-                gap: 8,
-                backgroundColor: "rgba(15, 23, 42, 0.85)",
-                borderRadius: 22,
-                paddingHorizontal: 20,
-                paddingVertical: 8,
-                borderWidth: 1,
-                borderColor: "rgba(30, 58, 138, 0.8)",
+                justifyContent: "center",
+                zIndex: 1,
+                pointerEvents: "none",
               }}>
-                <Ionicons name="time-outline" size={18} color="#facc15" />
-                <Text style={{ color: "#facc15", fontSize: 16, fontWeight: "800", fontFamily: "Inter, sans-serif" }}>
-                  {countdown > 0 ? formatCountdown(countdown) : "01:18"}
-                </Text>
+                <View style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 8,
+                  backgroundColor: "rgba(15, 23, 42, 0.85)",
+                  borderRadius: 22,
+                  paddingHorizontal: 20,
+                  paddingVertical: 8,
+                  borderWidth: 1,
+                  borderColor: "rgba(30, 58, 138, 0.8)",
+                }}>
+                  <Ionicons name="time-outline" size={18} color="#facc15" />
+                  <Text style={{ color: "#facc15", fontSize: 16, fontWeight: "800", fontFamily: "Inter, sans-serif" }}>
+                    {countdown > 0 ? formatCountdown(countdown) : "01:18"}
+                  </Text>
+                </View>
               </View>
-            </View>
+            )}
 
             {/* Top Right Action Icons: Speaker & Mic */}
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10, zIndex: 2 }}>
@@ -2796,6 +2833,31 @@ const ds = StyleSheet.create({
     marginTop: 16,
   },
   leaveBtnText: { color: "#ef4444", fontSize: 12, fontWeight: "800", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" },
+  joinBtn5P: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    alignSelf: "center",
+    backgroundColor: "#f43f5e",
+    borderRadius: 14,
+    paddingHorizontal: 36,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+    shadowColor: "#f43f5e",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  joinBtn5PText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "900",
+    letterSpacing: 1,
+    fontFamily: "Inter, sans-serif",
+  },
   // ── Spinning & Result ──
   spinningContainer: { flex: 1, alignItems: "center" },
   spinningTitle: {

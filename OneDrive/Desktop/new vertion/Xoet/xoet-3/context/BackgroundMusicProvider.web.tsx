@@ -6,6 +6,7 @@ import { API_URL } from '../config';
 type BackgroundMusicContextType = {
   isPlaying: boolean;
   toggleMusic: () => Promise<void>;
+  muteMusic: () => Promise<void>;
   setVolume: (volume: number) => Promise<void>;
   unlockAudio: () => Promise<void>;
 };
@@ -35,6 +36,21 @@ export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = 
     };
   }, []);
 
+  const muteMusic = async () => {
+    setIsPlaying(false);
+    AsyncStorage.setItem('xoet_music_muted', 'true').catch(() => {});
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+    if (token) {
+      fetch(`${API_URL}/account/settings`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ soundMuted: true })
+      }).catch(() => {});
+    }
+  };
+
   const toggleMusic = async () => {
     const nextState = !isPlaying;
     setIsPlaying(nextState);
@@ -62,7 +78,7 @@ export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = 
   const noopAsync = async () => {};
 
   return (
-    <BackgroundMusicContext.Provider value={{ isPlaying, toggleMusic, setVolume: noopAsync, unlockAudio: noopAsync }}>
+    <BackgroundMusicContext.Provider value={{ isPlaying, toggleMusic, muteMusic, setVolume: noopAsync, unlockAudio: noopAsync }}>
       {children}
     </BackgroundMusicContext.Provider>
   );
