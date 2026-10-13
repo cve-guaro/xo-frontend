@@ -1,10 +1,10 @@
 // app/(authed)/admin/promotion-links.tsx — Promotion Link Management
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, StyleSheet, Platform, Modal, Switch, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../../context/authContext';
 import { API_URL, APP_URL } from '../../../config';
-import { AdminTheme as C } from './_layout';
+import { useAdminTheme } from './_layout';
 import ActionConfirmModal from '../../../components/ActionConfirmModal';
 
 interface PromotionLink {
@@ -20,6 +20,13 @@ interface PromotionLink {
 }
 
 export default function PromotionLinks() {
+  const { theme: C, isDark } = useAdminTheme();
+  const bgSurface = C.surface;
+  const bgCard = isDark ? C.surfaceContainerLowest : C.surfaceContainerLow;
+  const borderColor = C.border;
+  const textPrimary = C.onSurface;
+  const textSecondary = C.onSurfaceVariant;
+  const styles = useMemo(() => getStyles(C, isDark), [C, isDark]);
   const { token, t, isSuperAdmin, showAlert, fixUrl } = useAuth();
   const [links, setLinks] = useState<PromotionLink[]>([]);
   const [loading, setLoading] = useState(true);
@@ -606,11 +613,11 @@ export default function PromotionLinks() {
           <View style={styles.popupCard}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
               <View style={{ flex: 1, minWidth: 200 }}>
-                <Text style={{ color: '#e5e3ff', fontSize: 20, fontWeight: '800', marginBottom: 4 }}>Targeted Bulk SMS</Text>
-                <Text style={{ color: 'rgba(168,167,212,0.5)', fontSize: 12 }}>Send promotional messages directly to user phones using detailed filters.</Text>
+                <Text style={{ color: textPrimary, fontSize: 22, fontWeight: '800', letterSpacing: -0.5, marginBottom: 4 }}>Targeted Bulk SMS</Text>
+                <Text style={{ color: textSecondary, fontSize: 13 }}>Send promotional SMS directly to user phone numbers using targeted filters.</Text>
               </View>
               <TouchableOpacity 
-                style={[styles.addBtn, { backgroundColor: '#a78bfa', paddingHorizontal: 12, paddingVertical: 8, height: 'auto' }]} 
+                style={[styles.tabBtn, { height: 38, paddingHorizontal: 14 }]} 
                 onPress={async () => {
                   try {
                     let url = `${API_URL}/admin/bulk-sms/preview?targetMode=${smsForm.targetMode}`;
@@ -643,8 +650,8 @@ export default function PromotionLinks() {
                   }
                 }}
               >
-                <Ionicons name="copy-outline" size={16} color="#0c0c1f" style={{ marginRight: 2 }} />
-                <Text style={[styles.addBtnText, { fontSize: 11 }]}>Copy / Export User Data</Text>
+                <Ionicons name="copy-outline" size={15} color={textPrimary} />
+                <Text style={{ color: textPrimary, fontSize: 12, fontWeight: '700' }}>Copy / Export User Data</Text>
               </TouchableOpacity>
             </View>
 
@@ -652,21 +659,21 @@ export default function PromotionLinks() {
               <View>
                 <Text style={styles.formLabel}>Message Body</Text>
                 <TextInput 
-                  style={[styles.input, { height: 100, textAlignVertical: 'top', paddingTop: 16 }]} 
+                  style={[styles.input, { minHeight: 110, height: 110, textAlignVertical: 'top', paddingTop: 14 }]} 
                   multiline 
-                  placeholder="Enter SMS message here..." 
-                  placeholderTextColor="rgba(168,167,212,0.3)" 
+                  placeholder="Enter SMS promotional message here..." 
+                  placeholderTextColor={textSecondary} 
                   value={smsForm.message} 
                   onChangeText={t => setSmsForm({ ...smsForm, message: t })} 
                 />
               </View>
 
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(167,139,250,0.06)', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: 'rgba(167,139,250,0.15)' }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: isDark ? 'rgba(255, 45, 85, 0.05)' : '#f8fafc', borderRadius: 12, padding: 16, borderWidth: 1, borderColor }}>
                 <View>
-                  <Text style={{ color: '#e5e3ff', fontSize: 14, fontWeight: '700' }}>Target Audience</Text>
-                  <Text style={{ color: 'rgba(168,167,212,0.5)', fontSize: 11 }}>{smsForm.targetMode === 'all' ? 'Sending to ALL users' : 'Using specific filters'}</Text>
+                  <Text style={{ color: textPrimary, fontSize: 14, fontWeight: '700' }}>Target Audience</Text>
+                  <Text style={{ color: textSecondary, fontSize: 12, marginTop: 2 }}>{smsForm.targetMode === 'all' ? 'Sending to ALL registered users' : 'Filtered audience selection'}</Text>
                 </View>
-                <View style={{ flexDirection: 'row', backgroundColor: '#09090b', borderRadius: 8, padding: 4 }}>
+                <View style={{ flexDirection: 'row', backgroundColor: bgCard, borderRadius: 8, padding: 3, borderWidth: 1, borderColor }}>
                   <TouchableOpacity 
                     style={[styles.modeBtn, smsForm.targetMode === 'all' && styles.modeBtnActive]} 
                     onPress={() => setSmsForm({ ...smsForm, targetMode: 'all' })}
@@ -683,8 +690,8 @@ export default function PromotionLinks() {
               </View>
 
               {smsForm.targetMode === 'specific' && (
-                <View style={{ gap: 16, padding: 16, backgroundColor: 'rgba(24, 24, 27, 0.65)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(39, 39, 42, 0.4)' }}>
-                  <Text style={[styles.formLabel, { color: C.secondary }]}>Targeting Filters</Text>
+                <View style={{ gap: 16, padding: 18, backgroundColor: bgCard, borderRadius: 12, borderWidth: 1, borderColor }}>
+                  <Text style={[styles.formLabel, { color: C.primary }]}>Targeting Filters</Text>
                   
                   <View style={{ flexDirection: 'row', gap: 16, zIndex: 10 }}>
                     <View style={{ flex: 1 }}>
@@ -696,11 +703,11 @@ export default function PromotionLinks() {
                           onChange={(e) => setSmsForm({ ...smsForm, role: e.target.value })}
                           disabled={!!smsForm.specificPhone}
                         >
-                          <option value="all" style={{ backgroundColor: '#09090b', color: '#e5e3ff' }}>Any Role</option>
-                          <option value="user" style={{ backgroundColor: '#09090b', color: '#e5e3ff' }}>User</option>
-                          <option value="admin" style={{ backgroundColor: '#09090b', color: '#e5e3ff' }}>Admin</option>
-                          <option value="maintenance" style={{ backgroundColor: '#09090b', color: '#e5e3ff' }}>Maintenance Admin</option>
-                          <option value="superadmin" style={{ backgroundColor: '#09090b', color: '#e5e3ff' }}>Superadmin</option>
+                          <option value="all" style={{ backgroundColor: bgSurface, color: textPrimary }}>Any Role</option>
+                          <option value="user" style={{ backgroundColor: bgSurface, color: textPrimary }}>User</option>
+                          <option value="admin" style={{ backgroundColor: bgSurface, color: textPrimary }}>Admin</option>
+                          <option value="maintenance" style={{ backgroundColor: bgSurface, color: textPrimary }}>Maintenance Admin</option>
+                          <option value="superadmin" style={{ backgroundColor: bgSurface, color: textPrimary }}>Superadmin</option>
                         </select>
                       ) : (
                         <TextInput style={[styles.input, !!smsForm.specificPhone && { opacity: 0.5 }]} placeholder="Role..." value={smsForm.role} editable={!smsForm.specificPhone} />
@@ -715,11 +722,11 @@ export default function PromotionLinks() {
                           onChange={(e) => setSmsForm({ ...smsForm, balanceRange: e.target.value })}
                           disabled={!!smsForm.specificPhone}
                         >
-                          <option value="all" style={{ backgroundColor: '#09090b', color: '#e5e3ff' }}>Any Balance</option>
-                          <option value="0-100" style={{ backgroundColor: '#09090b', color: '#e5e3ff' }}>0 - 100 ETB</option>
-                          <option value="100-1000" style={{ backgroundColor: '#09090b', color: '#e5e3ff' }}>100 - 1,000 ETB</option>
-                          <option value="1000-10000" style={{ backgroundColor: '#09090b', color: '#e5e3ff' }}>1,000 - 10,000 ETB</option>
-                          <option value="10000-100000" style={{ backgroundColor: '#09090b', color: '#e5e3ff' }}>10,000 - 100,000 ETB</option>
+                          <option value="all" style={{ backgroundColor: bgSurface, color: textPrimary }}>Any Balance</option>
+                          <option value="0-100" style={{ backgroundColor: bgSurface, color: textPrimary }}>0 - 100 ETB</option>
+                          <option value="100-1000" style={{ backgroundColor: bgSurface, color: textPrimary }}>100 - 1,000 ETB</option>
+                          <option value="1000-10000" style={{ backgroundColor: bgSurface, color: textPrimary }}>1,000 - 10,000 ETB</option>
+                          <option value="10000-100000" style={{ backgroundColor: bgSurface, color: textPrimary }}>10,000 - 100,000 ETB</option>
                         </select>
                       ) : (
                         <TextInput style={[styles.input, !!smsForm.specificPhone && { opacity: 0.5 }]} placeholder="Range..." value={smsForm.balanceRange} editable={!smsForm.specificPhone} />
@@ -730,28 +737,44 @@ export default function PromotionLinks() {
                   <View style={{ marginTop: 8 }}>
                     <Text style={styles.formLabel}>Specific Phone Number (Overrides other filters)</Text>
                     <TextInput 
-                      style={[styles.input, { height: 80, textAlignVertical: 'top' }]} 
+                      style={[styles.input, { minHeight: 70, textAlignVertical: 'top', paddingTop: 10 }]} 
                       placeholder="+251..., 09..." 
-                      placeholderTextColor="rgba(168,167,212,0.3)" 
+                      placeholderTextColor={textSecondary} 
                       value={smsForm.specificPhone} 
                       onChangeText={t => setSmsForm({ ...smsForm, specificPhone: t })} 
                       multiline={true}
                       numberOfLines={3}
                     />
                     {!!smsForm.specificPhone && (
-                      <Text style={{ color: '#00e3fd', fontSize: 11, marginTop: 4 }}>Note: Role and Balance filters are ignored when a specific phone is provided.</Text>
+                      <Text style={{ color: C.accentCyan, fontSize: 11, marginTop: 4 }}>Note: Role and Balance filters are ignored when a specific phone is provided.</Text>
                     )}
                   </View>
                 </View>
               )}
-              <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
-                <TouchableOpacity style={[styles.saveBtn, { flex: 1 }, !smsForm.message.trim() && { opacity: 0.5 }]} onPress={() => setConfirmSms(true)} disabled={!smsForm.message.trim() || smsSending}>
-                  {smsSending ? <ActivityIndicator color="#004d57" /> : <Text style={styles.saveBtnText}>Send</Text>}
+
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginTop: 8 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: C.accentCyan, fontSize: 13, fontWeight: '700' }}>
+                     {previewLoading ? 'Calculating audience...' : `Estimated Audience: ${Number(previewCount ?? 0).toLocaleString()} users`}
+                  </Text>
+                  <Text style={{ color: textSecondary, fontSize: 11, marginTop: 2 }}>Carrier delivery rate applied upon dispatch</Text>
+                </View>
+                <TouchableOpacity 
+                  style={[styles.sendCampaignBtn, (!smsForm.message.trim() || smsSending) && { opacity: 0.5 }]} 
+                  onPress={() => setConfirmSms(true)} 
+                  disabled={!smsForm.message.trim() || smsSending}
+                >
+                  {smsSending ? (
+                    <ActivityIndicator color="#ffffff" size="small" />
+                  ) : (
+                    <>
+                      <Ionicons name="paper-plane" size={16} color="#ffffff" />
+                      <Text style={styles.sendCampaignBtnText}>Send SMS Campaign</Text>
+                    </>
+                  )}
                 </TouchableOpacity>
               </View>
-              <Text style={{ color: '#a78bfa', fontSize: 11, textAlign: 'center', marginTop: 8 }}>
-                 {previewLoading ? 'Calculating audience...' : `Estimated Audience: ${previewCount ?? 0} users`}
-              </Text>
+
               <ActionConfirmModal
                 visible={confirmSms}
                 title="Confirm Bulk SMS"
@@ -768,11 +791,11 @@ export default function PromotionLinks() {
           
           {/* SMS History Section */}
           <View style={[styles.popupCard, { marginTop: 20 }]}>
-             <Text style={{ color: '#e5e3ff', fontSize: 16, fontWeight: '800', marginBottom: 16 }}>Campaign History</Text>
+             <Text style={{ color: textPrimary, fontSize: 16, fontWeight: '800', marginBottom: 16 }}>Campaign History</Text>
              {historyLoading ? (
                <ActivityIndicator color={C.primary} style={{ padding: 20 }} />
              ) : smsHistory.length === 0 ? (
-               <Text style={{ color: 'rgba(168,167,212,0.5)', fontSize: 12, fontStyle: 'italic' }}>No SMS campaigns sent yet.</Text>
+               <Text style={{ color: textSecondary, fontSize: 12, fontStyle: 'italic' }}>No SMS campaigns sent yet.</Text>
              ) : (
                <View style={{ gap: 12 }}>
                  {smsHistory.map((item, idx) => {
@@ -782,18 +805,18 @@ export default function PromotionLinks() {
                     else if (filters.role || filters.min_balance) targetDesc = `Role: ${filters.role || 'Any'}, Balance: ${filters.min_balance || 0}-${filters.max_balance || '∞'}`;
                     
                     return (
-                     <View key={item.id || idx} style={{ padding: 12, backgroundColor: 'rgba(24, 24, 27, 0.65)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(39, 39, 42, 0.2)' }}>
-                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-                         <Text style={{ color: '#e5e3ff', fontWeight: '700', fontSize: 13 }} numberOfLines={1}>{item.message}</Text>
+                     <View key={item.id || idx} style={{ padding: 14, backgroundColor: bgCard, borderRadius: 10, borderWidth: 1, borderColor }}>
+                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+                         <Text style={{ color: textPrimary, fontWeight: '700', fontSize: 13 }} numberOfLines={1}>{item.message}</Text>
                        </View>
-                       <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                          <View>
-                           <Text style={{ color: 'rgba(168,167,212,0.6)', fontSize: 10 }}>Target: {targetDesc}</Text>
-                           <Text style={{ color: 'rgba(168,167,212,0.6)', fontSize: 10 }}>Sent by: {item.admin_name || 'Admin'} • {formatDate(item.created_at)}</Text>
+                           <Text style={{ color: textSecondary, fontSize: 11 }}>Target: {targetDesc}</Text>
+                           <Text style={{ color: textSecondary, fontSize: 11, marginTop: 2 }}>Sent by: {item.admin_name || 'Admin'} • {formatDate(item.created_at)}</Text>
                          </View>
                          <View style={{ alignItems: 'flex-end' }}>
-                           <Text style={{ color: '#34d399', fontSize: 11, fontWeight: '700' }}>{item.success_count} / {item.target_count}</Text>
-                           <Text style={{ color: 'rgba(168,167,212,0.5)', fontSize: 9 }}>Delivered</Text>
+                           <Text style={{ color: C.secondary, fontSize: 13, fontWeight: '800' }}>{item.success_count} / {item.target_count}</Text>
+                           <Text style={{ color: textSecondary, fontSize: 10, fontWeight: '600' }}>Delivered</Text>
                          </View>
                        </View>
                      </View>
@@ -1047,347 +1070,372 @@ export default function PromotionLinks() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 16,
-    backgroundColor: '#060614',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  title: {
-    color: '#e5e3ff',
-    fontSize: 22,
-    fontWeight: '900',
-  },
-  subtitle: {
-    color: 'rgba(168,167,212,0.55)',
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  createBtn: {
-    backgroundColor: C.secondary,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  createBtnText: {
-    color: '#0c0c1f',
-    fontWeight: '800',
-    fontSize: 12,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 20,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: 'rgba(24, 24, 27, 0.65)',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(39, 39, 42, 0.2)',
-  },
-  popupCard: {
-    backgroundColor: 'rgba(24, 24, 27, 0.65)',
-    borderRadius: 24,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(39, 39, 42, 0.2)',
-  },
-  modeBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
-  modeBtnActive: {
-    backgroundColor: '#34d399',
-  },
-  modeBtnText: {
-    color: 'rgba(168,167,212,0.6)',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  modeBtnTextActive: {
-    color: '#004d57',
-  },
-  webSelect: {
-    height: 52,
-    backgroundColor: 'rgba(167,139,250,0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(167,139,250,0.3)',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    color: '#e5e3ff',
-    fontSize: 14,
-    fontWeight: '700',
-    outline: 'none',
-  },
-  statLabel: {
-    color: 'rgba(168,167,212,0.6)',
-    fontSize: 10,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    marginBottom: 4,
-  },
-  statValue: {
-    color: '#e5e3ff',
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  list: {
-    flex: 1,
-  },
-  linkCard: {
-    backgroundColor: 'rgba(24, 24, 27, 0.65)',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(39, 39, 42, 0.2)',
-    padding: 20,
-    marginBottom: 12,
-  },
-  linkHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  linkName: {
-    color: '#e5e3ff',
-    fontSize: 16,
-    fontWeight: '800',
-    marginBottom: 4,
-  },
-  linkCode: {
-    color: '#a78bfa',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  linkStats: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 16,
-    marginBottom: 16,
-  },
-  linkStat: {
-    minWidth: 80,
-  },
-  linkStatLabel: {
-    color: 'rgba(168,167,212,0.5)',
-    fontSize: 10,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    marginBottom: 2,
-  },
-  linkStatValue: {
-    color: '#e5e3ff',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  linkActions: {
-    flexDirection: 'row',
-    gap: 12,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.05)',
-    paddingTop: 12,
-  },
-  actionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(167,139,250,0.3)',
-  },
-  actionBtnText: {
-    color: '#a78bfa',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.85)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalBox: {
-    width: '100%',
-    maxWidth: 480,
-    backgroundColor: '#18181b',
-    borderRadius: 24,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(167,139,250,0.3)',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  modalTitle: {
-    color: '#e5e3ff',
-    fontSize: 20,
-    fontWeight: '800',
-  },
-  modalSubtitle: {
-    color: 'rgba(168,167,212,0.5)',
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  form: {
-    gap: 16,
-  },
-  formLabel: {
-    color: 'rgba(168,167,212,0.6)',
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    marginBottom: 6,
-  },
-  input: {
-    height: 52,
-    backgroundColor: 'rgba(167,139,250,0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(167,139,250,0.3)',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    color: '#e5e3ff',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  saveBtn: {
-    width: '100%',
-    height: 52,
-    borderRadius: 16,
-    backgroundColor: '#00e3fd',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 8,
-  },
-  saveBtnText: {
-    color: '#004d57',
-    fontSize: 14,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  emptyState: {
-    alignItems: 'center',
-    padding: 40,
-    gap: 12,
-  },
-  emptyText: {
-    color: '#e5e3ff',
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  emptySubtext: {
-    color: 'rgba(168,167,212,0.5)',
-    fontSize: 13,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  claimItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
-  },
-  claimUser: {
-    color: '#e5e3ff',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  claimPhone: {
-    color: 'rgba(168,167,212,0.5)',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  claimDate: {
-    color: 'rgba(168,167,212,0.4)',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  // Tab styles
-  tabBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: 'rgba(167,139,250,0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(167,139,250,0.15)',
-  },
-  tabBtnActive: {
-    backgroundColor: '#00e3fd',
-    borderColor: '#00e3fd',
-  },
-  tabBtnText: {
-    color: '#a78bfa',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  tabBtnTextActive: {
-    color: '#0c0c1f',
-  },
-  // Popup config styles
-  imagePreview: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(0,0,0,0.2)',
-    marginBottom: 8,
-  },
-  replaceBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 10,
-    position: 'absolute',
-    bottom: 12,
-    right: 12,
-  },
-  dropZone: {
-    borderWidth: 2,
-    borderColor: 'rgba(167,139,250,0.2)',
-    borderStyle: 'dashed',
-    borderRadius: 16,
-    padding: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: '#00e3fd',
-  },
-  addBtnText: {
-    color: '#0c0c1f',
-    fontSize: 13,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-  }
-});
+const getStyles = (C: any, isDark: boolean) => {
+  const bgSurface = isDark ? '#0c1424' : '#ffffff';
+  const bgCard = isDark ? '#080e1b' : '#f8fafc';
+  const borderColor = isDark ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0';
+  const textPrimary = isDark ? '#ffffff' : '#0f172a';
+  const textSecondary = isDark ? '#94a3b8' : '#64748b';
+
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      padding: 16,
+      backgroundColor: 'transparent',
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 20,
+    },
+    title: {
+      color: textPrimary,
+      fontSize: 22,
+      fontWeight: '900',
+    },
+    subtitle: {
+      color: textSecondary,
+      fontSize: 12,
+      fontWeight: '600',
+      marginTop: 2,
+    },
+    createBtn: {
+      backgroundColor: '#FF2D55',
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderRadius: 12,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    createBtnText: {
+      color: '#ffffff',
+      fontWeight: '800',
+      fontSize: 12,
+    },
+    statsRow: {
+      flexDirection: 'row',
+      gap: 12,
+      marginBottom: 20,
+    },
+    statCard: {
+      flex: 1,
+      backgroundColor: bgSurface,
+      borderRadius: 16,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: borderColor,
+    },
+    popupCard: {
+      backgroundColor: bgSurface,
+      borderRadius: 24,
+      padding: 24,
+      borderWidth: 1,
+      borderColor: borderColor,
+    },
+    modeBtn: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 6,
+    },
+    modeBtnActive: {
+      backgroundColor: '#FF2D55',
+    },
+    modeBtnText: {
+      color: textSecondary,
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    modeBtnTextActive: {
+      color: '#ffffff',
+    },
+    webSelect: {
+      height: 52,
+      backgroundColor: bgCard,
+      borderWidth: 1,
+      borderColor: borderColor,
+      borderRadius: 16,
+      paddingHorizontal: 16,
+      color: textPrimary,
+      fontSize: 14,
+      fontWeight: '700',
+      ...({ outlineStyle: 'none' } as any),
+    },
+    statLabel: {
+      color: textSecondary,
+      fontSize: 10,
+      fontWeight: '800',
+      textTransform: 'uppercase',
+      marginBottom: 4,
+    },
+    statValue: {
+      color: textPrimary,
+      fontSize: 18,
+      fontWeight: '800',
+    },
+    list: {
+      flex: 1,
+    },
+    linkCard: {
+      backgroundColor: bgSurface,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: borderColor,
+      padding: 20,
+      marginBottom: 12,
+    },
+    linkHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 16,
+    },
+    linkName: {
+      color: textPrimary,
+      fontSize: 16,
+      fontWeight: '700',
+      marginBottom: 4,
+    },
+    linkCode: {
+      color: '#FF2D55',
+      fontSize: 11,
+      fontWeight: '700',
+    },
+    linkStats: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 16,
+      marginBottom: 16,
+    },
+    linkStat: {
+      minWidth: 80,
+    },
+    linkStatLabel: {
+      color: textSecondary,
+      fontSize: 10,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      marginBottom: 2,
+    },
+    linkStatValue: {
+      color: textPrimary,
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    linkActions: {
+      flexDirection: 'row',
+      gap: 12,
+      borderTopWidth: 1,
+      borderTopColor: borderColor,
+      paddingTop: 12,
+    },
+    actionBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: borderColor,
+      backgroundColor: bgCard,
+    },
+    actionBtnText: {
+      color: textSecondary,
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.75)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 20,
+    },
+    modalBox: {
+      width: '100%',
+      maxWidth: 480,
+      backgroundColor: bgSurface,
+      borderRadius: 10,
+      padding: 24,
+      borderWidth: 1,
+      borderColor: borderColor,
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 24,
+    },
+    modalTitle: {
+      color: textPrimary,
+      fontSize: 18,
+      fontWeight: '700',
+    },
+    modalSubtitle: {
+      color: textSecondary,
+      fontSize: 12,
+      fontWeight: '600',
+      marginTop: 2,
+    },
+    form: {
+      gap: 16,
+    },
+    formLabel: {
+      color: textSecondary,
+      fontSize: 11,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      marginBottom: 6,
+    },
+    input: {
+      height: 46,
+      backgroundColor: bgCard,
+      borderWidth: 1,
+      borderColor: borderColor,
+      borderRadius: 8,
+      paddingHorizontal: 16,
+      color: textPrimary,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    saveBtn: {
+      width: '100%',
+      height: 48,
+      borderRadius: 8,
+      backgroundColor: '#FF2D55',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 8,
+    },
+    saveBtnText: {
+      color: '#ffffff',
+      fontSize: 14,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    emptyState: {
+      alignItems: 'center',
+      padding: 40,
+      gap: 12,
+    },
+    emptyText: {
+      color: textPrimary,
+      fontSize: 16,
+      fontWeight: '700',
+    },
+    emptySubtext: {
+      color: textSecondary,
+      fontSize: 13,
+      fontWeight: '500',
+      textAlign: 'center',
+    },
+    claimItem: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: borderColor,
+    },
+    claimUser: {
+      color: textPrimary,
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    claimPhone: {
+      color: textSecondary,
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    claimDate: {
+      color: textSecondary,
+      fontSize: 11,
+      fontWeight: '500',
+    },
+    // Tab styles
+    tabBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 8,
+      backgroundColor: bgCard,
+      borderWidth: 1,
+      borderColor: borderColor,
+    },
+    tabBtnActive: {
+      backgroundColor: '#FF2D55',
+      borderColor: '#FF2D55',
+    },
+    tabBtnText: {
+      color: textSecondary,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    tabBtnTextActive: {
+      color: '#ffffff',
+    },
+    // Popup config styles
+    imagePreview: {
+      borderRadius: 8,
+      overflow: 'hidden',
+      backgroundColor: bgCard,
+      marginBottom: 8,
+    },
+    replaceBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      borderRadius: 6,
+      position: 'absolute',
+      bottom: 12,
+      right: 12,
+    },
+    dropZone: {
+      borderWidth: 1,
+      borderColor: borderColor,
+      borderStyle: 'dashed',
+      borderRadius: 8,
+      padding: 32,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    addBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 8,
+      backgroundColor: '#FF2D55',
+    },
+    addBtnText: {
+      color: '#ffffff',
+      fontSize: 13,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+    },
+    sendCampaignBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      backgroundColor: C.primary,
+      paddingHorizontal: 24,
+      paddingVertical: 14,
+      borderRadius: 8,
+    },
+    sendCampaignBtnText: {
+      color: '#ffffff',
+      fontSize: 14,
+      fontWeight: '800',
+      letterSpacing: 0.3,
+    },
+  });
+};

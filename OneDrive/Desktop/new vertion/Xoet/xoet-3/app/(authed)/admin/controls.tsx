@@ -1,11 +1,10 @@
-// app/(authed)/admin/controls.tsx — Admin Control Center
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, Platform, useWindowDimensions, TextInput, Modal, Alert, Switch } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../../context/authContext';
 import { API_URL } from '../../../config';
-import { AdminTheme as C } from './_layout';
+import { useAdminTheme } from './_layout';
 
 const fmt = (n: number) => Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const timeFmt = (d: string) => {
@@ -27,6 +26,9 @@ const TEMPLATES = [
 ];
 
 export default function AdminControls() {
+  const { theme: C, isDark } = useAdminTheme();
+  const s = useMemo(() => getStyles(C, isDark), [C, isDark]);
+  const spinS = useMemo(() => getSpinStyles(C, isDark), [C, isDark]);
   const { token, showAlert } = useAuth();
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -286,7 +288,7 @@ export default function AdminControls() {
       <View style={[s.headerBar, isMobile && { flexDirection: 'column', alignItems: 'flex-start', gap: 12 }]}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <TouchableOpacity onPress={() => router.back()} style={s.backCircle}>
-            <Ionicons name="arrow-back" size={18} color="#00e5ff" />
+            <Ionicons name="arrow-back" size={18} color={C.accentCyan} />
           </TouchableOpacity>
           <View>
             <Text style={s.headerTitle}>System Control Center</Text>
@@ -300,10 +302,10 @@ export default function AdminControls() {
             flexDirection: 'row',
             alignItems: 'center',
             gap: 8,
-            backgroundColor: '#00e5ff',
+            backgroundColor: C.accentCyan,
             paddingHorizontal: 16,
             paddingVertical: 10,
-            borderRadius: 12,
+            borderRadius: 10,
             alignSelf: isMobile ? 'flex-start' : 'center',
           }}
         >
@@ -326,7 +328,7 @@ export default function AdminControls() {
             style={[s.tab, tab === t.key && s.tabActive, isMobile && { paddingHorizontal: 8 }]}
             onPress={() => setTab(t.key)}
           >
-            <Ionicons name={t.icon as any} size={14} color={tab === t.key ? '#0a0f1c' : '#64748b'} />
+            <Ionicons name={t.icon as any} size={15} color={tab === t.key ? '#ffffff' : (isDark ? '#94a3b8' : '#64748b')} />
             <Text style={[s.tabText, tab === t.key && s.tabTextActive]}>{t.label}</Text>
           </TouchableOpacity>
         ))}
@@ -335,108 +337,192 @@ export default function AdminControls() {
       {/* NOTIFICATIONS TAB */}
       {tab === 'notifications' && (
         <View style={s.section}>
-          {/* Templates */}
-          <Text style={s.sectionLabel}>QUICK TEMPLATES</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 20 }}>
-            {TEMPLATES.map((t, i) => (
-              <TouchableOpacity key={i} onPress={() => applyTemplate(t)} style={s.templateBtn}>
-                <Text style={s.templateText}>{t.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <View style={[s.twoColumnLayout, isMobile && s.twoColumnLayoutMobile]}>
+            {/* LEFT COLUMN: Input Form */}
+            <View style={[s.columnLeft, isMobile && { width: '100%' as any }]}>
+              <View style={s.controlCard}>
+                {/* Templates */}
+                <Text style={s.sectionLabel}>QUICK TEMPLATES</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 18 }}>
+                  {TEMPLATES.map((t, i) => (
+                    <TouchableOpacity key={i} onPress={() => applyTemplate(t)} style={s.templateBtn}>
+                      <Text style={s.templateText}>{t.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
 
-          {/* Target */}
-          <Text style={s.fieldLabel}>TARGET PHONE (leave empty for broadcast to ALL)</Text>
-          <View style={s.inputRow}>
-            <Ionicons name="call-outline" size={16} color="#475569" />
-            <TextInput
-              value={targetPhone}
-              onChangeText={setTargetPhone}
-              placeholder="e.g. 0939484533 (leave empty for broadcast)"
-              style={s.input}
-              placeholderTextColor="#334155"
-              inputMode="tel"
-            />
-          </View>
+                {/* Target */}
+                <Text style={s.fieldLabel}>TARGET PHONE (LEAVE EMPTY FOR BROADCAST TO ALL)</Text>
+                <View style={s.inputRow}>
+                  <Ionicons name="call-outline" size={16} color={C.onSurfaceVariant} />
+                  <TextInput
+                    value={targetPhone}
+                    onChangeText={setTargetPhone}
+                    placeholder="e.g. 0939484533 (leave empty for broadcast)"
+                    style={s.input}
+                    placeholderTextColor={C.onSurfaceVariant + '80'}
+                    inputMode="tel"
+                  />
+                  {!!targetPhone && (
+                    <TouchableOpacity onPress={() => setTargetPhone('')}>
+                      <Ionicons name="close-circle" size={16} color={C.onSurfaceVariant} />
+                    </TouchableOpacity>
+                  )}
+                </View>
 
-          {/* Type selector */}
-          <Text style={s.fieldLabel}>NOTIFICATION TYPE</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
-            {['admin_message', 'broadcast', 'refund', 'system'].map(t => (
-              <TouchableOpacity
-                key={t}
-                onPress={() => setNotifType(t)}
-                style={[s.typeBtn, notifType === t && { backgroundColor: '#00e5ff', borderColor: '#00e5ff' }]}
-              >
-                <Text style={[s.typeBtnText, notifType === t && { color: '#0a0f1c' }]}>{t.toUpperCase().replace('_', ' ')}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+                {/* Type selector */}
+                <Text style={s.fieldLabel}>NOTIFICATION TYPE</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
+                  {['admin_message', 'broadcast', 'refund', 'system'].map(t => (
+                    <TouchableOpacity
+                      key={t}
+                      onPress={() => setNotifType(t)}
+                      style={[s.typeBtn, notifType === t && s.typeBtnActive]}
+                    >
+                      <Text style={[s.typeBtnText, notifType === t && s.typeBtnTextActive]}>
+                        {t.toUpperCase().replace('_', ' ')}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
 
-          {/* Title */}
-          <Text style={s.fieldLabel}>TITLE</Text>
-          <View style={s.inputRow}>
-            <Ionicons name="text" size={16} color="#475569" />
-            <TextInput value={notifTitle} onChangeText={setNotifTitle} placeholder="Notification title" style={s.input} placeholderTextColor="#334155" />
-          </View>
+                {/* Title */}
+                <Text style={s.fieldLabel}>TITLE</Text>
+                <View style={s.inputRow}>
+                  <Ionicons name="text-outline" size={16} color={C.onSurfaceVariant} />
+                  <TextInput 
+                    value={notifTitle} 
+                    onChangeText={setNotifTitle} 
+                    placeholder="Notification title..." 
+                    style={s.input} 
+                    placeholderTextColor={C.onSurfaceVariant + '80'} 
+                  />
+                </View>
 
-          {/* Message */}
-          <Text style={s.fieldLabel}>MESSAGE</Text>
-          <View style={[s.inputRow, { minHeight: 80, alignItems: 'flex-start', paddingVertical: 12 }]}>
-            <Ionicons name="chatbubble-outline" size={16} color="#475569" style={{ marginTop: 2 }} />
-            <TextInput
-              value={notifMessage}
-              onChangeText={setNotifMessage}
-              placeholder="Write your notification message..."
-              style={[s.input, { minHeight: 60, textAlignVertical: 'top' }]}
-              placeholderTextColor="#334155"
-              multiline
-            />
-          </View>
+                {/* Message */}
+                <Text style={s.fieldLabel}>MESSAGE BODY</Text>
+                <View style={[s.inputRow, { minHeight: 90, alignItems: 'flex-start', paddingVertical: 10 }]}>
+                  <Ionicons name="chatbubble-outline" size={16} color={C.onSurfaceVariant} style={{ marginTop: 2 }} />
+                  <TextInput
+                    value={notifMessage}
+                    onChangeText={setNotifMessage}
+                    placeholder="Write your notification message..."
+                    style={[s.input, { minHeight: 70, textAlignVertical: 'top' }]}
+                    placeholderTextColor={C.onSurfaceVariant + '80'}
+                    multiline
+                  />
+                </View>
 
-          {/* Send Button */}
-          <TouchableOpacity onPress={handleSendNotification} disabled={sending || !notifTitle.trim() || !notifMessage.trim()} style={[s.sendBtn, (sending || !notifTitle.trim() || !notifMessage.trim()) && { opacity: 0.5 }]}>
-            {sending ? <ActivityIndicator color="#0a0f1c" size="small" /> : <Ionicons name="paper-plane" size={16} color="#0a0f1c" />}
-            <Text style={s.sendBtnText}>{sending ? 'Sending...' : targetPhone.trim() ? 'Send to User' : 'Broadcast to ALL Users'}</Text>
-          </TouchableOpacity>
+                {/* Send Button */}
+                <TouchableOpacity 
+                  onPress={handleSendNotification} 
+                  disabled={sending || !notifTitle.trim() || !notifMessage.trim()} 
+                  style={[s.sendBtn, (sending || !notifTitle.trim() || !notifMessage.trim()) && { opacity: 0.5 }]}
+                >
+                  {sending ? (
+                    <ActivityIndicator color="#ffffff" size="small" />
+                  ) : (
+                    <>
+                      <Ionicons name="paper-plane" size={16} color="#ffffff" />
+                      <Text style={s.sendBtnText}>
+                        {targetPhone.trim() ? `Send Direct to ${targetPhone}` : 'Broadcast to ALL Users'}
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
 
-          {/* Result */}
-          {sendResult && (
-            <View style={[s.resultBox, { borderColor: sendResult.ok ? 'rgba(52,211,153,0.3)' : 'rgba(248,113,113,0.3)', backgroundColor: sendResult.ok ? 'rgba(52,211,153,0.06)' : 'rgba(248,113,113,0.06)' }]}>
-              <Ionicons name={sendResult.ok ? 'checkmark-circle' : 'alert-circle'} size={16} color={sendResult.ok ? '#34d399' : '#f87171'} />
-              <Text style={{ color: sendResult.ok ? '#34d399' : '#f87171', fontSize: 12, fontWeight: '700', flex: 1 }}>
-                {sendResult.ok
-                  ? `✅ Sent to ${sendResult.sent} user(s)${sendResult.user ? ` — ${sendResult.user.username || sendResult.user.number}` : ''}`
-                  : `❌ ${sendResult.error}`}
-              </Text>
-            </View>
-          )}
-
-          {/* History */}
-          <View style={{ marginTop: 30 }}>
-            <Text style={s.sectionLabel}>NOTIFICATION HISTORY ({historyTotal})</Text>
-            {loading && <ActivityIndicator color="#00e5ff" style={{ marginVertical: 20 }} />}
-            {!loading && history.length === 0 && (
-              <View style={{ padding: 40, alignItems: 'center' }}>
-                <Text style={{ color: '#475569', fontSize: 12 }}>No notifications sent yet</Text>
-              </View>
-            )}
-            {history.map((n, i) => (
-              <View key={n.id || i} style={s.historyCard}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <View style={[s.typePill, { borderColor: n.type === 'broadcast' ? '#a78bfa40' : '#00e5ff40' }]}>
-                    <Text style={{ color: n.type === 'broadcast' ? '#a78bfa' : '#00e5ff', fontSize: 9, fontWeight: '800' }}>{(n.type || 'system').toUpperCase()}</Text>
+                {/* Result */}
+                {sendResult && (
+                  <View style={[s.resultBox, { borderColor: sendResult.ok ? 'rgba(52,211,153,0.3)' : 'rgba(239,68,68,0.3)', backgroundColor: sendResult.ok ? (isDark ? 'rgba(52,211,153,0.1)' : '#ECFDF5') : (isDark ? 'rgba(239,68,68,0.1)' : '#FEF2F2') }]}>
+                    <Ionicons name={sendResult.ok ? 'checkmark-circle' : 'alert-circle'} size={18} color={sendResult.ok ? C.secondary : C.error} />
+                    <Text style={{ color: sendResult.ok ? C.secondary : C.error, fontSize: 13, fontWeight: '700', flex: 1 }}>
+                      {sendResult.ok
+                        ? `Sent to ${sendResult.sent} user(s)${sendResult.user ? ` — ${sendResult.user.username || sendResult.user.number}` : ''}`
+                        : sendResult.error}
+                    </Text>
                   </View>
-                  <Text style={{ color: '#334155', fontSize: 10, fontWeight: '600' }}>{timeFmt(n.created_at)}</Text>
+                )}
+              </View>
+            </View>
+
+            {/* RIGHT COLUMN: Live Preview & History */}
+            <View style={[s.columnRight, isMobile && { width: '100%' as any }]}>
+              {/* Live Preview Card */}
+              <View style={s.controlCard}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: C.accentCyan }} />
+                    <Text style={s.sectionLabel}>LIVE DEVICE PREVIEW</Text>
+                  </View>
+                  <Text style={{ fontSize: 10, color: C.onSurfaceVariant, fontWeight: '700', textTransform: 'uppercase' }}>Push Mockup</Text>
                 </View>
-                <Text style={{ color: '#e2e8f0', fontSize: 13, fontWeight: '800', marginBottom: 2 }}>{n.title}</Text>
-                <Text style={{ color: '#64748b', fontSize: 11, lineHeight: 16 }}>{n.message}</Text>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
-                  <Text style={{ color: '#334155', fontSize: 10 }}>To: {n.username || n.number || 'Unknown'}</Text>
-                  <Text style={{ color: n.read ? '#34d399' : '#f59e0b', fontSize: 10, fontWeight: '700' }}>{n.read ? 'READ' : 'UNREAD'}</Text>
+
+                <View style={s.previewDeviceBubble}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <View style={{ width: 22, height: 22, borderRadius: 6, backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="game-controller" size={12} color="#ffffff" />
+                      </View>
+                      <Text style={{ fontSize: 12, fontWeight: '800', color: C.onSurface }}>XO ETHIOPIA</Text>
+                      <View style={[s.typePill, { borderColor: C.accentCyan + '40', backgroundColor: C.accentCyan + '15' }]}>
+                        <Text style={{ color: C.accentCyan, fontSize: 9, fontWeight: '800' }}>{(notifType || 'SYSTEM').toUpperCase()}</Text>
+                      </View>
+                    </View>
+                    <Text style={{ fontSize: 10, color: C.onSurfaceVariant }}>Just now</Text>
+                  </View>
+
+                  <Text style={{ fontSize: 14, fontWeight: '800', color: C.onSurface, marginBottom: 4 }}>
+                    {notifTitle.trim() || 'Notification Title Preview'}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: C.onSurfaceVariant, lineHeight: 18 }}>
+                    {notifMessage.trim() || 'This is how your notification will appear in the player notification inbox and alert toasts.'}
+                  </Text>
+
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, paddingTop: 8, borderTopWidth: 1, borderTopColor: C.border }}>
+                    <Text style={{ fontSize: 10, color: C.onSurfaceVariant }}>Target: {targetPhone.trim() || 'All Registered Users'}</Text>
+                    <Ionicons name="notifications" size={12} color={C.primary} />
+                  </View>
                 </View>
               </View>
-            ))}
+
+              {/* Notification History Card */}
+              <View style={[s.controlCard, { marginTop: 16 }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <Text style={s.sectionLabel}>RECENT DISPATCHES ({historyTotal})</Text>
+                  <TouchableOpacity onPress={fetchHistory} style={{ padding: 4 }}>
+                    <Ionicons name="refresh" size={14} color={C.onSurfaceVariant} />
+                  </TouchableOpacity>
+                </View>
+
+                {loading && <ActivityIndicator color={C.primary} style={{ marginVertical: 20 }} />}
+                {!loading && history.length === 0 && (
+                  <View style={{ padding: 24, alignItems: 'center' }}>
+                    <Text style={{ color: C.onSurfaceVariant, fontSize: 12 }}>No notifications sent yet</Text>
+                  </View>
+                )}
+
+                <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
+                  <View style={{ gap: 8 }}>
+                    {history.map((n, i) => (
+                      <View key={n.id || i} style={s.historyCard}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                          <View style={[s.typePill, { borderColor: n.type === 'broadcast' ? C.primary + '40' : C.accentCyan + '40', backgroundColor: n.type === 'broadcast' ? C.primary + '15' : C.accentCyan + '15' }]}>
+                            <Text style={{ color: n.type === 'broadcast' ? C.primary : C.accentCyan, fontSize: 9, fontWeight: '800' }}>{(n.type || 'system').toUpperCase()}</Text>
+                          </View>
+                          <Text style={{ color: C.onSurfaceVariant, fontSize: 10 }}>{timeFmt(n.created_at)}</Text>
+                        </View>
+                        <Text style={{ color: C.onSurface, fontSize: 13, fontWeight: '700', marginBottom: 2 }}>{n.title}</Text>
+                        <Text style={{ color: C.onSurfaceVariant, fontSize: 11, lineHeight: 16 }} numberOfLines={2}>{n.message}</Text>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+                          <Text style={{ color: C.onSurfaceVariant, fontSize: 10 }}>To: {n.username || n.number || 'Broadcast'}</Text>
+                          <Text style={{ color: n.read ? C.secondary : C.accentGold, fontSize: 9, fontWeight: '800' }}>{n.read ? 'READ' : 'SENT'}</Text>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                </ScrollView>
+              </View>
+            </View>
           </View>
         </View>
       )}
@@ -467,142 +553,182 @@ export default function AdminControls() {
       {/* REFUNDS TAB */}
       {tab === 'refunds' && (
         <View style={s.section}>
-          {/* Issue Refund Form */}
-          <View style={s.controlCard}>
-            <Text style={s.controlCardTitle}>Issue Manual Refund</Text>
-            <Text style={s.switchDesc}>Credits the specified user's wallet immediately and logs the audit trial.</Text>
-
-            <Text style={s.fieldLabel}>USER (PHONE, USERNAME OR USER ID)</Text>
-            <View style={s.inputRow}>
-              <Ionicons name="person-outline" size={16} color="#475569" />
-              <TextInput
-                value={refundUser}
-                onChangeText={setRefundUser}
-                placeholder="e.g. 0939484533 or Almaz_Winner"
-                style={s.input}
-                placeholderTextColor="#334155"
-              />
-            </View>
-
-            <Text style={s.fieldLabel}>ORIGINAL TRANSACTION ID (REQUIRED — REFUND IS KEYED TO IT)</Text>
-            <View style={s.inputRow}>
-              <Ionicons name="receipt-outline" size={16} color="#475569" />
-              <TextInput
-                value={refundOriginalTxId}
-                onChangeText={setRefundOriginalTxId}
-                placeholder="wallet_transactions.id of the tx being refunded"
-                style={s.input}
-                placeholderTextColor="#334155"
-                autoCapitalize="none"
-              />
-            </View>
-
-            <Text style={s.fieldLabel}>REFUND AMOUNT (IN ETB)</Text>
-            <View style={s.inputRow}>
-              <Ionicons name="wallet-outline" size={16} color="#475569" />
-              <TextInput
-                value={refundAmount}
-                onChangeText={setRefundAmount}
-                placeholder="e.g. 50"
-                style={s.input}
-                placeholderTextColor="#334155"
-                inputMode="numeric"
-              />
-            </View>
-
-            <Text style={s.fieldLabel}>REFUND TARGET BALANCE</Text>
-            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
-              {([
-                { key: 'available', label: 'Available Only' },
-                { key: 'withdrawable', label: 'Withdrawable Only' },
-                { key: 'both', label: 'Both Balances' }
-              ] as const).map(option => (
-                <TouchableOpacity
-                  key={option.key}
-                  onPress={() => setRefundTarget(option.key)}
-                  style={[s.targetBtn, refundTarget === option.key && s.targetBtnActive]}
-                >
-                  <Text style={[s.targetBtnText, refundTarget === option.key && s.targetBtnTextActive]}>
-                    {option.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <Text style={s.fieldLabel}>REASON / NOTIFICATION MESSAGE</Text>
-            <View style={s.inputRow}>
-              <Ionicons name="document-text-outline" size={16} color="#475569" />
-              <TextInput
-                value={refundReason}
-                onChangeText={setRefundReason}
-                placeholder="e.g. A refund of 50 ETB has been credited to your account."
-                style={s.input}
-                placeholderTextColor="#334155"
-              />
-            </View>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
-              {[
-                'System anomaly refund',
-                'Manual deposit correction',
-                'Game dispute resolution',
-                'Platform bonus'
-              ].map((tmpl, i) => (
-                <TouchableOpacity key={i} onPress={() => setRefundReason(tmpl)} style={s.templateBtn}>
-                  <Text style={s.templateText}>{tmpl}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <TouchableOpacity onPress={handleIssueRefund} style={s.refundSubmitBtn}>
-              <Ionicons name="refresh" size={16} color="#0a0f1c" />
-              <Text style={s.refundSubmitBtnText}>Submit Refund Transaction</Text>
-            </TouchableOpacity>
-
-            {refundResult && (
-              <View style={[s.resultBox, { borderColor: refundResult.ok ? 'rgba(52,211,153,0.3)' : 'rgba(248,113,113,0.3)', backgroundColor: refundResult.ok ? 'rgba(52,211,153,0.06)' : 'rgba(248,113,113,0.06)', marginTop: 14 }]}>
-                <Ionicons name={refundResult.ok ? 'checkmark-circle' : 'alert-circle'} size={16} color={refundResult.ok ? '#34d399' : '#f87171'} />
-                <Text style={{ color: refundResult.ok ? '#34d399' : '#f87171', fontSize: 12, fontWeight: '700', flex: 1 }}>
-                  {refundResult.ok ? refundResult.message : refundResult.error}
+          <View style={[s.twoColumnLayout, isMobile && s.twoColumnLayoutMobile]}>
+            {/* LEFT COLUMN: Issue Manual Refund Form */}
+            <View style={[s.columnLeft, isMobile && { width: '100%' as any }]}>
+              <View style={s.controlCard}>
+                <Text style={s.controlCardTitle}>Issue Manual Refund</Text>
+                <Text style={[s.switchDesc, { marginBottom: 16 }]}>
+                  Credits the specified user's wallet immediately and records an immutable audit trail entry.
                 </Text>
-              </View>
-            )}
-          </View>
 
-          {/* Refund Logs */}
-          <View style={{ marginTop: 24 }}>
-            <Text style={s.sectionLabel}>REFUND TRANSACTION LOG ({refunds.length})</Text>
-            {loading && <ActivityIndicator color="#00e5ff" style={{ marginVertical: 20 }} />}
-            {!loading && refunds.length === 0 && (
-              <View style={s.emptyState}>
-                <Text style={{ color: '#475569', fontSize: 12 }}>No refunds recorded</Text>
-              </View>
-            )}
+                <Text style={s.fieldLabel}>USER (PHONE, USERNAME OR USER ID)</Text>
+                <View style={s.inputRow}>
+                  <Ionicons name="person-outline" size={16} color={C.onSurfaceVariant} />
+                  <TextInput
+                    value={refundUser}
+                    onChangeText={setRefundUser}
+                    placeholder="e.g. 0939484533 or Almaz_Winner"
+                    style={s.input}
+                    placeholderTextColor={C.onSurfaceVariant + '80'}
+                  />
+                </View>
 
-            {refunds.map((r, i) => {
-              const meta = r.meta || {};
-              const targetBalance = meta.targetBalance || 'available';
-              const targetLabels: Record<string, string> = {
-                available: 'Available Only',
-                withdrawable: 'Withdrawable Only',
-                both: 'Both Balances'
-              };
-              return (
-                <View key={r.id || i} style={s.historyCard}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-                    <Text style={{ color: '#34d399', fontSize: 13, fontWeight: '900' }}>+{r.amount / 100} ETB</Text>
-                    <Text style={{ color: '#475569', fontSize: 10 }}>{timeFmt(r.created_at)}</Text>
-                  </View>
-                  <Text style={{ color: '#e2e8f0', fontSize: 13, fontWeight: '700' }}>{r.username || 'Unknown'}</Text>
-                  <Text style={{ color: '#64748b', fontSize: 11 }}>Phone: {r.number || '—'}</Text>
-                  <Text style={{ color: '#fbbf24', fontSize: 11, marginTop: 4 }}>Reason: {meta.reason || 'Manual refund'}</Text>
-                  <View style={[s.targetPill, { marginTop: 6, borderColor: targetBalance === 'both' ? '#a78bfa40' : targetBalance === 'withdrawable' ? '#38bdf840' : '#00e5ff40' }]}>
-                    <Text style={{ color: targetBalance === 'both' ? '#a78bfa' : targetBalance === 'withdrawable' ? '#38bdf8' : '#00e5ff', fontSize: 9, fontWeight: '800' }}>
-                      TARGET: {targetLabels[targetBalance]?.toUpperCase() || 'AVAILABLE ONLY'}
+                <Text style={s.fieldLabel}>ORIGINAL TRANSACTION ID (REQUIRED — AUDIT KEY)</Text>
+                <View style={s.inputRow}>
+                  <Ionicons name="receipt-outline" size={16} color={C.onSurfaceVariant} />
+                  <TextInput
+                    value={refundOriginalTxId}
+                    onChangeText={setRefundOriginalTxId}
+                    placeholder="wallet_transactions.id of the tx being refunded"
+                    style={s.input}
+                    placeholderTextColor={C.onSurfaceVariant + '80'}
+                    autoCapitalize="none"
+                  />
+                </View>
+
+                <Text style={s.fieldLabel}>REFUND AMOUNT (IN ETB)</Text>
+                <View style={s.inputRow}>
+                  <Ionicons name="wallet-outline" size={16} color={C.onSurfaceVariant} />
+                  <TextInput
+                    value={refundAmount}
+                    onChangeText={setRefundAmount}
+                    placeholder="e.g. 50"
+                    style={s.input}
+                    placeholderTextColor={C.onSurfaceVariant + '80'}
+                    inputMode="numeric"
+                  />
+                </View>
+
+                <Text style={s.fieldLabel}>REFUND TARGET BALANCE</Text>
+                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
+                  {([
+                    { key: 'available', label: 'Available Only' },
+                    { key: 'withdrawable', label: 'Withdrawable Only' },
+                    { key: 'both', label: 'Both Balances' }
+                  ] as const).map(option => (
+                    <TouchableOpacity
+                      key={option.key}
+                      onPress={() => setRefundTarget(option.key)}
+                      style={[s.targetBtn, refundTarget === option.key && s.targetBtnActive]}
+                    >
+                      <Text style={[s.targetBtnText, refundTarget === option.key && s.targetBtnTextActive]}>
+                        {option.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <Text style={s.fieldLabel}>REASON / NOTIFICATION MESSAGE</Text>
+                <View style={s.inputRow}>
+                  <Ionicons name="document-text-outline" size={16} color={C.onSurfaceVariant} />
+                  <TextInput
+                    value={refundReason}
+                    onChangeText={setRefundReason}
+                    placeholder="e.g. A refund of 50 ETB has been credited to your account."
+                    style={s.input}
+                    placeholderTextColor={C.onSurfaceVariant + '80'}
+                  />
+                </View>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
+                  {[
+                    'System anomaly refund',
+                    'Manual deposit correction',
+                    'Game dispute resolution',
+                    'Platform bonus credit'
+                  ].map((tmpl, i) => (
+                    <TouchableOpacity key={i} onPress={() => setRefundReason(tmpl)} style={s.templateBtn}>
+                      <Text style={s.templateText}>{tmpl}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <TouchableOpacity onPress={handleIssueRefund} style={s.refundSubmitBtn}>
+                  <Ionicons name="refresh" size={16} color="#ffffff" />
+                  <Text style={s.refundSubmitBtnText}>Submit Refund Transaction</Text>
+                </TouchableOpacity>
+
+                {refundResult && (
+                  <View style={[s.resultBox, { borderColor: refundResult.ok ? 'rgba(52,211,153,0.3)' : 'rgba(239,68,68,0.3)', backgroundColor: refundResult.ok ? (isDark ? 'rgba(52,211,153,0.1)' : '#ECFDF5') : (isDark ? 'rgba(239,68,68,0.1)' : '#FEF2F2'), marginTop: 14 }]}>
+                    <Ionicons name={refundResult.ok ? 'checkmark-circle' : 'alert-circle'} size={18} color={refundResult.ok ? C.secondary : C.error} />
+                    <Text style={{ color: refundResult.ok ? C.secondary : C.error, fontSize: 13, fontWeight: '700', flex: 1 }}>
+                      {refundResult.ok ? refundResult.message : refundResult.error}
                     </Text>
                   </View>
+                )}
+              </View>
+            </View>
+
+            {/* RIGHT COLUMN: Policy Overview & Audit Logs */}
+            <View style={[s.columnRight, isMobile && { width: '100%' as any }]}>
+              {/* Financial Integrity Policy Card */}
+              <View style={s.controlCard}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                  <Ionicons name="shield-checkmark" size={18} color={C.accentGold} />
+                  <Text style={[s.controlCardTitle, { marginBottom: 0 }]}>Financial Integrity Policy</Text>
                 </View>
-              );
-            })}
+                <Text style={{ color: C.onSurfaceVariant, fontSize: 12, lineHeight: 18 }}>
+                  Manual refunds execute double-entry ledger rows in <Text style={{ color: C.onSurface, fontWeight: '700' }}>wallet_transactions</Text>. Balances strictly adhere to the AML 1x rollover requirement.
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+                  <View style={{ flex: 1, backgroundColor: isDark ? '#080e1b' : '#f8fafc', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0' }}>
+                    <Text style={{ color: C.onSurfaceVariant, fontSize: 10, fontWeight: '700' }}>TOTAL RECORDED</Text>
+                    <Text style={{ color: C.accentGold, fontSize: 18, fontWeight: '800', marginTop: 2 }}>{refunds.length} Refunds</Text>
+                  </View>
+                  <View style={{ flex: 1, backgroundColor: isDark ? '#080e1b' : '#f8fafc', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0' }}>
+                    <Text style={{ color: C.onSurfaceVariant, fontSize: 10, fontWeight: '700' }}>AUDIT STATUS</Text>
+                    <Text style={{ color: C.secondary, fontSize: 18, fontWeight: '800', marginTop: 2 }}>VERIFIED</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Refund Logs Card */}
+              <View style={[s.controlCard, { marginTop: 16 }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <Text style={s.sectionLabel}>REFUND TRANSACTION LOG ({refunds.length})</Text>
+                  <TouchableOpacity onPress={fetchRefunds} style={{ padding: 4 }}>
+                    <Ionicons name="refresh" size={14} color={C.onSurfaceVariant} />
+                  </TouchableOpacity>
+                </View>
+
+                {loading && <ActivityIndicator color={C.primary} style={{ marginVertical: 20 }} />}
+                {!loading && refunds.length === 0 && (
+                  <View style={s.emptyState}>
+                    <Text style={{ color: C.onSurfaceVariant, fontSize: 12 }}>No refunds recorded</Text>
+                  </View>
+                )}
+
+                <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
+                  <View style={{ gap: 8 }}>
+                    {refunds.map((r, i) => {
+                      const meta = r.meta || {};
+                      const targetBalance = meta.targetBalance || 'available';
+                      const targetLabels: Record<string, string> = {
+                        available: 'Available Only',
+                        withdrawable: 'Withdrawable Only',
+                        both: 'Both Balances'
+                      };
+                      return (
+                        <View key={r.id || i} style={s.historyCard}>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                            <Text style={{ color: C.secondary, fontSize: 14, fontWeight: '800' }}>+{r.amount / 100} ETB</Text>
+                            <Text style={{ color: C.onSurfaceVariant, fontSize: 10 }}>{timeFmt(r.created_at)}</Text>
+                          </View>
+                          <Text style={{ color: C.onSurface, fontSize: 13, fontWeight: '700' }}>{r.username || 'User'}</Text>
+                          <Text style={{ color: C.onSurfaceVariant, fontSize: 11 }}>Phone: {r.number || '—'}</Text>
+                          <Text style={{ color: C.accentGold, fontSize: 11, marginTop: 4 }}>Reason: {meta.reason || 'Manual refund'}</Text>
+                          <View style={[s.targetPill, { marginTop: 6, borderColor: C.accentCyan + '40', backgroundColor: C.accentCyan + '15' }]}>
+                            <Text style={{ color: C.accentCyan, fontSize: 9, fontWeight: '800' }}>
+                              TARGET: {targetLabels[targetBalance]?.toUpperCase() || 'AVAILABLE ONLY'}
+                            </Text>
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </View>
+                </ScrollView>
+              </View>
+            </View>
           </View>
         </View>
       )}
@@ -611,7 +737,7 @@ export default function AdminControls() {
       <Modal transparent visible={confirmState.visible} animationType="fade">
         <View style={s.modalOverlay}>
           <View style={s.modalContent}>
-            <Ionicons name="warning" size={40} color="#00daf3" style={{ marginBottom: 12 }} />
+            <Ionicons name="warning" size={40} color={C.accentGold} style={{ marginBottom: 12 }} />
             <Text style={s.modalTitle}>Confirm Action</Text>
             <Text style={s.modalMessage}>{confirmState.message}</Text>
             <View style={s.modalActions}>
@@ -630,152 +756,191 @@ export default function AdminControls() {
   );
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: 'transparent', padding: 24, paddingTop: 20 },
-  headerBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 },
-  backCircle: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.lightPrimary, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { color: '#fff', fontSize: 20, fontWeight: '700', letterSpacing: -0.5, fontFamily: 'Inter' },
-  headerSub: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '600', letterSpacing: 1.5, marginTop: 2, fontFamily: 'Inter' },
+const getStyles = (C: any, isDark: boolean) => {
+  const bgSurface = isDark ? '#0c1424' : '#ffffff';
+  const bgCard = isDark ? '#080e1b' : '#f8fafc';
+  const borderColor = isDark ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0';
+  const textPrimary = isDark ? '#ffffff' : '#0f172a';
+  const textSecondary = isDark ? '#94a3b8' : '#64748b';
 
-  tabBar: { flexDirection: 'row', gap: 6, marginBottom: 24, flexWrap: 'wrap' },
-  tab: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, backgroundColor: C.surface, borderWidth: 1, borderColor: C.outlineVariant, marginBottom: 4 },
-  tabActive: { backgroundColor: C.primary, borderColor: C.primary },
-  tabText: { color: C.onSurfaceVariant, fontSize: 12, fontWeight: '700', fontFamily: 'Inter' },
-  tabTextActive: { color: '#ffffff', fontFamily: 'Inter' },
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: 'transparent', padding: 24, paddingTop: 20 },
+    headerBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 },
+    backCircle: { width: 36, height: 36, borderRadius: 8, backgroundColor: bgCard, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor },
+    headerTitle: { color: textPrimary, fontSize: 20, fontWeight: '700', letterSpacing: -0.5, fontFamily: 'Inter' },
+    headerSub: { color: textSecondary, fontSize: 10, fontWeight: '600', letterSpacing: 1.5, marginTop: 2, fontFamily: 'Inter' },
 
-  section: {},
-  sectionLabel: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '700', letterSpacing: 1.5, marginBottom: 12, textTransform: 'uppercase', fontFamily: 'Inter' },
+    tabBar: { flexDirection: 'row', gap: 6, marginBottom: 24, flexWrap: 'wrap' },
+    tab: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8, backgroundColor: bgSurface, borderWidth: 1, borderColor, marginBottom: 4 },
+    tabActive: { backgroundColor: '#FF2D55', borderColor: '#FF2D55' },
+    tabText: { color: textSecondary, fontSize: 12, fontWeight: '700', fontFamily: 'Inter' },
+    tabTextActive: { color: '#ffffff', fontFamily: 'Inter' },
 
-  fieldLabel: { color: C.secondary, fontSize: 10, fontWeight: '700', letterSpacing: 1.5, marginBottom: 6, fontFamily: 'Inter' },
-  inputRow: { backgroundColor: C.surfaceContainerLowest, borderRadius: 14, borderWidth: 1, borderColor: C.outlineVariant, marginBottom: 14, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12 },
-  input: { flex: 1, color: '#fff', padding: 12, fontSize: 14, fontFamily: 'Inter' },
+    twoColumnLayout: {
+      flexDirection: 'row',
+      gap: 20,
+      alignItems: 'flex-start',
+      width: '100%',
+    },
+    twoColumnLayoutMobile: {
+      flexDirection: 'column',
+    },
+    columnLeft: {
+      flex: 1.25,
+      minWidth: 0,
+    },
+    columnRight: {
+      flex: 1,
+      minWidth: 0,
+    },
+    previewDeviceBubble: {
+      backgroundColor: bgCard,
+      borderRadius: 14,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: borderColor,
+    },
 
-  templateBtn: { backgroundColor: C.surface, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: C.outlineVariant },
-  templateText: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '600', fontFamily: 'Inter' },
+    section: {},
+    sectionLabel: { color: textSecondary, fontSize: 11, fontWeight: '700', letterSpacing: 1.5, marginBottom: 12, textTransform: 'uppercase', fontFamily: 'Inter' },
 
-  typeBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: C.surface, borderWidth: 1, borderColor: C.outlineVariant },
-  typeBtnText: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '700', fontFamily: 'Inter' },
+    fieldLabel: { color: textSecondary, fontSize: 11, fontWeight: '700', letterSpacing: 1.2, marginBottom: 6, textTransform: 'uppercase', fontFamily: 'Inter' },
+    inputRow: { backgroundColor: bgCard, borderRadius: 8, borderWidth: 1, borderColor, marginBottom: 14, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12 },
+    input: { flex: 1, color: textPrimary, padding: 12, fontSize: 14, fontFamily: 'Inter' },
 
-  sendBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: C.primaryContainer, paddingVertical: 14, borderRadius: 16, marginTop: 8 },
-  sendBtnText: { color: '#ffffff', fontSize: 14, fontWeight: '700', fontFamily: 'Inter' },
+    templateBtn: { backgroundColor: bgSurface, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor },
+    templateText: { color: textSecondary, fontSize: 11, fontWeight: '600', fontFamily: 'Inter' },
 
-  resultBox: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, padding: 12, borderRadius: 12, borderWidth: 1 },
+    typeBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: bgSurface, borderWidth: 1, borderColor },
+    typeBtnActive: { backgroundColor: C.primary, borderColor: C.primary },
+    typeBtnText: { color: textSecondary, fontSize: 10, fontWeight: '700', fontFamily: 'Inter' },
+    typeBtnTextActive: { color: '#ffffff', fontFamily: 'Inter' },
 
-  historyCard: { backgroundColor: C.surface, borderRadius: 16, padding: 16, marginBottom: 8, borderWidth: 1, borderColor: C.outlineVariant, ...(Platform.OS === 'web' ? { boxShadow: '14px 17px 40px 4px rgba(112, 144, 176, 0.04)' } as any : {}) },
-  typePill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, alignSelf: 'flex-start' },
+    sendBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: C.primary, paddingVertical: 14, borderRadius: 8, marginTop: 8 },
+    sendBtnText: { color: '#ffffff', fontSize: 14, fontWeight: '700', fontFamily: 'Inter' },
 
-  emptyState: { padding: 40, alignItems: 'center', backgroundColor: C.surfaceContainerLowest, borderRadius: 16, borderWidth: 1, borderColor: C.outlineVariant },
+    resultBox: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, padding: 12, borderRadius: 8, borderWidth: 1 },
 
-  // Control Center Style
-  controlCard: { backgroundColor: C.surface, borderRadius: 20, padding: 24, borderColor: C.outlineVariant, borderWidth: 1, ...(Platform.OS === 'web' ? { boxShadow: '14px 17px 40px 4px rgba(112, 144, 176, 0.08)' } as any : {}) },
-  controlCardTitle: { color: '#fff', fontSize: 16, fontWeight: '700', marginBottom: 12, fontFamily: 'Inter' },
-  switchRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: C.outlineVariant },
-  switchLabel: { color: '#ffffff', fontSize: 14, fontWeight: '700', fontFamily: 'Inter' },
-  switchDesc: { color: C.onSurfaceVariant, fontSize: 11, marginTop: 2, fontFamily: 'Inter' },
-  systemRuleText: { color: '#fbbf24', fontSize: 12, lineHeight: 18, marginTop: 14, backgroundColor: 'rgba(251,191,36,0.05)', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(251,191,36,0.15)' },
+    historyCard: { backgroundColor: bgSurface, borderRadius: 10, padding: 16, marginBottom: 8, borderWidth: 1, borderColor },
+    typePill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, alignSelf: 'flex-start' },
 
-  addBtnSmall: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: C.primary, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },
-  addBtnText: { color: '#ffffff', fontSize: 11, fontWeight: '700', fontFamily: 'Inter' },
+    emptyState: { padding: 40, alignItems: 'center', backgroundColor: bgCard, borderRadius: 10, borderWidth: 1, borderColor },
 
-  fakeUserCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.surface, borderRadius: 16, padding: 16, marginBottom: 8, borderWidth: 1, borderColor: C.outlineVariant, ...(Platform.OS === 'web' ? { boxShadow: '14px 17px 40px 4px rgba(112, 144, 176, 0.04)' } as any : {}) },
-  fakeUserRank: { color: C.onSurfaceVariant, fontSize: 12, fontWeight: '700', marginRight: 4, fontFamily: 'Inter' },
-  fakeUsername: { color: '#fff', fontSize: 13, fontWeight: '700', fontFamily: 'Inter' },
-  fakeUserStats: { color: C.onSurfaceVariant, fontSize: 11, marginTop: 2, fontFamily: 'Inter' },
-  inactiveBadge: { paddingHorizontal: 6, paddingVertical: 2, backgroundColor: 'rgba(245,57,57,0.1)', borderRadius: 4, borderWidth: 1, borderColor: 'rgba(245,57,57,0.2)' },
-  inactiveBadgeText: { color: C.error, fontSize: 8, fontWeight: '700', fontFamily: 'Inter' },
+    controlCard: { backgroundColor: bgSurface, borderRadius: 10, padding: 24, borderColor, borderWidth: 1 },
+    controlCardTitle: { color: textPrimary, fontSize: 16, fontWeight: '700', marginBottom: 12, fontFamily: 'Inter' },
+    switchRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: borderColor },
+    switchLabel: { color: textPrimary, fontSize: 14, fontWeight: '700', fontFamily: 'Inter' },
+    switchDesc: { color: textSecondary, fontSize: 11, marginTop: 2, fontFamily: 'Inter' },
+    systemRuleText: { color: '#fbbf24', fontSize: 12, lineHeight: 18, marginTop: 14, backgroundColor: isDark ? 'rgba(251,191,36,0.05)' : 'rgba(251,191,36,0.1)', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(251,191,36,0.2)' },
 
-  editActionBtn: { width: 28, height: 28, borderRadius: 6, backgroundColor: C.lightPrimary, alignItems: 'center', justifyContent: 'center' },
-  deleteActionBtn: { width: 28, height: 28, borderRadius: 6, backgroundColor: 'rgba(245,57,57,0.08)', alignItems: 'center', justifyContent: 'center' },
+    addBtnSmall: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: C.primary, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
+    addBtnText: { color: '#ffffff', fontSize: 11, fontWeight: '700', fontFamily: 'Inter' },
 
-  // Ticker Style
-  addTickerBtn: { backgroundColor: C.primary, paddingHorizontal: 18, justifyContent: 'center', borderRadius: 12 },
-  addTickerBtnText: { color: '#ffffff', fontSize: 13, fontWeight: '700', fontFamily: 'Inter' },
-  tickerGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  tickerCard: { width: Platform.OS === 'web' ? '23%' : '48%', flexDirection: 'row', alignItems: 'center', backgroundColor: C.surface, borderRadius: 16, padding: 12, borderWidth: 1, borderColor: C.outlineVariant, ...(Platform.OS === 'web' ? { boxShadow: '14px 17px 40px 4px rgba(112, 144, 176, 0.04)' } as any : {}) },
+    fakeUserCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: bgSurface, borderRadius: 10, padding: 16, marginBottom: 8, borderWidth: 1, borderColor },
+    fakeUserRank: { color: textSecondary, fontSize: 12, fontWeight: '700', marginRight: 4, fontFamily: 'Inter' },
+    fakeUsername: { color: textPrimary, fontSize: 13, fontWeight: '700', fontFamily: 'Inter' },
+    fakeUserStats: { color: textSecondary, fontSize: 11, marginTop: 2, fontFamily: 'Inter' },
+    inactiveBadge: { paddingHorizontal: 6, paddingVertical: 2, backgroundColor: 'rgba(251,84,84,0.1)', borderRadius: 4, borderWidth: 1, borderColor: 'rgba(251,84,84,0.2)' },
+    inactiveBadgeText: { color: '#ef4444', fontSize: 8, fontWeight: '700', fontFamily: 'Inter' },
 
-  // Refund Style
-  refundSubmitBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: C.primaryContainer, paddingVertical: 12, borderRadius: 14, marginTop: 14 },
-  refundSubmitBtnText: { color: '#ffffff', fontSize: 13, fontWeight: '700', fontFamily: 'Inter' },
+    editActionBtn: { width: 28, height: 28, borderRadius: 6, backgroundColor: 'rgba(255, 45, 85, 0.1)', alignItems: 'center', justifyContent: 'center' },
+    deleteActionBtn: { width: 28, height: 28, borderRadius: 6, backgroundColor: 'rgba(251,84,84,0.1)', alignItems: 'center', justifyContent: 'center' },
 
-  // Back to game header button Style
-  backToGameBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.primary, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12 },
-  backToGameBtnText: { color: '#ffffff', fontSize: 12, fontWeight: '700', fontFamily: 'Inter' },
+    addTickerBtn: { backgroundColor: C.primary, paddingHorizontal: 18, justifyContent: 'center', borderRadius: 8 },
+    addTickerBtnText: { color: '#ffffff', fontSize: 13, fontWeight: '700', fontFamily: 'Inter' },
+    tickerGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    tickerCard: { width: Platform.OS === 'web' ? '23%' : '48%', flexDirection: 'row', alignItems: 'center', backgroundColor: bgSurface, borderRadius: 10, padding: 12, borderWidth: 1, borderColor },
 
-  // Refund Target Selector Style
-  targetBtn: { flex: 1, paddingVertical: 10, borderRadius: 12, backgroundColor: C.surface, borderWidth: 1, borderColor: C.outlineVariant, alignItems: 'center' },
-  targetBtnActive: { backgroundColor: C.primary, borderColor: C.primary },
-  targetBtnText: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '700', fontFamily: 'Inter' },
-  targetBtnTextActive: { color: '#ffffff', fontFamily: 'Inter' },
-  targetPill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, alignSelf: 'flex-start' },
+    refundSubmitBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: C.primary, paddingVertical: 14, borderRadius: 8, marginTop: 14 },
+    refundSubmitBtnText: { color: '#ffffff', fontSize: 13, fontWeight: '700', fontFamily: 'Inter' },
 
-  // Modal Style
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(11,20,55,0.85)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  modalContent: { backgroundColor: C.surface, borderRadius: 24, width: '100%', maxWidth: 450, borderWidth: 1, borderColor: C.outlineVariant, padding: 24, alignItems: 'center', ...(Platform.OS === 'web' ? { boxShadow: '14px 17px 40px 4px rgba(112, 144, 176, 0.08)' } as any : {}) },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: C.outlineVariant },
-  modalTitle: { color: '#fff', fontSize: 16, fontWeight: '700', fontFamily: 'Inter' },
-  modalBody: { padding: 16 },
-  modalMessage: { color: C.onSurfaceVariant, fontSize: 13, textAlign: 'center', marginBottom: 20, fontFamily: 'Inter' },
-  modalActions: { flexDirection: 'row', gap: 12, width: '100%' },
-  modalCancelBtn: { flex: 1, backgroundColor: C.surfaceContainerLowest, paddingVertical: 12, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: C.outlineVariant },
-  modalCancelBtnText: { color: '#fff', fontSize: 13, fontWeight: '700', fontFamily: 'Inter' },
-  modalConfirmBtn: { flex: 1, backgroundColor: C.primary, paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
-  modalConfirmBtnText: { color: '#ffffff', fontSize: 13, fontWeight: '700', fontFamily: 'Inter' },
-  modalSubmitBtn: { backgroundColor: C.primary, paddingVertical: 12, borderRadius: 12, alignItems: 'center', marginTop: 10 },
-  modalSubmitBtnText: { color: '#ffffff', fontSize: 13, fontWeight: '700', fontFamily: 'Inter' },
-});
+    backToGameBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.primary, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 },
+    backToGameBtnText: { color: '#ffffff', fontSize: 12, fontWeight: '700', fontFamily: 'Inter' },
 
-const spinS = StyleSheet.create({
-  statCard: {
-    width: Platform.OS === 'web' ? '31%' : '47%',
-    backgroundColor: C.surface,
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: C.outlineVariant,
-    ...(Platform.OS === 'web' ? { boxShadow: '14px 17px 40px 4px rgba(112, 144, 176, 0.04)' } as any : {}),
-  },
-  statIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
-  },
-  statValue: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '900',
-    fontFamily: 'Inter',
-    marginBottom: 2,
-  },
-  statLabel: {
-    color: C.onSurfaceVariant,
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-    fontFamily: 'Inter',
-  },
-  liveStatusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  pageBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: C.surface,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: C.outlineVariant,
-  },
-  pageBtnText: {
-    color: '#00e5ff',
-    fontSize: 12,
-    fontWeight: '700',
-    fontFamily: 'Inter',
-  },
-});
+    targetBtn: { flex: 1, paddingVertical: 10, borderRadius: 8, backgroundColor: bgSurface, borderWidth: 1, borderColor, alignItems: 'center' },
+    targetBtnActive: { backgroundColor: C.primary, borderColor: C.primary },
+    targetBtnText: { color: textSecondary, fontSize: 11, fontWeight: '700', fontFamily: 'Inter' },
+    targetBtnTextActive: { color: '#ffffff', fontFamily: 'Inter' },
+    targetPill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, alignSelf: 'flex-start' },
+
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+    modalContent: { backgroundColor: bgSurface, borderRadius: 10, width: '100%', maxWidth: 450, borderWidth: 1, borderColor, padding: 24, alignItems: 'center' },
+    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: borderColor },
+    modalTitle: { color: textPrimary, fontSize: 16, fontWeight: '700', fontFamily: 'Inter' },
+    modalBody: { padding: 16 },
+    modalMessage: { color: textSecondary, fontSize: 13, textAlign: 'center', marginBottom: 20, fontFamily: 'Inter' },
+    modalActions: { flexDirection: 'row', gap: 12, width: '100%' },
+    modalCancelBtn: { flex: 1, backgroundColor: bgCard, paddingVertical: 12, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor },
+    modalCancelBtnText: { color: textPrimary, fontSize: 13, fontWeight: '700', fontFamily: 'Inter' },
+    modalConfirmBtn: { flex: 1, backgroundColor: C.primary, paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
+    modalConfirmBtnText: { color: '#ffffff', fontSize: 13, fontWeight: '700', fontFamily: 'Inter' },
+    modalSubmitBtn: { backgroundColor: C.primary, paddingVertical: 12, borderRadius: 8, alignItems: 'center', marginTop: 10 },
+    modalSubmitBtnText: { color: '#ffffff', fontSize: 13, fontWeight: '700', fontFamily: 'Inter' },
+  });
+};
+
+const getSpinStyles = (C: any, isDark: boolean) => {
+  const bgSurface = isDark ? '#0c1424' : '#ffffff';
+  const bgCard = isDark ? '#080e1b' : '#f8fafc';
+  const borderColor = isDark ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0';
+  const textPrimary = isDark ? '#ffffff' : '#0f172a';
+  const textSecondary = isDark ? '#94a3b8' : '#64748b';
+
+  return StyleSheet.create({
+    statCard: {
+      width: Platform.OS === 'web' ? '31%' : '47%',
+      backgroundColor: bgSurface,
+      borderRadius: 10,
+      padding: 16,
+      borderWidth: 1,
+      borderColor,
+    },
+    statIconWrap: {
+      width: 36,
+      height: 36,
+      borderRadius: 8,
+      backgroundColor: bgCard,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 10,
+      borderWidth: 1,
+      borderColor,
+    },
+    statValue: {
+      color: textPrimary,
+      fontSize: 16,
+      fontWeight: '900',
+      fontFamily: 'Inter',
+      marginBottom: 2,
+    },
+    statLabel: {
+      color: textSecondary,
+      fontSize: 10,
+      fontWeight: '700',
+      letterSpacing: 0.5,
+      fontFamily: 'Inter',
+    },
+    liveStatusDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+    },
+    pageBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      backgroundColor: bgSurface,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor,
+    },
+    pageBtnText: {
+      color: textPrimary,
+      fontSize: 12,
+      fontWeight: '700',
+      fontFamily: 'Inter',
+    },
+  });
+};
