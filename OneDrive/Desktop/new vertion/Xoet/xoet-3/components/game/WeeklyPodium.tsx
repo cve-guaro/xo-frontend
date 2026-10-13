@@ -1,15 +1,21 @@
+// components/game/WeeklyPodium.tsx
+// ────────────────────────────────────────────────────────────────────────────
+// XO tab: "Gameplay Hub" — weekly podium, personal rank, CTAs.
+// Production pass: real podium blocks with ranked fills + trophy for #1,
+// calm rank strip, single cyan primary CTA, ghost secondary, chip row.
+// ────────────────────────────────────────────────────────────────────────────
 import React, { memo } from "react";
 import {
   View,
   Text,
   Image,
-  TouchableOpacity,
   StyleSheet,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { WebPressable } from "../WebPressable";
-import { InfoPill } from "./HeaderPill";
+import { colors, type, radius, space, metrics, elevation } from "../../theme/tokens";
+import { Chip } from "../../theme/ui";
 
 interface WeeklyPodiumProps {
   isEN: boolean;
@@ -22,6 +28,12 @@ interface WeeklyPodiumProps {
   t: (key: string) => string;
 }
 
+const RANK_STYLE = {
+  1: { fill: "rgba(245,182,66,0.16)", cap: colors.gold, text: colors.gold },
+  2: { fill: "rgba(0,218,243,0.12)", cap: colors.primary, text: colors.primary },
+  3: { fill: "rgba(251,146,60,0.12)", cap: colors.warning, text: colors.warning },
+} as const;
+
 export const WeeklyPodium = memo(function WeeklyPodium({
   isEN,
   weeklyLeaderboard,
@@ -32,27 +44,24 @@ export const WeeklyPodium = memo(function WeeklyPodium({
   setRulesVisible,
   t,
 }: WeeklyPodiumProps) {
-  
   const renderPodiumSpot = (spot: {
-    rank: number;
+    rank: 1 | 2 | 3;
     prize: number;
-    color: string;
     barH: number;
-    label: string;
   }) => {
+    const s = RANK_STYLE[spot.rank];
     const userAtRank = weeklyLeaderboard.find((u) => u.rank === spot.rank);
     const username = userAtRank ? userAtRank.username : "—";
     const isFirst = spot.rank === 1;
-    const circleSize = isFirst ? 54 : 42;
+    const circleSize = isFirst ? 50 : 40;
 
     return (
       <View key={spot.rank} style={styles.podiumSpot}>
-        {/* Prize */}
-        <Text style={[styles.prizeText, { color: spot.color }]}>
+        <Text style={[styles.prizeText, { color: s.text }]}>
           {spot.prize} Birr
         </Text>
 
-        {/* Rank Circle */}
+        {/* Rank circle */}
         <View
           style={[
             styles.rankCircle,
@@ -60,37 +69,28 @@ export const WeeklyPodium = memo(function WeeklyPodium({
               width: circleSize,
               height: circleSize,
               borderRadius: circleSize / 2,
-              borderColor: spot.color,
+              borderColor: s.cap,
             },
           ]}
         >
-          <Text
-            style={[
-              styles.rankNumber,
-              { fontSize: isFirst ? 18 : 14 },
-            ]}
-          >
+          <Text style={[styles.rankNumber, { fontSize: isFirst ? 17 : 13, color: s.text }]}>
             {spot.rank}
           </Text>
-
           {isFirst && (
-            <View style={[styles.trophyBadge, { backgroundColor: spot.color }]}>
-              <Ionicons name="trophy" size={9} color="#000" />
+            <View style={styles.trophyBadge}>
+              <Ionicons name="trophy" size={8} color="#231603" />
             </View>
           )}
         </View>
 
-        {/* Column Bar */}
+        {/* Podium block */}
         <View
           style={[
-            styles.columnBar,
-            {
-              maxWidth: isFirst ? 82 : 72,
-              height: spot.barH,
-              borderColor: spot.color,
-            },
+            styles.podiumBlock,
+            { height: spot.barH, backgroundColor: s.fill },
           ]}
         >
+          <View style={[styles.podiumCap, { backgroundColor: s.cap }]} />
           <Text style={styles.usernameText} numberOfLines={1}>
             {username}
           </Text>
@@ -99,41 +99,15 @@ export const WeeklyPodium = memo(function WeeklyPodium({
     );
   };
 
-  const renderUserRankCard = () => {
-    const rankVal =
-      myWeeklyRank && myWeeklyRank.rank ? `#${myWeeklyRank.rank}` : "#1";
-    const scoreVal =
-      myWeeklyRank && myWeeklyRank.wins !== undefined
-        ? `${myWeeklyRank.wins} ${isEN ? "Wins" : "ድሎች"}`
-        : `2 ${isEN ? "Wins" : "ድሎች"}`;
-
-    return (
-      <View style={styles.userRankCard}>
-        <View style={styles.userRankLeft}>
-          <View style={styles.rankBadge}>
-            <Text style={styles.rankBadgeText}>{rankVal}</Text>
-          </View>
-          <View>
-            <Text style={styles.rankMeText}>
-              {isEN ? "You" : "እርሶ"}
-            </Text>
-            <Text style={styles.rankSubText}>
-              {isEN ? "All players" : "ሁሉም ተጫዋቾች"}
-            </Text>
-          </View>
-        </View>
-        <Text style={styles.userScoreText}>{scoreVal}</Text>
-      </View>
-    );
-  };
+  const rankVal =
+    myWeeklyRank && myWeeklyRank.rank ? `#${myWeeklyRank.rank}` : "#—";
+  const scoreVal =
+    myWeeklyRank && myWeeklyRank.wins !== undefined
+      ? `${myWeeklyRank.wins} ${isEN ? "Wins" : "ድሎች"}`
+      : `0 ${isEN ? "Wins" : "ድሎች"}`;
 
   return (
     <View style={styles.mainCard}>
-      <LinearGradient
-        colors={["rgba(13, 15, 34, 0.95)", "rgba(18, 14, 42, 0.98)"]}
-        style={StyleSheet.absoluteFill}
-      />
-
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
@@ -149,110 +123,81 @@ export const WeeklyPodium = memo(function WeeklyPodium({
               {isEN ? "GAMEPLAY HUB" : "የጨዋታ ማዕከል"}
             </Text>
             <Text style={styles.headerSub}>
-              {isEN ? "OUTPACE. OUTSMART. WIN!" : "ይቅደሙ። ብልህ ይሁኑ። ያሸንፉ!"}
+              {isEN ? "Outpace · Outsmart · Win" : "ይቅደሙ · ብልህ ይሁኑ · ያሸንፉ"}
             </Text>
           </View>
         </View>
 
-        {/* Weekly Pill */}
         <View style={styles.weeklyPill}>
-          <Ionicons name="trophy-outline" size={10} color="rgba(255,255,255,0.8)" />
+          <Ionicons name="trophy-outline" size={10} color={colors.gold} />
           <Text style={styles.weeklyPillText}>
             {isEN ? "Weekly" : "ሳምንታዊ"}
           </Text>
         </View>
       </View>
 
-      {/* Podium spots */}
+      {/* Podium */}
       <View style={styles.podiumContainer}>
-        {renderPodiumSpot({
-          rank: 2,
-          prize: 300,
-          color: "#22d3ee",
-          barH: 54,
-          label: "2nd",
-        })}
-        {renderPodiumSpot({
-          rank: 1,
-          prize: 500,
-          color: "#f5b642",
-          barH: 76,
-          label: "1st",
-        })}
-        {renderPodiumSpot({
-          rank: 3,
-          prize: 200,
-          color: "#f97316",
-          barH: 44,
-          label: "3rd",
-        })}
+        {renderPodiumSpot({ rank: 2, prize: 300, barH: 58 })}
+        {renderPodiumSpot({ rank: 1, prize: 500, barH: 80 })}
+        {renderPodiumSpot({ rank: 3, prize: 200, barH: 46 })}
       </View>
 
-      {/* User Rank Card */}
-      {renderUserRankCard()}
+      {/* My rank strip */}
+      <View style={styles.userRankCard}>
+        <View style={styles.userRankLeft}>
+          <View style={styles.rankBadge}>
+            <Text style={styles.rankBadgeText}>{rankVal}</Text>
+          </View>
+          <View>
+            <Text style={styles.rankMeText}>{isEN ? "You" : "እርሶ"}</Text>
+            <Text style={styles.rankSubText}>
+              {isEN ? "All players" : "ሁሉም ተጫዋቾች"}
+            </Text>
+          </View>
+        </View>
+        <Text style={styles.userScoreText}>{scoreVal}</Text>
+      </View>
 
-      {/* Play Now Button */}
+      {/* Primary CTA */}
       <WebPressable
         onPress={isBanned ? undefined : openRoomSheet}
         disabled={isBanned}
-        style={({ hovered }: { pressed: boolean; hovered: boolean }) => [
-          styles.playBtn,
-          {
-            marginTop: 20,
-            borderRadius: 22,
-            overflow: "hidden",
-            transform: [{ scale: hovered && !isBanned ? 1.02 : 1 }],
-            shadowColor: "#00daf3",
-            shadowOffset: { width: 0, height: 6 },
-            shadowOpacity: hovered && !isBanned ? 0.6 : 0.4,
-            shadowRadius: 14,
-            elevation: 8,
-          },
+        style={({ hovered }) => [
+          styles.ctaWrap,
+          !isBanned && elevation.glowPrimary,
+          hovered && !isBanned && { transform: [{ scale: 1.015 }] },
         ]}
       >
         <LinearGradient
-          colors={isBanned ? ["#3a2020", "#2a1515"] : ["#00daf3", "#00b4d8"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.playInner}
+          colors={isBanned ? ["#3a2020", "#2a1515"] : colors.gradCta}
+          start={{ x: 0, y: 0.5 }}
+          end={{ x: 1, y: 0.5 }}
+          style={styles.ctaInner}
         >
           <Ionicons
             name={isBanned ? "lock-closed" : "flash"}
-            size={20}
-            color={isBanned ? "#fff" : "#060d1a"}
+            size={19}
+            color={isBanned ? "#fff" : "#04222B"}
           />
-          <Text style={[styles.playText, { color: isBanned ? "#fff" : "#060d1a" }]}>
+          <Text style={[styles.ctaText, { color: isBanned ? "#fff" : "#04222B" }]}>
             {isBanned ? (isEN ? "SUSPENDED" : "ታግዷል") : t("play_now")}
           </Text>
         </LinearGradient>
       </WebPressable>
 
-      {/* Play with Friend Button */}
+      {/* Secondary CTA */}
       <WebPressable
         onPress={() => setFriendModalVisible(true)}
-        style={({ hovered }: { pressed: boolean; hovered: boolean }) => [
-          styles.playBtn,
-          {
-            marginTop: 12,
-            backgroundColor: "rgba(18, 14, 42, 0.9)",
-            borderWidth: 1.5,
-            borderColor: "rgba(0, 218, 243, 0.4)",
-            borderRadius: 22,
-            transform: [{ scale: hovered ? 1.02 : 1 }],
-          },
+        style={({ hovered }) => [
+          styles.ctaGhost,
+          hovered && { borderColor: "rgba(0,218,243,0.5)", backgroundColor: colors.cardRaised },
         ]}
       >
-        <View style={styles.playInner}>
-          <Ionicons
-            name="people-outline"
-            size={20}
-            color="#fff"
-            style={{ marginRight: 8 }}
-          />
-          <Text style={[styles.playText, { color: "#fff", letterSpacing: 0.8 }]}>
-            {isEN ? "PLAY WITH FRIEND" : "ከጓደኛ ጋር ይጫወቱ"}
-          </Text>
-        </View>
+        <Ionicons name="people" size={18} color={colors.primary} />
+        <Text style={styles.ctaGhostText}>
+          {isEN ? "Play with Friend" : "ከጓደኛ ጋር ይጫወቱ"}
+        </Text>
       </WebPressable>
 
       {isBanned && (
@@ -263,20 +208,19 @@ export const WeeklyPodium = memo(function WeeklyPodium({
         </Text>
       )}
 
-      {/* Rules and info row */}
+      {/* Trust chips */}
       <View style={styles.infoRow}>
-        <InfoPill
+        <Chip
           icon="shield-checkmark-outline"
           text={isEN ? "Anti-cheat" : "ጸረ-ማጭበርበር"}
         />
-        <InfoPill icon="timer-outline" text={isEN ? "Fast rounds" : "ፈጣን ዙሮች"} />
-        <InfoPill icon="cash-outline" text={isEN ? "Instant pay" : "ፈጣን ክፍያ"} />
-        <TouchableOpacity
+        <Chip icon="timer-outline" text={isEN ? "Fast rounds" : "ፈጣን ዙሮች"} />
+        <Chip icon="cash-outline" text={isEN ? "Instant pay" : "ፈጣን ክፍያ"} />
+        <Chip
+          icon="book-outline"
+          text={isEN ? "Rules" : "ደንቦች"}
           onPress={() => setRulesVisible(true)}
-          style={{ flex: 1 }}
-        >
-          <InfoPill icon="book-outline" text={isEN ? "Rules" : "ደንቦች"} />
-        </TouchableOpacity>
+        />
       </View>
     </View>
   );
@@ -284,77 +228,71 @@ export const WeeklyPodium = memo(function WeeklyPodium({
 
 const styles = StyleSheet.create({
   mainCard: {
-    marginTop: 16,
-    borderRadius: 24,
-    padding: 18,
-    overflow: "hidden",
-    borderWidth: 1.5,
-    borderColor: "rgba(139, 92, 246, 0.3)",
-    backgroundColor: "#0d0f22",
+    marginTop: space.lg,
+    borderRadius: radius.xl,
+    padding: space.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    width: "100%",
-    marginBottom: 16,
+    marginBottom: space.lg,
   },
   headerLeft: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+    flexShrink: 1,
   },
   brandIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     overflow: "hidden",
-    alignItems: "center",
-    justifyContent: "center",
     backgroundColor: "#000",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.15)",
+    borderColor: colors.borderStrong,
   },
-  brandLogo: {
-    width: "100%",
-    height: "100%",
-  },
+  brandLogo: { width: "100%", height: "100%" },
   headerTitle: {
-    color: "#fff",
-    fontSize: 15,
-    fontWeight: "900",
+    color: colors.text,
+    ...type.titleSm,
     letterSpacing: 0.3,
   },
   headerSub: {
-    color: "rgba(255,255,255,0.5)",
-    fontSize: 10,
+    color: colors.textMuted,
+    fontSize: 10.5,
     fontWeight: "600",
+    marginTop: 1,
   },
   weeklyPill: {
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    backgroundColor: "rgba(255,255,255,0.03)",
+    backgroundColor: colors.tintGold,
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 12,
+    borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: "rgba(245,182,66,0.3)",
   },
   weeklyPillText: {
-    color: "rgba(255,255,255,0.8)",
-    fontSize: 10,
-    fontWeight: "900",
-    letterSpacing: 0.5,
+    color: colors.gold,
+    fontSize: 10.5,
+    fontWeight: "800",
+    letterSpacing: 0.4,
   },
+
+  /* Podium */
   podiumContainer: {
     flexDirection: "row",
     alignItems: "flex-end",
     justifyContent: "space-between",
-    gap: 10,
-    marginTop: 10,
-    width: "100%",
-    paddingHorizontal: 10,
+    gap: space.md,
+    paddingHorizontal: space.sm,
   },
   podiumSpot: {
     alignItems: "center",
@@ -362,66 +300,69 @@ const styles = StyleSheet.create({
   },
   prizeText: {
     fontSize: 12,
-    fontWeight: "900",
-    marginBottom: 8,
-    textShadowColor: "rgba(0,0,0,0.5)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+    fontWeight: "800",
+    marginBottom: space.sm,
   },
   rankCircle: {
-    backgroundColor: "#0c0c1d",
+    backgroundColor: colors.bgDeep,
     borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: -10,
+    marginBottom: -8,
     zIndex: 2,
-    position: "relative",
   },
-  rankNumber: {
-    fontWeight: "900",
-    color: "#fff",
-  },
+  rankNumber: { fontWeight: "800" },
   trophyBadge: {
     position: "absolute",
-    bottom: -2,
-    right: -2,
-    width: 16,
-    height: 16,
+    bottom: -3,
+    right: -3,
+    width: 15,
+    height: 15,
     borderRadius: 8,
+    backgroundColor: colors.gold,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.3,
-    shadowRadius: 2,
-  },
-  columnBar: {
-    width: "100%",
-    borderRadius: 16,
     borderWidth: 1.5,
-    backgroundColor: "rgba(255,255,255,0.02)",
+    borderColor: colors.bgDeep,
+  },
+  podiumBlock: {
+    width: "100%",
+    borderTopLeftRadius: radius.sm,
+    borderTopRightRadius: radius.sm,
+    borderBottomLeftRadius: radius.sm,
+    borderBottomRightRadius: radius.sm,
     alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 10,
+    justifyContent: "flex-start",
+    paddingTop: 10,
+    overflow: "hidden",
+  },
+  podiumCap: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 3,
   },
   usernameText: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: "#fff",
+    fontSize: 10.5,
+    fontWeight: "700",
+    color: colors.textSoft,
     textAlign: "center",
+    paddingHorizontal: 4,
   },
+
+  /* Rank strip */
   userRankCard: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
-    borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    backgroundColor: "rgba(255,255,255,0.03)",
+    borderRadius: radius.md,
+    paddingVertical: space.md,
+    paddingHorizontal: space.lg,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.05)",
-    marginTop: 16,
-    width: "100%",
+    borderColor: colors.divider,
+    marginTop: space.xl,
   },
   userRankLeft: {
     flexDirection: "row",
@@ -429,61 +370,79 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   rankBadge: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: "rgba(255,255,255,0.08)",
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: radius.sm,
   },
   rankBadgeText: {
-    color: "rgba(255,255,255,0.7)",
+    color: colors.textSoft,
     fontSize: 11,
-    fontWeight: "900",
+    fontWeight: "800",
   },
   rankMeText: {
-    color: "#fff",
+    color: colors.text,
     fontSize: 13,
-    fontWeight: "900",
+    fontWeight: "800",
   },
   rankSubText: {
-    color: "rgba(255,255,255,0.4)",
+    color: colors.textFaint,
     fontSize: 10,
     fontWeight: "600",
-    marginTop: 2,
+    marginTop: 1,
   },
   userScoreText: {
-    color: "#fff",
+    color: colors.text,
     fontSize: 13,
-    fontWeight: "900",
+    fontWeight: "800",
   },
-  playBtn: {
-    borderRadius: 18,
+
+  /* CTAs */
+  ctaWrap: {
+    marginTop: space.xl,
+    borderRadius: radius.md,
     overflow: "hidden",
   },
-  playInner: {
-    paddingVertical: 14,
-    paddingHorizontal: 14,
+  ctaInner: {
+    height: metrics.ctaHeight,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
+    gap: space.sm,
   },
-  playText: {
+  ctaText: {
     fontSize: 15,
-    fontWeight: "900",
-    letterSpacing: 0.2,
+    fontWeight: "800",
+    letterSpacing: 0.6,
+  },
+  ctaGhost: {
+    marginTop: space.md,
+    height: metrics.ctaHeight,
+    borderRadius: radius.md,
+    backgroundColor: colors.cardRaised,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: space.sm,
+  },
+  ctaGhostText: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "800",
+    letterSpacing: 0.4,
   },
   suspendedText: {
-    color: "rgba(253,111,133,0.6)",
+    color: "rgba(253,111,133,0.7)",
     fontSize: 11,
     textAlign: "center",
-    marginTop: 6,
+    marginTop: space.sm,
     fontWeight: "700",
-    letterSpacing: 0.5,
   },
   infoRow: {
-    marginTop: 12,
+    marginTop: space.lg,
     flexDirection: "row",
-    flexWrap: "nowrap",
     gap: 6,
   },
 });

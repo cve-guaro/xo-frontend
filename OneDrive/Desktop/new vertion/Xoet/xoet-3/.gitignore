@@ -48,3 +48,5 @@ patch_*.js
 *.log
 # Stray nested home-folder copy (kilo worktrees) — never commit
 OneDrive/
+.vscode/
+graphify-out/

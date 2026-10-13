@@ -1,11 +1,11 @@
-// app/(authed)/admin/spin-moderation.tsx
 import React, { useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { AdminTheme as C } from './_layout';
+import { useAdminTheme } from './_layout';
 
 export default function SpinModerationPage() {
   const router = useRouter();
+  const { theme: C } = useAdminTheme();
   useEffect(() => {
     router.replace('/admin/spin?tab=moderation' as any);
   }, [router]);

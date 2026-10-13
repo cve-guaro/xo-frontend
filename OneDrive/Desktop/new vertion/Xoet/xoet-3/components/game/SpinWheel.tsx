@@ -27,16 +27,16 @@ type SpinWheelProps = {
   speakingUserIds?: string[];
 };
 
-// Slice colors — vibrant, distinguishable
+// Slice colors — matches Image 2 (Green, Cyan/Blue, Orange, Purple)
 const SLICE_COLORS = [
-  "#8b5cf6", // violet
-  "#22c55e", // green
-  "#22d3ee", // cyan
-  "#f97316", // orange
-  "#ef4444", // red
-  "#f5b642", // gold
-  "#3b82f6", // blue
-  "#ec4899", // pink
+  "#16a34a", // Vibrant Green (Image 2)
+  "#0284c7", // Vibrant Sky/Cyan Blue (Image 2)
+  "#ea580c", // Vibrant Orange (Image 2)
+  "#7c3aed", // Vibrant Purple (Image 2)
+  "#ef4444", // Red
+  "#f59e0b", // Amber/Gold
+  "#ec4899", // Pink
+  "#06b6d4", // Cyan
 ];
 
 const polarToCartesian = (cx: number, cy: number, r: number, angleInDegrees: number) => {
@@ -72,7 +72,6 @@ export default function SpinWheel({
   speakingUserIds = [],
 }: SpinWheelProps) {
   const rotation = useRef(new Animated.Value(0)).current;
-  const idleLoopAnim = useRef(new Animated.Value(0)).current;
   const [hasSpun, setHasSpun] = useState(false);
 
   const cx = size / 2;
@@ -99,55 +98,37 @@ export default function SpinWheel({
     });
   }, [playerCount, hasStakes, totalStake, players, angleStep]);
 
-  // Infinite slow looping rotation animation for home page preview / idle state
+  // Trigger spin animation — ONLY when server has declared a confirmed winner
   useEffect(() => {
-    let loop: Animated.CompositeAnimation | null = null;
-    if (!isSpinning && status !== "spinning" && status !== "locked" && status !== "resolved") {
-      idleLoopAnim.setValue(0);
-      loop = Animated.loop(
-        Animated.timing(idleLoopAnim, {
-          toValue: 360,
-          duration: 18000, // smooth 18-second continuous loop
-          easing: Easing.linear,
-          useNativeDriver: Platform.OS !== "web",
-        })
-      );
-      loop.start();
-    } else {
-      idleLoopAnim.setValue(0);
-    }
+    const hasValidWinner = (winnerId !== null && winnerId !== undefined && String(winnerId).length > 0) ||
+      (typeof winningSlice === "number" && winningSlice >= 0);
 
-    return () => {
-      loop?.stop();
-    };
-  }, [isSpinning, status, idleLoopAnim]);
-
-  // Trigger spin animation
-  useEffect(() => {
-    if ((isSpinning || status === "spinning") && !hasSpun && players.length > 0) {
-      setHasSpun(true);
-      const safeWinningSlice = (typeof winningSlice === "number" && winningSlice >= 0) ? winningSlice : 0;
-
-      // Resolve target slice. Prefer winnerId lookup (immune to array reordering),
-      // BUT slices are laid out by SEAT in 5-player mode while the players array is
-      // in join order — so use seatIndex there, otherwise the wheel lands on the
-      // slice of whoever joined at that position instead of the actual winner.
-      let resolvedSliceIdx: number;
+    if ((isSpinning || status === "spinning") && !hasSpun && players.length > 0 && hasValidWinner) {
+      // Resolve target slice. Prefer winnerId lookup (immune to array reordering).
+      // In 5-player mode, slices are ordered by seatIndex; in Rail mode, by players array position.
+      let resolvedSliceIdx = -1;
       const winnerPlayer = winnerId ? players.find(p => String(p.userId) === String(winnerId)) : undefined;
       if (winnerPlayer) {
         resolvedSliceIdx = (is5Player && typeof winnerPlayer.seatIndex === "number" && winnerPlayer.seatIndex >= 0)
           ? winnerPlayer.seatIndex
           : players.indexOf(winnerPlayer);
-      } else {
-        resolvedSliceIdx = safeWinningSlice;
+      } else if (typeof winningSlice === "number" && winningSlice >= 0) {
+        resolvedSliceIdx = winningSlice;
       }
 
+      // Never default to slice 0 if the winner cannot be resolved
+      if (resolvedSliceIdx < 0 || resolvedSliceIdx >= slices.length) {
+        console.warn("[SPIN_WHEEL] Unable to resolve slice for winnerId:", winnerId, "winningSlice:", winningSlice);
+        return;
+      }
+
+      setHasSpun(true);
+
       // Calculate exact center angle of winning slice from precomputed slices
-      const validSliceIdx = Math.min(Math.max(0, resolvedSliceIdx), slices.length - 1);
-      const targetSlice = slices[validSliceIdx] || slices[0];
+      const targetSlice = slices[resolvedSliceIdx];
       const sliceCenterAngle = (targetSlice.startAngle + targetSlice.endAngle) / 2;
 
-      const fullRotations = 9; // fast, satisfying spin (was 6 — felt lazy)
+      const fullRotations = 9; // fast, satisfying spin
       const finalStopAngle = ((360 - sliceCenterAngle) % 360 + 360) % 360;
       const targetAngle = fullRotations * 360 + finalStopAngle;
 
@@ -162,15 +143,16 @@ export default function SpinWheel({
     }
 
     // Reset when a new round starts
-    if (status === "waiting" || status === "idle") {
+    if ((status === "waiting" || status === "idle") && !isSpinning) {
       rotation.setValue(0);
       setHasSpun(false);
     }
-  }, [isSpinning, winningSlice, status, players, hasStakes, totalStake, angleStep, is5Player]);
+  }, [isSpinning, winningSlice, winnerId, status, players, hasStakes, totalStake, angleStep, is5Player, spinDuration, onSpinComplete]);
 
-  const activeRotateStyle = (isSpinning || status === "spinning" || status === "locked" || status === "resolved")
-    ? rotation.interpolate({ inputRange: [0, 360], outputRange: ["0deg", "360deg"] })
-    : idleLoopAnim.interpolate({ inputRange: [0, 360], outputRange: ["0deg", "360deg"] });
+  const activeRotateStyle = rotation.interpolate({
+    inputRange: [0, 360],
+    outputRange: ["0deg", "360deg"],
+  });
 
   // Collapsed/hidden layouts can briefly report a negative size (window tab-switch
   // on web reports width ≈ 1). Rendering the SVG with a negative size spams
@@ -215,10 +197,8 @@ export default function SpinWheel({
           {/* Slices */}
           <G>
             {slices.map(({ idx, startAngle, angle, endAngle }) => {
-
               const textAngle = startAngle + angle / 2;
               const textPos = polarToCartesian(cx, cy, r * 0.60, textAngle);
-              const color = SLICE_COLORS[idx % SLICE_COLORS.length];
               
               let player: Player | undefined;
               if (is5Player) {
@@ -227,108 +207,177 @@ export default function SpinWheel({
                 player = players[idx];
               }
 
-              // Abbreviate name to fit (or show 20% Bonus preview when empty)
-              const displayName = player
-                ? player.username.length > 8
-                  ? player.username.slice(0, 7) + "…"
-                  : player.username
-                : "20%";
+              const isEmptySlot = is5Player && !player;
+              const sliceColor = isEmptySlot ? "#2d3748" : SLICE_COLORS[idx % SLICE_COLORS.length];
 
-              // Include stake percentage or ETB amount under name
-              let details = "";
-              let isSpeaking = false;
-              if (player) {
-                isSpeaking = Array.isArray(speakingUserIds) && speakingUserIds.some(id => String(id) === String(player.userId));
-                const stakeVal = Number((player as any).stake || (is5Player ? 100 : 0));
-                if (is5Player) {
-                  details = `${stakeVal} ETB (20%)`;
-                } else if (totalStake > 0) {
-                  const pct = Math.round((stakeVal / totalStake) * 100);
-                  details = `${stakeVal} ETB (${pct}%)`;
-                } else {
-                  details = `${stakeVal} ETB`;
-                }
-              } else {
-                details = "Bonus";
+              if (isEmptySlot) {
+                return (
+                  <G key={idx}>
+                    <Path
+                      d={getArcPath(cx, cy, r, startAngle, endAngle)}
+                      fill={sliceColor}
+                      stroke="#1e293b"
+                      strokeWidth={2}
+                    />
+
+                    {/* Empty Slot Avatar Silhouette from Image 2 */}
+                    <Circle
+                      cx={textPos.x}
+                      cy={textPos.y - 7}
+                      r={size * 0.052}
+                      fill="rgba(255, 255, 255, 0.08)"
+                      stroke="#475569"
+                      strokeWidth={1.5}
+                    />
+                    {/* Head */}
+                    <Circle
+                      cx={textPos.x}
+                      cy={textPos.y - 11}
+                      r={size * 0.019}
+                      fill="#94a3b8"
+                    />
+                    {/* Shoulders */}
+                    <Path
+                      d={`M ${textPos.x - 8} ${textPos.y + 1} C ${textPos.x - 8} ${textPos.y - 5}, ${textPos.x + 8} ${textPos.y - 5}, ${textPos.x + 8} ${textPos.y + 1} Z`}
+                      fill="#94a3b8"
+                    />
+
+                    <SvgText
+                      x={textPos.x}
+                      y={textPos.y + 16}
+                      fill="#94a3b8"
+                      fontSize={Math.min(size * 0.034, 10)}
+                      fontWeight="800"
+                      textAnchor="middle"
+                      alignmentBaseline="middle"
+                      letterSpacing={1.2}
+                    >
+                      EMPTY
+                    </SvgText>
+                  </G>
+                );
               }
+
+              // Format name matching Image 2: Short uppercase name (e.g., ASH, MEK)
+              const rawPlayerName = player ? ((player as any).display_name || player.username || "USER") : "USER";
+              const shortName = String(rawPlayerName).trim().slice(0, 4).toUpperCase();
 
               return (
                 <G key={idx}>
                   <Path
                     d={getArcPath(cx, cy, r, startAngle, endAngle)}
-                    fill={color}
-                    stroke="#12172a"
+                    fill={sliceColor}
+                    stroke="#0b0f19"
                     strokeWidth={2}
                   />
-                  {!!displayName && (
-                    <SvgText
-                      x={textPos.x}
-                      y={textPos.y - (details ? 6 : 0)}
-                      fill={isSpeaking ? "#34d399" : "#ffffff"}
-                      fontSize={Math.min(size * 0.038, 13)}
-                      fontWeight="900"
-                      textAnchor="middle"
-                      alignmentBaseline="middle"
-                    >
-                      {displayName} {isSpeaking ? "🔊" : ""}
-                    </SvgText>
-                  )}
-                  {!!details && (
-                    <SvgText
-                      x={textPos.x}
-                      y={textPos.y + 8}
-                      fill="#e2e8f0"
-                      fontSize={Math.min(size * 0.032, 10)}
-                      fontWeight="600"
-                      textAnchor="middle"
-                      alignmentBaseline="middle"
-                    >
-                      {details}
-                    </SvgText>
-                  )}
+
+                  {/* Player Avatar Circle from Image 2 */}
+                  <Circle
+                    cx={textPos.x}
+                    cy={textPos.y - 7}
+                    r={size * 0.052}
+                    fill="rgba(255, 255, 255, 0.22)"
+                    stroke="#ffffff"
+                    strokeWidth={1.5}
+                  />
+                  {/* Head */}
+                  <Circle
+                    cx={textPos.x}
+                    cy={textPos.y - 11}
+                    r={size * 0.019}
+                    fill="#ffffff"
+                  />
+                  {/* Shoulders */}
+                  <Path
+                    d={`M ${textPos.x - 8} ${textPos.y + 1} C ${textPos.x - 8} ${textPos.y - 5}, ${textPos.x + 8} ${textPos.y - 5}, ${textPos.x + 8} ${textPos.y + 1} Z`}
+                    fill="#ffffff"
+                  />
+
+                  {/* Short Uppercase Player Name (e.g. ASH, MEK) */}
+                  <SvgText
+                    x={textPos.x}
+                    y={textPos.y + 16}
+                    fill="#ffffff"
+                    fontSize={Math.min(size * 0.038, 11)}
+                    fontWeight="900"
+                    textAnchor="middle"
+                    alignmentBaseline="middle"
+                    letterSpacing={0.5}
+                  >
+                    {shortName}
+                  </SvgText>
                 </G>
               );
             })}
           </G>
 
-          {/* Gold Rim */}
-          <Circle cx={cx} cy={cy} r={r * 1.04} stroke="url(#goldGrad)" strokeWidth={size * 0.06} fill="none" />
-          <Circle cx={cx} cy={cy} r={r * 1.09} fill="none" stroke="url(#goldGrad)" strokeWidth={3} />
+          {/* Gold Studded Metallic Rim */}
+          <Circle cx={cx} cy={cy} r={r * 1.04} stroke="url(#goldGrad)" strokeWidth={size * 0.065} fill="none" />
+          <Circle cx={cx} cy={cy} r={r * 1.09} fill="none" stroke="url(#goldGrad)" strokeWidth={2.5} />
 
           {/* Glowing Bulbs / Lights on the rim */}
           <G>
-            {Array.from({ length: 18 }).map((_, i) => {
-              const angle = i * (360 / 18);
+            {Array.from({ length: 20 }).map((_, i) => {
+              const angle = i * (360 / 20);
               const pos = polarToCartesian(cx, cy, r * 1.04, angle);
-              const isYellow = i % 2 === 0;
               return (
                 <G key={i}>
-                  <Circle cx={pos.x} cy={pos.y} r={size * 0.018} fill={isYellow ? "#ca8a04" : "#ec4899"} opacity={0.4} />
-                  <Circle cx={pos.x} cy={pos.y} r={size * 0.010} fill={isYellow ? "#fef08a" : "#fbcfe8"} />
+                  <Circle cx={pos.x} cy={pos.y} r={size * 0.016} fill="#ca8a04" opacity={0.4} />
+                  <Circle cx={pos.x} cy={pos.y} r={size * 0.010} fill="#fef08a" />
                 </G>
               );
             })}
           </G>
 
-          {/* Center 3D gold hub */}
-          <Circle cx={cx} cy={cy} r={r * 0.22} fill="url(#goldGrad)" />
-          <Circle cx={cx} cy={cy} r={r * 0.18} fill="url(#centerHubGrad)" stroke="#78350f" strokeWidth={1.5} />
-          <SvgText
-            x={cx}
-            y={cy + 1}
-            fill="#f5b642"
-            fontSize={Math.max(size * 0.045, 11)}
-            fontWeight="900"
-            textAnchor="middle"
-            alignmentBaseline="middle"
-            letterSpacing={0.5}
-          >
-            SPIN
-          </SvgText>
         </Svg>
       </Animated.View>
 
-      {/* Red Pointer with Inner White Triangle pointing down at top (Target Design Image 2) */}
+      {/* Center 3D Gold Hub with XO ETHIOPIA logo (Always Upright - never inverted) */}
+      <View style={[StyleSheet.absoluteFillObject, { pointerEvents: "none", zIndex: 6 }]} pointerEvents="none">
+        <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+          <Defs>
+            <RadialGradient id="staticCenterHubGrad" cx="50%" cy="50%" r="50%" fx="30%" fy="30%">
+              <Stop offset="0%" stopColor="#ffffff" />
+              <Stop offset="35%" stopColor="#fde047" />
+              <Stop offset="75%" stopColor="#ca8a04" />
+              <Stop offset="100%" stopColor="#854d0e" />
+            </RadialGradient>
+            <LinearGradient id="staticGoldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <Stop offset="0%" stopColor="#fde047" />
+              <Stop offset="50%" stopColor="#ca8a04" />
+              <Stop offset="100%" stopColor="#854d0e" />
+            </LinearGradient>
+          </Defs>
+          <Circle cx={cx} cy={cy} r={r * 0.25} fill="url(#staticGoldGrad)" stroke="#78350f" strokeWidth={2} />
+          <Circle cx={cx} cy={cy} r={r * 0.21} fill="url(#staticCenterHubGrad)" stroke="#b45309" strokeWidth={1.5} />
+          <SvgText
+            x={cx}
+            y={cy - 2}
+            fill="#000000"
+            fontSize={Math.max(size * 0.052, 13)}
+            fontWeight="900"
+            textAnchor="middle"
+            alignmentBaseline="middle"
+            letterSpacing={1}
+          >
+            XO
+          </SvgText>
+          <SvgText
+            x={cx}
+            y={cy + 9}
+            fill="#000000"
+            fontSize={Math.max(size * 0.021, 6.5)}
+            fontWeight="900"
+            textAnchor="middle"
+            alignmentBaseline="middle"
+            letterSpacing={0.8}
+          >
+            ETHIOPIA
+          </SvgText>
+        </Svg>
+      </View>
+
+      {/* Red Pointer with Inner White Triangle pointing down at top rim */}
       <View style={[StyleSheet.absoluteFillObject, { pointerEvents: "none", zIndex: 10 }]} pointerEvents="none">
         <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
           <Defs>
@@ -345,19 +394,19 @@ export default function SpinWheel({
           <G>
             {/* Outer Drop Shadow */}
             <Path
-              d={`M ${cx - size * 0.07} ${cy - r * 1.25} L ${cx + size * 0.07} ${cy - r * 1.25} L ${cx} ${cy - r * 0.94} Z`}
-              fill="rgba(0,0,0,0.6)"
+              d={`M ${cx - size * 0.055} ${cy - r * 1.15} L ${cx + size * 0.055} ${cy - r * 1.15} L ${cx} ${cy - r * 0.88} Z`}
+              fill="rgba(0,0,0,0.4)"
             />
             {/* Main Outer Red Triangle Pointer */}
             <Path
-              d={`M ${cx - size * 0.065} ${cy - r * 1.26} L ${cx + size * 0.065} ${cy - r * 1.26} L ${cx} ${cy - r * 0.96} Z`}
+              d={`M ${cx - size * 0.05} ${cy - r * 1.16} L ${cx + size * 0.05} ${cy - r * 1.16} L ${cx} ${cy - r * 0.90} Z`}
               fill="url(#redPointerGrad)"
               stroke="url(#pointerGoldBorder)"
-              strokeWidth={2}
+              strokeWidth={1.5}
             />
             {/* Inner White Triangle */}
             <Path
-              d={`M ${cx - size * 0.03} ${cy - r * 1.23} L ${cx + size * 0.03} ${cy - r * 1.23} L ${cx} ${cy - r * 1.05} Z`}
+              d={`M ${cx - size * 0.024} ${cy - r * 1.14} L ${cx + size * 0.024} ${cy - r * 1.14} L ${cx} ${cy - r * 0.98} Z`}
               fill="#ffffff"
             />
           </G>

@@ -1,14 +1,13 @@
-// app/(authed)/admin/audit.tsx — System Activity Trail
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, Platform, useWindowDimensions, TextInput } from 'react-native';
 import AnimatedList from '../../../components/AnimatedList';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../../context/authContext';
 import { API_URL } from '../../../config';
-import { AdminTheme as C } from './_layout';
+import { useAdminTheme } from './_layout';
 
 const glass: any = (extra?: object) => ({
-  backgroundColor: 'rgba(11,11,30,0.6)',
+  backgroundColor: 'transparent',
   ...extra,
 });
 
@@ -33,7 +32,7 @@ const timeSince = (iso?: string) => {
   return `${Math.floor(d / 86400000)}d ago`;
 };
 
-const getActionColor = (action: string) => {
+const getActionColor = (action: string, C: any) => {
   if (action.includes('reject') || action.includes('ban')) return C.error;
   if (action.includes('approve') || action.includes('unban')) return C.secondary;
   if (action.includes('balance')) return C.primary;
@@ -51,6 +50,8 @@ const formatDetails = (details: any) => {
 };
 
 export default function AdminAudit() {
+  const { theme: C, isDark } = useAdminTheme();
+  const styles = useMemo(() => getStyles(C, isDark), [C, isDark]);
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
   const { token, t } = useAuth();
@@ -94,7 +95,7 @@ export default function AdminAudit() {
   const totalPages = Math.max(1, Math.ceil(filteredLogs.length / itemsPerPage));
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: C.background }}>
       <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
         <View style={[styles.pageHeader, isMobile && { flexDirection: 'column', alignItems: 'flex-start', gap: 16 }]}>
           <View>
@@ -107,15 +108,15 @@ export default function AdminAudit() {
           </TouchableOpacity>
         </View>
 
-        <View style={[styles.tableWrap, glass({ borderRadius: 24, overflow: 'hidden' })]}>
+        <View style={styles.tableWrap}>
           <View style={[styles.tableTopBar, isMobile && { flexDirection: 'column', gap: 12 }]}>
             <Text style={styles.tableTitle}>{t('activity_logs')}</Text>
             <View style={[styles.searchBox, isMobile && { width: '100%' as any }]}>
-              <Ionicons name="search" size={16} color="rgba(168,167,212,0.5)" />
+              <Ionicons name="search" size={16} color={C.onSurfaceVariant} />
               <TextInput 
                 style={styles.searchInput} 
                 placeholder={t('search_audit')} 
-                placeholderTextColor="rgba(168,167,212,0.4)" 
+                placeholderTextColor={C.onSurfaceVariant} 
                 value={query} 
                 onChangeText={setQuery}
                 {...(Platform.OS === 'web' ? { outlineStyle: 'none' } as any : {})}
@@ -128,9 +129,9 @@ export default function AdminAudit() {
               <AnimatedList
                 items={loading ? [] : paginatedLogs}
                 renderItem={(l: AuditLog) => {
-                  const actionColor = getActionColor(l.action);
+                  const actionColor = getActionColor(l.action, C);
                   return (
-                    <View key={l.id} style={{ backgroundColor: 'rgba(255,255,255,0.02)', padding: 14, borderRadius: 12, marginBottom: 8, borderWidth: 1, borderColor: C.outlineVariant, gap: 8 }}>
+                    <View key={l.id} style={{ backgroundColor: C.surfaceContainerLowest, padding: 14, borderRadius: 8, marginBottom: 8, borderWidth: 1, borderColor: C.border, gap: 8 }}>
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                         <View>
                           <Text style={styles.adminName}>{l.admin_name || 'System'}</Text>
@@ -140,9 +141,9 @@ export default function AdminAudit() {
                           {(l.action || 'system').toUpperCase().replace('_', ' ')}
                         </Text>
                       </View>
-                      <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>Target: {l.target_name || 'System'}</Text>
+                      <Text style={{ color: C.onSurface, fontSize: 12, fontWeight: '700' }}>Target: {l.target_name || 'System'}</Text>
                       <Text style={{ color: C.onSurfaceVariant, fontSize: 11 }}>{formatDetails(l.details)}</Text>
-                      <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, alignSelf: 'flex-end' }}>{timeSince(l.created_at)}</Text>
+                      <Text style={{ color: C.onSurfaceVariant, fontSize: 10, alignSelf: 'flex-end' }}>{timeSince(l.created_at)}</Text>
                     </View>
                   );
                 }}
@@ -154,7 +155,7 @@ export default function AdminAudit() {
           ) : (
             <ScrollView showsVerticalScrollIndicator={false}>
               <View style={{ flex: 1 }}>
-                <View style={[styles.colRow, { backgroundColor: 'rgba(24, 24, 27, 0.5)' }]}>
+                <View style={[styles.colRow, { backgroundColor: C.surfaceContainerHighest }]}>
                   <Text style={[styles.colHead, { flex: 1.2 }]}>Admin User</Text>
                   <Text style={[styles.colHead, { flex: 1 }]}>Action</Text>
                   <Text style={[styles.colHead, { flex: 1.2 }]}>Target Item</Text>
@@ -165,7 +166,7 @@ export default function AdminAudit() {
                 <AnimatedList
                   items={loading ? [] : paginatedLogs}
                   renderItem={(l: AuditLog) => {
-                    const actionColor = getActionColor(l.action);
+                    const actionColor = getActionColor(l.action, C);
                     return (
                       <View key={l.id} style={styles.tableRow}>
                         <View style={{ flex: 1.2 }}>
@@ -209,7 +210,7 @@ export default function AdminAudit() {
               onPress={() => setCurrentPage(p => p - 1)}
               style={[styles.pageBtn, currentPage === 1 && { opacity: 0.3 }]}
             >
-              <Ionicons name="chevron-back" size={20} color="#fff" />
+              <Ionicons name="chevron-back" size={20} color={C.onSurface} />
             </TouchableOpacity>
             <Text style={styles.pageInfo}>Page {currentPage} of {totalPages}</Text>
             <TouchableOpacity 
@@ -217,7 +218,7 @@ export default function AdminAudit() {
               onPress={() => setCurrentPage(p => p + 1)}
               style={[styles.pageBtn, currentPage === totalPages && { opacity: 0.3 }]}
             >
-              <Ionicons name="chevron-forward" size={20} color="#fff" />
+              <Ionicons name="chevron-forward" size={20} color={C.onSurface} />
             </TouchableOpacity>
           </View>
         </View>
@@ -227,28 +228,28 @@ export default function AdminAudit() {
   );
 }
 
-const styles = StyleSheet.create({
-  pageHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 40, paddingHorizontal: 24 },
-  pageTitle: { color: '#e5e3ff', fontSize: 32, fontWeight: '900', letterSpacing: -1 },
-  pageSub: { color: '#a8a7d4', fontSize: 13, marginTop: 8, maxWidth: 500 },
-  refreshBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 20, paddingVertical: 12, backgroundColor: C.primaryContainer, borderRadius: 14 },
-  refreshTxt: { color: '#fff', fontSize: 13, fontWeight: '800' },
-  tableWrap: { flex: 1, marginHorizontal: 24 },
-  tableTopBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 24 },
-  tableTitle: { color: '#e5e3ff', fontSize: 18, fontWeight: '800' },
-  searchBox: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#0f0f11', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(39, 39, 42, 0.4)', width: 300 },
-  searchInput: { flex: 1, color: '#fff', fontSize: 13 },
-  colRow: { flexDirection: 'row', paddingHorizontal: 24, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(39, 39, 42, 0.4)' },
-  colHead: { color: 'rgba(168,167,212,0.6)', fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1.5 },
-  tableRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 18, borderBottomWidth: 1, borderBottomColor: 'rgba(68,68,107,0.08)' },
-  adminName: { color: '#e5e3ff', fontSize: 13, fontWeight: '700' },
-  adminNum: { color: 'rgba(168,167,212,0.5)', fontSize: 10 },
-  actionPill: { fontSize: 9, fontWeight: '900', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1, textAlign: 'center', alignSelf: 'flex-start' },
-  targetName: { color: '#e5e3ff', fontSize: 12, fontWeight: '600' },
-  details: { color: 'rgba(168,167,212,0.7)', fontSize: 11, fontStyle: 'italic' },
-  timeAgo: { color: '#a8a7d4', fontSize: 11 },
-  emptyText: { color: '#a8a7d4', textAlign: 'center', marginVertical: 60, fontSize: 14 },
-  pagination: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 24, padding: 24, borderTopWidth: 1, borderTopColor: 'rgba(39, 39, 42, 0.2)' },
-  pageBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
-  pageInfo: { color: 'rgba(168,167,212,0.8)', fontSize: 13, fontWeight: '600' },
+const getStyles = (C: any, isDark: boolean) => StyleSheet.create({
+  pageHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 28, paddingHorizontal: 24, paddingTop: 16 },
+  pageTitle: { color: C.onSurface, fontSize: 28, fontWeight: '800', letterSpacing: -0.5 },
+  pageSub: { color: C.onSurfaceVariant, fontSize: 13, marginTop: 4, maxWidth: 500 },
+  refreshBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: C.primary, borderRadius: 8 },
+  refreshTxt: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  tableWrap: { flex: 1, marginHorizontal: 24, borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: C.border, backgroundColor: C.surface },
+  tableTopBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: C.border, backgroundColor: C.surface },
+  tableTitle: { color: C.onSurface, fontSize: 18, fontWeight: '700' },
+  searchBox: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.surfaceContainerLowest, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: C.border, width: 280 },
+  searchInput: { flex: 1, color: C.onSurface, fontSize: 13 },
+  colRow: { flexDirection: 'row', paddingHorizontal: 20, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.border },
+  colHead: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
+  tableRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: C.border },
+  adminName: { color: C.onSurface, fontSize: 13, fontWeight: '700' },
+  adminNum: { color: C.onSurfaceVariant, fontSize: 10 },
+  actionPill: { fontSize: 9, fontWeight: '700', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, textAlign: 'center', alignSelf: 'flex-start' },
+  targetName: { color: C.onSurface, fontSize: 12, fontWeight: '600' },
+  details: { color: C.onSurfaceVariant, fontSize: 11 },
+  timeAgo: { color: C.onSurfaceVariant, fontSize: 11 },
+  emptyText: { color: C.onSurfaceVariant, textAlign: 'center', marginVertical: 40, fontSize: 13 },
+  pagination: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 20, padding: 18, borderTopWidth: 1, borderTopColor: C.border, backgroundColor: C.surface },
+  pageBtn: { width: 36, height: 36, borderRadius: 8, backgroundColor: C.surfaceContainerHighest, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.border },
+  pageInfo: { color: C.onSurfaceVariant, fontSize: 12, fontWeight: '600' },
 });

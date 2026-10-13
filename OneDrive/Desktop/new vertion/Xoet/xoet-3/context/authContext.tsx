@@ -428,6 +428,9 @@ type Ctx = {
   loginWithTelegram: () => Promise<void>;
   telegramLoading: boolean;
 
+  // Direct token login (URL token hydration / deep link)
+  loginWithToken: (token: string, refreshToken?: string) => Promise<void>;
+
   // Profile & session
   refreshProfile: () => Promise<void>;
   logout: () => Promise<void>;
@@ -467,23 +470,46 @@ type Ctx = {
 const storage = {
   async getItemAsync(key: string): Promise<string | null> {
     if (Platform.OS === "web") {
-      return localStorage.getItem(key);
+      try {
+        if (typeof window !== "undefined" && window.localStorage) {
+          return window.localStorage.getItem(key);
+        }
+      } catch {
+        return null;
+      }
+      return null;
     }
-    return SecureStore.getItemAsync(key);
+    try {
+      return await SecureStore.getItemAsync(key);
+    } catch {
+      return null;
+    }
   },
   async setItemAsync(key: string, value: string): Promise<void> {
     if (Platform.OS === "web") {
-      localStorage.setItem(key, value);
+      try {
+        if (typeof window !== "undefined" && window.localStorage) {
+          window.localStorage.setItem(key, value);
+        }
+      } catch {}
       return;
     }
-    return SecureStore.setItemAsync(key, value);
+    try {
+      await SecureStore.setItemAsync(key, value);
+    } catch {}
   },
   async deleteItemAsync(key: string): Promise<void> {
     if (Platform.OS === "web") {
-      localStorage.removeItem(key);
+      try {
+        if (typeof window !== "undefined" && window.localStorage) {
+          window.localStorage.removeItem(key);
+        }
+      } catch {}
       return;
     }
-    return SecureStore.deleteItemAsync(key);
+    try {
+      await SecureStore.deleteItemAsync(key);
+    } catch {}
   },
 };
 
@@ -643,28 +669,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const playSuccessSound = async () => {
     if ((!user || !user.sound_muted) && clickPlayer) {
       try {
-        clickPlayer.play();
-      } catch (e) {
-        console.warn("Success sound play error:", e);
-      }
+        await Promise.resolve(clickPlayer.play()).catch(() => {});
+      } catch (_) {}
     }
   };
   const playErrorSound = async () => {
     if ((!user || !user.sound_muted) && losePlayer) {
       try {
-        losePlayer.play();
-      } catch (e) {
-        console.warn("Error sound play error:", e);
-      }
+        await Promise.resolve(losePlayer.play()).catch(() => {});
+      } catch (_) {}
     }
   };
   const playClickSound = async () => {
     if ((!user || !user.sound_muted) && clickPlayer) {
       try {
-        clickPlayer.play();
-      } catch (e) {
-        console.warn("Click sound play error:", e);
-      }
+        await Promise.resolve(clickPlayer.play()).catch(() => {});
+      } catch (_) {}
     }
   };
 
@@ -786,6 +806,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Run health check in the background without blocking boot
         void testConnection();
 
+        // 0) Check URL or deep link for incoming token (e.g. from Telegram login return)
+        let incomingToken: string | null = null;
+        let incomingRefresh: string | null = null;
+
+        if (Platform.OS === 'web' && typeof window !== 'undefined') {
+          try {
+            const urlParams = new URLSearchParams(window.location.search);
+            const t = urlParams.get('token') || urlParams.get('auth_token');
+            const r = urlParams.get('refresh') || urlParams.get('refreshToken');
+            if (t) {
+              incomingToken = t;
+              incomingRefresh = r;
+            }
+          } catch (_) {}
+        }
+
+        if (!incomingToken) {
+          try {
+            const initialUrl = await Linking.getInitialURL();
+            if (initialUrl) {
+              const parsed = new URL(initialUrl);
+              const t = parsed.searchParams.get('token') || parsed.searchParams.get('auth_token');
+              const r = parsed.searchParams.get('refresh') || parsed.searchParams.get('refreshToken');
+              if (t) {
+                incomingToken = t;
+                incomingRefresh = r;
+              }
+            }
+          } catch (_) {}
+        }
+
         // 1) Load cached tokens, cached user profile, and cached methods in parallel (near-instant)
         const [savedToken, cachedUserRaw, cachedMethods] = await Promise.all([
           storage.getItemAsync(KEY),
@@ -804,8 +855,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           } catch {}
         }
 
-        if (savedToken) {
-          setToken(savedToken);
+        const effectiveToken = incomingToken || savedToken;
+
+        if (incomingToken) {
+          await storage.setItemAsync(KEY, incomingToken);
+          if (incomingRefresh) {
+            await storage.setItemAsync(REFRESH_KEY, incomingRefresh);
+          }
+          cachedUser = null; // Stale cache should not be used for a newly provided token
+        }
+
+        if (effectiveToken) {
+          setToken(effectiveToken);
           if (cachedUser) {
             setUser(cachedUser);
             // Hide the splash screen instantly for users with valid cached session!
@@ -816,19 +877,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (!cachedUser) {
               // Blocking boot if no cache exists to prevent UI flicker
               const [profile] = await Promise.all([
-                fetchMe(savedToken),
+                fetchMe(effectiveToken),
                 fetchPaymentMethods(),
               ]);
               setUser(profile);
               await storage.setItemAsync(USER_KEY, JSON.stringify(profile));
               setOffline(false);
               await playSuccessSound();
+
+              // Clean up incoming token from URL bar so it doesn't linger in browser history
+              if (incomingToken && Platform.OS === 'web' && typeof window !== 'undefined' && window.history?.replaceState) {
+                try {
+                  const cleanUrl = new URL(window.location.href);
+                  cleanUrl.searchParams.delete('token');
+                  cleanUrl.searchParams.delete('auth_token');
+                  cleanUrl.searchParams.delete('refresh');
+                  cleanUrl.searchParams.delete('refreshToken');
+                  const newSearch = cleanUrl.searchParams.toString();
+                  const target = cleanUrl.pathname + (newSearch ? `?${newSearch}` : '') + cleanUrl.hash;
+                  window.history.replaceState({}, document.title, target);
+                } catch (_) {}
+              }
             } else {
               // Non-blocking background revalidation if cache exists (Perceived instant load!)
               void (async () => {
                 try {
                   const [profile] = await Promise.all([
-                    fetchMe(savedToken),
+                    fetchMe(effectiveToken),
                     fetchPaymentMethods(),
                   ]);
                   setUser(profile);
@@ -934,7 +1009,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               console.warn("[boot] Rate-limited, waiting 5s…");
               await new Promise(r => setTimeout(r, 5000));
               try {
-                const profile = await fetchMe(savedToken);
+                const profile = await fetchMe(effectiveToken);
                 setUser(profile);
                 await storage.setItemAsync(USER_KEY, JSON.stringify(profile));
                 setOffline(false);
@@ -1044,6 +1119,67 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Direct token login handler for deep links and URL params
+  const loginWithToken = useCallback(async (newToken: string, newRefreshToken?: string) => {
+    try {
+      setBooting(true);
+      await storage.setItemAsync(KEY, newToken);
+      if (newRefreshToken) {
+        await storage.setItemAsync(REFRESH_KEY, newRefreshToken);
+      }
+      setToken(newToken);
+
+      const [profile] = await Promise.all([
+        fetchMe(newToken),
+        fetchPaymentMethods(),
+      ]);
+      setUser(profile);
+      await storage.setItemAsync(USER_KEY, JSON.stringify(profile));
+      setOffline(false);
+      await playSuccessSound();
+
+      if (Platform.OS === 'web' && typeof window !== 'undefined' && window.history?.replaceState) {
+        try {
+          const cleanUrl = new URL(window.location.href);
+          cleanUrl.searchParams.delete('token');
+          cleanUrl.searchParams.delete('auth_token');
+          cleanUrl.searchParams.delete('refresh');
+          cleanUrl.searchParams.delete('refreshToken');
+          const newSearch = cleanUrl.searchParams.toString();
+          const target = cleanUrl.pathname + (newSearch ? `?${newSearch}` : '') + cleanUrl.hash;
+          window.history.replaceState({}, document.title, target);
+        } catch (_) {}
+      }
+    } catch (err: any) {
+      console.warn('[loginWithToken] failed:', err?.message);
+      if (err?.status === 401) {
+        await storage.deleteItemAsync(KEY);
+        await storage.deleteItemAsync(REFRESH_KEY);
+        await storage.deleteItemAsync(USER_KEY);
+        setToken(null);
+        setUser(null);
+      }
+    } finally {
+      setBooting(false);
+    }
+  }, [fetchPaymentMethods]);
+
+  // Deep linking listener for runtime incoming URLs
+  useEffect(() => {
+    const sub = Linking.addEventListener('url', async ({ url }) => {
+      try {
+        if (!url) return;
+        const parsed = new URL(url);
+        const t = parsed.searchParams.get('token') || parsed.searchParams.get('auth_token');
+        const r = parsed.searchParams.get('refresh') || parsed.searchParams.get('refreshToken');
+        if (t) {
+          await loginWithToken(t, r || undefined);
+        }
+      } catch (_) {}
+    });
+    return () => sub.remove();
+  }, [loginWithToken]);
+
   // ---- Telegram login ----
   const loginWithTelegram = useCallback(async () => {
     setTelegramLoading(true);
@@ -1051,13 +1187,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await playClickSound();
 
-      // 1) Init session on backend
+      // 1) Init session on backend — defaults to /home/gameplay
+      const returnUrl = (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.origin)
+        ? `${window.location.origin}/home/gameplay`
+        : 'https://xo-frontend-gamma.vercel.app/home/gameplay';
+
       const initRes = await fetch(`${API_URL}/auth/telegram-init`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'x-platform': Platform.OS === 'web' ? 'web' : 'mobile',
         },
+        body: JSON.stringify({ returnUrl }),
       });
       if (!initRes.ok) {
         throw new Error('Failed to start Telegram login');
@@ -1065,15 +1206,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { sessionToken, deepLink } = await initRes.json();
 
       // 2) Open Telegram
-      const canOpen = await Linking.canOpenURL(deepLink);
-      if (canOpen) {
-        await Linking.openURL(deepLink);
-      } else {
-        // Fallback: open in browser (works on web)
+      try {
+        if (Platform.OS === 'web' && typeof window !== 'undefined') {
+          window.open(deepLink, '_blank');
+        } else {
+          await Linking.openURL(deepLink);
+        }
+      } catch (openErr) {
         if (Platform.OS === 'web') {
           window.open(deepLink, '_blank');
         } else {
-          throw new Error('Telegram is not installed. Please install Telegram first.');
+          await Linking.openURL(deepLink).catch(() => {});
         }
       }
 
@@ -1290,6 +1433,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       verifyOtp: verifyOtp as any,
       loginWithTelegram,
       telegramLoading,
+      loginWithToken,
 
       refreshProfile,
       logout,
@@ -1326,6 +1470,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       pendingNumber,
       telegramLoading,
       loginWithTelegram,
+      loginWithToken,
       language,
       paymentMethod,
       fetchingMethods,

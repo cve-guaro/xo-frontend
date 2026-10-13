@@ -14,6 +14,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { ROOMS, type RoomConfig, type SheetStep } from "./gameplayConstants";
+import { haptics } from "../../lib/haptcs";
 
 const RoomSheet = memo(function RoomSheet({
   language,
@@ -135,7 +136,10 @@ const RoomSheet = memo(function RoomSheet({
                     key={room.id} 
                     activeOpacity={0.88} 
                     disabled={roomLocked || globalLocked} 
-                    onPress={() => onSelectRoom(room.id)} 
+                    onPress={() => {
+                      haptics.tap();
+                      onSelectRoom(room.id);
+                    }} 
                     style={[styles.roomBtn, (roomLocked || globalLocked) && { opacity: 0.4 }]}
                   >
                     <LinearGradient colors={roomLocked || globalLocked ? ['#2a2a38', '#1a1a24'] : (room.colors as [string, string])} start={{x:0,y:0}} end={{x:1,y:0}} style={styles.roomInner}>
@@ -206,7 +210,11 @@ const RoomSheet = memo(function RoomSheet({
                     <Pressable
                       key={opt.amount}
                       onPress={() => {
-                        if (disabled) return;
+                        if (disabled) {
+                          haptics.warning();
+                          return;
+                        }
+                        haptics.tap();
                         if (isDesktop) setLocalAmount(opt.amount);
                         else onSelectAmount(selectedRoom, opt.min, opt.max);
                       }}
@@ -426,6 +434,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 10,
     elevation: 8,
+    ...(Platform.OS === 'web' ? { 
+      cursor: 'pointer',
+      transition: 'transform 0.16s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, filter 0.16s ease',
+      touchAction: 'manipulation',
+      WebkitTapHighlightColor: 'transparent',
+    } as any : {}),
   },
   roomInner: {
     paddingVertical: 20,
@@ -495,6 +509,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 6,
+    ...(Platform.OS === 'web' ? { 
+      cursor: 'pointer',
+      transition: 'transform 0.16s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, filter 0.16s ease',
+      touchAction: 'manipulation',
+      WebkitTapHighlightColor: 'transparent',
+    } as any : {}),
   },
   amountCardSelected: {
     borderWidth: 2,

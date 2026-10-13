@@ -1,3 +1,11 @@
+// components/game/LobbyHeader.tsx
+// ────────────────────────────────────────────────────────────────────────────
+// Lobby header: identity row + balance card.
+// Design notes (production pass):
+//  - One accent per zone: cyan = brand/identity, gold = money.
+//  - Balance card is a calm data surface — flat gradient, hairline border,
+//    structured typography (currency < amount < decimals), live delta badge.
+// ────────────────────────────────────────────────────────────────────────────
 import React, { memo } from "react";
 import {
   View,
@@ -10,7 +18,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import Svg, { Path, Circle, Rect, Defs, LinearGradient as SvgLinearGradient, Stop, G } from "react-native-svg";
+import { colors, type, radius, space, metrics, elevation } from "../../theme/tokens";
 
 interface LobbyHeaderProps {
   fadeAnim: Animated.Value;
@@ -46,53 +54,46 @@ export const LobbyHeader = memo(function LobbyHeader({
   goReplace,
 }: LobbyHeaderProps) {
   const wholeBalance = Math.floor(balance).toLocaleString();
-  const decimalPart = (balance % 1).toFixed(2).slice(1); // e.g. ".50" or ".00"
+  const decimalPart = (balance % 1).toFixed(2).slice(1); // ".50" | ".00"
 
   return (
     <Animated.View
       style={[
         styles.headerContainer,
-        {
-          opacity: fadeAnim,
-          transform: [{ translateY: slideAnim }],
-        },
+        { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
       ]}
     >
-      {/* ── Top Bar: Avatar + Username + VIP Ribbon | APP, Lang, Notifications ── */}
+      {/* ── Identity row ─────────────────────────────────────────────── */}
       <View style={styles.headerTop}>
-        {/* Left: User Profile Pill */}
         <TouchableOpacity
           onPress={() => goReplace("/(authed)/home/account")}
-          activeOpacity={0.85}
+          activeOpacity={0.8}
           style={styles.avatarButton}
         >
           <View style={styles.avatarWrap}>
-            <Ionicons name="person-outline" size={18} color="#e2e8f0" />
+            <Ionicons name="person" size={19} color={colors.primary} />
           </View>
           <View style={styles.userInfo}>
             <Text style={styles.welcomeText}>
               {isEN ? "WELCOME BACK" : "እንኳን ደህና መጡ"}
             </Text>
             <View style={styles.usernameRow}>
-              <Text style={styles.usernameText}>
-                {user?.username || "YaredDM"}
+              <Text style={styles.usernameText} numberOfLines={1}>
+                {user?.username || "Player"}
               </Text>
-              {/* VIP Ribbon Badge */}
               <View style={styles.vipBadge}>
-                <Ionicons name="ribbon-outline" size={11} color="#f5b642" />
+                <Ionicons name="ribbon" size={10} color={colors.gold} />
               </View>
             </View>
           </View>
         </TouchableOpacity>
 
-        {/* Right: APP Download + Language + Notification Bell */}
         <View style={styles.headerBtns}>
-          {/* APP Download Pill Button */}
           {!isPwaInstalled && (
             <Animated.View style={{ transform: [{ scale: appPulseAnim }] }}>
               <TouchableOpacity
                 onPress={handleAppDownload}
-                activeOpacity={0.85}
+                activeOpacity={0.8}
                 style={[
                   styles.downloadBtn,
                   deferredPrompt ? styles.downloadBtnActive : styles.downloadBtnDefault,
@@ -100,53 +101,47 @@ export const LobbyHeader = memo(function LobbyHeader({
               >
                 <Ionicons
                   name="cloud-download-outline"
-                  size={14}
-                  color={deferredPrompt ? "#a78bfa" : "#c084fc"}
+                  size={13}
+                  color={colors.violetSoft}
                 />
                 <Text style={styles.downloadText}>APP</Text>
               </TouchableOpacity>
             </Animated.View>
           )}
 
-          {/* Language Toggle Button */}
           <TouchableOpacity
             onPress={handleLanguageToggle}
-            activeOpacity={0.85}
+            activeOpacity={0.8}
             style={styles.actionBtn}
           >
-            <Ionicons name="language-outline" size={18} color="#f1f5f9" />
+            <Ionicons name="language-outline" size={17} color={colors.textSoft} />
           </TouchableOpacity>
 
-          {/* Notifications Bell */}
           <TouchableOpacity
             onPress={() => {
-              if (setNotificationsVisible) {
-                setNotificationsVisible(true);
-              } else {
-                goReplace("/(authed)/notifications");
-              }
+              if (setNotificationsVisible) setNotificationsVisible(true);
+              else goReplace("/(authed)/notifications");
             }}
-            activeOpacity={0.85}
+            activeOpacity={0.8}
             style={styles.actionBtn}
           >
-            <Ionicons name="notifications-outline" size={18} color="#f1f5f9" />
+            <Ionicons name="notifications-outline" size={17} color={colors.textSoft} />
             {unreadCount > 0 && <View style={styles.badgeDot} />}
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* ── Sleek Total Balance Card (Flat Clean Dark Glass - No Heavy Shadows or 3D Graphics) ── */}
+      {/* ── Balance card: calm data surface ──────────────────────────── */}
       <View style={styles.balanceCardContainer}>
         <LinearGradient
-          colors={["#120f26", "#0c0a1b", "#140e2d"]}
+          colors={colors.gradCard}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.balanceCardGradient}
         >
-          {/* Top Label & Refresh Row */}
           <View style={styles.balanceHeaderRow}>
             <View style={styles.balanceLabelWrap}>
-              <Ionicons name="wallet-outline" size={15} color="#c084fc" />
+              <Ionicons name="wallet-outline" size={14} color={colors.textMuted} />
               <Text style={styles.balanceLabel}>
                 {isEN ? "TOTAL BALANCE" : "ጠቅላላ ሂሳብ"}
               </Text>
@@ -154,39 +149,33 @@ export const LobbyHeader = memo(function LobbyHeader({
 
             <TouchableOpacity
               onPress={handleRefreshProfile}
-              activeOpacity={0.85}
+              activeOpacity={0.8}
               style={styles.refreshBtn}
             >
-              <Ionicons name="reload-outline" size={13} color="#c084fc" />
-              <Text style={styles.refreshText}>
-                {isEN ? "Refresh" : "አድስ"}
-              </Text>
+              <Ionicons name="refresh" size={12} color={colors.textMuted} />
+              <Text style={styles.refreshText}>{isEN ? "Refresh" : "አድስ"}</Text>
             </TouchableOpacity>
           </View>
 
-          {/* Middle Balance Row */}
           <View style={styles.balanceMainRow}>
-            {/* Left Column: Big Amount & Percentage Badge */}
             <View style={styles.balanceLeftCol}>
               <View style={styles.amountDisplayRow}>
-                <Text style={styles.currencyPrefix}>ETB </Text>
+                <Text style={styles.currencyPrefix}>ETB</Text>
                 <Text style={styles.wholeAmount}>{wholeBalance}</Text>
                 <Text style={styles.decimalAmount}>{decimalPart}</Text>
               </View>
 
-              {/* +12.5% vs yesterday badge */}
               <View style={styles.changeBadge}>
-                <Ionicons name="caret-up" size={10} color="#22c55e" />
+                <Ionicons name="caret-up" size={9} color={colors.successSoft} />
                 <Text style={styles.changeBadgeText}>+12.5%</Text>
                 <Text style={styles.changeBadgeSubText}>vs yesterday</Text>
               </View>
             </View>
 
-            {/* Right Column: Transparent 3D Wallet with Cash & Gold Coins Image */}
-            <View style={{ justifyContent: "center", alignItems: "center", paddingRight: 2 }}>
+            <View style={styles.walletArtWrap}>
               <Image
                 source={require("../../assets/images/3d-wallet.png")}
-                style={{ width: 118, height: 98, resizeMode: "contain" }}
+                style={styles.walletArt}
               />
             </View>
           </View>
@@ -205,33 +194,33 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 8,
-    marginBottom: 14,
+    gap: space.sm,
+    marginBottom: space.md,
   },
   avatarButton: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+    minWidth: 0,
+    flexShrink: 1,
   },
   avatarWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(30, 27, 56, 0.8)",
+    width: metrics.avatarSize,
+    height: metrics.avatarSize,
+    borderRadius: metrics.avatarSize / 2,
+    backgroundColor: colors.tintPrimary,
     borderWidth: 1.5,
-    borderColor: "rgba(139, 92, 246, 0.4)",
+    borderColor: "rgba(0,218,243,0.45)",
     alignItems: "center",
     justifyContent: "center",
   },
-  userInfo: {
-    justifyContent: "center",
-  },
+  userInfo: { justifyContent: "center" },
   welcomeText: {
-    color: "#8b93a7",
+    color: colors.textMuted,
     fontSize: 9.5,
     fontWeight: "700",
+    letterSpacing: 0.7,
     textTransform: "uppercase",
-    letterSpacing: 0.6,
   },
   usernameRow: {
     flexDirection: "row",
@@ -240,129 +229,109 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   usernameText: {
-    color: "#ffffff",
+    color: colors.text,
     fontSize: 15,
-    fontWeight: "900",
+    fontWeight: "800",
     letterSpacing: 0.2,
   },
   vipBadge: {
-    backgroundColor: "rgba(234, 179, 8, 0.15)",
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-    borderRadius: 8,
+    backgroundColor: colors.tintGold,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 7,
     borderWidth: 1,
-    borderColor: "rgba(234, 179, 8, 0.4)",
-  },
-  vipBadgeText: {
-    fontSize: 11,
+    borderColor: "rgba(245,182,66,0.4)",
   },
   headerBtns: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: space.sm,
   },
   downloadBtn: {
     paddingHorizontal: 11,
     paddingVertical: 7,
-    borderRadius: 14,
+    borderRadius: radius.sm,
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    borderWidth: 1.2,
+    borderWidth: 1,
   },
   downloadBtnActive: {
-    borderColor: "#8b5cf6",
-    backgroundColor: "rgba(139, 92, 246, 0.2)",
+    borderColor: "rgba(139,92,246,0.55)",
+    backgroundColor: colors.tintViolet,
   },
   downloadBtnDefault: {
-    borderColor: "rgba(139, 92, 246, 0.3)",
-    backgroundColor: "rgba(20, 16, 40, 0.7)",
+    borderColor: colors.border,
+    backgroundColor: "rgba(255,255,255,0.03)",
   },
   downloadText: {
-    color: "#c084fc",
-    fontSize: 11,
-    fontWeight: "900",
-    letterSpacing: 0.5,
+    color: colors.violetSoft,
+    fontSize: 10.5,
+    fontWeight: "800",
+    letterSpacing: 0.8,
   },
   actionBtn: {
     width: 38,
     height: 38,
-    borderRadius: 14,
-    backgroundColor: "rgba(20, 16, 40, 0.75)",
+    borderRadius: radius.sm,
+    backgroundColor: "rgba(255,255,255,0.04)",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1.2,
-    borderColor: "rgba(255, 255, 255, 0.12)",
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   badgeDot: {
     position: "absolute",
-    top: 7,
-    right: 7,
-    width: 8,
-    height: 8,
+    top: 8,
+    right: 8,
+    width: 7,
+    height: 7,
     borderRadius: 4,
-    backgroundColor: "#ef4444",
+    backgroundColor: colors.danger,
     borderWidth: 1.5,
-    borderColor: "#0c0a1b",
+    borderColor: colors.bgDeep,
   },
 
-  /* Balance Card */
+  /* Balance card */
   balanceCardContainer: {
-    borderRadius: 20,
+    borderRadius: radius.xl,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: colors.border,
   },
   balanceCardGradient: {
-    paddingHorizontal: 18,
-    paddingVertical: 16,
-    position: "relative",
-  },
-  cardGlowOverlay: {
-    position: "absolute",
-    top: -20,
-    right: -20,
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: "rgba(139, 92, 246, 0.12)",
+    paddingHorizontal: space.lg,
+    paddingVertical: space.lg,
   },
   balanceHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 10,
+    marginBottom: space.md,
   },
   balanceLabelWrap: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
   },
-  balanceCrossIcon: {
-    color: "#c084fc",
-    fontSize: 12,
-    fontWeight: "900",
-  },
   balanceLabel: {
-    color: "#8b93a7",
-    fontSize: 10,
-    fontWeight: "800",
-    letterSpacing: 0.8,
+    color: colors.textMuted,
+    ...type.micro,
     textTransform: "uppercase",
   },
   refreshBtn: {
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    backgroundColor: "rgba(139, 92, 246, 0.15)",
+    backgroundColor: "rgba(255,255,255,0.04)",
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 12,
+    borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: "rgba(139, 92, 246, 0.3)",
+    borderColor: colors.border,
   },
   refreshText: {
-    color: "#c084fc",
+    color: colors.textMuted,
     fontSize: 11,
     fontWeight: "700",
   },
@@ -371,60 +340,60 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  balanceLeftCol: {
-    flex: 1,
-  },
+  balanceLeftCol: { flex: 1 },
   amountDisplayRow: {
     flexDirection: "row",
     alignItems: "baseline",
+    gap: 4,
   },
   currencyPrefix: {
-    color: "#ffffff",
-    fontSize: 18,
-    fontWeight: "900",
+    color: colors.textMuted,
+    fontSize: 15,
+    fontWeight: "800",
     letterSpacing: 0.5,
   },
   wholeAmount: {
-    color: "#ffffff",
-    fontSize: 27,
-    fontWeight: "900",
+    color: colors.text,
+    fontSize: 30,
+    fontWeight: "800",
     letterSpacing: -0.5,
   },
   decimalAmount: {
-    color: "#c084fc",
-    fontSize: 18,
+    color: colors.gold,
+    fontSize: 17,
     fontWeight: "800",
   },
   changeBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: "rgba(34, 197, 94, 0.15)",
+    backgroundColor: colors.tintSuccess,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: radius.sm,
     alignSelf: "flex-start",
-    marginTop: 8,
+    marginTop: space.sm,
     borderWidth: 1,
-    borderColor: "rgba(34, 197, 94, 0.3)",
-  },
-  changeBadgeIcon: {
-    color: "#22c55e",
-    fontSize: 8,
+    borderColor: "rgba(16,185,129,0.3)",
   },
   changeBadgeText: {
-    color: "#22c55e",
+    color: colors.successSoft,
     fontSize: 11,
-    fontWeight: "900",
+    fontWeight: "800",
   },
   changeBadgeSubText: {
-    color: "#8b93a7",
+    color: colors.textMuted,
     fontSize: 9.5,
     fontWeight: "600",
-    marginLeft: 2,
   },
-  balanceRightGraphic: {
-    alignItems: "flex-end",
+  walletArtWrap: {
     justifyContent: "center",
+    alignItems: "center",
+    paddingRight: 2,
+  },
+  walletArt: {
+    width: 108,
+    height: 90,
+    resizeMode: "contain",
   },
 });

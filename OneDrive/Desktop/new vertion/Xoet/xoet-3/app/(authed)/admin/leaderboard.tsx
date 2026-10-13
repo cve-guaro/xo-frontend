@@ -1,7 +1,6 @@
-// app/(authed)/admin/leaderboard.tsx — Admin Leaderboard Control Panel
+import React, { useCallback, useEffect, useState, useMemo } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
@@ -20,31 +19,36 @@ import { useAuth } from "../../../context/authContext";
 import { API_URL } from "../../../config";
 import ActionConfirmModal from "../../../components/ActionConfirmModal";
 import User360View from "../../../components/User360View";
-
-const C = {
-  bg: '#0a0a1a',
-  card: 'rgba(17, 17, 24, 0.85)',
-  cardHeader: 'rgba(26, 26, 37, 0.4)',
-  border: 'rgba(255, 255, 255, 0.08)',
-  borderActive: 'rgba(0, 242, 255, 0.4)',
-  accent: '#00e5ff',
-  accentDim: 'rgba(0, 229, 255, 0.15)',
-  secondary: '#00e5ff',
-  gold: '#ffb84d',
-  silver: '#cbd5e1',
-  bronze: '#d97706',
-  green: '#10b981',
-  red: '#ef4444',
-  txt: '#f1f1f6',
-  dim: '#9090a8',
-  bgGlass: 'rgba(255, 255, 255, 0.02)',
-};
+import { useAdminTheme } from "./_layout";
 
 type Standing = { id: string; username: string; number: string; wins: number; rank: number };
 type Snapshot = { id: string; week_start: string; week_end: string; user_id: string; username: string; wins: number; rank: number; prize_amount: number; prize_status: string };
 type FakeTicker = { id: number; username: string; amount: number; active: boolean };
 
 export default function AdminLeaderboardPage() {
+  const { theme: adminTheme, isDark } = useAdminTheme();
+  const C = useMemo(() => ({
+    bg: adminTheme.background,
+    card: adminTheme.surface,
+    cardHeader: adminTheme.surfaceContainerHighest,
+    border: adminTheme.border,
+    borderActive: adminTheme.primary,
+    accent: adminTheme.primary,
+    accentDim: adminTheme.primaryContainer,
+    secondary: adminTheme.secondary,
+    gold: '#F0950C',
+    silver: isDark ? '#8A99AD' : '#64748B',
+    bronze: '#d97706',
+    green: adminTheme.secondary,
+    red: adminTheme.error,
+    txt: adminTheme.onSurface,
+    dim: adminTheme.onSurfaceVariant,
+    bgGlass: adminTheme.surfaceContainerLow,
+    surfaceContainerHighest: adminTheme.surfaceContainerHighest,
+  }), [adminTheme, isDark]);
+
+  const s = useMemo(() => getStyles(C, isDark), [C, isDark]);
+
   const { token, language, showAlert } = useAuth();
   const isEN = language === 'en';
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'x-platform': 'web' };
@@ -406,7 +410,11 @@ export default function AdminLeaderboardPage() {
 
   return (
     <View style={s.root}>
-      <LinearGradient colors={['#0a0a1a', '#0c0c1d', '#08080f']} style={StyleSheet.absoluteFill} />
+      {isDark ? (
+        <LinearGradient colors={['#070C16', '#0C1424', '#070C16']} style={StyleSheet.absoluteFill} />
+      ) : (
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: C.bg }]} />
+      )}
       <SafeAreaView style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
           
@@ -427,7 +435,7 @@ export default function AdminLeaderboardPage() {
                 <Text style={s.activeBadgeText}>Live Server Connection</Text>
               </View>
               <TouchableOpacity onPress={fetchAll} style={s.refreshBtn} activeOpacity={0.7}>
-                <Ionicons name="refresh" size={18} color="#fff" />
+                <Ionicons name="refresh" size={18} color={C.txt} />
               </TouchableOpacity>
             </View>
           </View>
@@ -474,7 +482,7 @@ export default function AdminLeaderboardPage() {
                 onPress={() => { setAutoApprove(true); updateSetting('leaderboard_auto_approve', true); }}
                 style={[s.modeBtn, autoApprove ? s.modeBtnActive : null, { borderTopLeftRadius: 12, borderBottomLeftRadius: 12 }]}
               >
-                <Ionicons name="flash-sharp" size={16} color={autoApprove ? "#000" : C.green} style={{ marginRight: 6 }} />
+                <Ionicons name="flash-sharp" size={16} color={autoApprove ? (isDark ? "#000" : "#fff") : C.green} style={{ marginRight: 6 }} />
                 <Text style={[s.modeBtnText, autoApprove ? s.modeBtnTextActive : null]}>AUTOMATIC</Text>
               </TouchableOpacity>
               <TouchableOpacity 
@@ -482,7 +490,7 @@ export default function AdminLeaderboardPage() {
                 onPress={() => { setAutoApprove(false); updateSetting('leaderboard_auto_approve', false); }}
                 style={[s.modeBtn, !autoApprove ? s.modeBtnActive : null, { borderTopRightRadius: 12, borderBottomRightRadius: 12 }]}
               >
-                <Ionicons name="hammer-sharp" size={16} color={!autoApprove ? "#000" : "#f59e0b"} style={{ marginRight: 6 }} />
+                <Ionicons name="hammer-sharp" size={16} color={!autoApprove ? (isDark ? "#000" : "#fff") : "#f59e0b"} style={{ marginRight: 6 }} />
                 <Text style={[s.modeBtnText, !autoApprove ? s.modeBtnTextActive : null]}>MANUAL</Text>
               </TouchableOpacity>
             </View>
@@ -1079,12 +1087,12 @@ export default function AdminLeaderboardPage() {
                               }
                             }}
                             style={{
-                              background: 'transparent',
+                              backgroundColor: 'transparent',
                               color: '#fff',
                               border: 'none',
-                              outline: 'none',
+                              outlineStyle: 'none',
                               width: '100%',
-                              fontSize: '13px',
+                              fontSize: 13,
                               fontFamily: 'inherit',
                             }}
                           >
@@ -1345,11 +1353,11 @@ export default function AdminLeaderboardPage() {
   );
 }
 
-const s = StyleSheet.create({
+const getStyles = (C: any, isDark: boolean) => StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
   scroll: { padding: 18 },
   modeSelectorCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : C.card,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: C.border,
@@ -1371,9 +1379,9 @@ const s = StyleSheet.create({
   modeBtnContainer: {
     flexDirection: 'row',
     height: 46,
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.02)' : C.bgGlass,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: isDark ? 'rgba(255, 255, 255, 0.05)' : C.border,
     borderRadius: 12,
     overflow: 'hidden',
   },
@@ -1385,7 +1393,7 @@ const s = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   modeBtnActive: {
-    backgroundColor: '#fff',
+    backgroundColor: isDark ? '#fff' : C.accent,
   },
   modeBtnText: {
     fontSize: 12,
@@ -1394,12 +1402,12 @@ const s = StyleSheet.create({
     letterSpacing: 0.5,
   },
   modeBtnTextActive: {
-    color: '#000',
+    color: isDark ? '#000' : '#fff',
     fontWeight: '900',
   },
   modeHintText: {
     fontSize: 11,
-    color: 'rgba(148, 163, 184, 0.6)',
+    color: C.dim,
     marginTop: 10,
     lineHeight: 15,
     paddingHorizontal: 2,
@@ -1423,17 +1431,17 @@ const s = StyleSheet.create({
   crownGlow: {
     width: 44,
     height: 44,
-    borderRadius: 12,
-    backgroundColor: 'rgba(250, 204, 21, 0.08)',
+    borderRadius: 8,
+    backgroundColor: isDark ? '#313D4A' : C.cardHeader,
     borderWidth: 1,
-    borderColor: 'rgba(250, 204, 21, 0.25)',
+    borderColor: C.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: '900',
-    color: '#fff',
+    color: C.txt,
     letterSpacing: 1,
   },
   headerSubTitle: {
@@ -1478,16 +1486,16 @@ const s = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : C.surfaceContainerHighest,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: C.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   // Week Banner Card
   bannerCard: {
-    borderRadius: 16,
+    borderRadius: 10,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: C.border,
@@ -1508,7 +1516,7 @@ const s = StyleSheet.create({
   bannerDivider: {
     width: 1,
     height: 38,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: C.border,
     marginHorizontal: 20,
     ...Platform.select({
       web: { display: 'flex' },
@@ -1530,7 +1538,7 @@ const s = StyleSheet.create({
   bannerDatesText: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#fff',
+    color: C.txt,
   },
   bannerTimerText: {
     fontSize: 20,
@@ -1560,7 +1568,7 @@ const s = StyleSheet.create({
   // Core Premium Card
   card: {
     backgroundColor: C.card,
-    borderRadius: 16,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: C.border,
     overflow: 'hidden',
@@ -1573,7 +1581,7 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.03)',
+    borderBottomColor: C.border,
   },
   titleRow: {
     flexDirection: 'row',
@@ -1583,7 +1591,7 @@ const s = StyleSheet.create({
   cardTitle: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#fff',
+    color: C.txt,
     letterSpacing: 0.5,
   },
   cardContent: {
@@ -1592,9 +1600,9 @@ const s = StyleSheet.create({
 
   // Standings Lists
   countBadge: {
-    backgroundColor: 'rgba(0, 218, 243, 0.1)',
+    backgroundColor: C.accentDim,
     borderWidth: 1,
-    borderColor: 'rgba(0, 218, 243, 0.2)',
+    borderColor: 'rgba(255, 45, 85, 0.25)',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
@@ -1602,7 +1610,7 @@ const s = StyleSheet.create({
   countBadgeText: {
     fontSize: 10,
     fontWeight: '800',
-    color: C.secondary,
+    color: C.accent,
   },
   standingRow: {
     flexDirection: 'row',
@@ -1610,7 +1618,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.03)',
+    borderBottomColor: C.border,
   },
   standingLeft: {
     flexDirection: 'row',
@@ -1650,7 +1658,7 @@ const s = StyleSheet.create({
   },
   barContainer: {
     height: 4,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.06)',
     borderRadius: 2,
     overflow: 'hidden',
   },
@@ -1666,7 +1674,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.03)',
+    borderBottomColor: C.border,
   },
   settingInfo: {
     flex: 1,
@@ -1721,7 +1729,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.02)',
+    borderBottomColor: C.border,
   },
   snapInfo: {
     flex: 1,
@@ -1764,7 +1772,7 @@ const s = StyleSheet.create({
   // Bottom Conditional Mode Sections
   moduleDivider: {
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: C.border,
     marginVertical: 10,
   },
   activeStatusBadge: {
@@ -1782,11 +1790,11 @@ const s = StyleSheet.create({
   subSectionTitle: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#fff',
+    color: C.txt,
     marginBottom: 12,
     letterSpacing: 0.5,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.04)',
+    borderBottomColor: C.border,
     paddingBottom: 6,
   },
   prizeRow: {
@@ -1823,11 +1831,11 @@ const s = StyleSheet.create({
     marginBottom: 6,
   },
   mockNotification: {
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.02)' : C.bgGlass,
     borderRadius: 10,
     padding: 10,
     borderWidth: 1,
-    borderColor: 'rgba(0,229,255,0.15)',
+    borderColor: C.border,
   },
   mockNotificationHeader: {
     flexDirection: 'row',
@@ -1838,7 +1846,7 @@ const s = StyleSheet.create({
   mockNotifTitle: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#fff',
+    color: C.txt,
   },
   mockNotifTime: {
     fontSize: 8,
@@ -1869,7 +1877,7 @@ const s = StyleSheet.create({
   giveawayInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : C.bgGlass,
     borderWidth: 1,
     borderColor: C.border,
     borderRadius: 8,
@@ -1890,12 +1898,12 @@ const s = StyleSheet.create({
     fontWeight: '800',
   },
   smsTextInput: {
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : C.bgGlass,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: C.border,
     padding: 10,
-    color: '#fff',
+    color: C.txt,
     fontSize: 11,
     minHeight: 65,
     textAlignVertical: 'top',
@@ -1947,7 +1955,7 @@ const s = StyleSheet.create({
   // Dry run result logs
   resultsCard: {
     marginTop: 14,
-    backgroundColor: 'rgba(255,255,255,0.02)',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : C.card,
     borderWidth: 1,
     borderColor: C.border,
     borderRadius: 10,
@@ -1965,7 +1973,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 4,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.02)',
+    borderBottomColor: C.border,
   },
 
   // Manual snapshot fallback action
@@ -1994,13 +2002,13 @@ const s = StyleSheet.create({
   },
   fakeInput: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : C.bgGlass,
     borderWidth: 1,
     borderColor: C.border,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    color: '#fff',
+    color: C.txt,
     fontSize: 12,
   },
   fakeAddBtn: {
@@ -2012,10 +2020,10 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   fakeEntriesContainer: {
-    backgroundColor: 'rgba(255,255,255,0.01)',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.01)' : C.card,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.02)',
+    borderColor: C.border,
     paddingHorizontal: 10,
   },
   fakeRow: {
@@ -2024,7 +2032,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.02)',
+    borderBottomColor: C.border,
   },
   fakeName: {
     fontSize: 12,
@@ -2084,9 +2092,9 @@ const s = StyleSheet.create({
   searchWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : C.bgGlass,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: C.border,
     borderRadius: 10,
     height: 38,
     paddingHorizontal: 8,
@@ -2094,7 +2102,7 @@ const s = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    color: '#fff',
+    color: C.txt,
     fontSize: 12,
     paddingVertical: 6,
     paddingLeft: 8,
@@ -2111,9 +2119,9 @@ const s = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : C.surfaceContainerHighest,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: C.border,
     alignItems: 'center',
     justifyContent: 'center',
   },

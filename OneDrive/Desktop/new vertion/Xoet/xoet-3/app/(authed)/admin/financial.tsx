@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../../context/authContext';
 import { API_URL } from '../../../config';
-import { AdminTheme as C } from './_layout';
+import { useAdminTheme } from './_layout';
 
 let PrimeChart: any = null;
 if (Platform.OS === 'web') {
@@ -35,6 +35,8 @@ type TimeRange = 'day' | 'week' | 'month' | 'all';
 type TabKey = 'deposits' | 'withdrawals' | 'bonuses' | 'giveaways' | 'refunds';
 
 export default function FinancialDashboard() {
+  const { theme: C, isDark } = useAdminTheme();
+  const st = useMemo(() => getStyles(C, isDark), [C, isDark]);
   const [isMounted, setIsMounted] = useState(false);
   useEffect(() => {
     setIsMounted(true);
@@ -187,26 +189,26 @@ export default function FinancialDashboard() {
           <View style={st.tfSelector}>
             {(['day', 'week', 'month', 'all'] as TimeRange[]).map(tf => (
               <TouchableOpacity key={tf} style={[st.tfOpt, range === tf && { backgroundColor: C.primary }]} onPress={() => setRange(tf)}>
-                <Text style={[st.tfText, range === tf && { color: '#0a0f1c', fontWeight: '900' as any }]}>
+                <Text style={[st.tfText, range === tf && { color: '#ffffff', fontWeight: '700' as any }]}>
                   {tf === 'day' ? '24H' : tf === 'week' ? '7D' : tf === 'month' ? '30D' : 'ALL'}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
           <TouchableOpacity style={st.refreshBtn} onPress={() => fetchData(true)} activeOpacity={0.8}>
-            {refreshing ? <ActivityIndicator size="small" color="#0a0f1c" /> : <Ionicons name="refresh" size={16} color="#0a0f1c" />}
+            {refreshing ? <ActivityIndicator size="small" color="#ffffff" /> : <Ionicons name="refresh" size={16} color="#ffffff" />}
           </TouchableOpacity>
         </View>
       </View>
 
       {/* ═══ Top KPI Cards ═══ */}
-      <View style={[st.kpiRow, isMobile && { flexDirection: 'column' }]}>
-        {/* Card 1: Violet */}
-        <View style={[st.kpiCard, { borderColor: C.border }]}>
-          <View style={[st.kpiIcon, { backgroundColor: 'rgba(124, 58, 237, 0.15)' }]}>
-            <Ionicons name="wallet" size={20} color="#7c3aed" />
+      <View style={[st.kpiRow, isMobile ? { flexDirection: 'column' } : (width < 1280 ? { flexWrap: 'wrap' } : {})]}>
+        {/* Card 1: Platform Balance Breakdown */}
+        <View style={[st.kpiCard, !isMobile && width < 1280 && { flexBasis: '48%' }]}>
+          <View style={st.kpiIcon}>
+            <Ionicons name="wallet-outline" size={22} color={C.primary} />
           </View>
-          <Text style={st.kpiLabel}>TOTAL PLATFORM BALANCE</Text>
+          <Text style={st.kpiLabel}>Total Platform Balance</Text>
           <ACount value={d.totalPlatformAmount || 0} style={st.kpiValue} suffix=" ETB" />
           <View style={{ flexDirection: 'row', gap: 12, marginTop: 8, marginBottom: 8 }}>
             <View>
@@ -219,53 +221,53 @@ export default function FinancialDashboard() {
             </View>
             <View>
               <Text style={st.kpiMini}>Bonus</Text>
-              <Text style={[st.kpiMiniVal, { color: '#f5b642' }]}>{fmtK(d.totalBonus || 0)}</Text>
+              <Text style={[st.kpiMiniVal, { color: C.accentGold }]}>{fmtK(d.totalBonus || 0)}</Text>
             </View>
           </View>
           {/* Proportional 3-way balance split bar */}
-          <View style={{ height: 4, backgroundColor: 'rgba(31, 37, 64, 0.6)', borderRadius: 2, flexDirection: 'row', overflow: 'hidden', width: '100%' }}>
-            <View style={{ flex: Math.max(1, d.totalAvailable || 0), backgroundColor: '#7c3aed' }} />
-            <View style={{ flex: Math.max(1, d.totalWithdrawable || 0), backgroundColor: '#22d3ee' }} />
-            <View style={{ flex: Math.max(1, d.totalBonus || 0), backgroundColor: '#f5b642' }} />
+          <View style={{ height: 4, backgroundColor: C.border, borderRadius: 2, flexDirection: 'row', overflow: 'hidden', width: '100%' }}>
+            <View style={{ flex: Math.max(1, d.totalAvailable || 0), backgroundColor: C.primary }} />
+            <View style={{ flex: Math.max(1, d.totalWithdrawable || 0), backgroundColor: C.success }} />
+            <View style={{ flex: Math.max(1, d.totalBonus || 0), backgroundColor: C.accentGold }} />
           </View>
         </View>
 
-        {/* Card 2: Cyan */}
-        <View style={[st.kpiCard, { borderColor: C.border }]}>
-          <View style={[st.kpiIcon, { backgroundColor: 'rgba(34, 211, 238, 0.15)' }]}>
-            <Ionicons name="card" size={20} color="#22d3ee" />
+        {/* Card 2: Chapa Gateway Settlement */}
+        <View style={[st.kpiCard, !isMobile && width < 1280 && { flexBasis: '48%' }]}>
+          <View style={st.kpiIcon}>
+            <Ionicons name="card-outline" size={22} color={C.primary} />
           </View>
-          <Text style={st.kpiLabel}>CHAPA BALANCE</Text>
-          <ACount value={d.chapaBalance || 0} style={[st.kpiValue, { color: '#22d3ee' }]} suffix=" ETB" />
+          <Text style={st.kpiLabel}>Chapa Settlement Balance</Text>
+          <ACount value={d.chapaBalance || 0} style={st.kpiValue} suffix=" ETB" />
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 }}>
-            <View style={[st.statusDot, { backgroundColor: d.chapaBalance > 0 ? '#22c55e' : '#ef4444' }]} />
-            <Text style={{ color: '#94a3b8', fontSize: 10, fontWeight: '600' as any }}>
-              {d.chapaBalance > 0 ? 'Connected & Active' : 'Low Balance'}
+            <View style={[st.statusDot, { backgroundColor: d.chapaBalance > 0 ? C.success : C.error }]} />
+            <Text style={{ color: C.onSurfaceVariant, fontSize: 10, fontWeight: '700' as any }}>
+              {d.chapaBalance > 0 ? 'Gateway Connected & Active' : 'Low Settlement Balance'}
             </Text>
           </View>
         </View>
 
-        {/* Card 3: Gold */}
-        <View style={[st.kpiCard, { borderColor: C.border }]}>
-          <View style={[st.kpiIcon, { backgroundColor: 'rgba(245, 182, 66, 0.15)' }]}>
-            <Ionicons name="trending-up" size={20} color="#f5b642" />
+        {/* Card 3: Gross Gaming Revenue (GGR) */}
+        <View style={[st.kpiCard, !isMobile && width < 1280 && { flexBasis: '48%' }]}>
+          <View style={st.kpiIcon}>
+            <Ionicons name="trending-up-outline" size={22} color={C.success} />
           </View>
-          <Text style={st.kpiLabel}>GROSS PLATFORM PROFIT</Text>
-          <ACount value={d.purePlatformProfit || 0} style={[st.kpiValue, { color: '#f5b642' }]} suffix=" ETB" />
-          <Text style={{ color: '#94a3b8', fontSize: 10, marginTop: 4 }}>
-            Commission earned from {fmt(d.totalGamesFinished || 0)} game rounds
+          <Text style={st.kpiLabel}>Gross Gaming Revenue (GGR)</Text>
+          <ACount value={d.purePlatformProfit || 0} style={[st.kpiValue, { color: C.success }]} suffix=" ETB" />
+          <Text style={{ color: C.onSurfaceVariant, fontSize: 11, marginTop: 6, fontWeight: '500' }}>
+            Commission from {fmt(d.totalGamesFinished || 0)} finished games (2×bet - prize)
           </Text>
         </View>
 
-        {/* Card 4: Green */}
-        <View style={[st.kpiCard, { borderColor: C.border }]}>
-          <View style={[st.kpiIcon, { backgroundColor: d.netPlatformProfit >= 0 ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)' }]}>
-            <Ionicons name="analytics" size={20} color={d.netPlatformProfit >= 0 ? '#22c55e' : '#ef4444'} />
+        {/* Card 4: Net Platform Gaming Profit */}
+        <View style={[st.kpiCard, !isMobile && width < 1280 && { flexBasis: '48%' }]}>
+          <View style={st.kpiIcon}>
+            <Ionicons name="analytics-outline" size={22} color={d.netPlatformProfit >= 0 ? C.success : C.error} />
           </View>
-          <Text style={st.kpiLabel}>NET PLATFORM PROFIT</Text>
-          <ACount value={d.netPlatformProfit || 0} style={[st.kpiValue, { color: d.netPlatformProfit >= 0 ? '#22c55e' : '#ef4444' }]} suffix=" ETB" />
-          <Text style={{ color: '#ef4444', fontSize: 10, marginTop: 4 }}>
-            -{profitImpactPct}% deducted ({fmtK(profitImpactTotal)})
+          <Text style={st.kpiLabel}>Net Gaming Profit</Text>
+          <ACount value={d.netPlatformProfit || 0} style={[st.kpiValue, { color: d.netPlatformProfit >= 0 ? C.success : C.error }]} suffix=" ETB" />
+          <Text style={{ color: d.netPlatformProfit >= 0 ? C.onSurfaceVariant : C.error, fontSize: 11, marginTop: 6, fontWeight: '500' }}>
+            -{profitImpactPct}% deducted by bonuses & refunds ({fmtK(profitImpactTotal)})
           </Text>
         </View>
       </View>
@@ -273,33 +275,33 @@ export default function FinancialDashboard() {
       {/* ═══ Deposits & Withdrawals Today Bars ═══ */}
       <View style={[st.todayRow, isMobile && { flexDirection: 'column' }]}>
         <View style={st.todayCard}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <View style={[st.todayIcon, { backgroundColor: 'rgba(52,211,153,0.12)' }]}>
-              <Ionicons name="arrow-down" size={18} color="#34d399" />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <View style={st.todayIcon}>
+              <Ionicons name="arrow-down-outline" size={20} color={C.success} />
             </View>
             <View>
-              <Text style={st.todayLabel}>DEPOSITS TODAY</Text>
-              <Text style={[st.todayVal, { color: '#34d399' }]}>{fmt(d.depositsToday || 0)} ETB</Text>
+              <Text style={st.todayLabel}>Deposits Today</Text>
+              <Text style={[st.todayVal, { color: C.success }]}>{fmt(d.depositsToday || 0)} ETB</Text>
             </View>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
-            <Text style={{ color: '#475569', fontSize: 10, fontWeight: '700' as any }}>{d.depositCountToday || 0} txs</Text>
-            <Text style={{ color: '#475569', fontSize: 10 }}>Total: {fmtK(d.totalDeposits || 0)}</Text>
+            <Text style={{ color: C.onSurfaceVariant, fontSize: 11, fontWeight: '700' as any }}>{d.depositCountToday || 0} txs</Text>
+            <Text style={{ color: C.onSurfaceVariant, fontSize: 11 }}>Total: {fmtK(d.totalDeposits || 0)}</Text>
           </View>
         </View>
         <View style={st.todayCard}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <View style={[st.todayIcon, { backgroundColor: 'rgba(248,113,113,0.12)' }]}>
-              <Ionicons name="arrow-up" size={18} color="#f87171" />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <View style={st.todayIcon}>
+              <Ionicons name="arrow-up-outline" size={20} color={C.error} />
             </View>
             <View>
-              <Text style={st.todayLabel}>WITHDRAWALS TODAY</Text>
-              <Text style={[st.todayVal, { color: '#f87171' }]}>{fmt(d.withdrawalsToday || 0)} ETB</Text>
+              <Text style={st.todayLabel}>Withdrawals Today</Text>
+              <Text style={[st.todayVal, { color: C.error }]}>{fmt(d.withdrawalsToday || 0)} ETB</Text>
             </View>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
-            <Text style={{ color: '#475569', fontSize: 10, fontWeight: '700' as any }}>{d.withdrawalCountToday || 0} txs</Text>
-            <Text style={{ color: '#475569', fontSize: 10 }}>Total: {fmtK(d.totalWithdrawals || 0)}</Text>
+            <Text style={{ color: C.onSurfaceVariant, fontSize: 11, fontWeight: '700' as any }}>{d.withdrawalCountToday || 0} txs</Text>
+            <Text style={{ color: C.onSurfaceVariant, fontSize: 11 }}>Total: {fmtK(d.totalWithdrawals || 0)}</Text>
           </View>
         </View>
       </View>
@@ -540,94 +542,102 @@ export default function FinancialDashboard() {
   );
 }
 
-const st = StyleSheet.create({
-  container: { flex: 1, backgroundColor: 'transparent', padding: 20, paddingTop: 24 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
-  title: { fontSize: 24, fontWeight: '900', color: '#ffffff', letterSpacing: 1 },
-  subtitle: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '600', marginTop: 2 },
-  tfSelector: { flexDirection: 'row', gap: 3, padding: 3, backgroundColor: C.surfaceContainerLowest, borderRadius: 10, borderWidth: 1, borderColor: C.border },
-  tfOpt: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 8 },
-  tfText: { fontSize: 9, fontWeight: '700', letterSpacing: 1, color: C.onSurfaceVariant },
-  refreshBtn: { backgroundColor: C.primary, width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+const getStyles = (C: any, isDark: boolean) => {
+  const bgSurface = isDark ? '#0c1424' : '#ffffff';
+  const bgCard = isDark ? '#080e1b' : '#f8fafc';
+  const borderColor = isDark ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0';
+  const textPrimary = isDark ? '#ffffff' : '#0f172a';
+  const textSecondary = isDark ? '#94a3b8' : '#64748b';
 
-  // KPI Cards
-  kpiRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
-  kpiCard: {
-    flex: 1, backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, borderRadius: 16, padding: 20,
-  },
-  kpiIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
-  kpiLabel: { color: C.onSurfaceVariant, fontSize: 9, fontWeight: '800', letterSpacing: 1.5, marginBottom: 6 },
-  kpiValue: { color: '#ffffff', fontSize: 22, fontWeight: '900', letterSpacing: -0.5 },
-  kpiMini: { color: '#94a3b8', fontSize: 9, fontWeight: '600' },
-  kpiMiniVal: { color: '#ffffff', fontSize: 12, fontWeight: '800' },
-  statusDot: { width: 6, height: 6, borderRadius: 3 },
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: 'transparent', padding: 20, paddingTop: 24 },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
+    title: { fontSize: 24, fontWeight: '900', color: textPrimary, letterSpacing: 1 },
+    subtitle: { color: textSecondary, fontSize: 11, fontWeight: '600', marginTop: 2 },
+    tfSelector: { flexDirection: 'row', gap: 3, padding: 3, backgroundColor: bgCard, borderRadius: 10, borderWidth: 1, borderColor },
+    tfOpt: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 8 },
+    tfText: { fontSize: 9, fontWeight: '700', letterSpacing: 1, color: textSecondary },
+    refreshBtn: { backgroundColor: '#FF2D55', width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
 
-  // Today row
-  todayRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
-  todayCard: {
-    flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: C.surface, borderWidth: 1, borderColor: C.border,
-    borderRadius: 16, padding: 16,
-  },
-  todayIcon: { width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  todayLabel: { color: C.onSurfaceVariant, fontSize: 9, fontWeight: '800', letterSpacing: 1 },
-  todayVal: { fontSize: 18, fontWeight: '900', marginTop: 2 },
+    // KPI Cards
+    kpiRow: { flexDirection: 'row', gap: 16, marginBottom: 20 },
+    kpiCard: {
+      flex: 1, minWidth: 220, backgroundColor: bgSurface, borderWidth: 1, borderColor, borderRadius: 12, padding: 20,
+    },
+    kpiIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: bgCard, alignItems: 'center', justifyContent: 'center', marginBottom: 12, borderWidth: 1, borderColor },
+    kpiLabel: { color: textSecondary, fontSize: 12, fontWeight: '500', marginBottom: 6 },
+    kpiValue: { color: textPrimary, fontSize: 24, fontWeight: '700', letterSpacing: -0.5 },
+    kpiMini: { color: textSecondary, fontSize: 10, fontWeight: '500' },
+    kpiMiniVal: { color: textPrimary, fontSize: 12, fontWeight: '700' },
+    statusDot: { width: 6, height: 6, borderRadius: 3 },
 
-  // Charts
-  chartsRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
-  chartCard: {
-    backgroundColor: C.surface, borderWidth: 1, borderColor: C.border,
-    borderRadius: 16, padding: 20, overflow: 'hidden',
-  },
-  chartTitle: { color: '#ffffff', fontSize: 12, fontWeight: '900', letterSpacing: 0.5 },
-  chartSub: { color: C.onSurfaceVariant, fontSize: 9, fontWeight: '600', marginTop: 2 },
-  chartTotal: { fontSize: 16, fontWeight: '900' },
+    // Today row
+    todayRow: { flexDirection: 'row', gap: 16, marginBottom: 20 },
+    todayCard: {
+      flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      backgroundColor: bgSurface, borderWidth: 1, borderColor,
+      borderRadius: 12, padding: 18,
+    },
+    todayIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: bgCard, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor },
+    todayLabel: { color: textSecondary, fontSize: 11, fontWeight: '600' },
+    todayVal: { fontSize: 18, fontWeight: '700', marginTop: 2, color: textPrimary },
 
-  // Drill-down
-  drillPanel: {
-    backgroundColor: C.surface, borderWidth: 1, borderColor: C.border,
-    borderRadius: 16, padding: 20, marginBottom: 16,
-  },
-  drillTitle: { color: '#ffffff', fontSize: 14, fontWeight: '800' },
-  drillHeader: { flexDirection: 'row', paddingVertical: 8, borderBottomWidth: 1, borderColor: C.border },
-  drillCell: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
-  drillRow: { flexDirection: 'row', paddingVertical: 10, borderBottomWidth: 1, borderColor: C.border },
-  drillCellVal: { color: '#e2e8f0', fontSize: 12, fontWeight: '600' },
+    // Charts
+    chartsRow: { flexDirection: 'row', gap: 16, marginBottom: 20 },
+    chartCard: {
+      backgroundColor: bgSurface, borderWidth: 1, borderColor,
+      borderRadius: 12, padding: 20, overflow: 'hidden',
+    },
+    chartTitle: { color: textPrimary, fontSize: 12, fontWeight: '700', letterSpacing: 0.5 },
+    chartSub: { color: textSecondary, fontSize: 10, fontWeight: '500', marginTop: 2 },
+    chartTotal: { fontSize: 16, fontWeight: '700', color: textPrimary },
 
-  // Section titles
-  sectionTitle: { color: '#ffffff', fontSize: 16, fontWeight: '900', letterSpacing: 0.5, marginBottom: 4, marginTop: 8 },
-  sectionSub: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '600', marginBottom: 16 },
+    // Drill-down
+    drillPanel: {
+      backgroundColor: bgSurface, borderWidth: 1, borderColor,
+      borderRadius: 12, padding: 20, marginBottom: 20,
+    },
+    drillTitle: { color: textPrimary, fontSize: 14, fontWeight: '700' },
+    drillHeader: { flexDirection: 'row', paddingVertical: 10, borderBottomWidth: 1, borderColor, backgroundColor: bgCard },
+    drillCell: { color: textSecondary, fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
+    drillRow: { flexDirection: 'row', paddingVertical: 12, borderBottomWidth: 1, borderColor },
+    drillCellVal: { color: textPrimary, fontSize: 12, fontWeight: '500' },
 
-  // Impact cards
-  impactRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
-  impactCard: {
-    flex: 1, backgroundColor: C.surface, borderWidth: 1, borderRadius: 16, padding: 16,
-  },
-  impactIcon: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  impactLabel: { color: '#94a3b8', fontSize: 10, fontWeight: '700', flex: 1 },
-  impactVal: { fontSize: 18, fontWeight: '900' },
-  impactMeta: { color: '#94a3b8', fontSize: 9, fontWeight: '600' },
-  impactBar: { height: 3, backgroundColor: 'rgba(31, 37, 64, 0.6)', borderRadius: 2, marginTop: 8 },
-  impactBarFill: { height: 3, borderRadius: 2 },
+    // Section titles
+    sectionTitle: { color: textPrimary, fontSize: 14, fontWeight: '700', letterSpacing: 0.5, marginBottom: 4, marginTop: 8 },
+    sectionSub: { color: textSecondary, fontSize: 11, fontWeight: '500', marginBottom: 16 },
 
-  // Tabs
-  tabRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
-  tab: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10,
-    backgroundColor: C.surface, borderWidth: 1, borderColor: C.border,
-  },
-  tabActive: { backgroundColor: '#7c3aed', borderColor: '#7c3aed' },
-  tabText: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '600' },
+    // Impact cards
+    impactRow: { flexDirection: 'row', gap: 16, marginBottom: 20 },
+    impactCard: {
+      flex: 1, backgroundColor: bgSurface, borderWidth: 1, borderColor, borderRadius: 12, padding: 18,
+    },
+    impactIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: bgCard, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor },
+    impactLabel: { color: textSecondary, fontSize: 11, fontWeight: '600', flex: 1 },
+    impactVal: { fontSize: 18, fontWeight: '700', color: textPrimary },
+    impactMeta: { color: textSecondary, fontSize: 10, fontWeight: '500' },
+    impactBar: { height: 4, backgroundColor: borderColor, borderRadius: 2, marginTop: 8 },
+    impactBarFill: { height: 4, borderRadius: 2 },
 
-  // Tables
-  tableCard: {
-    backgroundColor: C.surface, borderWidth: 1, borderColor: C.border,
-    borderRadius: 16, padding: 16, marginBottom: 20,
-  },
-  tableHeader: { flexDirection: 'row', paddingVertical: 10, borderBottomWidth: 1, borderColor: C.border },
-  thCell: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '800', letterSpacing: 0.5, textTransform: 'uppercase' },
-  tableRow: { flexDirection: 'row', paddingVertical: 12, borderBottomWidth: 1, borderColor: C.border, alignItems: 'center' },
-  tdCell: { color: '#e2e8f0', fontSize: 12, fontWeight: '500' },
-  typeBadge: { borderWidth: 1, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
-});
+    // Tabs
+    tabRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+    tab: {
+      flexDirection: 'row', alignItems: 'center', gap: 6,
+      paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8,
+      backgroundColor: bgSurface, borderWidth: 1, borderColor,
+    },
+    tabActive: { backgroundColor: '#FF2D55', borderColor: '#FF2D55' },
+    tabText: { color: textSecondary, fontSize: 11, fontWeight: '600' },
+
+    // Tables
+    tableCard: {
+      backgroundColor: bgSurface, borderWidth: 1, borderColor,
+      borderRadius: 12, padding: 16, marginBottom: 20,
+    },
+    tableHeader: { flexDirection: 'row', paddingVertical: 10, borderBottomWidth: 1, borderColor, backgroundColor: bgCard },
+    thCell: { color: textSecondary, fontSize: 10, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase' },
+    tableRow: { flexDirection: 'row', paddingVertical: 12, borderBottomWidth: 1, borderColor, alignItems: 'center' },
+    tdCell: { color: textPrimary, fontSize: 12, fontWeight: '500' },
+    typeBadge: { borderWidth: 1, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+  });
+};

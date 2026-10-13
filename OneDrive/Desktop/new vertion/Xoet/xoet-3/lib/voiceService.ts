@@ -11,7 +11,7 @@ if (Platform.OS === "web") {
   try {
     AgoraRTC = require("agora-rtc-sdk-ng");
   } catch (e) {
-    console.warn("[VoiceService] agora-rtc-sdk-ng package not found for web fallback.");
+    // Optional web fallback: agora-rtc-sdk-ng not installed
   }
 }
 
