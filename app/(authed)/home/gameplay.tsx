@@ -426,7 +426,8 @@ export default function Landing() {
   const [friendModalVisible, setFriendModalVisible] = useState(false);
   const [inviteResult, setInviteResult] = useState<any>(null);
   const [rulesVisible, setRulesVisible] = useState(false);
-  const [selectedTab, setSelectedTab] = useState<"SPIN" | "XO_GAME">("SPIN");
+  const params = useLocalSearchParams();
+  const [selectedTab, setSelectedTab] = useState<"SPIN" | "XO_GAME">((params.tab as any) === "XO_GAME" ? "XO_GAME" : "SPIN");
   const [spinMode, setSpinMode] = useState<"5_PLAYER" | "RAIL">("5_PLAYER");
   const [showMobileStakeModal, setShowMobileStakeModal] = useState(false);
   const [mobileStakeInput, setMobileStakeInput] = useState("50");
@@ -677,7 +678,7 @@ export default function Landing() {
     }
   }, [token]);
 
-  const params = useLocalSearchParams();
+  // params is declared at component top
 
   // ensureConnected is handled by the parent _layout.tsx (authed) — no need to duplicate here
 
@@ -1242,7 +1243,10 @@ export default function Landing() {
                 { key: "XO_GAME" as const, label: "XO", icon: "grid-outline" },
               ]}
               value={selectedTab}
-              onChange={(k) => setSelectedTab(k)}
+              onChange={(k) => {
+                setSelectedTab(k);
+                router.setParams({ tab: k });
+              }}
             />
           </View>
 

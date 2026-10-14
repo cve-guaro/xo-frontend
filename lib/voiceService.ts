@@ -257,6 +257,16 @@ class VoiceService {
     this.muted = muted;
 
     if (Platform.OS === "web") {
+      if (!muted && !this.localAudioTrack && AgoraRTC) {
+        try {
+          this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+          if (this.isJoined && this.rtcClient) {
+            await this.rtcClient.publish([this.localAudioTrack]);
+          }
+        } catch (e: any) {
+          console.warn("[VoiceService] Create mic track on unmute:", e?.message || e);
+        }
+      }
       if (this.localAudioTrack) {
         try {
           await this.localAudioTrack.setEnabled(!muted);

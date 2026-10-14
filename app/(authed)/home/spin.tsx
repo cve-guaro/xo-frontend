@@ -20,6 +20,7 @@ import {
   Pressable,
   Animated,
   Easing,
+  AppState,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -107,23 +108,26 @@ function SpeakingWaveAnimation() {
 
 // ── Animated User Mic Button with Pulsing Green Wave (when speaking/unmuted) ──
 function AnimatedUserMicButton({
+  isSelf,
   isMuted,
   isSpeaking,
   onPress,
 }: {
+  isSelf?: boolean;
   isMuted: boolean;
   isSpeaking: boolean;
   onPress: () => void;
 }) {
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
+  // Pulse only when active speaking
   useEffect(() => {
     let loop: Animated.CompositeAnimation | null = null;
-    if (!isMuted || isSpeaking) {
+    if (isSpeaking) {
       loop = Animated.loop(
         Animated.sequence([
-          Animated.timing(pulseAnim, { toValue: 1.15, duration: 400, useNativeDriver: Platform.OS !== "web" }),
-          Animated.timing(pulseAnim, { toValue: 1, duration: 400, useNativeDriver: Platform.OS !== "web" }),
+          Animated.timing(pulseAnim, { toValue: 1.18, duration: 380, useNativeDriver: Platform.OS !== "web" }),
+          Animated.timing(pulseAnim, { toValue: 1, duration: 380, useNativeDriver: Platform.OS !== "web" }),
         ])
       );
       loop.start();
@@ -133,24 +137,29 @@ function AnimatedUserMicButton({
     return () => {
       if (loop) loop.stop();
     };
-  }, [isMuted, isSpeaking, pulseAnim]);
+  }, [isSpeaking, pulseAnim]);
 
-  const activeColor = !isMuted ? "#22c55e" : "#64748b";
-  const activeBg = !isMuted ? "rgba(34, 197, 94, 0.18)" : "rgba(100, 116, 139, 0.15)";
-  const activeBorder = !isMuted ? "#22c55e" : "rgba(100, 116, 139, 0.4)";
+  // For remote users: all users start muted (gray circle with mic-off). Only switch to green & pulse when actively speaking!
+  const isGreen = isSelf ? !isMuted : isSpeaking;
+  const activeColor = isGreen ? "#22c55e" : "#64748b";
+  const activeBg = isGreen ? "rgba(34, 197, 94, 0.22)" : "rgba(100, 116, 139, 0.15)";
+  const activeBorder = isGreen ? "#22c55e" : "rgba(100, 116, 139, 0.35)";
+  const iconName = isGreen ? "mic" : "mic-off";
 
   return (
     <TouchableOpacity
       onPress={onPress}
+      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
       style={{
-        width: 40,
-        height: 40,
+        width: 44,
+        height: 44,
         alignItems: "center",
         justifyContent: "center",
       }}
       activeOpacity={0.8}
     >
       <Animated.View
+        pointerEvents="none"
         style={{
           width: 38,
           height: 38,
@@ -164,7 +173,7 @@ function AnimatedUserMicButton({
         }}
       >
         <Ionicons
-          name={isMuted ? "mic-off" : "mic"}
+          name={iconName}
           size={18}
           color={activeColor}
         />
@@ -417,7 +426,7 @@ export default function SpinGameScreen() {
       275
     )
   );
-  const { token, user, refreshProfile } = useAuth();
+  const { token, user, refreshProfile, language, switchLanguage } = useAuth();
   const balance = Number(user?.available_balance || 0);
   const { mode, stake } = useLocalSearchParams();
   const { ensureConnected, emitAck, onMessage, send } = useSocket();
@@ -478,7 +487,7 @@ export default function SpinGameScreen() {
       // player will not resume without seekTo(0), which made the spin silent.
       spinLoopSound.seekTo(0);
       spinLoopSound.loop = true;
-      spinLoopSound.volume = 1;
+      spinLoopSound.volume = 0.35; // Lowered volume per requirement so countdown/spin is not deafening
       spinLoopSound.play();
     } catch (e) { console.warn("spinLoopSound error:", e); }
   }, [spinLoopSound]);
@@ -533,6 +542,8 @@ export default function SpinGameScreen() {
   // ── State ────────────────────────────────────────────────────────────
   const [screenState, setScreenState] = useState<ScreenState>("browse");
   const [round, setRound] = useState<RoundState | null>(null);
+  const is5Player = round?.mode === "5_PLAYER" || mode === "5_PLAYER";
+  const isRail = round?.mode === "RAIL" || mode === "RAIL";
   const [isSpinning, setIsSpinning] = useState(false);
   const [winningSlice, setWinningSlice] = useState<number | null>(null);
   const [spinDuration, setSpinDuration] = useState(5000);
@@ -1116,9 +1127,18 @@ export default function SpinGameScreen() {
   }, [rematchAvailable, token, emitAck]);
 
   // ── Leave room handler — shows confirmation popup ──────────────────
+  // Block leaving when countdown <= 60s and round is active in Rail mode
+  const leaveBlocked = countdown > 0 && countdown <= 60 && !is5Player;
   const handleLeaveRoom = useCallback(() => {
+    if (leaveBlocked) {
+      const msg = language === "am"
+        ? "ጨዋታው ሊጀመር የመጨረሻ 1 ደቂቃ ስለሆነ መውጣት አይቻልም!"
+        : "Cannot leave room during final 1 minute!";
+      setError(msg);
+      return;
+    }
     setShowLeaveConfirm(true);
-  }, []);
+  }, [leaveBlocked, language]);
 
   // ── Play again handler ───────────────────────────────────────────────
   const handlePlayAgain = useCallback(() => {
@@ -1190,6 +1210,62 @@ export default function SpinGameScreen() {
     };
   }, []);
 
+  // ── Tab switch / App state recovery ────────────────────────────────
+  // When user switches tabs or backgrounds the app, browser throttles timers.
+  // On return, resync countdown from targetEndTimeRef and request fresh state.
+  useEffect(() => {
+    const syncActiveState = () => {
+      if (roundRef.current) {
+        if (targetEndTimeRef.current) {
+          const rem = Math.max(0, Math.ceil((targetEndTimeRef.current - Date.now()) / 1000));
+          setCountdown(rem);
+        }
+        emitAck("spin:get_state", { roundId: roundRef.current.roundId, token }).then((res: any) => {
+          if (res?.ok && res.data) {
+            setRound(res.data);
+            if (res.data.status === "ended" && res.data.winner) {
+              setResultData({
+                winnerName: res.data.winner.username,
+                winnerId: res.data.winner.userId,
+                prizeAmount: res.data.prizeAmount || res.data.pot || 0,
+              });
+              setScreenState("result");
+              setCountdown(0);
+            } else if (res.data.countdown > 0) {
+              targetEndTimeRef.current = Date.now() + res.data.countdown * 1000;
+              setCountdown(res.data.countdown);
+            }
+          }
+        }).catch(() => {});
+        refreshProfile?.();
+      }
+    };
+
+    const handleAppStateChange = (nextState: string) => {
+      if (nextState === "active") {
+        syncActiveState();
+      }
+    };
+    const sub = AppState.addEventListener("change", handleAppStateChange);
+
+    let onVisibilityChange: (() => void) | null = null;
+    if (Platform.OS === "web" && typeof document !== "undefined") {
+      onVisibilityChange = () => {
+        if (document.visibilityState === "visible") {
+          syncActiveState();
+        }
+      };
+      document.addEventListener("visibilitychange", onVisibilityChange);
+    }
+
+    return () => {
+      sub.remove();
+      if (onVisibilityChange && typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", onVisibilityChange);
+      }
+    };
+  }, [emitAck, token, refreshProfile]);
+
   const handleAddStake = useCallback(async (amount: number) => {
     setAddLoading(true);
     setError(null);
@@ -1248,9 +1324,6 @@ export default function SpinGameScreen() {
     const secs = Math.max(0, totalSec) % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   }, []);
-
-  const is5Player = round?.mode === "5_PLAYER" || mode === "5_PLAYER";
-  const isRail = round?.mode === "RAIL" || mode === "RAIL";
 
   const previewPlayers = React.useMemo(() => {
     if (round) return round.players;
@@ -1920,7 +1993,7 @@ export default function SpinGameScreen() {
         /* ════════════════════════════════════════════════════════════════
            ██  MOBILE SPIN ROOM LAYOUT
            ════════════════════════════════════════════════════════════════ */
-        <View style={{ flex: 1, backgroundColor: "#060814", paddingHorizontal: 16, paddingTop: 10, paddingBottom: 16, justifyContent: "space-between", position: "relative" }}>
+        <View style={{ flex: 1, backgroundColor: "#060814", paddingHorizontal: 16, paddingTop: 10, paddingBottom: 84, justifyContent: "space-between", position: "relative" }}>
           {/* Top Header Row (Matching Image 2: Circular Back, Center Timer, Speaker + Mic) */}
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", width: "100%", marginBottom: 6, position: "relative", zIndex: 10 }}>
             {/* Back Button (Left) */}
@@ -1932,14 +2005,15 @@ export default function SpinGameScreen() {
                 borderRadius: 22,
                 backgroundColor: "rgba(15, 23, 42, 0.75)",
                 borderWidth: 1,
-                borderColor: "rgba(255, 255, 255, 0.15)",
+                borderColor: leaveBlocked ? "rgba(239, 68, 68, 0.4)" : "rgba(255, 255, 255, 0.15)",
                 alignItems: "center",
                 justifyContent: "center",
                 zIndex: 2,
+                opacity: leaveBlocked ? 0.45 : 1,
               }}
               activeOpacity={0.8}
             >
-              <Ionicons name="chevron-back" size={22} color="#ffffff" />
+              <Ionicons name="chevron-back" size={22} color={leaveBlocked ? "#94a3b8" : "#ffffff"} />
             </TouchableOpacity>
 
             {/* Dead-Centered Countdown Timer Pill (Rail mode only) */}
@@ -1966,29 +2040,37 @@ export default function SpinGameScreen() {
                 }}>
                   <Ionicons name="time-outline" size={18} color="#facc15" />
                   <Text style={{ color: "#facc15", fontSize: 16, fontWeight: "800", fontFamily: "Inter, sans-serif" }}>
-                    {countdown > 0 ? formatCountdown(countdown) : "01:18"}
+                    {screenState === "result" || (round?.status as string) === "ended" || round?.status === "resolved" || round?.status === "locked" || countdown <= 0
+                      ? "0:00"
+                      : (countdown > 0 ? formatCountdown(countdown) : "2:00")}
                   </Text>
                 </View>
               </View>
             )}
 
-            {/* Top Right Action Icons: Speaker & Mic */}
+            {/* Top Right Action Icons: Language Changer & Mic */}
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10, zIndex: 2 }}>
+              {/* Language Changer Button (replaced speaker, speaker moved to drawer) */}
               <TouchableOpacity
-                onPress={handleToggleSpeaker}
+                onPress={() => switchLanguage?.()}
                 style={{
-                  width: 44,
                   height: 44,
+                  paddingHorizontal: 14,
                   borderRadius: 22,
                   backgroundColor: "rgba(15, 23, 42, 0.75)",
                   borderWidth: 1,
-                  borderColor: "rgba(255, 255, 255, 0.15)",
+                  borderColor: "rgba(99, 102, 241, 0.4)",
                   alignItems: "center",
                   justifyContent: "center",
+                  flexDirection: "row",
+                  gap: 6,
                 }}
                 activeOpacity={0.8}
               >
-                <Ionicons name={masterSpeakerMuted ? "volume-mute" : "volume-high"} size={20} color="#ffffff" />
+                <Ionicons name="language" size={18} color="#a78bfa" />
+                <Text style={{ color: "#a78bfa", fontSize: 13, fontWeight: "900", letterSpacing: 0.5 }}>
+                  {language === "am" ? "አማ" : "EN"}
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -2066,6 +2148,13 @@ export default function SpinGameScreen() {
               shadowOpacity: 0.85,
               shadowRadius: 5,
             }} />
+
+            {/* 20% House Fee Notice (Rail mode) */}
+            {!is5Player && (
+              <Text style={{ color: "#64748b", fontSize: 10, fontWeight: "700", marginTop: 4, letterSpacing: 0.5 }}>
+                20% House Fee
+              </Text>
+            )}
           </View>
 
           {/* Center Spin Wheel */}
@@ -2533,17 +2622,37 @@ export default function SpinGameScreen() {
               <View style={{ width: 44, height: 4, borderRadius: 2, backgroundColor: "rgba(255, 255, 255, 0.25)" }} />
             </TouchableOpacity>
 
-            {/* Players Header with chevron (Image 3) */}
-            <TouchableOpacity
-              onPress={() => setMobilePlayersSheetVisible(false)}
-              style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16, paddingHorizontal: 4 }}
-              activeOpacity={0.8}
-            >
-              <Text style={{ color: "#ffffff", fontSize: 16, fontWeight: "900", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" }}>
-                PLAYERS ({sortedPlayers.length})
-              </Text>
-              <Ionicons name="chevron-down" size={20} color="#94a3b8" />
-            </TouchableOpacity>
+            {/* Players Header with chevron + General Mute (Image 1 spec: speaker inside drawer) */}
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16, paddingHorizontal: 4 }}>
+              <TouchableOpacity
+                onPress={() => setMobilePlayersSheetVisible(false)}
+                style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+                activeOpacity={0.8}
+              >
+                <Text style={{ color: "#ffffff", fontSize: 16, fontWeight: "900", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" }}>
+                  PLAYERS ({sortedPlayers.length})
+                </Text>
+                <Ionicons name="chevron-down" size={20} color="#94a3b8" />
+              </TouchableOpacity>
+
+              {/* General Mute / Speaker button (moved from top bar) */}
+              <TouchableOpacity
+                onPress={handleToggleSpeaker}
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  backgroundColor: masterSpeakerMuted ? "rgba(239, 68, 68, 0.15)" : "rgba(15, 23, 42, 0.75)",
+                  borderWidth: 1,
+                  borderColor: masterSpeakerMuted ? "#ef4444" : "rgba(255, 255, 255, 0.15)",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+                activeOpacity={0.8}
+              >
+                <Ionicons name={masterSpeakerMuted ? "volume-mute" : "volume-high"} size={18} color={masterSpeakerMuted ? "#ef4444" : "#ffffff"} />
+              </TouchableOpacity>
+            </View>
 
             {/* Sorted Players List (High stake to low stake) */}
             <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 380 }}>
@@ -2590,13 +2699,18 @@ export default function SpinGameScreen() {
                           {isSpeaking && <SpeakingWaveAnimation />}
                         </View>
                         <Text style={{ color: "#facc15", fontSize: 13, fontWeight: "800", marginTop: 2 }}>
-                          {p.stake || 10} ETB
+                          {p.stake || 10} ETB {(() => {
+                            const totalStk = sortedPlayers.reduce((acc: number, item: any) => acc + Number(item.stake || 10), 0);
+                            const pct = is5Player ? 20 : (totalStk > 0 ? Math.round(((p.stake || 10) / totalStk) * 100) : 0);
+                            return pct > 0 ? `• ${pct}%` : "";
+                          })()}
                         </Text>
                       </View>
                     </View>
 
                     {/* Microphone Icon Button on right (Pulsing green when speaking/on, grey when muted, click to mute) */}
                     <AnimatedUserMicButton
+                      isSelf={isSelf}
                       isMuted={isSelf ? micMuted : isMuted}
                       isSpeaking={isSpeaking}
                       onPress={() => {

@@ -244,15 +244,26 @@ export default function SpinWheel({
 
                     <SvgText
                       x={textPos.x}
-                      y={textPos.y + 16}
+                      y={textPos.y + 13}
                       fill="#94a3b8"
-                      fontSize={Math.min(size * 0.034, 10)}
+                      fontSize={Math.min(size * 0.032, 9.5)}
                       fontWeight="800"
                       textAnchor="middle"
                       alignmentBaseline="middle"
-                      letterSpacing={1.2}
+                      letterSpacing={1}
                     >
                       EMPTY
+                    </SvgText>
+                    <SvgText
+                      x={textPos.x}
+                      y={textPos.y + 24}
+                      fill="rgba(148, 163, 184, 0.7)"
+                      fontSize={Math.min(size * 0.029, 8.5)}
+                      fontWeight="800"
+                      textAnchor="middle"
+                      alignmentBaseline="middle"
+                    >
+                      20%
                     </SvgText>
                   </G>
                 );
@@ -261,6 +272,7 @@ export default function SpinWheel({
               // Format name matching Image 2: Short uppercase name (e.g., ASH, MEK)
               const rawPlayerName = player ? ((player as any).display_name || player.username || "USER") : "USER";
               const shortName = String(rawPlayerName).trim().slice(0, 4).toUpperCase();
+              const percentStr = is5Player ? "20%" : (totalStake > 0 && (player as any)?.stake ? `${Math.round(((player as any).stake / totalStake) * 100)}%` : "");
 
               return (
                 <G key={idx}>
@@ -296,9 +308,9 @@ export default function SpinWheel({
                   {/* Short Uppercase Player Name (e.g. ASH, MEK) */}
                   <SvgText
                     x={textPos.x}
-                    y={textPos.y + 16}
+                    y={textPos.y + 13}
                     fill="#ffffff"
-                    fontSize={Math.min(size * 0.038, 11)}
+                    fontSize={Math.min(size * 0.034, 10)}
                     fontWeight="900"
                     textAnchor="middle"
                     alignmentBaseline="middle"
@@ -306,6 +318,21 @@ export default function SpinWheel({
                   >
                     {shortName}
                   </SvgText>
+
+                  {/* Percentage held in the game */}
+                  {percentStr ? (
+                    <SvgText
+                      x={textPos.x}
+                      y={textPos.y + 24}
+                      fill="#fde047"
+                      fontSize={Math.min(size * 0.030, 9)}
+                      fontWeight="900"
+                      textAnchor="middle"
+                      alignmentBaseline="middle"
+                    >
+                      {percentStr}
+                    </SvgText>
+                  ) : null}
                 </G>
               );
             })}

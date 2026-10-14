@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { House, ClockCounterClockwise, Trophy, UserCircle } from "phosphor-react-native";
-import { Redirect, Tabs, useRouter, usePathname } from "expo-router";
+import { Redirect, Tabs, useRouter, usePathname, useGlobalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { Pressable, View, Platform, useWindowDimensions, Text, Image, TouchableOpacity, StyleSheet } from "react-native";
 import { useAuth } from "../../../context/authContext";
@@ -77,6 +77,8 @@ export default function AuthedLayout() {
   const { user, language, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const params = useGlobalSearchParams<{ tab?: string }>();
+  const isSpinMode = pathname.includes('spin') || (pathname.includes('gameplay') && params.tab !== 'XO_GAME');
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === "web" && width >= 768;
 
@@ -168,8 +170,8 @@ export default function AuthedLayout() {
         <Tabs.Screen name="leaderboard" options={{ title: language === 'am' ? 'ሊደርቦርድ' : 'Leaderboard', href: null }} />
       </Tabs>
 
-      {/* Global Custom Floating Bottom Nav — 4 items: Home, History, Leaderboard, Profile */}
-      {!isDesktop && !pathname.includes('spin') && (
+      {/* Global Custom Floating Bottom Nav — Spin: 2 tabs (Home, Profile), XO: 4 tabs (Home, History, Leaderboard, Profile) */}
+      {!isDesktop && (
         <View pointerEvents="box-none" style={{
           position: 'absolute', bottom: 0,
           left: 0, right: 0, zIndex: 9999, elevation: 9999,
@@ -177,14 +179,16 @@ export default function AuthedLayout() {
           paddingBottom: Platform.OS === 'ios' ? 18 : 12,
         }}>
           <View style={{
-            width: '94%', maxWidth: 480,
+            width: isSpinMode ? '58%' : '94%',
+            maxWidth: isSpinMode ? 260 : 480,
             flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around',
-            backgroundColor: 'rgba(11,11,22,0.78)',
+            backgroundColor: 'rgba(11,11,22,0.85)',
             borderRadius: 24,
             borderWidth: 1,
-            borderColor: 'rgba(255,255,255,0.10)',
+            borderColor: 'rgba(255,255,255,0.12)',
             paddingTop: 10,
             paddingBottom: Platform.OS === 'ios' ? 14 : 10,
+            paddingHorizontal: isSpinMode ? 12 : 6,
             overflow: 'hidden',
             shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
             shadowOpacity: 0.45, shadowRadius: 20, elevation: 12,
@@ -194,33 +198,37 @@ export default function AuthedLayout() {
 
             {/* Home */}
             <TouchableOpacity onPress={() => router.push('/(authed)/home/gameplay')} style={s.navItem} activeOpacity={0.8}>
-              <View style={[s.iconPill, pathname === '/home/gameplay' && s.iconPillActive]}>
-                <House size={21} color={pathname === '/home/gameplay' ? colors.active : colors.inactive} weight={pathname === '/home/gameplay' ? "fill" : "regular"} />
+              <View style={[s.iconPill, (pathname === '/home/gameplay' || pathname.includes('spin')) && s.iconPillActive]}>
+                <House size={21} color={(pathname === '/home/gameplay' || pathname.includes('spin')) ? colors.active : colors.inactive} weight={(pathname === '/home/gameplay' || pathname.includes('spin')) ? "fill" : "regular"} />
               </View>
-              <Text style={[s.navLabel, pathname === '/home/gameplay' && s.navLabelActive]}>
+              <Text style={[s.navLabel, (pathname === '/home/gameplay' || pathname.includes('spin')) && s.navLabelActive]}>
                 {language === 'am' ? 'ዋና' : 'Home'}
               </Text>
             </TouchableOpacity>
 
-            {/* History (Match History) */}
-            <TouchableOpacity onPress={() => router.push('/(authed)/home/history')} style={s.navItem} activeOpacity={0.8}>
-              <View style={[s.iconPill, pathname === '/home/history' && s.iconPillActive]}>
-                <ClockCounterClockwise size={21} color={pathname === '/home/history' ? colors.active : colors.inactive} weight={pathname === '/home/history' ? "fill" : "regular"} />
-              </View>
-              <Text style={[s.navLabel, pathname === '/home/history' && s.navLabelActive]}>
-                {language === 'am' ? 'ታሪክ' : 'History'}
-              </Text>
-            </TouchableOpacity>
+            {/* History (Match History) — Only in XO mode */}
+            {!isSpinMode && (
+              <TouchableOpacity onPress={() => router.push('/(authed)/home/history')} style={s.navItem} activeOpacity={0.8}>
+                <View style={[s.iconPill, pathname === '/home/history' && s.iconPillActive]}>
+                  <ClockCounterClockwise size={21} color={pathname === '/home/history' ? colors.active : colors.inactive} weight={pathname === '/home/history' ? "fill" : "regular"} />
+                </View>
+                <Text style={[s.navLabel, pathname === '/home/history' && s.navLabelActive]}>
+                  {language === 'am' ? 'ታሪክ' : 'History'}
+                </Text>
+              </TouchableOpacity>
+            )}
 
-            {/* Leaderboard */}
-            <TouchableOpacity onPress={() => router.push('/(authed)/home/leaderboard')} style={s.navItem} activeOpacity={0.8}>
-              <View style={[s.iconPill, pathname === '/home/leaderboard' && s.iconPillActive]}>
-                <Trophy size={21} color={pathname === '/home/leaderboard' ? colors.active : colors.inactive} weight={pathname === '/home/leaderboard' ? "fill" : "regular"} />
-              </View>
-              <Text style={[s.navLabel, pathname === '/home/leaderboard' && s.navLabelActive]}>
-                {language === 'am' ? 'ሊደርቦርድ' : 'Leaderboard'}
-              </Text>
-            </TouchableOpacity>
+            {/* Leaderboard — Only in XO mode */}
+            {!isSpinMode && (
+              <TouchableOpacity onPress={() => router.push('/(authed)/home/leaderboard')} style={s.navItem} activeOpacity={0.8}>
+                <View style={[s.iconPill, pathname === '/home/leaderboard' && s.iconPillActive]}>
+                  <Trophy size={21} color={pathname === '/home/leaderboard' ? colors.active : colors.inactive} weight={pathname === '/home/leaderboard' ? "fill" : "regular"} />
+                </View>
+                <Text style={[s.navLabel, pathname === '/home/leaderboard' && s.navLabelActive]}>
+                  {language === 'am' ? 'ሊደርቦርድ' : 'Leaderboard'}
+                </Text>
+              </TouchableOpacity>
+            )}
 
             {/* Profile */}
             <TouchableOpacity onPress={() => router.push('/(authed)/home/account')} style={s.navItem} activeOpacity={0.8}>
