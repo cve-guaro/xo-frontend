@@ -311,70 +311,72 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
             <View style={s.threeColumnRow}>
               {/* 1. LEFT SIDEBAR */}
               <View style={s.leftSidebar}>
-                {/* Card 1: User Profile & Balance */}
-                <View style={s.card}>
-                  <View style={s.userCardHeader}>
-                    <View style={s.userCardAvatar}>
-                      <Text style={s.userCardAvatarText}>
-                        {user?.username ? user.username.slice(0, 1).toUpperCase() : "A"}
-                      </Text>
-                    </View>
-                    <View>
-                      <Text style={s.userCardName} numberOfLines={1}>{user?.username || (user?.number ? `User ${user.number.slice(-4)}` : "Set Your Name")}</Text>
-                      <View style={s.onlineRow}>
-                        <View style={s.onlineDot} />
-                        <Text style={s.onlineText}>Online</Text>
+                <View style={{ gap: 16 }}>
+                  {/* Card 1: User Profile & Balance */}
+                  <View style={s.card}>
+                    <View style={s.userCardHeader}>
+                      <View style={s.userCardAvatar}>
+                        <Text style={s.userCardAvatarText}>
+                          {user?.username ? user.username.slice(0, 1).toUpperCase() : "A"}
+                        </Text>
+                      </View>
+                      <View>
+                        <Text style={s.userCardName} numberOfLines={1}>{user?.username || (user?.number ? `User ${user.number.slice(-4)}` : "Set Your Name")}</Text>
+                        <View style={s.onlineRow}>
+                          <View style={s.onlineDot} />
+                          <Text style={s.onlineText}>Online</Text>
+                        </View>
                       </View>
                     </View>
-                  </View>
 
-                  {/* Available Balance card */}
-                  <View style={s.tokensRow}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={s.tokenLabel}>AVAILABLE BALANCE</Text>
-                      <Text style={[s.tokenVal, { color: "#22d3ee" }]}>ETB {balance.toLocaleString()}</Text>
-                    </View>
-                    <TouchableOpacity onPress={refreshProfile} style={[s.tokenPlusBtn, { backgroundColor: "#22d3ee" }]} activeOpacity={0.8}>
-                      <Ionicons name="refresh" size={12} color="#0a0e1a" />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                {/* Card 2: Navigation Links (Height limits based on items) */}
-                <View style={s.card}>
-                  <View style={{ justifyContent: "center" }}>
-                    <TouchableOpacity onPress={() => handleNavClick('home')} style={[s.navItem, s.navItemActive]} activeOpacity={0.8}>
-                      <View style={s.navItemActiveBar} />
-                      <Ionicons name="home" size={18} color="#8b5cf6" />
-                      <Text style={[s.navText, s.navTextActive]}>Home</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity onPress={() => handleNavClick('history')} style={s.navItem} activeOpacity={0.8}>
-                      <Ionicons name="time-outline" size={18} color="#8b93a7" />
-                      <Text style={s.navText}>History</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity onPress={() => handleNavClick('leaderboard')} style={s.navItem} activeOpacity={0.8}>
-                      <Ionicons name="trophy-outline" size={18} color="#8b93a7" />
-                      <Text style={s.navText}>Leaderboard</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity onPress={() => handleNavClick('transactions')} style={s.navItem} activeOpacity={0.8}>
-                      <Ionicons name="receipt-outline" size={18} color="#8b93a7" />
-                      <Text style={s.navText}>Transactions</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity onPress={() => handleNavClick('profile')} style={s.navItem} activeOpacity={0.8}>
-                      <Ionicons name="person-outline" size={18} color="#8b93a7" />
-                      <Text style={s.navText}>Profile</Text>
-                    </TouchableOpacity>
-
-                    {(user?.role === 'admin' || user?.role === 'superadmin' || user?.role === 'maintenance') && (
-                      <TouchableOpacity onPress={() => handleNavClick('admin')} style={s.navItem} activeOpacity={0.8}>
-                        <Ionicons name="shield-checkmark-outline" size={18} color="#8b93a7" />
-                        <Text style={s.navText}>Admin</Text>
+                    {/* Available Balance card */}
+                    <View style={s.tokensRow}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={s.tokenLabel}>AVAILABLE BALANCE</Text>
+                        <Text style={[s.tokenVal, { color: "#22d3ee" }]}>ETB {balance.toLocaleString()}</Text>
+                      </View>
+                      <TouchableOpacity onPress={refreshProfile} style={[s.tokenPlusBtn, { backgroundColor: "#22d3ee" }]} activeOpacity={0.8}>
+                        <Ionicons name="refresh" size={12} color="#0a0e1a" />
                       </TouchableOpacity>
-                    )}
+                    </View>
+                  </View>
+
+                  {/* Card 2: Navigation Links (Height limits based on items) */}
+                  <View style={s.card}>
+                    <View style={{ justifyContent: "center" }}>
+                      <TouchableOpacity onPress={() => handleNavClick('home')} style={[s.navItem, s.navItemActive]} activeOpacity={0.8}>
+                        <View style={s.navItemActiveBar} />
+                        <Ionicons name="home" size={18} color="#8b5cf6" />
+                        <Text style={[s.navText, s.navTextActive]}>Home</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity onPress={() => handleNavClick('history')} style={s.navItem} activeOpacity={0.8}>
+                        <Ionicons name="time-outline" size={18} color="#8b93a7" />
+                        <Text style={s.navText}>History</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity onPress={() => handleNavClick('leaderboard')} style={s.navItem} activeOpacity={0.8}>
+                        <Ionicons name="trophy-outline" size={18} color="#8b93a7" />
+                        <Text style={s.navText}>Leaderboard</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity onPress={() => handleNavClick('transactions')} style={s.navItem} activeOpacity={0.8}>
+                        <Ionicons name="receipt-outline" size={18} color="#8b93a7" />
+                        <Text style={s.navText}>Transactions</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity onPress={() => handleNavClick('profile')} style={s.navItem} activeOpacity={0.8}>
+                        <Ionicons name="person-outline" size={18} color="#8b93a7" />
+                        <Text style={s.navText}>Profile</Text>
+                      </TouchableOpacity>
+
+                      {(user?.role === 'admin' || user?.role === 'superadmin' || user?.role === 'maintenance') && (
+                        <TouchableOpacity onPress={() => handleNavClick('admin')} style={s.navItem} activeOpacity={0.8}>
+                          <Ionicons name="shield-checkmark-outline" size={18} color="#8b93a7" />
+                          <Text style={s.navText}>Admin</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
                   </View>
                 </View>
 
@@ -517,237 +519,295 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
 
               {/* 3. RIGHT SIDEBAR */}
               <View style={[s.rightSidebar, { gap: 12 }]}>
-                {/* 5-Player Spin Card (High-impact, attractive, touchable, increased height) */}
+                {/* 5-Player Pot Spin Game Card — Reference Redesign */}
                 <View style={{
-                  backgroundColor: '#0c0f24',
-                  borderRadius: 24,
+                  backgroundColor: '#0B1225',
+                  borderRadius: 30,
                   borderWidth: 1.5,
-                  borderColor: 'rgba(99, 102, 241, 0.4)',
-                  padding: 20,
-                  shadowColor: '#8b5cf6',
-                  shadowOffset: { width: 0, height: 10 },
-                  shadowOpacity: 0.35,
-                  shadowRadius: 22,
+                  borderColor: 'rgba(59, 130, 246, 0.2)',
+                  paddingHorizontal: 22,
+                  paddingVertical: 24,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 14 },
+                  shadowOpacity: 0.45,
+                  shadowRadius: 26,
                   elevation: 12,
                   position: 'relative',
                   overflow: 'hidden',
-                  minHeight: 460,
-                  justifyContent: 'space-between',
                 }}>
-                  {/* Glowing background accent */}
-                  <View pointerEvents="none" style={{ position: 'absolute', top: -40, right: -40, width: 140, height: 140, borderRadius: 70, backgroundColor: 'rgba(0, 218, 243, 0.12)' }} />
-                  <View pointerEvents="none" style={{ position: 'absolute', bottom: -50, left: -50, width: 160, height: 160, borderRadius: 80, backgroundColor: 'rgba(139, 92, 246, 0.14)' }} />
+                  {/* Subtle ambient corner gradients matching reference */}
+                  <View pointerEvents="none" style={{ position: 'absolute', top: -30, right: -30, width: 150, height: 150, borderRadius: 75, backgroundColor: 'rgba(59, 130, 246, 0.14)' }} />
+                  <View pointerEvents="none" style={{ position: 'absolute', bottom: -40, left: -40, width: 160, height: 160, borderRadius: 80, backgroundColor: 'rgba(118, 87, 246, 0.14)' }} />
 
-                  {/* Header row: MULTIPLAYER badge on left, LIVE indicator on right */}
+                  {/* 1. Header: MULTIPLAYER label on left, LIVE 5-SLOT pill on right */}
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Text style={{
+                      color: '#9AA9C5',
+                      fontSize: 11,
+                      fontWeight: '800',
+                      letterSpacing: 1.5,
+                      fontFamily: 'Inter, sans-serif',
+                    }}>
+                      MULTIPLAYER
+                    </Text>
+
                     <View style={{
                       flexDirection: 'row',
                       alignItems: 'center',
                       gap: 6,
-                      backgroundColor: 'rgba(0, 218, 243, 0.12)',
+                      backgroundColor: 'rgba(239, 68, 68, 0.12)',
                       borderWidth: 1,
-                      borderColor: 'rgba(0, 218, 243, 0.35)',
+                      borderColor: 'rgba(239, 68, 68, 0.25)',
                       paddingHorizontal: 10,
                       paddingVertical: 5,
                       borderRadius: 14,
                     }}>
-                      <Ionicons name="people-sharp" size={13} color="#00daf3" />
-                      <Text style={{ color: '#00daf3', fontSize: 10, fontWeight: '900', letterSpacing: 0.8, fontFamily: 'Inter, sans-serif' }}>MULTIPLAYER</Text>
-                    </View>
-
-                    <View style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 6,
-                      backgroundColor: 'rgba(239, 68, 68, 0.15)',
-                      borderWidth: 1,
-                      borderColor: 'rgba(239, 68, 68, 0.35)',
-                      paddingHorizontal: 9,
-                      paddingVertical: 4,
-                      borderRadius: 12,
-                    }}>
                       <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#ef4444' }} />
-                      <Text style={{ color: '#ef4444', fontSize: 9, fontWeight: '900', letterSpacing: 0.6, fontFamily: 'Inter, sans-serif' }}>LIVE 5-SLOT</Text>
+                      <Text style={{
+                        color: '#ef4444',
+                        fontSize: 10,
+                        fontWeight: '800',
+                        letterSpacing: 0.8,
+                        fontFamily: 'Inter, sans-serif',
+                      }}>
+                        LIVE 5-SLOT
+                      </Text>
                     </View>
                   </View>
 
-                  {/* Title & Subtitle */}
-                  <View style={{ marginTop: 12 }}>
-                    <Text style={{ color: '#ffffff', fontSize: 22, fontWeight: '900', letterSpacing: 0.5, fontFamily: 'Inter, sans-serif' }}>
+                  {/* 2. Title: 5-PLAYER (white) & POT SPIN (blue-to-purple gradient) */}
+                  <View style={{ marginTop: 14 }}>
+                    <Text style={{
+                      color: '#F8FAFC',
+                      fontSize: 28,
+                      fontWeight: '900',
+                      letterSpacing: 0.5,
+                      fontFamily: 'Inter, sans-serif',
+                      lineHeight: 34,
+                    }}>
                       5-PLAYER
                     </Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: -2 }}>
-                      <Text style={{ color: '#00daf3', fontSize: 26, fontWeight: '900', letterSpacing: 0.8, fontFamily: 'Inter, sans-serif' }}>
-                        POT SPIN
-                      </Text>
-                      <Ionicons name="flash" size={20} color="#f5b642" />
-                    </View>
-                    <Text style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: 11, marginTop: 4, lineHeight: 16, fontFamily: 'Inter, sans-serif' }}>
-                      5 Players • 1 Winner Takes The Pot
+                    <Text style={{
+                      fontSize: 28,
+                      fontWeight: '900',
+                      letterSpacing: 0.5,
+                      fontFamily: 'Inter, sans-serif',
+                      lineHeight: 34,
+                      color: '#60a5fa',
+                      ...(Platform.OS === 'web' ? {
+                        backgroundImage: 'linear-gradient(90deg, #3B82F6 0%, #7657F6 100%)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                      } as any : {}),
+                    }}>
+                      POT SPIN
                     </Text>
                   </View>
 
-                  {/* Center Graphic: 3D 5-Player Spin Illustration */}
-                  <View style={{ alignItems: 'center', justifyContent: 'center', marginVertical: 6 }}>
+                  {/* 3. Center Graphic: 3D Roulette Wheel */}
+                  <View style={{ alignItems: 'center', justifyContent: 'center', marginVertical: 14 }}>
                     <Image
                       source={require("../../assets/images/3d-5p-spin.png")}
-                      style={{ width: 170, height: 145, resizeMode: "contain" }}
+                      style={{ width: 230, height: 165, resizeMode: "contain" }}
                     />
                   </View>
 
-                  {/* Live Player Seats Visualizer */}
+                  {/* 4. Player Slots Row (YM, BK, TL, SO, + YOU) */}
                   <View style={{
-                    backgroundColor: 'rgba(15, 20, 38, 0.75)',
-                    borderWidth: 1,
-                    borderColor: 'rgba(255, 255, 255, 0.08)',
-                    borderRadius: 16,
-                    padding: 10,
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                    marginVertical: 10,
+                    paddingHorizontal: 4,
                   }}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                      <Text style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 9, fontWeight: '800', letterSpacing: 0.5 }}>
-                        ACTIVE SEATS: 4 / 5
-                      </Text>
-                      <Text style={{ color: '#22c55e', fontSize: 9, fontWeight: '800' }}>
-                        ● STARTING SOON
-                      </Text>
-                    </View>
-
-                    {/* 5 Seat circles */}
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                      {['YM', 'BK', 'TL', 'SO'].map((initials, i) => (
-                        <View key={i} style={{
-                          width: 34,
-                          height: 34,
-                          borderRadius: 17,
-                          backgroundColor: 'rgba(139, 92, 246, 0.25)',
+                    {[
+                      { initials: 'YM', borderColor: '#3B82F6' },
+                      { initials: 'BK', borderColor: '#7657F6' },
+                      { initials: 'TL', borderColor: '#2dd4bf' },
+                      { initials: 'SO', borderColor: '#F5BD62' },
+                    ].map((slot, i) => (
+                      <View key={i} style={{ alignItems: 'center' }}>
+                        <View style={{
+                          width: 44,
+                          height: 44,
+                          borderRadius: 22,
+                          backgroundColor: '#0F172A',
                           borderWidth: 1.5,
-                          borderColor: '#8b5cf6',
+                          borderColor: slot.borderColor,
                           alignItems: 'center',
                           justifyContent: 'center',
                         }}>
-                          <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>{initials}</Text>
+                          <Text style={{
+                            color: '#F8FAFC',
+                            fontSize: 12,
+                            fontWeight: '800',
+                            fontFamily: 'Inter, sans-serif',
+                          }}>
+                            {slot.initials}
+                          </Text>
                         </View>
-                      ))}
+                        <View style={{ height: 14, marginTop: 4 }} />
+                      </View>
+                    ))}
 
-                      {/* 5th slot: Open seat (+ YOU) */}
+                    {/* 5th slot: Open seat (+ YOU) */}
+                    <View style={{ alignItems: 'center' }}>
                       <TouchableOpacity
                         onPress={() => router.push({ pathname: '/(authed)/home/spin', params: { mode: "5_PLAYER" } } as any)}
                         activeOpacity={0.8}
                         style={{
                           width: 44,
-                          height: 34,
-                          borderRadius: 17,
-                          backgroundColor: 'rgba(0, 218, 243, 0.15)',
+                          height: 44,
+                          borderRadius: 22,
+                          backgroundColor: 'rgba(59, 130, 246, 0.08)',
                           borderWidth: 1.5,
                           borderStyle: 'dashed',
-                          borderColor: '#00daf3',
+                          borderColor: '#3B82F6',
                           alignItems: 'center',
                           justifyContent: 'center',
                         }}
                       >
-                        <Text style={{ color: '#00daf3', fontSize: 10, fontWeight: '900' }}>+ YOU</Text>
+                        <Ionicons name="add" size={20} color="#3B82F6" />
                       </TouchableOpacity>
+                      <Text style={{
+                        color: '#3B82F6',
+                        fontSize: 10,
+                        fontWeight: '800',
+                        letterSpacing: 0.5,
+                        marginTop: 4,
+                        fontFamily: 'Inter, sans-serif',
+                      }}>
+                        YOU
+                      </Text>
                     </View>
                   </View>
 
-                  {/* Pot & Entry stats strip */}
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10 }}>
-                    {/* Entry Fee Box */}
-                    <View style={{
-                      flex: 1,
-                      backgroundColor: 'rgba(20, 26, 48, 0.85)',
-                      borderWidth: 1,
-                      borderColor: 'rgba(0, 218, 243, 0.25)',
-                      paddingHorizontal: 10,
-                      paddingVertical: 7,
-                      borderRadius: 14,
-                    }}>
-                      <Text style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 8, fontWeight: '800', letterSpacing: 0.5 }}>ENTRY FEE</Text>
-                      <Text style={{ color: '#00daf3', fontSize: 13, fontWeight: '900', marginTop: 1 }}>100 ETB</Text>
+                  {/* 5. Entry Fee and Prize (with subtle divider line) */}
+                  <View style={{
+                    borderTopWidth: 1,
+                    borderTopColor: 'rgba(154, 169, 197, 0.15)',
+                    paddingTop: 16,
+                    paddingBottom: 16,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                  }}>
+                    {/* ENTRY */}
+                    <View style={{ flex: 1, paddingLeft: 4 }}>
+                      <Text style={{
+                        color: '#9AA9C5',
+                        fontSize: 10,
+                        fontWeight: '800',
+                        letterSpacing: 1,
+                        fontFamily: 'Inter, sans-serif',
+                      }}>
+                        ENTRY
+                      </Text>
+                      <Text style={{
+                        color: '#F8FAFC',
+                        fontSize: 20,
+                        fontWeight: '900',
+                        fontFamily: 'Inter, sans-serif',
+                        marginTop: 4,
+                      }}>
+                        100 ETB
+                      </Text>
                     </View>
 
-                    {/* Prize Pot Box */}
+                    {/* Thin vertical separator */}
                     <View style={{
-                      flex: 1,
-                      backgroundColor: 'rgba(20, 26, 48, 0.85)',
-                      borderWidth: 1,
-                      borderColor: 'rgba(245, 182, 66, 0.3)',
-                      paddingHorizontal: 10,
-                      paddingVertical: 7,
-                      borderRadius: 14,
-                    }}>
-                      <Text style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 8, fontWeight: '800', letterSpacing: 0.5 }}>WINNER POT</Text>
-                      <Text style={{ color: '#f5b642', fontSize: 13, fontWeight: '900', marginTop: 1 }}>450 ETB 🏆</Text>
+                      width: 1,
+                      height: 32,
+                      backgroundColor: 'rgba(154, 169, 197, 0.15)',
+                      marginHorizontal: 12,
+                    }} />
+
+                    {/* POT */}
+                    <View style={{ flex: 1, paddingLeft: 4 }}>
+                      <Text style={{
+                        color: '#9AA9C5',
+                        fontSize: 10,
+                        fontWeight: '800',
+                        letterSpacing: 1,
+                        fontFamily: 'Inter, sans-serif',
+                      }}>
+                        POT
+                      </Text>
+                      <Text style={{
+                        color: '#F5BD62',
+                        fontSize: 20,
+                        fontWeight: '900',
+                        fontFamily: 'Inter, sans-serif',
+                        marginTop: 4,
+                      }}>
+                        450 ETB
+                      </Text>
                     </View>
                   </View>
 
-                  {/* High-Impact Touch CTA Button */}
+                  {/* 6. Primary Action: Pill-shaped white button */}
                   <TouchableOpacity
                     onPress={() => router.push({ pathname: '/(authed)/home/spin', params: { mode: "5_PLAYER" } } as any)}
-                    activeOpacity={0.88}
+                    activeOpacity={0.9}
                     style={{
-                      borderRadius: 16,
-                      overflow: 'hidden',
-                      marginTop: 12,
-                      shadowColor: '#8b5cf6',
-                      shadowOffset: { width: 0, height: 6 },
-                      shadowOpacity: 0.6,
-                      shadowRadius: 14,
-                      elevation: 8,
+                      backgroundColor: '#FFFFFF',
+                      borderRadius: 28,
+                      height: 52,
+                      width: '100%',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginTop: 4,
+                      shadowColor: '#000',
+                      shadowOffset: { width: 0, height: 4 },
+                      shadowOpacity: 0.15,
+                      shadowRadius: 8,
                     }}
                   >
-                    <LinearGradient
-                      colors={['#8b5cf6', '#6366f1']}
-                      start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                      style={{
-                        paddingVertical: 13,
-                        paddingHorizontal: 16,
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: 8,
-                      }}
-                    >
-                      <Ionicons name="play-circle" size={18} color="#ffffff" />
-                      <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '900', letterSpacing: 0.8, fontFamily: 'Inter, sans-serif' }}>
-                        JOIN 5-PLAYER ROOM
-                      </Text>
-                      <Ionicons name="chevron-forward" size={16} color="#ffffff" />
-                    </LinearGradient>
+                    <Text style={{
+                      color: '#0B1225',
+                      fontSize: 15,
+                      fontWeight: '800',
+                      letterSpacing: 1,
+                      fontFamily: 'Inter, sans-serif',
+                    }}>
+                      JOIN ROOM
+                    </Text>
                   </TouchableOpacity>
                 </View>
 
-                {/* XO Support Card */}
-                <TouchableOpacity
-                  onPress={() => Linking.openURL('https://t.me/xoet_support').catch(() => { })}
-                  activeOpacity={0.85}
-                  style={[s.card, { paddingVertical: 14 }]}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                    <View style={[s.quickActionIconCircle, { backgroundColor: "rgba(34, 211, 238, 0.1)", width: 36, height: 36, borderRadius: 18 }]}><Ionicons name="chatbubbles-outline" size={18} color="#22d3ee" /></View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800', fontFamily: 'Inter, sans-serif' }}>XO SUPPORT</Text>
-                      <Text style={{ color: '#8b93a7', fontSize: 10, fontWeight: '600', fontFamily: 'Inter, sans-serif', marginTop: 1 }}>Online 24/7 Support Channel</Text>
+                {/* Support & Channel group pinned to bottom */}
+                <View style={{ gap: 12 }}>
+                  {/* XO Support Card */}
+                  <TouchableOpacity
+                    onPress={() => Linking.openURL('https://t.me/xoet_support').catch(() => { })}
+                    activeOpacity={0.85}
+                    style={[s.card, { paddingVertical: 14 }]}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                      <View style={[s.quickActionIconCircle, { backgroundColor: "rgba(34, 211, 238, 0.1)", width: 36, height: 36, borderRadius: 18 }]}><Ionicons name="chatbubbles-outline" size={18} color="#22d3ee" /></View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800', fontFamily: 'Inter, sans-serif' }}>XO SUPPORT</Text>
+                        <Text style={{ color: '#8b93a7', fontSize: 10, fontWeight: '600', fontFamily: 'Inter, sans-serif', marginTop: 1 }}>Online 24/7 Support Channel</Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={16} color="#4b5563" />
                     </View>
-                    <Ionicons name="chevron-forward" size={16} color="#4b5563" />
-                  </View>
-                </TouchableOpacity>
+                  </TouchableOpacity>
 
-                {/* XO Channel Card */}
-                <TouchableOpacity
-                  onPress={() => Linking.openURL('https://t.me/xoethiopia1').catch(() => { })}
-                  activeOpacity={0.85}
-                  style={[s.card, { paddingVertical: 14 }]}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                    <View style={[s.quickActionIconCircle, { backgroundColor: "rgba(139, 92, 246, 0.1)", width: 36, height: 36, borderRadius: 18 }]}><Ionicons name="paper-plane-outline" size={18} color="#8b5cf6" /></View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800', fontFamily: 'Inter, sans-serif' }}>XO CHANNEL</Text>
-                      <Text style={{ color: '#8b93a7', fontSize: 10, fontWeight: '600', fontFamily: 'Inter, sans-serif', marginTop: 1 }}>Join our Telegram channel</Text>
+                  {/* XO Channel Card */}
+                  <TouchableOpacity
+                    onPress={() => Linking.openURL('https://t.me/xoethiopia1').catch(() => { })}
+                    activeOpacity={0.85}
+                    style={[s.card, { paddingVertical: 14 }]}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                      <View style={[s.quickActionIconCircle, { backgroundColor: "rgba(139, 92, 246, 0.1)", width: 36, height: 36, borderRadius: 18 }]}><Ionicons name="paper-plane-outline" size={18} color="#8b5cf6" /></View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800', fontFamily: 'Inter, sans-serif' }}>XO CHANNEL</Text>
+                        <Text style={{ color: '#8b93a7', fontSize: 10, fontWeight: '600', fontFamily: 'Inter, sans-serif', marginTop: 1 }}>Join our Telegram channel</Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={16} color="#4b5563" />
                     </View>
-                    <Ionicons name="chevron-forward" size={16} color="#4b5563" />
-                  </View>
-                </TouchableOpacity>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
           </View>
@@ -759,70 +819,72 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
             <View style={s.threeColumnRow}>
               {/* 1. LEFT SIDEBAR */}
               <View style={s.leftSidebar}>
-                {/* Card 1: User Profile & Balance */}
-                <View style={s.card}>
-                  <View style={s.userCardHeader}>
-                    <View style={s.userCardAvatar}>
-                      <Text style={s.userCardAvatarText}>
-                        {user?.username ? user.username.slice(0, 1).toUpperCase() : "A"}
-                      </Text>
-                    </View>
-                    <View>
-                      <Text style={s.userCardName} numberOfLines={1}>{user?.username || (user?.number ? `User ${user.number.slice(-4)}` : "Set Your Name")}</Text>
-                      <View style={s.onlineRow}>
-                        <View style={s.onlineDot} />
-                        <Text style={s.onlineText}>Online</Text>
+                <View style={{ gap: 16 }}>
+                  {/* Card 1: User Profile & Balance */}
+                  <View style={s.card}>
+                    <View style={s.userCardHeader}>
+                      <View style={s.userCardAvatar}>
+                        <Text style={s.userCardAvatarText}>
+                          {user?.username ? user.username.slice(0, 1).toUpperCase() : "A"}
+                        </Text>
+                      </View>
+                      <View>
+                        <Text style={s.userCardName} numberOfLines={1}>{user?.username || (user?.number ? `User ${user.number.slice(-4)}` : "Set Your Name")}</Text>
+                        <View style={s.onlineRow}>
+                          <View style={s.onlineDot} />
+                          <Text style={s.onlineText}>Online</Text>
+                        </View>
                       </View>
                     </View>
-                  </View>
 
-                  {/* Available Balance card */}
-                  <View style={s.tokensRow}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={s.tokenLabel}>AVAILABLE BALANCE</Text>
-                      <Text style={[s.tokenVal, { color: "#22d3ee" }]}>ETB {balance.toLocaleString()}</Text>
-                    </View>
-                    <TouchableOpacity onPress={refreshProfile} style={[s.tokenPlusBtn, { backgroundColor: "#22d3ee" }]} activeOpacity={0.8}>
-                      <Ionicons name="refresh" size={12} color="#0a0e1a" />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                {/* Card 2: Navigation Links (Height limits based on items) */}
-                <View style={s.card}>
-                  <View style={{ justifyContent: "center" }}>
-                    <TouchableOpacity onPress={() => handleNavClick('home')} style={[s.navItem, s.navItemActive]} activeOpacity={0.8}>
-                      <View style={s.navItemActiveBar} />
-                      <Ionicons name="home" size={18} color="#8b5cf6" />
-                      <Text style={[s.navText, s.navTextActive]}>Home</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity onPress={() => handleNavClick('history')} style={s.navItem} activeOpacity={0.8}>
-                      <Ionicons name="time-outline" size={18} color="#8b93a7" />
-                      <Text style={s.navText}>History</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity onPress={() => handleNavClick('leaderboard')} style={s.navItem} activeOpacity={0.8}>
-                      <Ionicons name="trophy-outline" size={18} color="#8b93a7" />
-                      <Text style={s.navText}>Leaderboard</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity onPress={() => handleNavClick('transactions')} style={s.navItem} activeOpacity={0.8}>
-                      <Ionicons name="receipt-outline" size={18} color="#8b93a7" />
-                      <Text style={s.navText}>Transactions</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity onPress={() => handleNavClick('profile')} style={s.navItem} activeOpacity={0.8}>
-                      <Ionicons name="person-outline" size={18} color="#8b93a7" />
-                      <Text style={s.navText}>Profile</Text>
-                    </TouchableOpacity>
-
-                    {(user?.role === 'admin' || user?.role === 'superadmin' || user?.role === 'maintenance') && (
-                      <TouchableOpacity onPress={() => handleNavClick('admin')} style={s.navItem} activeOpacity={0.8}>
-                        <Ionicons name="shield-checkmark-outline" size={18} color="#8b93a7" />
-                        <Text style={s.navText}>Admin</Text>
+                    {/* Available Balance card */}
+                    <View style={s.tokensRow}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={s.tokenLabel}>AVAILABLE BALANCE</Text>
+                        <Text style={[s.tokenVal, { color: "#22d3ee" }]}>ETB {balance.toLocaleString()}</Text>
+                      </View>
+                      <TouchableOpacity onPress={refreshProfile} style={[s.tokenPlusBtn, { backgroundColor: "#22d3ee" }]} activeOpacity={0.8}>
+                        <Ionicons name="refresh" size={12} color="#0a0e1a" />
                       </TouchableOpacity>
-                    )}
+                    </View>
+                  </View>
+
+                  {/* Card 2: Navigation Links (Height limits based on items) */}
+                  <View style={s.card}>
+                    <View style={{ justifyContent: "center" }}>
+                      <TouchableOpacity onPress={() => handleNavClick('home')} style={[s.navItem, s.navItemActive]} activeOpacity={0.8}>
+                        <View style={s.navItemActiveBar} />
+                        <Ionicons name="home" size={18} color="#8b5cf6" />
+                        <Text style={[s.navText, s.navTextActive]}>Home</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity onPress={() => handleNavClick('history')} style={s.navItem} activeOpacity={0.8}>
+                        <Ionicons name="time-outline" size={18} color="#8b93a7" />
+                        <Text style={s.navText}>History</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity onPress={() => handleNavClick('leaderboard')} style={s.navItem} activeOpacity={0.8}>
+                        <Ionicons name="trophy-outline" size={18} color="#8b93a7" />
+                        <Text style={s.navText}>Leaderboard</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity onPress={() => handleNavClick('transactions')} style={s.navItem} activeOpacity={0.8}>
+                        <Ionicons name="receipt-outline" size={18} color="#8b93a7" />
+                        <Text style={s.navText}>Transactions</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity onPress={() => handleNavClick('profile')} style={s.navItem} activeOpacity={0.8}>
+                        <Ionicons name="person-outline" size={18} color="#8b93a7" />
+                        <Text style={s.navText}>Profile</Text>
+                      </TouchableOpacity>
+
+                      {(user?.role === 'admin' || user?.role === 'superadmin' || user?.role === 'maintenance') && (
+                        <TouchableOpacity onPress={() => handleNavClick('admin')} style={s.navItem} activeOpacity={0.8}>
+                          <Ionicons name="shield-checkmark-outline" size={18} color="#8b93a7" />
+                          <Text style={s.navText}>Admin</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
                   </View>
                 </View>
 
@@ -859,42 +921,38 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
 
               {/* 2. CENTER COLUMN */}
               <View style={[s.centerColumn, { flex: 1 }]}>
-                {/* The Arena Header */}
-                <View style={{ marginBottom: 12 }}>
-                  <Text style={{ color: '#fff', fontSize: 38, fontWeight: '900', letterSpacing: -0.5, fontFamily: 'Inter, sans-serif' }}>
-                    {isEN ? "THE ARENA" : "የጨዋታ ሜዳው"}
-                  </Text>
-                  <Text style={{ color: '#8b93a7', fontSize: 13, fontWeight: '600', marginTop: 4, fontFamily: 'Inter, sans-serif' }}>
-                    {isEN ? "Global skill-based competitive matchmaking" : "አለምአቀፍ ክህሎትን መሰረት ያደረገ ተወዳዳሪ ግጥሚያ"}
-                  </Text>
-                </View>
-
-                {/* Horizontal Quick Actions Row */}
-                <View style={{ flexDirection: 'row', gap: 16 }}>
+                {/* Unified Quick Actions Row matching Spin tab */}
+                <View style={s.quickActionsRow}>
                   {/* Card 1: Deposit */}
-                  <TouchableOpacity onPress={() => setDepositVisible(true)} activeOpacity={0.85} style={s.quickActionCard}>
-                    <View style={[s.quickActionIconCircle, { backgroundColor: "rgba(34, 211, 238, 0.1)" }]}><Ionicons name="card-outline" size={22} color="#22d3ee" /></View>
+                  <TouchableOpacity onPress={() => setDepositVisible(true)} style={s.quickActionCard} activeOpacity={0.85}>
+                    <View style={[s.quickActionIconCircle, { backgroundColor: "rgba(124, 58, 237, 0.1)" }]}>
+                      <Ionicons name="arrow-down" size={18} color="#7c3aed" />
+                    </View>
                     <View>
-                      <Text style={s.quickActionLabel}>{isEN ? "DEPOSIT" : "ማስገቢያ"}</Text>
-                      <Text style={s.quickActionVal}>{isEN ? "Fast Local" : "ፈጣን አማራጮች"}</Text>
+                      <Text style={s.quickActionLabel}>ADD FUNDS</Text>
+                      <Text style={s.quickActionVal}>DEPOSIT</Text>
                     </View>
                   </TouchableOpacity>
 
                   {/* Card 2: Withdraw */}
-                  <TouchableOpacity onPress={() => setWithdrawVisible(true)} activeOpacity={0.85} style={s.quickActionCard}>
-                    <View style={[s.quickActionIconCircle, { backgroundColor: "rgba(139, 92, 246, 0.1)" }]}><Ionicons name="arrow-up-circle-outline" size={22} color="#8b5cf6" /></View>
+                  <TouchableOpacity onPress={() => setWithdrawVisible(true)} style={s.quickActionCard} activeOpacity={0.85}>
+                    <View style={[s.quickActionIconCircle, { backgroundColor: "rgba(239, 68, 68, 0.1)" }]}>
+                      <Ionicons name="arrow-up" size={18} color="#ef4444" />
+                    </View>
                     <View>
-                      <Text style={s.quickActionLabel}>{isEN ? "WITHDRAW" : "ማውጫ"}</Text>
-                      <Text style={s.quickActionVal}>{isEN ? "Instant Pay" : "ፈጣን ክፍያ"}</Text>
+                      <Text style={s.quickActionLabel}>CASH OUT</Text>
+                      <Text style={s.quickActionVal}>WITHDRAW</Text>
                     </View>
                   </TouchableOpacity>
 
                   {/* Card 3: Transaction */}
-                  <TouchableOpacity onPress={() => router.push('/(authed)/home/transactions')} activeOpacity={0.85} style={s.quickActionCard}>
-                    <View style={[s.quickActionIconCircle, { backgroundColor: "rgba(34, 197, 94, 0.1)" }]}><Ionicons name="time-outline" size={22} color="#22c55e" /></View>
+                  <TouchableOpacity onPress={() => router.push('/(authed)/home/transactions' as any)} style={[s.quickActionCard, s.quickActionCardGlow]} activeOpacity={0.85}>
+                    <View style={[s.quickActionIconCircle, { backgroundColor: "rgba(34, 211, 238, 0.1)" }]}>
+                      <Ionicons name="swap-horizontal" size={18} color="#22d3ee" />
+                    </View>
                     <View>
-                      <Text style={s.quickActionLabel}>{isEN ? "TRANSACTION" : "ግብይቶች"}</Text>
-                      <Text style={s.quickActionVal}>{isEN ? "Logs" : "ታሪክ"}</Text>
+                      <Text style={s.quickActionLabel}>VIEW ALL</Text>
+                      <Text style={[s.quickActionVal, { color: "#22d3ee" }]}>TRANSACTIONS</Text>
                     </View>
                   </TouchableOpacity>
                 </View>
@@ -1065,37 +1123,40 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
                   </TouchableOpacity>
                 </View>
 
-                {/* XO Support Card */}
-                <TouchableOpacity
-                  onPress={() => Linking.openURL('https://t.me/xoet_support').catch(() => { })}
-                  activeOpacity={0.85}
-                  style={[s.card, { paddingVertical: 14 }]}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                    <View style={[s.quickActionIconCircle, { backgroundColor: "rgba(34, 211, 238, 0.1)", width: 36, height: 36, borderRadius: 18 }]}><Ionicons name="chatbubbles-outline" size={18} color="#22d3ee" /></View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800', fontFamily: 'Inter, sans-serif' }}>XO SUPPORT</Text>
-                      <Text style={{ color: '#8b93a7', fontSize: 10, fontWeight: '600', fontFamily: 'Inter, sans-serif', marginTop: 1 }}>Online 24/7 Support Channel</Text>
+                {/* Support & Channel group pinned to bottom */}
+                <View style={{ gap: 12 }}>
+                  {/* XO Support Card */}
+                  <TouchableOpacity
+                    onPress={() => Linking.openURL('https://t.me/xoet_support').catch(() => { })}
+                    activeOpacity={0.85}
+                    style={[s.card, { paddingVertical: 14 }]}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                      <View style={[s.quickActionIconCircle, { backgroundColor: "rgba(34, 211, 238, 0.1)", width: 36, height: 36, borderRadius: 18 }]}><Ionicons name="chatbubbles-outline" size={18} color="#22d3ee" /></View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800', fontFamily: 'Inter, sans-serif' }}>XO SUPPORT</Text>
+                        <Text style={{ color: '#8b93a7', fontSize: 10, fontWeight: '600', fontFamily: 'Inter, sans-serif', marginTop: 1 }}>Online 24/7 Support Channel</Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={16} color="#4b5563" />
                     </View>
-                    <Ionicons name="chevron-forward" size={16} color="#4b5563" />
-                  </View>
-                </TouchableOpacity>
+                  </TouchableOpacity>
 
-                {/* XO Channel Card */}
-                <TouchableOpacity
-                  onPress={() => Linking.openURL('https://t.me/xoethiopia1').catch(() => { })}
-                  activeOpacity={0.85}
-                  style={[s.card, { paddingVertical: 14 }]}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                    <View style={[s.quickActionIconCircle, { backgroundColor: "rgba(139, 92, 246, 0.1)", width: 36, height: 36, borderRadius: 18 }]}><Ionicons name="paper-plane-outline" size={18} color="#8b5cf6" /></View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800', fontFamily: 'Inter, sans-serif' }}>XO CHANNEL</Text>
-                      <Text style={{ color: '#8b93a7', fontSize: 10, fontWeight: '600', fontFamily: 'Inter, sans-serif', marginTop: 1 }}>Join our Telegram channel</Text>
+                  {/* XO Channel Card */}
+                  <TouchableOpacity
+                    onPress={() => Linking.openURL('https://t.me/xoethiopia1').catch(() => { })}
+                    activeOpacity={0.85}
+                    style={[s.card, { paddingVertical: 14 }]}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                      <View style={[s.quickActionIconCircle, { backgroundColor: "rgba(139, 92, 246, 0.1)", width: 36, height: 36, borderRadius: 18 }]}><Ionicons name="paper-plane-outline" size={18} color="#8b5cf6" /></View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800', fontFamily: 'Inter, sans-serif' }}>XO CHANNEL</Text>
+                        <Text style={{ color: '#8b93a7', fontSize: 10, fontWeight: '600', fontFamily: 'Inter, sans-serif', marginTop: 1 }}>Join our Telegram channel</Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={16} color="#4b5563" />
                     </View>
-                    <Ionicons name="chevron-forward" size={16} color="#4b5563" />
-                  </View>
-                </TouchableOpacity>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
 
@@ -1636,12 +1697,14 @@ const s = StyleSheet.create({
   },
   threeColumnRow: {
     flexDirection: Platform.OS === "web" ? "row" : "column",
+    alignItems: Platform.OS === "web" ? "stretch" : "flex-start",
     gap: 24,
     width: "100%",
   },
   leftSidebar: {
     width: 290,
     gap: 16,
+    justifyContent: "space-between",
   },
   card: {
     backgroundColor: "#12172a",
@@ -1885,6 +1948,7 @@ const s = StyleSheet.create({
   rightSidebar: {
     width: 325,
     gap: 12,
+    justifyContent: "space-between",
   },
   leaderboardHeader: {
     flexDirection: "row",
