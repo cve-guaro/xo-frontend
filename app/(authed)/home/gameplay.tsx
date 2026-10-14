@@ -300,7 +300,7 @@ export default function Landing() {
   const isTablet = Platform.OS === "web" && width >= 768 && width < 1024;
   const isLargeScreen = isDesktop || isTablet;
   const { ensureConnected, findMatch, cancelFind, isSearching, onMessage, send } = useSocket();
-  const { user, token, booting, refreshProfile, language, switchLanguage, t, showAlert, fixUrl } = useAuth();
+  const { user, token, booting, refreshProfile, language, switchLanguage, t, showAlert, fixUrl, activeGameMode, setActiveGameMode } = useAuth();
   const { isPlaying: bgMusicPlaying, toggleMusic } = useBackgroundMusic();
 
 
@@ -427,7 +427,11 @@ export default function Landing() {
   const [inviteResult, setInviteResult] = useState<any>(null);
   const [rulesVisible, setRulesVisible] = useState(false);
   const params = useLocalSearchParams();
-  const [selectedTab, setSelectedTab] = useState<"SPIN" | "XO_GAME">((params.tab as any) === "XO_GAME" ? "XO_GAME" : "SPIN");
+  const [selectedTab, setSelectedTab] = useState<"SPIN" | "XO_GAME">(activeGameMode === "xo" ? "XO_GAME" : "SPIN");
+
+  useEffect(() => {
+    setSelectedTab(activeGameMode === "xo" ? "XO_GAME" : "SPIN");
+  }, [activeGameMode]);
   const [spinMode, setSpinMode] = useState<"5_PLAYER" | "RAIL">("5_PLAYER");
   const [showMobileStakeModal, setShowMobileStakeModal] = useState(false);
   const [mobileStakeInput, setMobileStakeInput] = useState("50");
@@ -1245,6 +1249,7 @@ export default function Landing() {
               value={selectedTab}
               onChange={(k) => {
                 setSelectedTab(k);
+                setActiveGameMode(k === "XO_GAME" ? "xo" : "spin");
                 router.setParams({ tab: k });
               }}
             />
@@ -1254,7 +1259,7 @@ export default function Landing() {
           {selectedTab === "SPIN" ? (
             <View style={spinStyles.card}>
 
-              {/* SPIN TO WIN Header Header */}
+              {/* SPIN TO WIN Header */}
               <View style={{ width: "100%", flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                 <View>
                   <Text style={{ color: "#ffffff", fontSize: 20, fontWeight: "900", fontFamily: "Inter, sans-serif" }}>
@@ -1264,27 +1269,6 @@ export default function Landing() {
                     Big rewards
                   </Text>
                 </View>
-
-                {/* 5 Players Live Counter Badge */}
-                <TouchableOpacity
-                  onPress={openRoomSheet}
-                  style={{
-                    backgroundColor: "rgba(139, 92, 246, 0.2)",
-                    borderRadius: 14,
-                    paddingHorizontal: 12,
-                    paddingVertical: 6,
-                    borderWidth: 1,
-                    borderColor: "rgba(139, 92, 246, 0.4)",
-                    alignItems: "center",
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-                    <Ionicons name="people" size={14} color="#a855f7" />
-                    <Text style={{ color: "#a855f7", fontSize: 12, fontWeight: "900" }}>5 Players</Text>
-                  </View>
-                  <Text style={{ color: "#8b93a7", fontSize: 9, fontWeight: "700" }}>5 People Spin</Text>
-                </TouchableOpacity>
               </View>
 
               {/* Spin Wheel Component */}

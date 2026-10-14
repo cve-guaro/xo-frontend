@@ -220,11 +220,11 @@ export default function SpinWheel({
                       strokeWidth={2}
                     />
 
-                    {/* Empty Slot Avatar Silhouette from Image 2 */}
+                    {/* Empty Slot Avatar Silhouette */}
                     <Circle
                       cx={textPos.x}
-                      cy={textPos.y - 7}
-                      r={size * 0.052}
+                      cy={textPos.y - 14}
+                      r={Math.min(size * 0.042, 12)}
                       fill="rgba(255, 255, 255, 0.08)"
                       stroke="#475569"
                       strokeWidth={1.5}
@@ -232,21 +232,21 @@ export default function SpinWheel({
                     {/* Head */}
                     <Circle
                       cx={textPos.x}
-                      cy={textPos.y - 11}
-                      r={size * 0.019}
+                      cy={textPos.y - 17}
+                      r={Math.min(size * 0.016, 4.5)}
                       fill="#94a3b8"
                     />
                     {/* Shoulders */}
                     <Path
-                      d={`M ${textPos.x - 8} ${textPos.y + 1} C ${textPos.x - 8} ${textPos.y - 5}, ${textPos.x + 8} ${textPos.y - 5}, ${textPos.x + 8} ${textPos.y + 1} Z`}
+                      d={`M ${textPos.x - 7} ${textPos.y - 7} C ${textPos.x - 7} ${textPos.y - 12}, ${textPos.x + 7} ${textPos.y - 12}, ${textPos.x + 7} ${textPos.y - 7} Z`}
                       fill="#94a3b8"
                     />
 
                     <SvgText
                       x={textPos.x}
-                      y={textPos.y + 13}
+                      y={textPos.y + 7}
                       fill="#94a3b8"
-                      fontSize={Math.min(size * 0.032, 9.5)}
+                      fontSize={Math.min(size * 0.030, 9)}
                       fontWeight="800"
                       textAnchor="middle"
                       alignmentBaseline="middle"
@@ -256,9 +256,9 @@ export default function SpinWheel({
                     </SvgText>
                     <SvgText
                       x={textPos.x}
-                      y={textPos.y + 24}
+                      y={textPos.y + 21}
                       fill="rgba(148, 163, 184, 0.7)"
-                      fontSize={Math.min(size * 0.029, 8.5)}
+                      fontSize={Math.min(size * 0.027, 8)}
                       fontWeight="800"
                       textAnchor="middle"
                       alignmentBaseline="middle"
@@ -283,11 +283,11 @@ export default function SpinWheel({
                     strokeWidth={2}
                   />
 
-                  {/* Player Avatar Circle from Image 2 */}
+                  {/* Player Avatar Circle with generous spacing */}
                   <Circle
                     cx={textPos.x}
-                    cy={textPos.y - 7}
-                    r={size * 0.052}
+                    cy={textPos.y - 14}
+                    r={Math.min(size * 0.044, 12.5)}
                     fill="rgba(255, 255, 255, 0.22)"
                     stroke="#ffffff"
                     strokeWidth={1.5}
@@ -295,22 +295,22 @@ export default function SpinWheel({
                   {/* Head */}
                   <Circle
                     cx={textPos.x}
-                    cy={textPos.y - 11}
-                    r={size * 0.019}
+                    cy={textPos.y - 17}
+                    r={Math.min(size * 0.017, 5)}
                     fill="#ffffff"
                   />
                   {/* Shoulders */}
                   <Path
-                    d={`M ${textPos.x - 8} ${textPos.y + 1} C ${textPos.x - 8} ${textPos.y - 5}, ${textPos.x + 8} ${textPos.y - 5}, ${textPos.x + 8} ${textPos.y + 1} Z`}
+                    d={`M ${textPos.x - 7} ${textPos.y - 7} C ${textPos.x - 7} ${textPos.y - 12}, ${textPos.x + 7} ${textPos.y - 12}, ${textPos.x + 7} ${textPos.y - 7} Z`}
                     fill="#ffffff"
                   />
 
                   {/* Short Uppercase Player Name (e.g. ASH, MEK) */}
                   <SvgText
                     x={textPos.x}
-                    y={textPos.y + 13}
+                    y={textPos.y + 7}
                     fill="#ffffff"
-                    fontSize={Math.min(size * 0.034, 10)}
+                    fontSize={Math.min(size * 0.032, 9.5)}
                     fontWeight="900"
                     textAnchor="middle"
                     alignmentBaseline="middle"
@@ -323,9 +323,9 @@ export default function SpinWheel({
                   {percentStr ? (
                     <SvgText
                       x={textPos.x}
-                      y={textPos.y + 24}
+                      y={textPos.y + 21}
                       fill="#fde047"
-                      fontSize={Math.min(size * 0.030, 9)}
+                      fontSize={Math.min(size * 0.028, 8.5)}
                       fontWeight="900"
                       textAnchor="middle"
                       alignmentBaseline="middle"

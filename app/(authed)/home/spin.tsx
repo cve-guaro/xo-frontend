@@ -426,7 +426,7 @@ export default function SpinGameScreen() {
       275
     )
   );
-  const { token, user, refreshProfile, language, switchLanguage } = useAuth();
+  const { token, user, refreshProfile, language, switchLanguage, setLanguage, showAlert } = useAuth();
   const balance = Number(user?.available_balance || 0);
   const { mode, stake } = useLocalSearchParams();
   const { ensureConnected, emitAck, onMessage, send } = useSocket();
@@ -561,6 +561,7 @@ export default function SpinGameScreen() {
   const [addLoading, setAddLoading] = useState(false);
   const [mobilePlayersSheetVisible, setMobilePlayersSheetVisible] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [languageMenuVisible, setLanguageMenuVisible] = useState(false);
   const [preSpinCountdown, setPreSpinCountdown] = useState<number | null>(null);
   const preSpinTimerRef = useRef<any>(null);
   const countdownTimerRef = useRef<any>(null);
@@ -568,6 +569,18 @@ export default function SpinGameScreen() {
   const pendingSpinDataRef = useRef<{ winningSlice: number; spinDuration: number; roundId: string; winnerId?: string } | null>(null);
   const [pendingWinnerId, setPendingWinnerId] = useState<string | null>(null);
   const targetEndTimeRef = useRef<number | null>(null);
+
+  // Active 1-second countdown ticker: ensures countdown visibly ticks down in real-time
+  useEffect(() => {
+    if (screenState !== "waiting" && screenState !== "spinning") return;
+    const interval = setInterval(() => {
+      if (targetEndTimeRef.current) {
+        const rem = Math.max(0, Math.ceil((targetEndTimeRef.current - Date.now()) / 1000));
+        setCountdown(rem);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [screenState]);
   // ── Rematch State ──────────────────────────────────────────────
   const [rematchAvailable, setRematchAvailable] = useState<{ originalRoundId: string; timeoutMs: number; betAmount: number } | null>(null);
   const [rematchAccepted, setRematchAccepted] = useState<boolean>(false);
@@ -780,14 +793,9 @@ export default function SpinGameScreen() {
           break;
         
         case "spin:countdown": {
-          // Server countdown takes priority — sync target end timestamp smoothly
           const sec = payload.secondsLeft;
-          const newTarget = Date.now() + sec * 1000;
-          if (!targetEndTimeRef.current || Math.abs(newTarget - targetEndTimeRef.current) > 1500) {
-            targetEndTimeRef.current = newTarget;
-          }
-          const rem = Math.max(0, Math.ceil((targetEndTimeRef.current - Date.now()) / 1000));
-          setCountdown(rem);
+          targetEndTimeRef.current = Date.now() + sec * 1000;
+          setCountdown(sec);
           break;
         }
 
@@ -1131,14 +1139,19 @@ export default function SpinGameScreen() {
   const leaveBlocked = countdown > 0 && countdown <= 60 && !is5Player;
   const handleLeaveRoom = useCallback(() => {
     if (leaveBlocked) {
+      const title = language === "am" ? "መውጣት አይቻልም" : "Cannot Leave Room";
       const msg = language === "am"
-        ? "ጨዋታው ሊጀመር የመጨረሻ 1 ደቂቃ ስለሆነ መውጣት አይቻልም!"
-        : "Cannot leave room during final 1 minute!";
-      setError(msg);
+        ? "ጨዋታው ሊጀመር የመጨረሻ 1 ደቂቃ ስለሆነ ከክፍሉ መውጣት አይቻልም!"
+        : "You cannot leave the room during the final 1 minute before the spin!";
+      if (showAlert) {
+        showAlert(title, msg);
+      } else {
+        setError(msg);
+      }
       return;
     }
     setShowLeaveConfirm(true);
-  }, [leaveBlocked, language]);
+  }, [leaveBlocked, language, showAlert]);
 
   // ── Play again handler ───────────────────────────────────────────────
   const handlePlayAgain = useCallback(() => {
@@ -1456,6 +1469,87 @@ export default function SpinGameScreen() {
         </View>
       </Modal>
 
+      {/* Language Selection Modal */}
+      <Modal
+        visible={languageMenuVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setLanguageMenuVisible(false)}
+      >
+        <Pressable
+          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.65)", justifyContent: "center", alignItems: "center" }}
+          onPress={() => setLanguageMenuVisible(false)}
+        >
+          <View
+            style={{
+              width: 290,
+              backgroundColor: "#141830",
+              borderRadius: 22,
+              padding: 22,
+              borderWidth: 1.5,
+              borderColor: "rgba(139, 92, 246, 0.35)",
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 10 },
+              shadowOpacity: 0.55,
+              shadowRadius: 20,
+            }}
+          >
+            <Text style={{ color: "#ffffff", fontSize: 16, fontWeight: "900", marginBottom: 16, textAlign: "center" }}>
+              {language === "am" ? "ቋንቋ ይምረጡ" : "Select Language"}
+            </Text>
+
+            <TouchableOpacity
+              onPress={() => {
+                setLanguage?.("en");
+                setLanguageMenuVisible(false);
+              }}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingVertical: 12,
+                paddingHorizontal: 16,
+                borderRadius: 14,
+                backgroundColor: language === "en" ? "rgba(139, 92, 246, 0.2)" : "rgba(255, 255, 255, 0.04)",
+                borderWidth: 1,
+                borderColor: language === "en" ? "#8b5cf6" : "rgba(255, 255, 255, 0.08)",
+                marginBottom: 10,
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={{ color: language === "en" ? "#a78bfa" : "#e2e8f0", fontSize: 14, fontWeight: "800" }}>
+                English (EN)
+              </Text>
+              {language === "en" && <Ionicons name="checkmark-circle" size={18} color="#8b5cf6" />}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => {
+                setLanguage?.("am");
+                setLanguageMenuVisible(false);
+              }}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingVertical: 12,
+                paddingHorizontal: 16,
+                borderRadius: 14,
+                backgroundColor: language === "am" ? "rgba(139, 92, 246, 0.2)" : "rgba(255, 255, 255, 0.04)",
+                borderWidth: 1,
+                borderColor: language === "am" ? "#8b5cf6" : "rgba(255, 255, 255, 0.08)",
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={{ color: language === "am" ? "#a78bfa" : "#e2e8f0", fontSize: 14, fontWeight: "800" }}>
+                አማርኛ (Amharic)
+              </Text>
+              {language === "am" && <Ionicons name="checkmark-circle" size={18} color="#8b5cf6" />}
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
+
       {/* ── HEADER ── */}
       {isDesktop && (
         <View style={ds.header}>
@@ -1465,8 +1559,6 @@ export default function SpinGameScreen() {
               <Image source={require("../../../assets/images/icon.jpg")} style={ds.logoImg} />
               <Text style={ds.logoText}>XO ETHIOPIA</Text>
             </TouchableOpacity>
-
-
 
             {/* Right: Profile */}
             <View style={ds.utilCluster}>
@@ -1488,414 +1580,49 @@ export default function SpinGameScreen() {
         <ScrollView style={ds.body} contentContainerStyle={ds.bodyContent} showsVerticalScrollIndicator={false}>
           {is5Player ? (
             /* ════════════════════════════════════════════════════════════════
-               ██  5-PLAYER SPIN ROOM LAYOUT (DESKTOP)
+               ██  5-PLAYER SPIN ROOM LAYOUT (DESKTOP — EXACT MATCH IMAGE 4)
                ════════════════════════════════════════════════════════════════ */
-            <View style={ds.twoColumnRow}>
-              {/* LEFT SIDE: Wheel + seat slots */}
-              <View style={ds.mainColumn5P}>
-                <View style={[ds.waitingHeader, { flexDirection: "row", alignItems: "center", justifyContent: "space-between" }]}>
+            <View style={{ width: "100%", gap: 24 }}>
+              {/* Top Subheader Bar (Image 4) */}
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+                  <TouchableOpacity
+                    onPress={() => router.replace("/(authed)/home/gameplay")}
+                    style={{
+                      width: 42,
+                      height: 42,
+                      borderRadius: 21,
+                      backgroundColor: "rgba(15, 23, 42, 0.8)",
+                      borderWidth: 1,
+                      borderColor: "rgba(255, 255, 255, 0.12)",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="arrow-back" size={20} color="#ffffff" />
+                  </TouchableOpacity>
                   <View>
-                    <Text style={ds.waitingTitle}>5-PLAYER SPIN</Text>
-                    <Text style={ds.waitingSubtitle}>
-                      {round
-                        ? `Waiting for players… ${round.players.length}/5`
-                        : "Press Join below to enter the room"}
+                    <Text style={{ color: "#ffffff", fontSize: 22, fontWeight: "900", fontFamily: "Inter, sans-serif" }}>
+                      5-Player Spin
+                    </Text>
+                    <Text style={{ color: "#94a3b8", fontSize: 13, fontWeight: "500", marginTop: 2 }}>
+                      {round ? `Waiting for players… ${round.players.length}/5` : "Join the room to enter the game"}
                     </Text>
                   </View>
-                  {/* Voice mic & speaker controls for Web / Desktop layout */}
-                  <View style={ds.voiceControlsRow}>
-                    <TouchableOpacity
-                      onPress={handleToggleMic}
-                      disabled={!round}
-                      style={[ds.voiceControlBtn, micMuted && { backgroundColor: "rgba(239, 68, 68, 0.15)", borderColor: "#ef4444" }, !round && { opacity: 0.4 }]}
-                    >
-                      <Ionicons name={micMuted ? "mic-off" : "mic"} size={16} color={micMuted ? "#ef4444" : "#22d3ee"} />
-                      <Text style={[ds.voiceControlBtnText, { color: micMuted ? "#ef4444" : "#22d3ee" }]}>
-                        {micMuted ? "Mic Off" : "Mic On"}
-                      </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      onPress={handleToggleSpeaker}
-                      disabled={!round}
-                      style={[ds.voiceControlBtn, masterSpeakerMuted && { backgroundColor: "rgba(239, 68, 68, 0.15)", borderColor: "#ef4444" }, !round && { opacity: 0.4 }]}
-                    >
-                      <Ionicons name={masterSpeakerMuted ? "volume-mute" : "volume-high"} size={16} color={masterSpeakerMuted ? "#ef4444" : "#a78bfa"} />
-                      <Text style={[ds.voiceControlBtnText, { color: masterSpeakerMuted ? "#ef4444" : "#a78bfa" }]}>
-                        {masterSpeakerMuted ? "Muted All" : "Hear Lobby"}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
                 </View>
 
-                {/* ── Join / Leave Room Button — PROMINENT, right after header ── */}
-                {round && round.players.some(p => String(p.userId) === String(user?.id)) ? (
-                  <TouchableOpacity onPress={handleLeaveRoom} style={ds.leaveBtn} activeOpacity={0.85}>
-                    <Ionicons name="exit-outline" size={16} color="#ef4444" />
-                    <Text style={ds.leaveBtnText}>LEAVE ROOM</Text>
-                  </TouchableOpacity>
-                ) : (
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 14, marginTop: 8, marginBottom: 8 }}>
-                    <TouchableOpacity
-                      disabled={Boolean(joinLoading || isSpinning || (round && round.players.length >= 5))}
-                      onPress={() => handleJoinRoom("5_PLAYER", 100)}
-                      style={[
-                        ds.joinBtn5P,
-                        { flex: 1 },
-                        Boolean(joinLoading || isSpinning || (round && round.players.length >= 5)) && { opacity: 0.6 }
-                      ]}
-                      activeOpacity={0.85}
-                    >
-                      {joinLoading ? (
-                        <ActivityIndicator size="small" color="#ffffff" />
-                      ) : (
-                        <>
-                          <Ionicons name="play" size={18} color="#ffffff" />
-                          <Text style={ds.joinBtn5PText}>
-                            {round && round.players.length >= 5 ? "ROOM FULL" : "JOIN GAME (100 ETB)"}
-                          </Text>
-                        </>
-                      )}
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => router.replace("/(authed)/home/gameplay")}
-                      style={{ paddingVertical: 10, paddingHorizontal: 16, borderRadius: 12, borderWidth: 1, borderColor: "rgba(139, 147, 167, 0.25)" }}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={{ color: "#8b93a7", fontSize: 12, fontWeight: "700" }}>← Back</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-
-                {/* Wheel */}
-                <View style={ds.wheelCenter}>
-                  <SpinWheel
-                    size={wheelSize}
-                    players={round ? round.players : previewPlayers}
-                    isSpinning={screenState === "spinning"}
-                    winningSlice={winningSlice}
-                    winnerId={pendingWinnerId}
-                    spinDuration={spinDuration}
-                    onSpinComplete={handleSpinComplete}
-                    status={round ? round.status : "waiting"}
-                    mode="5_PLAYER"
-                    speakingUserIds={speakingUserIds}
-                  />
-                </View>
-
-                {/* Bottom confirmed player slots (Exactly 5 seats) */}
-                <View style={[ds.playerSlots, { marginTop: 32, flexWrap: "wrap", justifyContent: "space-between" }]}>
-                  {Array.from({ length: 5 }).map((_, idx) => {
-                    const player = round?.players.find(p => p.seatIndex === idx) || round?.players[idx];
-                    const isSelf = player?.userId === user?.id;
-                    return (
-                      <View
-                        key={idx}
-                        style={[
-                          ds.playerSeatCard,
-                          player && { borderColor: "#8b5cf6", backgroundColor: "rgba(139, 92, 246, 0.08)" },
-                          isSelf && { borderColor: "#22d3ee", backgroundColor: "rgba(34, 211, 238, 0.08)" },
-                        ]}
-                      >
-                        {player ? (
-                          <>
-                            <View style={[ds.seatAvatar, { backgroundColor: isSelf ? "#22d3ee" : "#8b5cf6" }]}>
-                              <Text style={ds.seatAvatarText}>{player.username.slice(0, 2).toUpperCase()}</Text>
-                            </View>
-                            <Text style={ds.seatName} numberOfLines={1}>{isSelf ? "You" : player.username}</Text>
-                            <Text style={ds.seatStake}>{player.stake || 100} ETB</Text>
-                            <View style={ds.seatCheckmark}>
-                              <Ionicons name="checkmark-circle" size={16} color="#22c55e" />
-                            </View>
-                            {!isSelf && player.userId && (
-                              <TouchableOpacity
-                                onPress={() => toggleMutePlayer(player.userId)}
-                                style={{ position: "absolute", top: 6, right: 6, padding: 4 }}
-                                activeOpacity={0.8}
-                              >
-                                <Ionicons
-                                  name={mutedPlayers.has(player.userId) ? "mic-off-outline" : "mic-outline"}
-                                  size={16}
-                                  color={mutedPlayers.has(player.userId) ? "#ef4444" : "#8b93a7"}
-                                />
-                              </TouchableOpacity>
-                            )}
-                          </>
-                        ) : (
-                          <>
-                            <View style={[ds.seatAvatar, { backgroundColor: "#1e2340", borderStyle: "dashed", borderWidth: 1 }]}>
-                              <Ionicons name="person-outline" size={16} color="#4b5563" />
-                            </View>
-                            <Text style={[ds.seatName, { color: "#4b5563" }]}>Waiting for player...</Text>
-                          </>
-                        )}
-                      </View>
-                    );
-                  })}
-                </View>
-              </View>
-
-              {/* RIGHT SIDE: Active Room Players & Per-User Voice Controls Panel */}
-              <View style={ds.sidebar5P}>
-                <View style={ds.rightSidebarPanel}>
-                  <View style={ds.leaderboardHeader}>
-                    <Text style={ds.leaderboardTitle}>ROOM PLAYERS ({round?.players?.length || 0}/5)</Text>
-                    <TouchableOpacity
-                      onPress={() => {
-                        const newAllMuted = !allRemoteMuted;
-                        setAllRemoteMuted(newAllMuted);
-                        voiceService.muteAllRemoteUsers(newAllMuted);
-                      }}
-                      style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: allRemoteMuted ? "rgba(239, 68, 68, 0.2)" : "rgba(34, 197, 94, 0.15)", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 }}
-                    >
-                      <Ionicons name={allRemoteMuted ? "volume-mute" : "volume-high"} size={14} color={allRemoteMuted ? "#ef4444" : "#22c55e"} />
-                      <Text style={{ color: allRemoteMuted ? "#ef4444" : "#22c55e", fontSize: 11, fontWeight: "600" }}>
-                        {allRemoteMuted ? "Muted All" : "Mute All"}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                  {Array.from({ length: 5 }, (_, idx) => {
-                    const player = round?.players && round.players[idx] ? round.players[idx] : null;
-                    const isSelf = player?.userId === user?.id;
-                    const isMuted = player ? !!mutedRemoteUsers[player.userId] : false;
-                    return (
-                      <View key={player?.userId || idx} style={ds.leaderRow}>
-                        <View style={[ds.leaderBadge, { backgroundColor: player ? (isSelf ? "#06b6d4" : "#3b82f6") : "rgba(255,255,255,0.08)", opacity: player ? 1 : 0.4 }]}>
-                          <Text style={ds.leaderBadgeText}>{idx + 1}</Text>
-                        </View>
-                        <View style={ds.leaderDetails}>
-                          <Text style={[ds.leaderName, !player && { color: "rgba(255,255,255,0.3)" }]} numberOfLines={1}>
-                            {player ? `${player.username}${isSelf ? " (You)" : ""}` : "Waiting for player..."}
-                          </Text>
-                          <Text style={[ds.leaderVal, !player && { color: "rgba(255,255,255,0.2)" }]}>
-                            {player ? `${player.stake} ETB` : "Empty Seat"}
-                          </Text>
-                        </View>
-                        {player && !isSelf && (
-                          <TouchableOpacity
-                            onPress={() => {
-                              const nextMuted = !isMuted;
-                              setMutedRemoteUsers(prev => ({ ...prev, [player.userId]: nextMuted }));
-                              voiceService.muteRemoteUser(player.userId, nextMuted);
-                            }}
-                            style={{ padding: 6, backgroundColor: isMuted ? "rgba(239,68,68,0.2)" : "rgba(255,255,255,0.08)", borderRadius: 8 }}
-                          >
-                            <Ionicons name={isMuted ? "mic-off" : "mic"} size={16} color={isMuted ? "#ef4444" : "#22c55e"} />
-                          </TouchableOpacity>
-                        )}
-                        {player && isSelf && (
-                          <View style={{ padding: 6, backgroundColor: "rgba(6, 182, 212, 0.15)", borderRadius: 8 }}>
-                            <Ionicons name="person" size={16} color="#06b6d4" />
-                          </View>
-                        )}
-                      </View>
-                    );
-                  })}
-                </View>
-              </View>
-            </View>
-          ) : (
-            /* ════════════════════════════════════════════════════════════════
-               ██  RAIL SPIN ROOM LAYOUT (DESKTOP)
-               ════════════════════════════════════════════════════════════════ */
-            <View style={ds.threeColumnRow}>
-              {/* COLUMN 1: Stakes & Bet Selector */}
-              <View style={ds.betSelectorColumn}>
-                <View style={{ marginBottom: 16 }}>
-                  <Text style={ds.waitingTitle}>Endless Spin</Text>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
-                    <View style={ds.publicPill}>
-                      <Text style={ds.publicPillText}>Public Room</Text>
-                    </View>
-                    <Text style={{ color: "#8b93a7", fontSize: 11 }}>Stakes vary  •  Unlimited players</Text>
-                  </View>
-                  <TouchableOpacity style={ds.roomInfoBtn} activeOpacity={0.8}>
-                    <Ionicons name="information-circle-outline" size={14} color="#8b93a7" />
-                    <Text style={ds.roomInfoBtnText}>Room Info</Text>
-                  </TouchableOpacity>
-                </View>
-
-                {!round ? (
-                  /* ── PRE-JOIN BET SELECTOR ── */
-                  <View style={ds.betCard}>
-                    <Text style={ds.betCardLabel}>YOUR BET AMOUNT</Text>
-                    <Text style={ds.betCardVal}>{betAmount} ETB</Text>
-                    <Text style={ds.betLimits}>Min 10 ETB  •  Max 10,000 ETB</Text>
-
-                    {/* Stepper +/- */}
-                    <View style={ds.stepperRow}>
-                      <TouchableOpacity
-                        onPress={() => setBetAmount(prev => Math.max(10, prev - 10))}
-                        disabled={!!round}
-                        style={[ds.stepperBtn, !!round && { opacity: 0.3 }]}
-                      >
-                        <Ionicons name="remove" size={18} color="#fff" />
-                      </TouchableOpacity>
-                      <View style={ds.stepperInput}>
-                        <Text style={ds.stepperValText}>{betAmount}</Text>
-                      </View>
-                      <TouchableOpacity
-                        onPress={() => setBetAmount(prev => Math.min(10000, prev + 10))}
-                        disabled={!!round}
-                        style={[ds.stepperBtn, !!round && { opacity: 0.3 }]}
-                      >
-                        <Ionicons name="add" size={18} color="#fff" />
-                      </TouchableOpacity>
-                    </View>
-
-                    {/* Preset Chips */}
-                    <View style={ds.presetChips}>
-                      {[10, 50, 100, 500].map((preset) => (
-                        <TouchableOpacity
-                          key={preset}
-                          disabled={!!round}
-                          onPress={() => setBetAmount(preset)}
-                          style={[
-                            ds.presetChip,
-                            betAmount === preset && ds.presetChipActive,
-                            !!round && { opacity: 0.3 },
-                          ]}
-                        >
-                          <Text style={[ds.presetChipText, betAmount === preset && ds.presetChipTextActive]}>
-                            {preset}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-
-                    {/* Place Bet CTA */}
-                    <TouchableOpacity
-                      disabled={joinLoading || !!round}
-                      onPress={() => handleJoinRoom("RAIL", betAmount)}
-                      style={[ds.placeBetBtn, !!round && ds.placeBetBtnDisabled]}
-                    >
-                      {joinLoading ? (
-                        <ActivityIndicator size="small" color="#fff" />
-                      ) : (
-                        <Text style={ds.placeBetBtnText}>{round ? "BET CONFIRMED" : "PLACE BET"}</Text>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                ) : (
-                  /* ── IN-GAME MONEY INCREASER ── */
-                  <View style={ds.betCard}>
-                    <Text style={ds.betCardLabel}>YOUR TOTAL STAKE</Text>
-                    <Text style={[ds.betCardVal, { color: "#22d3ee" }]}>
-                      {(() => {
-                        const p = round.players.find(x => x.userId === user?.id);
-                        return p ? p.stake : 0;
-                      })()} ETB
-                    </Text>
-                    <Text style={ds.betLimits}>
-                      {round.status !== "waiting"
-                        ? "Round has started. Stakes locked!"
-                        : countdown <= 5
-                        ? "Room is locking! Stakes locked!"
-                        : "Add more money to increase your odds!"}
-                    </Text>
-
-                    {/* Preset Chips to add */}
-                    <View style={ds.presetChips}>
-                      {[10, 50, 100, 500].map((val) => {
-                        const isLocking = round.status !== "waiting" || countdown <= 5;
-                        return (
-                          <TouchableOpacity
-                            key={val}
-                            disabled={isLocking}
-                            onPress={() => setAddAmount(val)}
-                            style={[
-                              ds.presetChip,
-                              addAmount === val && ds.presetChipActive,
-                              isLocking && { opacity: 0.3 },
-                            ]}
-                          >
-                            <Text style={[ds.presetChipText, addAmount === val && ds.presetChipTextActive]}>
-                              +{val}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-
-                    {/* Stepper to configure exact add amount */}
-                    <View style={[ds.stepperRow, (round.status !== "waiting" || countdown <= 5) && { opacity: 0.4 }]}>
-                      <TouchableOpacity
-                        onPress={() => setAddAmount(prev => Math.max(10, prev - 10))}
-                        disabled={round.status !== "waiting" || countdown <= 5}
-                        style={ds.stepperBtn}
-                      >
-                        <Ionicons name="remove" size={18} color="#fff" />
-                      </TouchableOpacity>
-                      <View style={ds.stepperInput}>
-                        <Text style={ds.stepperValText}>+{addAmount} ETB</Text>
-                      </View>
-                      <TouchableOpacity
-                        onPress={() => setAddAmount(prev => Math.min(10000, prev + 10))}
-                        disabled={round.status !== "waiting" || countdown <= 5}
-                        style={ds.stepperBtn}
-                      >
-                        <Ionicons name="add" size={18} color="#fff" />
-                      </TouchableOpacity>
-                    </View>
-
-                    {/* Add Stake CTA */}
-                    <TouchableOpacity
-                      disabled={addLoading || round.status !== "waiting" || countdown <= 5}
-                      onPress={() => handleAddStake(addAmount)}
-                      style={[
-                        ds.placeBetBtn,
-                        { backgroundColor: "#06b6d4" },
-                        (addLoading || round.status !== "waiting" || countdown <= 5) && {
-                          backgroundColor: "rgba(6, 182, 212, 0.15)",
-                          borderColor: "rgba(6, 182, 212, 0.3)",
-                          borderWidth: 1,
-                        },
-                      ]}
-                    >
-                      {addLoading ? (
-                        <ActivityIndicator size="small" color="#fff" />
-                      ) : (
-                        <Text style={ds.placeBetBtnText}>
-                          {round.status !== "waiting" || countdown <= 5 ? "LOCKED" : "ADD TO STAKE"}
-                        </Text>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                )}
-              </View>
-
-              {/* COLUMN 2: Wheel + Countdown + Pot */}
-              <View style={ds.wheelCenterColumn}>
-                {/* SPIN ENDS IN */}
-                <View style={ds.countdownBox}>
-                  <Text style={ds.countdownLabel}>SPIN ENDS IN</Text>
-                  <Text style={ds.countdownTime}>
-                    {formatCountdown(countdown)}
-                  </Text>
-                </View>
-
-                {/* Dynamic Wheel */}
-                <View style={ds.wheelCenter}>
-                  <SpinWheel
-                    size={wheelSize}
-                    players={previewPlayers}
-                    isSpinning={screenState === "spinning"}
-                    winningSlice={winningSlice}
-                    winnerId={pendingWinnerId}
-                    spinDuration={spinDuration}
-                    onSpinComplete={handleSpinComplete}
-                    status={round ? round.status : "waiting"}
-                    mode="RAIL"
-                    speakingUserIds={speakingUserIds}
-                  />
-                </View>
-
-                {/* Mic & Hear Lobby toggles */}
-                <View style={ds.voiceControlsRow}>
+                {/* Voice mic & speaker controls */}
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
                   <TouchableOpacity
                     onPress={handleToggleMic}
                     disabled={!round}
-                    style={[ds.voiceControlBtn, micMuted && { backgroundColor: "rgba(239, 68, 68, 0.15)", borderColor: "#ef4444" }, !round && { opacity: 0.4 }]}
+                    style={[
+                      ds.voiceControlBtn,
+                      { borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8 },
+                      micMuted && { backgroundColor: "rgba(239, 68, 68, 0.15)", borderColor: "#ef4444" },
+                      !round && { opacity: 0.4 }
+                    ]}
                   >
                     <Ionicons name={micMuted ? "mic-off" : "mic"} size={16} color={micMuted ? "#ef4444" : "#22d3ee"} />
                     <Text style={[ds.voiceControlBtnText, { color: micMuted ? "#ef4444" : "#22d3ee" }]}>
@@ -1906,7 +1633,12 @@ export default function SpinGameScreen() {
                   <TouchableOpacity
                     onPress={handleToggleSpeaker}
                     disabled={!round}
-                    style={[ds.voiceControlBtn, masterSpeakerMuted && { backgroundColor: "rgba(239, 68, 68, 0.15)", borderColor: "#ef4444" }, !round && { opacity: 0.4 }]}
+                    style={[
+                      ds.voiceControlBtn,
+                      { borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8 },
+                      masterSpeakerMuted && { backgroundColor: "rgba(239, 68, 68, 0.15)", borderColor: "#ef4444" },
+                      !round && { opacity: 0.4 }
+                    ]}
                   >
                     <Ionicons name={masterSpeakerMuted ? "volume-mute" : "volume-high"} size={16} color={masterSpeakerMuted ? "#ef4444" : "#a78bfa"} />
                     <Text style={[ds.voiceControlBtnText, { color: masterSpeakerMuted ? "#ef4444" : "#a78bfa" }]}>
@@ -1914,76 +1646,630 @@ export default function SpinGameScreen() {
                     </Text>
                   </TouchableOpacity>
                 </View>
-
-                {/* CURRENT POT */}
-                <View style={ds.potBox}>
-                  <Text style={ds.potBoxLabel}>CURRENT POT</Text>
-                  <Text style={ds.potBoxVal}>{previewPot.toLocaleString()} ETB</Text>
-                </View>
-
-                {/* Leave Room */}
-                <TouchableOpacity onPress={handleLeaveRoom} style={ds.leaveBtn} activeOpacity={0.85}>
-                  <Ionicons name="exit-outline" size={16} color="#ef4444" />
-                  <Text style={ds.leaveBtnText}>LEAVE ROOM</Text>
-                </TouchableOpacity>
               </View>
 
-              {/* COLUMN 3: Players List */}
-              <View style={ds.playersListColumn}>
-                <View style={ds.rightSidebarPanel}>
-                  <View style={ds.leaderboardHeader}>
-                    <Text style={ds.leaderboardTitle}>PLAYERS IN ROOM ({round ? round.players.length : 0})</Text>
-                    <View style={ds.liveIndicatorDot} />
+              {/* Main Area: Wheel on Left, Room Players on Right (Image 4) */}
+              <View style={{ flexDirection: "row", gap: 32, alignItems: "center" }}>
+                {/* Left: Wheel + Action Buttons */}
+                <View style={{ flex: 1.6, alignItems: "center", justifyContent: "center" }}>
+                  <View style={{ position: "relative", alignItems: "center", justifyContent: "center" }}>
+                    <SpinWheel
+                      size={Math.min(screenW * 0.32, 420)}
+                      players={round ? round.players : previewPlayers}
+                      isSpinning={screenState === "spinning"}
+                      winningSlice={winningSlice}
+                      winnerId={pendingWinnerId}
+                      spinDuration={spinDuration}
+                      onSpinComplete={handleSpinComplete}
+                      status={round ? round.status : "waiting"}
+                      mode="5_PLAYER"
+                      speakingUserIds={speakingUserIds}
+                    />
                   </View>
-                  
-                  <ScrollView style={{ maxHeight: 350, marginVertical: 12 }}>
-                    {(round ? round.players : []).map((p: any, idx: number) => {
-                      const isSelf = p.userId === user?.id;
-                      const isHost = idx === 0;
-                      const isMuted = mutedPlayers.has(p.userId);
-                      const isSelfHost = round?.players[0]?.userId === user?.id;
-                      
-                      return (
-                        <View key={p.userId || idx} style={ds.playerRow}>
-                          <View style={[ds.seatAvatar, { backgroundColor: isSelf ? "#22d3ee" : "#8b5cf6", marginRight: 8 }]}>
-                            <Text style={ds.seatAvatarText}>{p.username.slice(0, 2).toUpperCase()}</Text>
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <Text style={ds.playerName} numberOfLines={1}>
-                              {isSelf ? "You" : p.username}
+
+                  {/* Below Wheel Action Buttons (Image 4) */}
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 14, marginTop: 24 }}>
+                    {round && round.players.some(p => String(p.userId) === String(user?.id)) ? (
+                      <TouchableOpacity
+                        onPress={handleLeaveRoom}
+                        style={[
+                          ds.leaveBtn,
+                          { borderRadius: 24, paddingHorizontal: 32, paddingVertical: 12, marginTop: 0 }
+                        ]}
+                        activeOpacity={0.85}
+                      >
+                        <Ionicons name="exit-outline" size={16} color="#ef4444" />
+                        <Text style={ds.leaveBtnText}>{language === "am" ? "ከክፍሉ ውጣ" : "LEAVE ROOM"}</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity
+                        disabled={Boolean(joinLoading || isSpinning || (round && round.players.length >= 5))}
+                        onPress={() => handleJoinRoom("5_PLAYER", 100)}
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 8,
+                          backgroundColor: "#f43f5e",
+                          borderRadius: 24,
+                          paddingHorizontal: 28,
+                          paddingVertical: 12,
+                          opacity: Boolean(joinLoading || isSpinning || (round && round.players.length >= 5)) ? 0.6 : 1,
+                        }}
+                        activeOpacity={0.85}
+                      >
+                        {joinLoading ? (
+                          <ActivityIndicator size="small" color="#ffffff" />
+                        ) : (
+                          <>
+                            <Ionicons name="people" size={18} color="#ffffff" />
+                            <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "900", letterSpacing: 0.5 }}>
+                              {round && round.players.length >= 5 ? "ROOM FULL" : "JOIN GAME (100 ETB)"}
                             </Text>
-                            <Text style={ds.playerBet}>{p.stake || 100} ETB</Text>
-                          </View>
-                          {isHost && (
-                            <View style={ds.hostBadge}>
-                              <Text style={ds.hostBadgeText}>HOST</Text>
+                          </>
+                        )}
+                      </TouchableOpacity>
+                    )}
+
+                    <TouchableOpacity
+                      onPress={() => router.replace("/(authed)/home/gameplay")}
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 6,
+                        paddingVertical: 12,
+                        paddingHorizontal: 20,
+                        borderRadius: 24,
+                        borderWidth: 1,
+                        borderColor: "rgba(255, 255, 255, 0.15)",
+                        backgroundColor: "rgba(15, 23, 42, 0.6)",
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="arrow-back" size={16} color="#94a3b8" />
+                      <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "800" }}>Back</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Right: Room Players List (Image 4) */}
+                <View style={{ flex: 1.1, minWidth: 320 }}>
+                  <View style={{
+                    backgroundColor: "rgba(10, 16, 36, 0.85)",
+                    borderRadius: 20,
+                    padding: 20,
+                    borderWidth: 1,
+                    borderColor: "rgba(59, 130, 246, 0.2)",
+                  }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                        <Ionicons name="people" size={18} color="#94a3b8" />
+                        <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "900", letterSpacing: 0.5 }}>
+                          ROOM PLAYERS ({round?.players?.length || 0}/5)
+                        </Text>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => {
+                          const newAllMuted = !allRemoteMuted;
+                          setAllRemoteMuted(newAllMuted);
+                          voiceService.muteAllRemoteUsers(newAllMuted);
+                        }}
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 6,
+                          backgroundColor: "rgba(15, 23, 42, 0.8)",
+                          paddingHorizontal: 12,
+                          paddingVertical: 6,
+                          borderRadius: 16,
+                          borderWidth: 1,
+                          borderColor: "rgba(255, 255, 255, 0.1)",
+                        }}
+                      >
+                        <Ionicons name={allRemoteMuted ? "volume-mute" : "volume-high"} size={13} color="#94a3b8" />
+                        <Text style={{ color: "#94a3b8", fontSize: 11, fontWeight: "700" }}>
+                          {allRemoteMuted ? "Muted All" : "Mute All"}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* 5 Vertical Seat Rows (Image 4) */}
+                    <View style={{ gap: 10 }}>
+                      {Array.from({ length: 5 }, (_, idx) => {
+                        const player = round?.players && round.players[idx] ? round.players[idx] : null;
+                        const isSelf = player?.userId === user?.id;
+                        return (
+                          <View
+                            key={player?.userId || idx}
+                            style={{
+                              flexDirection: "row",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              backgroundColor: player ? "rgba(30, 41, 59, 0.6)" : "rgba(15, 23, 42, 0.5)",
+                              borderRadius: 14,
+                              paddingVertical: 12,
+                              paddingHorizontal: 14,
+                              borderWidth: 1,
+                              borderColor: isSelf ? "#22d3ee" : player ? "rgba(139, 92, 246, 0.3)" : "rgba(255, 255, 255, 0.05)",
+                            }}
+                          >
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                              <View style={{
+                                width: 28,
+                                height: 28,
+                                borderRadius: 14,
+                                backgroundColor: isSelf ? "#22d3ee" : player ? "#7c3aed" : "rgba(255, 255, 255, 0.08)",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}>
+                                <Text style={{ color: "#ffffff", fontSize: 12, fontWeight: "900" }}>{idx + 1}</Text>
+                              </View>
+                              <View style={{
+                                width: 34,
+                                height: 34,
+                                borderRadius: 17,
+                                backgroundColor: "rgba(255, 255, 255, 0.08)",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}>
+                                <Ionicons name="person" size={16} color={player ? "#ffffff" : "#64748b"} />
+                              </View>
+                              <View>
+                                <Text style={{ color: player ? "#ffffff" : "#64748b", fontSize: 13, fontWeight: "700" }}>
+                                  {player ? (isSelf ? "You" : player.username) : "Waiting for player..."}
+                                </Text>
+                                <Text style={{ color: player ? "#22d3ee" : "#475569", fontSize: 11, fontWeight: "600", marginTop: 1 }}>
+                                  {player ? `${player.stake || 100} ETB` : "Empty Seat"}
+                                </Text>
+                              </View>
                             </View>
-                          )}
-                          {isSpeaking(p.userId) && (
-                            <Ionicons name="volume-high" size={14} color="#10b981" style={{ marginRight: 6 }} />
-                          )}
-                          {!isSelf && !p.isBot && (
-                            <TouchableOpacity 
-                              onPress={() => {
-                                if (isSelfHost) {
-                                  handleHostMuteUser(p.userId, isMuted);
-                                } else {
-                                  toggleMutePlayer(p.userId);
-                                }
-                              }}
-                              style={{ padding: 4 }}
-                            >
-                              <Ionicons 
-                                name={isMuted ? "mic-off-outline" : "mic-outline"} 
-                                size={16} 
-                                color={isMuted ? "#ef4444" : "#8b93a7"} 
-                              />
-                            </TouchableOpacity>
-                          )}
-                        </View>
-                      );
-                    })}
-                  </ScrollView>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  </View>
+                </View>
+              </View>
+
+              {/* Bottom 5 Horizontal Player Seat Cards (Image 4) */}
+              <View style={{ flexDirection: "row", gap: 14, width: "100%", marginTop: 8 }}>
+                {Array.from({ length: 5 }).map((_, idx) => {
+                  const player = round?.players.find(p => p.seatIndex === idx) || round?.players[idx];
+                  const isSelf = player?.userId === user?.id;
+                  return (
+                    <View
+                      key={idx}
+                      style={{
+                        flex: 1,
+                        backgroundColor: "rgba(10, 16, 36, 0.85)",
+                        borderRadius: 16,
+                        paddingVertical: 20,
+                        paddingHorizontal: 12,
+                        borderWidth: 1,
+                        borderColor: isSelf ? "#22d3ee" : player ? "rgba(139, 92, 246, 0.4)" : "rgba(59, 130, 246, 0.25)",
+                        alignItems: "center",
+                        position: "relative",
+                        minHeight: 140,
+                        justifyContent: "center",
+                      }}
+                    >
+                      {/* Top Left Number Pill (Image 4) */}
+                      <View style={{
+                        position: "absolute",
+                        top: 12,
+                        left: 12,
+                        width: 22,
+                        height: 22,
+                        borderRadius: 11,
+                        backgroundColor: idx === 0 ? "#f43f5e" : "rgba(255, 255, 255, 0.1)",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}>
+                        <Text style={{ color: "#ffffff", fontSize: 11, fontWeight: "900" }}>{idx + 1}</Text>
+                      </View>
+
+                      {/* Center Avatar Silhouette */}
+                      <View style={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: 24,
+                        backgroundColor: isSelf ? "rgba(34, 211, 238, 0.15)" : player ? "rgba(124, 58, 237, 0.2)" : "rgba(255, 255, 255, 0.06)",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        marginBottom: 10,
+                      }}>
+                        <Ionicons name="person" size={24} color={isSelf ? "#22d3ee" : player ? "#a78bfa" : "#64748b"} />
+                      </View>
+
+                      <Text style={{ color: player ? "#ffffff" : "#64748b", fontSize: 13, fontWeight: "700", textAlign: "center" }} numberOfLines={1}>
+                        {player ? (isSelf ? "You" : player.username) : "Waiting for player..."}
+                      </Text>
+                      <Text style={{ color: player ? "#22d3ee" : "#475569", fontSize: 11, fontWeight: "600", marginTop: 3 }}>
+                        {player ? `${player.stake || 100} ETB` : "Empty Seat"}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+          ) : (
+            /* ════════════════════════════════════════════════════════════════
+               ██  RAIL SPIN ROOM LAYOUT (DESKTOP — EXACT MATCH IMAGE 2)
+               ════════════════════════════════════════════════════════════════ */
+            <View style={{ width: "100%", gap: 20 }}>
+              {/* Subheader Row (Image 2) */}
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                {/* Left: Back button + Title + Badges + Info */}
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+                  <TouchableOpacity
+                    onPress={() => router.replace("/(authed)/home/gameplay")}
+                    style={{
+                      width: 42,
+                      height: 42,
+                      borderRadius: 12,
+                      backgroundColor: "rgba(15, 23, 42, 0.8)",
+                      borderWidth: 1,
+                      borderColor: "rgba(255, 255, 255, 0.12)",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="arrow-back" size={20} color="#ffffff" />
+                  </TouchableOpacity>
+
+                  <View style={{
+                    width: 42,
+                    height: 42,
+                    borderRadius: 21,
+                    backgroundColor: "rgba(244, 63, 94, 0.2)",
+                    borderWidth: 1,
+                    borderColor: "#f43f5e",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}>
+                    <Ionicons name="disc" size={24} color="#f43f5e" />
+                  </View>
+
+                  <View>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                      <Text style={{ color: "#ffffff", fontSize: 20, fontWeight: "900", fontFamily: "Inter, sans-serif" }}>
+                        Endless Spin
+                      </Text>
+                      <View style={{ backgroundColor: "#06b6d4", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 }}>
+                        <Text style={{ color: "#0a0e1a", fontSize: 10, fontWeight: "900", letterSpacing: 0.5 }}>PUBLIC ROOM</Text>
+                      </View>
+                      <Text style={{ color: "#64748b", fontSize: 12 }}>| Stakes vary | Unlimited players</Text>
+                    </View>
+
+                    <TouchableOpacity style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 }} activeOpacity={0.8}>
+                      <Ionicons name="information-circle-outline" size={13} color="#64748b" />
+                      <Text style={{ color: "#64748b", fontSize: 11, fontWeight: "600" }}>Room Info</Text>
+                      <Ionicons name="chevron-down" size={12} color="#64748b" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Center: SPIN ENDS IN (Image 2) */}
+                <View style={{
+                  backgroundColor: "rgba(10, 16, 36, 0.9)",
+                  borderRadius: 14,
+                  paddingHorizontal: 28,
+                  paddingVertical: 8,
+                  borderWidth: 1,
+                  borderColor: "rgba(59, 130, 246, 0.3)",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}>
+                  <Text style={{ color: "#64748b", fontSize: 10, fontWeight: "800", letterSpacing: 1 }}>SPIN ENDS IN</Text>
+                  <Text style={{ color: "#facc15", fontSize: 22, fontWeight: "900", fontFamily: "Inter, sans-serif", marginTop: 1 }}>
+                    {formatCountdown(countdown)}
+                  </Text>
+                </View>
+
+                {/* Right empty spacer for perfect centering balance */}
+                <View style={{ width: 140 }} />
+              </View>
+
+              {/* Three Columns: Column 1 (Bet Card), Column 2 (Wheel & Controls), Column 3 (Players List) */}
+              <View style={{ flexDirection: "row", gap: 28, alignItems: "flex-start", width: "100%" }}>
+                {/* COLUMN 1: Stakes & Bet Selector (Image 2 Left Card) */}
+                <View style={{ flex: 1, minWidth: 260 }}>
+                  <View style={{
+                    backgroundColor: "rgba(10, 16, 36, 0.85)",
+                    borderRadius: 20,
+                    padding: 22,
+                    borderWidth: 1,
+                    borderColor: "rgba(59, 130, 246, 0.25)",
+                  }}>
+                    <Text style={{ color: "#64748b", fontSize: 11, fontWeight: "800", letterSpacing: 0.5 }}>
+                      YOUR TOTAL STAKE
+                    </Text>
+                    <Text style={{ color: "#00f0ff", fontSize: 28, fontWeight: "900", fontFamily: "Inter, sans-serif", marginTop: 4 }}>
+                      {(() => {
+                        const p = round?.players.find(x => x.userId === user?.id);
+                        return p ? p.stake : (round ? 0 : betAmount);
+                      })()} ETB
+                    </Text>
+                    <Text style={{ color: "#64748b", fontSize: 12, fontWeight: "500", marginTop: 4, marginBottom: 18 }}>
+                      Add more money to increase your odds!
+                    </Text>
+
+                    {/* Quick chips: +10, +50, +100, +500 (Image 2) */}
+                    <View style={{ flexDirection: "row", gap: 8, marginBottom: 14 }}>
+                      {[10, 50, 100, 500].map((val) => {
+                        const isLocking = round && (round.status !== "waiting" || countdown <= 5);
+                        const isSelected = round ? addAmount === val : betAmount === val;
+                        return (
+                          <TouchableOpacity
+                            key={val}
+                            disabled={Boolean(isLocking)}
+                            onPress={() => {
+                              if (round) setAddAmount(val);
+                              else setBetAmount(val);
+                            }}
+                            style={{
+                              flex: 1,
+                              paddingVertical: 10,
+                              borderRadius: 10,
+                              backgroundColor: isSelected ? "rgba(34, 211, 238, 0.15)" : "rgba(15, 23, 42, 0.6)",
+                              borderWidth: 1,
+                              borderColor: isSelected ? "#00f0ff" : "rgba(255, 255, 255, 0.08)",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              opacity: isLocking ? 0.35 : 1,
+                            }}
+                          >
+                            <Text style={{ color: isSelected ? "#00f0ff" : "#94a3b8", fontSize: 12, fontWeight: "800" }}>
+                              +{val}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+
+                    {/* Stepper row: [ - ]  100 ETB  [ + ] (Image 2) */}
+                    <View style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      backgroundColor: "rgba(15, 23, 42, 0.8)",
+                      borderRadius: 14,
+                      borderWidth: 1,
+                      borderColor: "rgba(255, 255, 255, 0.1)",
+                      height: 48,
+                      paddingHorizontal: 8,
+                      marginBottom: 18,
+                    }}>
+                      <TouchableOpacity
+                        onPress={() => {
+                          if (round) setAddAmount(prev => Math.max(10, prev - 10));
+                          else setBetAmount(prev => Math.max(10, prev - 10));
+                        }}
+                        style={{ width: 34, height: 34, borderRadius: 8, backgroundColor: "rgba(255, 255, 255, 0.06)", alignItems: "center", justifyContent: "center" }}
+                      >
+                        <Ionicons name="remove" size={18} color="#ffffff" />
+                      </TouchableOpacity>
+
+                      <View style={{ flex: 1, alignItems: "center" }}>
+                        <Text style={{ color: "#ffffff", fontSize: 15, fontWeight: "800" }}>
+                          {round ? `+${addAmount} ETB` : `${betAmount} ETB`}
+                        </Text>
+                      </View>
+
+                      <TouchableOpacity
+                        onPress={() => {
+                          if (round) setAddAmount(prev => Math.min(10000, prev + 10));
+                          else setBetAmount(prev => Math.min(10000, prev + 10));
+                        }}
+                        style={{ width: 34, height: 34, borderRadius: 8, backgroundColor: "rgba(255, 255, 255, 0.06)", alignItems: "center", justifyContent: "center" }}
+                      >
+                        <Ionicons name="add" size={18} color="#ffffff" />
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Action Button: [ 💰 ADD TO STAKE ] (Image 2) */}
+                    <TouchableOpacity
+                      disabled={Boolean(addLoading || joinLoading || (round && (round.status !== "waiting" || countdown <= 5)))}
+                      onPress={() => {
+                        if (round) handleAddStake(addAmount);
+                        else handleJoinRoom("RAIL", betAmount);
+                      }}
+                      style={{
+                        backgroundColor: "#f43f5e",
+                        borderRadius: 14,
+                        height: 50,
+                        width: "100%",
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 8,
+                        opacity: Boolean(addLoading || joinLoading || (round && (round.status !== "waiting" || countdown <= 5))) ? 0.6 : 1,
+                      }}
+                      activeOpacity={0.85}
+                    >
+                      {addLoading || joinLoading ? (
+                        <ActivityIndicator size="small" color="#ffffff" />
+                      ) : (
+                        <>
+                          <CoinStackIcon size={18} color="#ffffff" />
+                          <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "900", letterSpacing: 0.5 }}>
+                            {round
+                              ? (round.status !== "waiting" || countdown <= 5 ? "LOCKED" : "ADD TO STAKE")
+                              : "ADD TO STAKE"}
+                          </Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* COLUMN 2: Center Wheel & Voice & Pot & Leave (Image 2) */}
+                <View style={{ flex: 1.6, alignItems: "center" }}>
+                  <SpinWheel
+                    size={Math.min(screenW * 0.32, 420)}
+                    players={round ? round.players : previewPlayers}
+                    isSpinning={screenState === "spinning"}
+                    winningSlice={winningSlice}
+                    winnerId={pendingWinnerId}
+                    spinDuration={spinDuration}
+                    onSpinComplete={handleSpinComplete}
+                    status={round ? round.status : "waiting"}
+                    mode="RAIL"
+                    speakingUserIds={speakingUserIds}
+                  />
+
+                  {/* Mic & Hear Lobby toggles side-by-side (Image 2) */}
+                  <View style={{ flexDirection: "row", gap: 14, marginTop: 18, marginBottom: 16 }}>
+                    <TouchableOpacity
+                      onPress={handleToggleMic}
+                      disabled={!round}
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 6,
+                        borderRadius: 12,
+                        paddingHorizontal: 16,
+                        paddingVertical: 10,
+                        backgroundColor: micMuted ? "rgba(244, 63, 94, 0.12)" : "rgba(34, 197, 94, 0.15)",
+                        borderWidth: 1,
+                        borderColor: micMuted ? "#f43f5e" : "#22c55e",
+                        opacity: !round ? 0.4 : 1,
+                      }}
+                    >
+                      <Ionicons name={micMuted ? "mic-off" : "mic"} size={16} color={micMuted ? "#f43f5e" : "#22c55e"} />
+                      <Text style={{ color: micMuted ? "#f43f5e" : "#22c55e", fontSize: 12, fontWeight: "800" }}>
+                        {micMuted ? "Mic Off" : "Mic On"}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={handleToggleSpeaker}
+                      disabled={!round}
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 6,
+                        borderRadius: 12,
+                        paddingHorizontal: 16,
+                        paddingVertical: 10,
+                        backgroundColor: masterSpeakerMuted ? "rgba(239, 68, 68, 0.12)" : "rgba(15, 23, 42, 0.8)",
+                        borderWidth: 1,
+                        borderColor: masterSpeakerMuted ? "#ef4444" : "rgba(59, 130, 246, 0.4)",
+                        opacity: !round ? 0.4 : 1,
+                      }}
+                    >
+                      <Ionicons name={masterSpeakerMuted ? "volume-mute" : "volume-high"} size={16} color={masterSpeakerMuted ? "#ef4444" : "#60a5fa"} />
+                      <Text style={{ color: masterSpeakerMuted ? "#ef4444" : "#60a5fa", fontSize: 12, fontWeight: "800" }}>
+                        {masterSpeakerMuted ? "Muted All" : "Hear Lobby"}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* CURRENT POT (Image 2) */}
+                  <View style={{ alignItems: "center", marginBottom: 14 }}>
+                    <Text style={{ color: "#64748b", fontSize: 11, fontWeight: "800", letterSpacing: 1 }}>
+                      CURRENT POT
+                    </Text>
+                    <Text style={{ color: "#00f0ff", fontSize: 26, fontWeight: "900", fontFamily: "Inter, sans-serif", marginTop: 2 }}>
+                      {previewPot.toLocaleString()} ETB
+                    </Text>
+                  </View>
+
+                  {/* LEAVE ROOM (Image 2) */}
+                  <TouchableOpacity
+                    onPress={handleLeaveRoom}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 8,
+                      borderRadius: 12,
+                      paddingHorizontal: 28,
+                      paddingVertical: 10,
+                      borderWidth: 1,
+                      borderColor: leaveBlocked ? "rgba(255, 255, 255, 0.15)" : "#f43f5e",
+                      backgroundColor: leaveBlocked ? "rgba(100, 116, 139, 0.1)" : "rgba(244, 63, 94, 0.08)",
+                      opacity: leaveBlocked ? 0.45 : 1,
+                    }}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="exit-outline" size={16} color={leaveBlocked ? "#94a3b8" : "#f43f5e"} />
+                    <Text style={{ color: leaveBlocked ? "#94a3b8" : "#f43f5e", fontSize: 12, fontWeight: "900", letterSpacing: 0.5 }}>
+                      LEAVE ROOM
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* COLUMN 3: Players List (Image 2) */}
+                <View style={{ flex: 1.1, minWidth: 280 }}>
+                  <View style={{
+                    backgroundColor: "rgba(10, 16, 36, 0.85)",
+                    borderRadius: 20,
+                    padding: 20,
+                    borderWidth: 1,
+                    borderColor: "rgba(59, 130, 246, 0.25)",
+                  }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                        <Ionicons name="people" size={18} color="#94a3b8" />
+                        <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "900", letterSpacing: 0.5 }}>
+                          PLAYERS IN ROOM ({round ? round.players.length : 0})
+                        </Text>
+                      </View>
+                      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#22c55e" }} />
+                    </View>
+
+                    <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
+                      {(round ? round.players : []).map((p: any, idx: number) => {
+                        const isSelf = p.userId === user?.id;
+                        const isHost = idx === 0;
+                        return (
+                          <View
+                            key={p.userId || idx}
+                            style={{
+                              flexDirection: "row",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              backgroundColor: "rgba(15, 23, 42, 0.6)",
+                              borderRadius: 14,
+                              paddingVertical: 12,
+                              paddingHorizontal: 14,
+                              borderWidth: 1,
+                              borderColor: isSelf ? "#22d3ee" : "rgba(255, 255, 255, 0.05)",
+                              marginBottom: 8,
+                            }}
+                          >
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                              <View style={{
+                                width: 36,
+                                height: 36,
+                                borderRadius: 18,
+                                backgroundColor: isSelf ? "#f43f5e" : "#7c3aed",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}>
+                                <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "900" }}>
+                                  {p.username.slice(0, 1).toUpperCase()}
+                                </Text>
+                              </View>
+                              <View>
+                                <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "800" }}>
+                                  {isSelf ? `${p.username} 👑` : p.username}
+                                </Text>
+                                <Text style={{ color: "#00f0ff", fontSize: 11, fontWeight: "700", marginTop: 1 }}>
+                                  {p.stake || 100} ETB
+                                </Text>
+                              </View>
+                            </View>
+
+                            {isHost && (
+                              <View style={{ backgroundColor: "#7c3aed", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
+                                <Text style={{ color: "#ffffff", fontSize: 10, fontWeight: "900", letterSpacing: 0.5 }}>HOST</Text>
+                              </View>
+                            )}
+                          </View>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
                 </View>
               </View>
             </View>
@@ -2050,27 +2336,28 @@ export default function SpinGameScreen() {
 
             {/* Top Right Action Icons: Language Changer & Mic */}
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10, zIndex: 2 }}>
-              {/* Language Changer Button (replaced speaker, speaker moved to drawer) */}
+              {/* Language Changer Button — Compact with Dropdown Modal Trigger */}
               <TouchableOpacity
-                onPress={() => switchLanguage?.()}
+                onPress={() => setLanguageMenuVisible(true)}
                 style={{
-                  height: 44,
-                  paddingHorizontal: 14,
-                  borderRadius: 22,
+                  height: 34,
+                  paddingHorizontal: 10,
+                  borderRadius: 17,
                   backgroundColor: "rgba(15, 23, 42, 0.75)",
                   borderWidth: 1,
                   borderColor: "rgba(99, 102, 241, 0.4)",
                   alignItems: "center",
                   justifyContent: "center",
                   flexDirection: "row",
-                  gap: 6,
+                  gap: 4,
                 }}
                 activeOpacity={0.8}
               >
-                <Ionicons name="language" size={18} color="#a78bfa" />
-                <Text style={{ color: "#a78bfa", fontSize: 13, fontWeight: "900", letterSpacing: 0.5 }}>
+                <Ionicons name="language" size={14} color="#a78bfa" />
+                <Text style={{ color: "#a78bfa", fontSize: 12, fontWeight: "900", letterSpacing: 0.5 }}>
                   {language === "am" ? "አማ" : "EN"}
                 </Text>
+                <Ionicons name="chevron-down" size={11} color="#a78bfa" />
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -2110,7 +2397,7 @@ export default function SpinGameScreen() {
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 2 }}>
               <Ionicons name="trophy" size={15} color="#eab308" />
               <Text style={{ color: "#facc15", fontSize: 11, fontWeight: "800", letterSpacing: 1.5 }}>
-                PRIZE POOL
+                {language === "am" ? "የሽልማት ገንዳ" : "PRIZE POOL"}
               </Text>
             </View>
 
@@ -2152,7 +2439,7 @@ export default function SpinGameScreen() {
             {/* 20% House Fee Notice (Rail mode) */}
             {!is5Player && (
               <Text style={{ color: "#64748b", fontSize: 10, fontWeight: "700", marginTop: 4, letterSpacing: 0.5 }}>
-                20% House Fee
+                {language === "am" ? "20% የአገልግሎት ክፍያ" : "20% House Fee"}
               </Text>
             )}
           </View>
@@ -2188,7 +2475,7 @@ export default function SpinGameScreen() {
                   {preSpinCountdown !== null ? preSpinCountdown : 3}
                 </Text>
                 <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "900", letterSpacing: 2, marginTop: 4 }}>
-                  GET READY!
+                  {language === "am" ? "ተዘጋጁ!" : "GET READY!"}
                 </Text>
               </View>
             )}
@@ -2309,7 +2596,7 @@ export default function SpinGameScreen() {
                 <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginVertical: isCompactScreen ? 4 : 8 }}>
                   <Ionicons name="information-circle-outline" size={14} color="#94a3b8" />
                   <Text style={{ color: "#94a3b8", fontSize: 12, fontWeight: "600" }}>
-                    Higher bet = higher chance to win
+                    {language === "am" ? "ከፍተኛ ውርርድ = የማሸነፍ እድል ይጨምራል" : "Higher bet = higher chance to win"}
                   </Text>
                 </View>
 
@@ -2337,7 +2624,7 @@ export default function SpinGameScreen() {
                     <ActivityIndicator size="small" color="#ffffff" />
                   ) : (
                     <Text style={{ color: "#ffffff", fontSize: 16, fontWeight: "900", letterSpacing: 1, fontFamily: "Inter, sans-serif" }}>
-                      ADD BET
+                      {language === "am" ? "ውርርድ ጨምር" : "ADD BET"}
                     </Text>
                   )}
                 </TouchableOpacity>
@@ -2365,7 +2652,7 @@ export default function SpinGameScreen() {
             >
               <Ionicons name="people" size={18} color="#94a3b8" />
               <Text style={{ color: "#94a3b8", fontSize: 13, fontWeight: "600" }}>
-                View all players (more)
+                {language === "am" ? "ሁሉንም ተጫዋቾች ይመልከቱ" : "View all players (more)"}
               </Text>
               <Ionicons name="chevron-down" size={16} color="#94a3b8" />
             </TouchableOpacity>

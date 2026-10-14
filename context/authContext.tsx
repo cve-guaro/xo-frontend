@@ -461,6 +461,10 @@ type Ctx = {
   t: (key: TranslationKey) => string;
   switchLanguage: () => void;
   fixUrl: (url?: string | null) => string | null;
+
+  // Global Active Game Mode ('spin' vs 'xo')
+  activeGameMode: 'spin' | 'xo';
+  setActiveGameMode: (mode: 'spin' | 'xo') => void;
 };
 
 // ---------- helpers ----------
@@ -711,13 +715,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [language]
   );
 
-  // Switch between languages
-  const switchLanguage = useCallback(async () => {
-    const newLanguage: Language = language === "en" ? "am" : "en";
+  // Set language directly
+  const setLanguage = useCallback(async (newLanguage: Language) => {
     setLanguageState(newLanguage);
     await storage.setItemAsync(LANGUAGE_KEY, newLanguage);
     await playClickSound();
-  }, [language]);
+  }, [playClickSound]);
+
+  // Switch between languages
+  const switchLanguage = useCallback(async () => {
+    const newLanguage: Language = language === "en" ? "am" : "en";
+    await setLanguage(newLanguage);
+  }, [language, setLanguage]);
+
+  // Global Active Game Mode ('spin' vs 'xo')
+  const [activeGameMode, setActiveGameModeState] = useState<'spin' | 'xo'>('spin');
+
+  useEffect(() => {
+    storage.getItemAsync("XOET_GAME_MODE").then((val) => {
+      if (val === 'xo' || val === 'spin') {
+        setActiveGameModeState(val);
+      }
+    }).catch(() => {});
+  }, []);
+
+  const setActiveGameMode = useCallback(async (mode: 'spin' | 'xo') => {
+    setActiveGameModeState(mode);
+    await storage.setItemAsync("XOET_GAME_MODE", mode);
+  }, []);
 
   const retry = async () => {
     setRetrying((prev) => !prev);
@@ -1411,13 +1436,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await playSuccessSound();
   };
 
-  // Setter that persists language
-  const setLanguage = useCallback(async (lang: Language) => {
-    setLanguageState(lang);
-    await storage.setItemAsync(LANGUAGE_KEY, lang);
-    await playClickSound();
-  }, []);
-
   const value = useMemo(
     () => ({
       token,
@@ -1455,6 +1473,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       t,
       switchLanguage,
       fixUrl: fixAvatarUrl,
+      activeGameMode,
+      setActiveGameMode,
       isSuperAdmin,
       showAlert,
       alertConfig,
@@ -1479,6 +1499,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLanguage,
       t,
       switchLanguage,
+      activeGameMode,
+      setActiveGameMode,
       isSuperAdmin,
       showAlert,
       alertConfig,
@@ -1630,6 +1652,8 @@ export const useAuth = (): Ctx => {
       t: (key: string) => key,
       switchLanguage: () => {},
       fixUrl: (url?: string | null) => url || null,
+      activeGameMode: 'spin',
+      setActiveGameMode: () => {},
     } as any;
   }
   return ctx;

@@ -74,11 +74,11 @@ const SidebarItem = ({ icon, label, isActive, onPress }: { icon: any, label: str
 );
 
 export default function AuthedLayout() {
-  const { user, language, logout } = useAuth();
+  const { user, language, logout, activeGameMode } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const params = useGlobalSearchParams<{ tab?: string }>();
-  const isSpinMode = pathname.includes('spin') || (pathname.includes('gameplay') && params.tab !== 'XO_GAME');
+  const isSpinMode = activeGameMode === 'spin';
+  const isInGameRoom = pathname.includes('/spin') || pathname.includes('/room') || pathname.includes('/waiting');
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === "web" && width >= 768;
 
@@ -170,8 +170,8 @@ export default function AuthedLayout() {
         <Tabs.Screen name="leaderboard" options={{ title: language === 'am' ? 'ሊደርቦርድ' : 'Leaderboard', href: null }} />
       </Tabs>
 
-      {/* Global Custom Floating Bottom Nav — Spin: 2 tabs (Home, Profile), XO: 4 tabs (Home, History, Leaderboard, Profile) */}
-      {!isDesktop && (
+      {/* Global Custom Floating Bottom Nav — Hidden in Game Rooms & on Desktop. Spin: 2 tabs (Home, Profile), XO: 4 tabs (Home, History, Leaderboard, Profile) */}
+      {!isDesktop && !isInGameRoom && (
         <View pointerEvents="box-none" style={{
           position: 'absolute', bottom: 0,
           left: 0, right: 0, zIndex: 9999, elevation: 9999,

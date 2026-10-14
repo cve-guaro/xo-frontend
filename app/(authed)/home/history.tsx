@@ -600,82 +600,74 @@ export default function GamesHistory() {
                         <Text style={s.emptyStateText}>{isEN ? "No spin history found." : "ምንም የስፒን ጨዋታ ታሪክ የለም።"}</Text>
                       </View>
                     ) : (
-                      spinHistory.map((item: any, idx: number) => {
-                        const roundKey = String(item.round_id || item.id || `spin_${idx}`);
-                        const isSelected = selectedSpinId === roundKey;
-                        const isWin = item.is_winner;
-                        const statusColor = isWin ? "#34d399" : "#ef4444";
-                        const modeLabel = item.mode_label || (item.config_id === 2 ? "Rail Spin" : "5-Player Spin");
-                        const pot = Number(item.pot_amount || 0);
-                        const prize = Number(item.prize_amount || 0);
-                        const houseCut = Number(item.house_cut || Math.max(0, pot - prize));
-                        const playersList = Array.isArray(item.players) ? item.players : [];
+                      <ScrollView style={{ maxHeight: 620 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+                        {spinHistory.map((item: any, idx: number) => {
+                          const roundKey = String(item.round_id || item.id || `spin_${idx}`);
+                          const isSelected = selectedSpinId === roundKey;
+                          const isWin = item.is_winner;
+                          const statusColor = isWin ? "#34d399" : "#ef4444";
+                          const modeLabel = item.mode_label || (item.config_id === 2 ? "Rail Spin" : "5-Player Spin");
+                          const prize = Number(item.prize_amount || 0);
+                          const userBet = Number(item.bet_amount || item.user_bet || 10);
 
-                        return (
-                          <TouchableOpacity 
-                            key={roundKey} 
-                            onPress={() => {
-                              setSelectedSpinId(roundKey);
-                              setIsSpinReplayPlaying(false);
-                            }}
-                            activeOpacity={0.85}
-                            style={[
-                              s.matchCardContainer, 
-                              isSelected && s.matchCardContainerSelected, 
-                              { padding: 16 }
-                            ]}
-                          >
-                            <View style={[s.matchIndicatorBar, { backgroundColor: statusColor }]} />
-                            
-                            {/* Top row */}
-                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                <View style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, backgroundColor: isWin ? 'rgba(52,211,153,0.15)' : 'rgba(239,68,68,0.15)', borderWidth: 1, borderColor: isWin ? 'rgba(52,211,153,0.3)' : 'rgba(239,68,68,0.3)' }}>
-                                  <Text style={{ color: statusColor, fontSize: 11, fontWeight: '900' }}>{isWin ? 'VICTORY' : 'DEFEAT'}</Text>
+                          return (
+                            <TouchableOpacity 
+                              key={roundKey} 
+                              onPress={() => {
+                                setSelectedSpinId(roundKey);
+                                setIsSpinReplayPlaying(false);
+                              }}
+                              activeOpacity={0.85}
+                              style={[
+                                s.matchCardContainer, 
+                                isSelected && s.matchCardContainerSelected, 
+                                { paddingHorizontal: 16, paddingVertical: 14, minHeight: 64, justifyContent: 'center' }
+                              ]}
+                            >
+                              <View style={[s.matchIndicatorBar, { backgroundColor: statusColor }]} />
+                              
+                              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                {/* Left: Victory/Defeat + Mode + Date */}
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                  <View style={{
+                                    paddingHorizontal: 10,
+                                    paddingVertical: 5,
+                                    borderRadius: 8,
+                                    backgroundColor: isWin ? 'rgba(52,211,153,0.15)' : 'rgba(239,68,68,0.15)',
+                                    borderWidth: 1,
+                                    borderColor: isWin ? 'rgba(52,211,153,0.3)' : 'rgba(239,68,68,0.3)'
+                                  }}>
+                                    <Text style={{ color: statusColor, fontSize: 11, fontWeight: '900' }}>
+                                      {isWin ? 'VICTORY' : 'DEFEAT'}
+                                    </Text>
+                                  </View>
+                                  <View>
+                                    <Text style={{ color: '#00daf3', fontSize: 13, fontWeight: '800' }}>
+                                      {modeLabel.toUpperCase()}
+                                    </Text>
+                                    <Text style={{ color: '#8b93a7', fontSize: 11, fontWeight: '600', marginTop: 2 }}>
+                                      {formatWhen(item.created_at)}
+                                    </Text>
+                                  </View>
                                 </View>
-                                <Text style={{ color: '#00daf3', fontSize: 12, fontWeight: '800' }}>{modeLabel.toUpperCase()}</Text>
-                              </View>
-                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                <Text style={{ color: '#8b93a7', fontSize: 11, fontWeight: '600' }}>{formatWhen(item.created_at)}</Text>
-                                <Ionicons name="chevron-forward" size={14} color={isSelected ? "#22d3ee" : "#8b93a7"} />
-                              </View>
-                            </View>
 
-                            {/* Prize & Pot details */}
-                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, backgroundColor: 'rgba(255,255,255,0.02)', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)' }}>
-                              <View>
-                                <Text style={{ color: '#8b93a7', fontSize: 10, fontWeight: '700' }}>WINNER: <Text style={{ color: '#fff', fontWeight: '800' }}>{item.winner_name || '—'}</Text></Text>
-                                <Text style={{ color: '#8b93a7', fontSize: 10, fontWeight: '700', marginTop: 2 }}>ENTRY FEE: <Text style={{ color: '#22d3ee', fontWeight: '800' }}>{item.bet_amount || 100} ETB</Text></Text>
+                                {/* Right: Win/Loss amount & user bet */}
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                                  <View style={{ alignItems: 'flex-end' }}>
+                                    <Text style={{ color: isWin ? '#34d399' : '#ef4444', fontSize: 15, fontWeight: '900' }}>
+                                      {isWin ? `+${prize} ETB` : `0 ETB`}
+                                    </Text>
+                                    <Text style={{ color: '#8b93a7', fontSize: 11, fontWeight: '600', marginTop: 2 }}>
+                                      Bet: {userBet} ETB
+                                    </Text>
+                                  </View>
+                                  <Ionicons name="chevron-forward" size={16} color={isSelected ? "#22d3ee" : "#8b93a7"} />
+                                </View>
                               </View>
-                              <View style={{ alignItems: 'flex-end' }}>
-                                <Text style={{ color: isWin ? '#34d399' : '#fff', fontSize: 14, fontWeight: '900' }}>
-                                  {isWin ? `+${prize} ETB` : `Prize: ${prize} ETB`}
-                                </Text>
-                                <Text style={{ color: '#8b93a7', fontSize: 10, marginTop: 2 }}>
-                                  Pot: {pot} ETB | House Cut: {houseCut} ETB
-                                </Text>
-                              </View>
-                            </View>
-
-                            {/* Player Seats List */}
-                            {playersList.length > 0 && (
-                              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingTop: 4 }}>
-                                {playersList.map((p: any, pIdx: number) => {
-                                  const isWinnerPlayer = p.username === item.winner_name;
-                                  return (
-                                    <View key={pIdx} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: isWinnerPlayer ? 'rgba(52,211,153,0.1)' : 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: isWinnerPlayer ? 'rgba(52,211,153,0.3)' : 'rgba(255,255,255,0.06)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 }}>
-                                      <Ionicons name={isWinnerPlayer ? "trophy" : "person"} size={11} color={isWinnerPlayer ? "#34d399" : "#8b93a7"} />
-                                      <Text style={{ color: isWinnerPlayer ? "#34d399" : "#e2e8f0", fontSize: 10, fontWeight: "700" }}>
-                                        {p.username || `Player ${pIdx + 1}`} {p.isBot ? "(Bot)" : ""}
-                                      </Text>
-                                    </View>
-                                  );
-                                })}
-                              </View>
-                            )}
-                          </TouchableOpacity>
-                        );
-                      })
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </ScrollView>
                     )
                   ) : (
                     <View style={{ gap: 14 }}>
