@@ -1426,7 +1426,7 @@ export default function SpinGameScreen() {
                     <Text style={ds.waitingSubtitle}>
                       {round
                         ? `Waiting for players… ${round.players.length}/5`
-                        : "Click Join to enter 5-player room"}
+                        : "Press Join below to enter the room"}
                     </Text>
                   </View>
                   {/* Voice mic & speaker controls for Web / Desktop layout */}
@@ -1454,6 +1454,45 @@ export default function SpinGameScreen() {
                     </TouchableOpacity>
                   </View>
                 </View>
+
+                {/* ── Join / Leave Room Button — PROMINENT, right after header ── */}
+                {round && round.players.some(p => String(p.userId) === String(user?.id)) ? (
+                  <TouchableOpacity onPress={handleLeaveRoom} style={ds.leaveBtn} activeOpacity={0.85}>
+                    <Ionicons name="exit-outline" size={16} color="#ef4444" />
+                    <Text style={ds.leaveBtnText}>LEAVE ROOM</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 14, marginTop: 8, marginBottom: 8 }}>
+                    <TouchableOpacity
+                      disabled={Boolean(joinLoading || isSpinning || (round && round.players.length >= 5))}
+                      onPress={() => handleJoinRoom("5_PLAYER", 100)}
+                      style={[
+                        ds.joinBtn5P,
+                        { flex: 1 },
+                        Boolean(joinLoading || isSpinning || (round && round.players.length >= 5)) && { opacity: 0.6 }
+                      ]}
+                      activeOpacity={0.85}
+                    >
+                      {joinLoading ? (
+                        <ActivityIndicator size="small" color="#ffffff" />
+                      ) : (
+                        <>
+                          <Ionicons name="play" size={18} color="#ffffff" />
+                          <Text style={ds.joinBtn5PText}>
+                            {round && round.players.length >= 5 ? "ROOM FULL" : "JOIN GAME (100 ETB)"}
+                          </Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => router.replace("/(authed)/home/gameplay")}
+                      style={{ paddingVertical: 10, paddingHorizontal: 16, borderRadius: 12, borderWidth: 1, borderColor: "rgba(139, 147, 167, 0.25)" }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={{ color: "#8b93a7", fontSize: 12, fontWeight: "700" }}>← Back</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
 
                 {/* Wheel */}
                 <View style={ds.wheelCenter}>
@@ -1521,44 +1560,6 @@ export default function SpinGameScreen() {
                     );
                   })}
                 </View>
-
-                {/* Join / Leave Room Button */}
-                {round && round.players.some(p => String(p.userId) === String(user?.id)) ? (
-                  <TouchableOpacity onPress={handleLeaveRoom} style={ds.leaveBtn} activeOpacity={0.85}>
-                    <Ionicons name="exit-outline" size={16} color="#ef4444" />
-                    <Text style={ds.leaveBtnText}>LEAVE ROOM</Text>
-                  </TouchableOpacity>
-                ) : (
-                  <View style={{ alignItems: "center", gap: 10, marginTop: 16 }}>
-                    <TouchableOpacity
-                      disabled={Boolean(joinLoading || isSpinning || (round && round.players.length >= 5))}
-                      onPress={() => handleJoinRoom("5_PLAYER", 100)}
-                      style={[
-                        ds.joinBtn5P,
-                        Boolean(joinLoading || isSpinning || (round && round.players.length >= 5)) && { opacity: 0.6 }
-                      ]}
-                      activeOpacity={0.85}
-                    >
-                      {joinLoading ? (
-                        <ActivityIndicator size="small" color="#ffffff" />
-                      ) : (
-                        <>
-                          <Ionicons name="play" size={18} color="#ffffff" />
-                          <Text style={ds.joinBtn5PText}>
-                            {round && round.players.length >= 5 ? "ROOM FULL" : "JOIN GAME (100 ETB)"}
-                          </Text>
-                        </>
-                      )}
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => router.replace("/(authed)/home/gameplay")}
-                      style={{ paddingVertical: 6, paddingHorizontal: 16 }}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={{ color: "#8b93a7", fontSize: 12, fontWeight: "600" }}>Back to Rooms</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
               </View>
 
               {/* RIGHT SIDE: Active Room Players & Per-User Voice Controls Panel */}
