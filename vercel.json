@@ -1,5 +1,47 @@
 {
+  "framework": null,
+  "buildCommand": "npx expo export --platform web",
+  "outputDirectory": "dist",
   "headers": [
+    {
+      "source": "/service-worker.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        },
+        {
+          "key": "Pragma",
+          "value": "no-cache"
+        },
+        {
+          "key": "Expires",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "source": "/(.*).html",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, must-revalidate"
+        },
+        {
+          "key": "Content-Type",
+          "value": "text/html; charset=utf-8"
+        }
+      ]
+    },
+    {
+      "source": "/(.*).js",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/javascript; charset=utf-8"
+        }
+      ]
+    },
     {
       "source": "/_expo/static/(.*)",
       "headers": [
@@ -19,31 +61,19 @@
       ]
     },
     {
-      "source": "/((?!_expo|assets).*)",
+      "source": "/(.*)",
       "headers": [
         {
-          "key": "Cache-Control",
-          "value": "public, max-age=0, must-revalidate"
-        },
-        {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https: http://localhost:9001 http://localhost:3000; font-src 'self' https://fonts.gstatic.com https://fonts.googleapis.com; connect-src 'self' https://xoethiopia.com wss://xoethiopia.com https://*.xoethiopia.com wss://*.xoethiopia.com https://xogpt-production.up.railway.app wss://xogpt-production.up.railway.app https://*.sentry.io; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests;"
-        },
-        {
-          "key": "Strict-Transport-Security",
-          "value": "max-age=63072000; includeSubDomains; preload"
-        },
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live https://*.vercel.live; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https: http:; font-src 'self' https://fonts.gstatic.com https://fonts.googleapis.com data:; connect-src 'self' https: wss: ws: blob: data: https://xo-backend-production-286e.up.railway.app wss://xo-backend-production-286e.up.railway.app https://xogpt-production.up.railway.app wss://xogpt-production.up.railway.app https://xoethiopia.com wss://xoethiopia.com https://*.sentry.io; media-src 'self' blob: data: https:; manifest-src 'self' https:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none';"
         },
         {
           "key": "X-Frame-Options",
           "value": "DENY"
         },
         {
-          "key": "X-XSS-Protection",
-          "value": "1; mode=block"
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
         },
         {
           "key": "Referrer-Policy",
@@ -51,28 +81,15 @@
         },
         {
           "key": "Permissions-Policy",
-          "value": "camera=(), microphone=(), geolocation=()"
+          "value": "camera=(), microphone=(self), geolocation=()"
         },
         {
           "key": "Cross-Origin-Opener-Policy",
-          "value": "same-origin"
+          "value": "same-origin-allow-popups"
         },
         {
           "key": "Cross-Origin-Resource-Policy",
           "value": "cross-origin"
-        }
-      ]
-    },
-    {
-      "source": "/_expo/static/js/(.*).map",
-      "headers": [
-        {
-          "key": "X-Robots-Tag",
-          "value": "noindex"
-        },
-        {
-          "key": "Cache-Control",
-          "value": "no-store"
         }
       ]
     }
@@ -81,6 +98,10 @@
     {
       "source": "/_expo/static/js/(.*).map",
       "destination": "/404"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }

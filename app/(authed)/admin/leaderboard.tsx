@@ -1,10 +1,10 @@
-// app/(authed)/admin/leaderboard.tsx — Admin Leaderboard Control Panel
+import React, { useCallback, useEffect, useState, useMemo } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -18,31 +18,37 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../../context/authContext";
 import { API_URL } from "../../../config";
 import ActionConfirmModal from "../../../components/ActionConfirmModal";
-
-const C = {
-  bg: '#0a0a1a',
-  card: 'rgba(17, 17, 24, 0.85)',
-  cardHeader: 'rgba(26, 26, 37, 0.4)',
-  border: 'rgba(255, 255, 255, 0.08)',
-  borderActive: 'rgba(0, 242, 255, 0.4)',
-  accent: '#00e5ff',
-  accentDim: 'rgba(0, 229, 255, 0.15)',
-  secondary: '#00e5ff',
-  gold: '#ffb84d',
-  silver: '#cbd5e1',
-  bronze: '#d97706',
-  green: '#10b981',
-  red: '#ef4444',
-  txt: '#f1f1f6',
-  dim: '#9090a8',
-  bgGlass: 'rgba(255, 255, 255, 0.02)',
-};
+import User360View from "../../../components/User360View";
+import { useAdminTheme } from "./_layout";
 
 type Standing = { id: string; username: string; number: string; wins: number; rank: number };
 type Snapshot = { id: string; week_start: string; week_end: string; user_id: string; username: string; wins: number; rank: number; prize_amount: number; prize_status: string };
 type FakeTicker = { id: number; username: string; amount: number; active: boolean };
 
 export default function AdminLeaderboardPage() {
+  const { theme: adminTheme, isDark } = useAdminTheme();
+  const C = useMemo(() => ({
+    bg: adminTheme.background,
+    card: adminTheme.surface,
+    cardHeader: adminTheme.surfaceContainerHighest,
+    border: adminTheme.border,
+    borderActive: adminTheme.primary,
+    accent: adminTheme.primary,
+    accentDim: adminTheme.primaryContainer,
+    secondary: adminTheme.secondary,
+    gold: '#F0950C',
+    silver: isDark ? '#8A99AD' : '#64748B',
+    bronze: '#d97706',
+    green: adminTheme.secondary,
+    red: adminTheme.error,
+    txt: adminTheme.onSurface,
+    dim: adminTheme.onSurfaceVariant,
+    bgGlass: adminTheme.surfaceContainerLow,
+    surfaceContainerHighest: adminTheme.surfaceContainerHighest,
+  }), [adminTheme, isDark]);
+
+  const s = useMemo(() => getStyles(C, isDark), [C, isDark]);
+
   const { token, language, showAlert } = useAuth();
   const isEN = language === 'en';
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'x-platform': 'web' };
@@ -54,6 +60,12 @@ export default function AdminLeaderboardPage() {
   const [weekStart, setWeekStart] = useState('');
   const [weekEnd, setWeekEnd] = useState('');
   const [timeLeft, setTimeLeft] = useState('');
+
+  // Pagination and search
+  const [standingsSearch, setStandingsSearch] = useState('');
+  const [standingsPage, setStandingsPage] = useState(1);
+  const [standingsTotal, setStandingsTotal] = useState(0);
+  const STANDINGS_LIMIT = 15;
 
   // Fake ticker form
   const [newFakeName, setNewFakeName] = useState('');
@@ -87,6 +99,79 @@ export default function AdminLeaderboardPage() {
     });
   };
 
+  // Winner audit / anti-cheat review modal states
+  const [selectedWinnerForReview, setSelectedWinnerForReview] = useState<any | null>(null);
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [reviewUserData, setReviewUserData] = useState<any | null>(null);
+  const [replacementTargetId, setReplacementTargetId] = useState<string>('');
+  const [showReplacementPicker, setShowReplacementPicker] = useState(false);
+  
+  // Replay sub-modal states
+  const [replayGame, setReplayGame] = useState<any | null>(null);
+  const [replayMoves, setReplayMoves] = useState<any[]>([]);
+  const [replayBoardStep, setReplayBoardStep] = useState(0);
+
+  const fetchReviewUser = async (userId: string) => {
+    setReviewLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/admin/users/${userId}/360`, { headers });
+      const data = await res.json();
+      if (data.user) {
+        setReviewUserData(data);
+      } else {
+        showAlert('Error', 'Failed to load user details');
+      }
+    } catch (e) {
+      console.error('Fetch review user error:', e);
+      showAlert('Error', 'Failed to load user details');
+    } finally {
+      setReviewLoading(false);
+    }
+  };
+
+  const confirmReplacement = () => {
+    if (!selectedWinnerForReview) return;
+    const rank = selectedWinnerForReview.rank;
+    
+    setGiveawayData((prev: any) => {
+      if (!prev || !prev.winners) return prev;
+      
+      const newWinners = prev.winners.map((w: any) => {
+        if (w.rank === rank) {
+          if (replacementTargetId === 'none') {
+            return {
+              id: 'none',
+              username: 'Disqualified',
+              number: 'N/A',
+              rank: rank,
+              wins: 0,
+              avatar: null
+            };
+          } else {
+            const repl = standings.find(s => s.id === replacementTargetId);
+            if (repl) {
+              return {
+                id: repl.id,
+                username: repl.username,
+                number: repl.number,
+                rank: rank,
+                wins: repl.wins,
+                avatar: null
+              };
+            }
+          }
+        }
+        return w;
+      });
+      
+      return { ...prev, winners: newWinners };
+    });
+    
+    setSelectedWinnerForReview(null);
+    setReviewUserData(null);
+    setReplacementTargetId('');
+  };
+
   // Responsive state for dual column layout
   const [width, setWidth] = useState(Platform.OS === 'web' ? window.innerWidth : Dimensions.get('window').width);
 
@@ -97,12 +182,36 @@ export default function AdminLeaderboardPage() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  const fetchStandings = useCallback(async () => {
+    if (!token) return;
+    try {
+      const offset = (standingsPage - 1) * STANDINGS_LIMIT;
+      const searchParams = new URLSearchParams({ limit: String(STANDINGS_LIMIT), offset: String(offset) });
+      if (standingsSearch) searchParams.append('search', standingsSearch);
+
+      const res = await fetch(`${API_URL}/admin/leaderboard/current?${searchParams.toString()}`, { headers });
+      const data = await res.json();
+      if (data.ok) {
+        setStandings(data.standings || []);
+        setStandingsTotal(data.total || 0);
+        setWeekStart(data.weekStart || '');
+        setWeekEnd(data.weekEnd || '');
+      }
+    } catch (e) {
+      console.error('Fetch standings error:', e);
+    }
+  }, [token, standingsPage, standingsSearch]);
+
   const fetchAll = useCallback(async () => {
     if (!token) return;
     setLoading(true);
     try {
+      const offset = (standingsPage - 1) * STANDINGS_LIMIT;
+      const searchParams = new URLSearchParams({ limit: String(STANDINGS_LIMIT), offset: String(offset) });
+      if (standingsSearch) searchParams.append('search', standingsSearch);
+
       const [standingsRes, snapshotsRes, fakeRes, settingsRes] = await Promise.all([
-        fetch(`${API_URL}/admin/leaderboard/current`, { headers }).then(r => r.json()),
+        fetch(`${API_URL}/admin/leaderboard/current?${searchParams.toString()}`, { headers }).then(r => r.json()),
         fetch(`${API_URL}/admin/leaderboard/snapshots`, { headers }).then(r => r.json()),
         fetch(`${API_URL}/admin/leaderboard/fake-ticker`, { headers }).then(r => r.json()),
         fetch(`${API_URL}/admin/settings`, { headers }).then(r => r.json()),
@@ -110,6 +219,7 @@ export default function AdminLeaderboardPage() {
 
       if (standingsRes.ok) {
         setStandings(standingsRes.standings || []);
+        setStandingsTotal(standingsRes.total || 0);
         setWeekStart(standingsRes.weekStart || '');
         setWeekEnd(standingsRes.weekEnd || '');
       }
@@ -124,9 +234,14 @@ export default function AdminLeaderboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token]); // removed standingsPage and standingsSearch from dep array to avoid full page reload loop, but added it to fetchStandings instead.
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
+
+  // Separate effect for pagination and search
+  useEffect(() => {
+    fetchStandings();
+  }, [standingsPage, standingsSearch, fetchStandings]);
 
   // Timer countdown to next Sunday midnight UTC (matches backend/user bounds)
   useEffect(() => {
@@ -295,7 +410,11 @@ export default function AdminLeaderboardPage() {
 
   return (
     <View style={s.root}>
-      <LinearGradient colors={['#0a0a1a', '#0c0c1d', '#08080f']} style={StyleSheet.absoluteFill} />
+      {isDark ? (
+        <LinearGradient colors={['#070C16', '#0C1424', '#070C16']} style={StyleSheet.absoluteFill} />
+      ) : (
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: C.bg }]} />
+      )}
       <SafeAreaView style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
           
@@ -316,7 +435,7 @@ export default function AdminLeaderboardPage() {
                 <Text style={s.activeBadgeText}>Live Server Connection</Text>
               </View>
               <TouchableOpacity onPress={fetchAll} style={s.refreshBtn} activeOpacity={0.7}>
-                <Ionicons name="refresh" size={18} color="#fff" />
+                <Ionicons name="refresh" size={18} color={C.txt} />
               </TouchableOpacity>
             </View>
           </View>
@@ -351,11 +470,11 @@ export default function AdminLeaderboardPage() {
             </LinearGradient>
           </View>
 
-          {/* ================= PROTOCOL DISTRIBUTION MODE SELECTOR ================= */}
+          {/* ================= PAYOUT MODE SELECTOR ================= */}
           <View style={s.modeSelectorCard}>
             <View style={s.modeSelectorHeader}>
               <Ionicons name="git-network-outline" size={16} color={C.accent} />
-              <Text style={s.modeSelectorTitle}>SYSTEM SETTLEMENT PROTOCOL MODE</Text>
+              <Text style={s.modeSelectorTitle}>PAYOUT MODE</Text>
             </View>
             <View style={s.modeBtnContainer}>
               <TouchableOpacity 
@@ -363,16 +482,16 @@ export default function AdminLeaderboardPage() {
                 onPress={() => { setAutoApprove(true); updateSetting('leaderboard_auto_approve', true); }}
                 style={[s.modeBtn, autoApprove ? s.modeBtnActive : null, { borderTopLeftRadius: 12, borderBottomLeftRadius: 12 }]}
               >
-                <Ionicons name="flash-sharp" size={16} color={autoApprove ? "#000" : C.green} style={{ marginRight: 6 }} />
-                <Text style={[s.modeBtnText, autoApprove ? s.modeBtnTextActive : null]}>AUTOMATIC PROTOCOL</Text>
+                <Ionicons name="flash-sharp" size={16} color={autoApprove ? (isDark ? "#000" : "#fff") : C.green} style={{ marginRight: 6 }} />
+                <Text style={[s.modeBtnText, autoApprove ? s.modeBtnTextActive : null]}>AUTOMATIC</Text>
               </TouchableOpacity>
               <TouchableOpacity 
                 activeOpacity={0.8} 
                 onPress={() => { setAutoApprove(false); updateSetting('leaderboard_auto_approve', false); }}
                 style={[s.modeBtn, !autoApprove ? s.modeBtnActive : null, { borderTopRightRadius: 12, borderBottomRightRadius: 12 }]}
               >
-                <Ionicons name="hammer-sharp" size={16} color={!autoApprove ? "#000" : "#f59e0b"} style={{ marginRight: 6 }} />
-                <Text style={[s.modeBtnText, !autoApprove ? s.modeBtnTextActive : null]}>MANUAL CONSOLE</Text>
+                <Ionicons name="hammer-sharp" size={16} color={!autoApprove ? (isDark ? "#000" : "#fff") : "#f59e0b"} style={{ marginRight: 6 }} />
+                <Text style={[s.modeBtnText, !autoApprove ? s.modeBtnTextActive : null]}>MANUAL</Text>
               </TouchableOpacity>
             </View>
             <Text style={s.modeHintText}>
@@ -395,7 +514,21 @@ export default function AdminLeaderboardPage() {
                     <Text style={s.cardTitle}>Current Week Standings</Text>
                   </View>
                   <View style={s.countBadge}>
-                    <Text style={s.countBadgeText}>{standings.length} Active</Text>
+                    <Text style={s.countBadgeText}>{standingsTotal} Active</Text>
+                  </View>
+                </View>
+
+                {/* Search Bar */}
+                <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
+                  <View style={s.searchWrap}>
+                    <Ionicons name="search" size={18} color={C.dim} style={{ marginLeft: 12 }} />
+                    <TextInput
+                      style={s.searchInput}
+                      placeholder={isEN ? "Search username or phone..." : "ስም ወይም ስልክ ይፈልጉ..."}
+                      placeholderTextColor={C.dim}
+                      value={standingsSearch}
+                      onChangeText={(t) => { setStandingsSearch(t); setStandingsPage(1); }}
+                    />
                   </View>
                 </View>
 
@@ -406,7 +539,7 @@ export default function AdminLeaderboardPage() {
                       <Text style={s.emptyText}>{isEN ? 'No winners yet this week' : 'በዚህ ሳምንት ገና ምንም አሸናፊ የለም'}</Text>
                     </View>
                   ) : (
-                    standings.slice(0, 15).map((u, index) => {
+                    standings.map((u, index) => {
                       const maxWins = standings[0]?.wins || 1;
                       const ratio = u.wins / maxWins;
                       return (
@@ -432,6 +565,29 @@ export default function AdminLeaderboardPage() {
                         </View>
                       );
                     })
+                  )}
+
+                  {/* Pagination Controls */}
+                  {standingsTotal > STANDINGS_LIMIT && (
+                    <View style={s.paginationRow}>
+                      <TouchableOpacity 
+                        style={[s.pageBtn, standingsPage === 1 && s.pageBtnDisabled]}
+                        disabled={standingsPage === 1}
+                        onPress={() => setStandingsPage(p => Math.max(1, p - 1))}
+                      >
+                        <Ionicons name="chevron-back" size={16} color={standingsPage === 1 ? C.dim : C.txt} />
+                      </TouchableOpacity>
+                      <Text style={s.pageText}>
+                        Page {standingsPage} of {Math.ceil(standingsTotal / STANDINGS_LIMIT)}
+                      </Text>
+                      <TouchableOpacity 
+                        style={[s.pageBtn, standingsPage >= Math.ceil(standingsTotal / STANDINGS_LIMIT) && s.pageBtnDisabled]}
+                        disabled={standingsPage >= Math.ceil(standingsTotal / STANDINGS_LIMIT)}
+                        onPress={() => setStandingsPage(p => p + 1)}
+                      >
+                        <Ionicons name="chevron-forward" size={16} color={standingsPage >= Math.ceil(standingsTotal / STANDINGS_LIMIT) ? C.dim : C.txt} />
+                      </TouchableOpacity>
+                    </View>
                   )}
                 </View>
               </View>
@@ -524,10 +680,10 @@ export default function AdminLeaderboardPage() {
                                 <Text style={s.approveBtnText}>Approve</Text>
                               </TouchableOpacity>
                             ) : (
-                              <View style={[s.statusBadge, { borderColor: snap.prize_status === 'paid' ? C.green + '40' : C.dim + '40', backgroundColor: snap.prize_status === 'paid' ? C.green + '10' : C.dim + '10' }]}>
-                                <Ionicons name={snap.prize_status === 'paid' ? "checkmark-circle" : "time-outline"} size={10} color={snap.prize_status === 'paid' ? C.green : C.dim} />
-                                <Text style={[s.statusBadgeText, { color: snap.prize_status === 'paid' ? C.green : C.dim }]}>
-                                  {snap.prize_status === 'paid' ? 'Paid' : 'Pending'}
+                              <View style={[s.statusBadge, { borderColor: (snap.prize_status === 'approved' || snap.prize_status === 'paid') ? C.green + '40' : C.dim + '40', backgroundColor: (snap.prize_status === 'approved' || snap.prize_status === 'paid') ? C.green + '10' : C.dim + '10' }]}>
+                                <Ionicons name={(snap.prize_status === 'approved' || snap.prize_status === 'paid') ? "checkmark-circle" : "time-outline"} size={10} color={(snap.prize_status === 'approved' || snap.prize_status === 'paid') ? C.green : C.dim} />
+                                <Text style={[s.statusBadgeText, { color: (snap.prize_status === 'approved' || snap.prize_status === 'paid') ? C.green : C.dim }]}>
+                                  {(snap.prize_status === 'approved' || snap.prize_status === 'paid') ? 'Paid' : 'Pending'}
                                 </Text>
                               </View>
                             )}
@@ -640,13 +796,25 @@ export default function AdminLeaderboardPage() {
                         return (
                           <View key={w.id} style={{ marginBottom: 16 }}>
                             <View style={s.giveawayWinnerRow}>
-                              <View style={[s.prizeMedal, { backgroundColor: rankColor(w.rank) + '20', width: 26, height: 26 }]}>
-                                <Text style={{ color: rankColor(w.rank), fontWeight: '900', fontSize: 12 }}>#{w.rank}</Text>
-                              </View>
-                              <View style={{ flex: 1, marginLeft: 10 }}>
-                                <Text style={s.giveawayWinnerName}>{w.username}</Text>
-                                <Text style={s.giveawayWinnerWins}>{w.wins} wins · {w.number}</Text>
-                              </View>
+                              <TouchableOpacity
+                                style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}
+                                onPress={() => {
+                                  setSelectedWinnerForReview(w);
+                                  setReplacementTargetId(w.id);
+                                  if (w.id !== 'none' && w.id !== 'null' && w.id) {
+                                    fetchReviewUser(w.id);
+                                  }
+                                }}
+                                activeOpacity={0.7}
+                              >
+                                <View style={[s.prizeMedal, { backgroundColor: rankColor(w.rank) + '20', width: 26, height: 26 }]}>
+                                  <Text style={{ color: rankColor(w.rank), fontWeight: '900', fontSize: 12 }}>#{w.rank}</Text>
+                                </View>
+                                <View style={{ flex: 1, marginLeft: 10 }}>
+                                  <Text style={s.giveawayWinnerName}>{w.username}</Text>
+                                  <Text style={s.giveawayWinnerWins}>{w.wins} wins · {w.number}</Text>
+                                </View>
+                              </TouchableOpacity>
                               <View style={s.giveawayInputContainer}>
                                 <TextInput
                                   style={s.giveawayPrizeInput}
@@ -857,7 +1025,7 @@ export default function AdminLeaderboardPage() {
           title={isEN ? "Trigger Prize Disbursement" : "ለአሸናፊዎች ሽልማት ላክ"}
           message={isEN 
             ? "Are you sure you want to capture the standings snapshot, commit prize wallets, and distribute real SMS notifications to top winners?" 
-            : "ቅጽበታዊ መረጃዎችን ለመያዝ ፣ የኪስ ቦርሳዎችን ለመሙላት እና ለእውነተኛ አሸናፊዎች የኤስኤምኤስ ማሳወቂያዎችን ለመላክ እርግጠኛ ነዎት?"
+            : "ቅጽበታዊ መረጃዎችን ለመያዝ ፣ የኪስ ቦርሳዎችን ለመሙላት እና ለእውነተኛ አሸናፊዎች የኤስኤስኤምኤስ ማሳወቂያዎችን ለመላክ እርግጠኛ ነዎት?"
           }
           confirmText={isEN ? "Confirm & Settle" : "አዎ ፣ ፈቅድ"}
           confirmColor="yellow"
@@ -869,16 +1037,327 @@ export default function AdminLeaderboardPage() {
             setShowSMSConfirm(false);
           }}
         />
+
+        {/* ================= USER DETAIL / REVIEW / REPLACE MODAL ================= */}
+        {selectedWinnerForReview && (
+          <Modal visible transparent animationType="slide">
+            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center', padding: 16 }}>
+              <View style={{ backgroundColor: '#0f1423', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', width: '100%', maxWidth: 640, maxHeight: '90%', padding: 20 }}>
+                {/* Header */}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)', paddingBottom: 12 }}>
+                  <View>
+                    <Text style={{ color: '#fff', fontSize: 16, fontWeight: '900' }}>
+                      Review & Replace: Rank #{selectedWinnerForReview.rank}
+                    </Text>
+                    <Text style={{ color: C.dim, fontSize: 11 }}>
+                      Current Winner: {selectedWinnerForReview.username} ({selectedWinnerForReview.wins} wins)
+                    </Text>
+                  </View>
+                  <TouchableOpacity 
+                    onPress={() => {
+                      setSelectedWinnerForReview(null);
+                      setReviewUserData(null);
+                      setReplacementTargetId('');
+                    }}
+                    style={{ padding: 4 }}
+                  >
+                    <Ionicons name="close" size={24} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+
+                <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+                  {/* Replacement Selector */}
+                  <View style={{ backgroundColor: 'rgba(255,255,255,0.02)', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', marginBottom: 16 }}>
+                    <Text style={{ color: C.accent, fontSize: 11, fontWeight: '800', letterSpacing: 0.5, marginBottom: 8 }}>REPLACE WINNER</Text>
+                    <View style={{ gap: 8 }}>
+                      <Text style={{ color: C.dim, fontSize: 11 }}>
+                        Choose another active leaderboard player to swap into this rank, or disqualify this rank entirely:
+                      </Text>
+                      <View style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', height: 40, justifyContent: 'center', paddingHorizontal: 12 }}>
+                        {Platform.OS === 'web' ? (
+                          <select
+                            value={replacementTargetId}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setReplacementTargetId(val);
+                              if (val !== 'none' && val !== '') {
+                                fetchReviewUser(val);
+                              } else {
+                                setReviewUserData(null);
+                              }
+                            }}
+                            style={{
+                              backgroundColor: 'transparent',
+                              color: '#fff',
+                              border: 'none',
+                              outlineStyle: 'none',
+                              width: '100%',
+                              fontSize: 13,
+                              fontFamily: 'inherit',
+                            }}
+                          >
+                            <option value="" disabled style={{ backgroundColor: '#0f1423', color: '#fff' }}>Select player to swap...</option>
+                            <option value="none" style={{ backgroundColor: '#0f1423', color: C.red }}>None (Disqualify Rank)</option>
+                            {standings.map(st => (
+                              <option key={st.id} value={st.id} style={{ backgroundColor: '#0f1423', color: '#fff' }}>
+                                Rank #{st.rank}: {st.username} ({st.wins} wins)
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <TouchableOpacity 
+                            style={{ width: '100%', height: '100%', justifyContent: 'center' }}
+                            onPress={() => setShowReplacementPicker(true)}
+                          >
+                            <Text style={{ color: '#fff', fontSize: 13 }}>
+                              {replacementTargetId === 'none' ? 'None (Disqualify)' : 
+                               standings.find(s => s.id === replacementTargetId)?.username || 'Tap to select replacement...'}
+                            </Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Native Picker Overlay */}
+                  {Platform.OS !== 'web' && showReplacementPicker && (
+                    <Modal visible transparent animationType="fade">
+                      <TouchableOpacity 
+                        style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 24 }}
+                        onPress={() => setShowReplacementPicker(false)}
+                      >
+                        <View style={{ backgroundColor: '#161b2e', borderRadius: 12, padding: 16, maxHeight: '80%' }}>
+                          <Text style={{ color: '#fff', fontWeight: '800', fontSize: 14, marginBottom: 12 }}>Select Replacement</Text>
+                          <ScrollView>
+                            <TouchableOpacity 
+                              style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}
+                              onPress={() => {
+                                setReplacementTargetId('none');
+                                setReviewUserData(null);
+                                setShowReplacementPicker(false);
+                              }}
+                            >
+                              <Text style={{ color: C.red, fontWeight: '700' }}>None (Disqualify Rank)</Text>
+                            </TouchableOpacity>
+                            {standings.map(st => (
+                              <TouchableOpacity 
+                                key={st.id}
+                                style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}
+                                onPress={() => {
+                                  setReplacementTargetId(st.id);
+                                  fetchReviewUser(st.id);
+                                  setShowReplacementPicker(false);
+                                }}
+                              >
+                                <Text style={{ color: '#fff' }}>Rank #{st.rank}: {st.username} ({st.wins} wins)</Text>
+                              </TouchableOpacity>
+                            ))}
+                          </ScrollView>
+                        </View>
+                      </TouchableOpacity>
+                    </Modal>
+                  )}
+
+                  {/* Audited User Info */}
+                  {reviewLoading ? (
+                    <ActivityIndicator color={C.accent} style={{ marginVertical: 30 }} />
+                  ) : replacementTargetId === 'none' ? (
+                    <View style={{ padding: 16, alignItems: 'center', backgroundColor: 'rgba(239, 68, 68, 0.05)', borderRadius: 10, borderStyle: 'dashed', borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.2)' }}>
+                      <Ionicons name="trash-outline" size={32} color={C.red} style={{ marginBottom: 8 }} />
+                      <Text style={{ color: C.red, fontSize: 13, fontWeight: '700' }}>Marking Rank as Disqualified</Text>
+                      <Text style={{ color: C.dim, fontSize: 11, textAlign: 'center', marginTop: 4 }}>
+                        This rank's prize will be set to 0. No wallets will be credited, and the weekly standings slot will display "Disqualified" for users.
+                      </Text>
+                    </View>
+                  ) : reviewUserData ? (
+                    <View style={{ height: 440 }}>
+                      <User360View
+                        data={reviewUserData}
+                        onReplayGame={async (g) => {
+                          try {
+                            const res = await fetch(`${API_URL}/admin/games/${g.id}/moves`, { headers });
+                            const movesJson = await res.json();
+                            if (res.ok) {
+                              setReplayGame(g);
+                              setReplayMoves(movesJson.moves || []);
+                              setReplayBoardStep(0);
+                            } else {
+                              showAlert('Error', 'Failed to load game moves');
+                            }
+                          } catch (err) {
+                            showAlert('Error', 'Failed to load game moves');
+                          }
+                        }}
+                      />
+                    </View>
+                  ) : (
+                    <Text style={{ color: C.dim, fontSize: 12, textAlign: 'center', marginVertical: 20 }}>Select a player to load details</Text>
+                  )}
+                </ScrollView>
+
+                {/* Footer buttons */}
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 16, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', paddingTop: 12 }}>
+                  <TouchableOpacity 
+                    onPress={() => {
+                      setSelectedWinnerForReview(null);
+                      setReviewUserData(null);
+                      setReplacementTargetId('');
+                    }}
+                    style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', height: 42, borderRadius: 10, alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>Cancel</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    onPress={confirmReplacement}
+                    disabled={replacementTargetId === '' || reviewLoading}
+                    style={{ flex: 1.2, backgroundColor: replacementTargetId === 'none' ? C.red : C.accent, height: 42, borderRadius: 10, alignItems: 'center', justifyContent: 'center', opacity: (replacementTargetId === '' || reviewLoading) ? 0.5 : 1 }}
+                  >
+                    <Text style={{ color: '#0a0a1a', fontSize: 13, fontWeight: '900' }}>
+                      {replacementTargetId === 'none' ? 'Disqualify Winner' : 'Confirm Replacement'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
+        )}
+
+        {/* ================= GAME REPLAY SUB-MODAL ================= */}
+        {replayGame && (
+          <Modal visible transparent animationType="fade">
+            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center', padding: 16 }}>
+              <View style={{ backgroundColor: '#0f1423', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', width: '100%', maxWidth: 440, padding: 20 }}>
+                
+                {/* Header */}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                  <View>
+                    <Text style={{ color: '#fff', fontSize: 16, fontWeight: '900' }}>Game Replay</Text>
+                    <Text style={{ color: C.dim, fontSize: 10 }}>ID: {replayGame.id?.slice(0, 8)} · Bet: {replayGame.bet_amount} ETB</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => setReplayGame(null)} style={{ padding: 4 }}>
+                    <Ionicons name="close" size={20} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+
+                {/* 3x3 Board rendering */}
+                {(() => {
+                  const board: (string | null)[] = Array(9).fill(null);
+                  const visibleMoves = replayMoves.slice(0, replayBoardStep);
+                  visibleMoves.forEach((m: any, idx: number) => {
+                    const cell = typeof m.cell === 'number' ? m.cell : (typeof m.index === 'number' ? m.index : idx);
+                    const symbol = m.symbol || m.player || (idx % 2 === 0 ? 'X' : 'O');
+                    if (cell >= 0 && cell < 9) board[cell] = symbol;
+                  });
+
+                  return (
+                    <View style={{ marginBottom: 14 }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                        <Text style={{ color: '#64748b', fontSize: 9, fontWeight: '800' }}>STEP {replayBoardStep}/{replayMoves.length}</Text>
+                        <Text style={{ color: C.secondary, fontSize: 10, fontWeight: '700' }}>
+                          {replayGame.winner ? `Winner: ${replayGame.winner === reviewUserData?.user?.id ? reviewUserData.user.username : 'Opponent'}` : 'Draw'}
+                        </Text>
+                      </View>
+
+                      {/* 3x3 Grid */}
+                      <View style={{ alignSelf: 'center', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 12, padding: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
+                        {[0, 1, 2].map(row => (
+                          <View key={row} style={{ flexDirection: 'row' }}>
+                            {[0, 1, 2].map(col => {
+                              const idx = row * 3 + col;
+                              const sym = board[idx];
+                              const isLatest = replayBoardStep > 0 && (() => {
+                                const lastMove = replayMoves[replayBoardStep - 1];
+                                const lastCell = typeof lastMove?.cell === 'number' ? lastMove.cell : (typeof lastMove?.index === 'number' ? lastMove.index : replayBoardStep - 1);
+                                return lastCell === idx;
+                              })();
+                              return (
+                                <View key={col} style={{
+                                  width: 56, height: 56, alignItems: 'center', justifyContent: 'center',
+                                  borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)',
+                                  backgroundColor: isLatest ? 'rgba(0,229,255,0.06)' : 'transparent',
+                                  borderRadius: row === 0 && col === 0 ? 10 : row === 0 && col === 2 ? 10 : row === 2 && col === 0 ? 10 : row === 2 && col === 2 ? 10 : 0,
+                                }}>
+                                  <Text style={{ fontSize: 26, fontWeight: '900', color: sym === 'X' ? '#00daf3' : sym === 'O' ? '#fd6f85' : 'transparent' }}>
+                                    {sym || '·'}
+                                  </Text>
+                                </View>
+                              );
+                            })}
+                          </View>
+                        ))}
+                      </View>
+
+                      {/* Control buttons */}
+                      <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 14, marginTop: 14 }}>
+                        <TouchableOpacity onPress={() => setReplayBoardStep(0)} style={{ padding: 6, opacity: replayBoardStep === 0 ? 0.3 : 1 }}>
+                          <Ionicons name="play-skip-back" size={16} color={C.accent} />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => setReplayBoardStep(p => Math.max(0, p - 1))} style={{ padding: 6, opacity: replayBoardStep === 0 ? 0.3 : 1 }}>
+                          <Ionicons name="caret-back" size={20} color={C.accent} />
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                          onPress={() => {
+                            setReplayBoardStep(0);
+                            let step = 0;
+                            const iv = setInterval(() => {
+                              step++;
+                              setReplayBoardStep(step);
+                              if (step >= replayMoves.length) clearInterval(iv);
+                            }, 500);
+                          }}
+                          style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0,229,255,0.15)', alignItems: 'center', justifyContent: 'center' }}
+                        >
+                          <Ionicons name="play" size={16} color={C.accent} />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => setReplayBoardStep(p => Math.min(replayMoves.length, p + 1))} style={{ padding: 6, opacity: replayBoardStep >= replayMoves.length ? 0.3 : 1 }}>
+                          <Ionicons name="caret-forward" size={20} color={C.accent} />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => setReplayBoardStep(replayMoves.length)} style={{ padding: 6, opacity: replayBoardStep >= replayMoves.length ? 0.3 : 1 }}>
+                          <Ionicons name="play-skip-forward" size={16} color={C.accent} />
+                        </TouchableOpacity>
+                      </View>
+
+                      {/* Move timeline scrollable */}
+                      <ScrollView style={{ maxHeight: 120, marginTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', paddingTop: 8 }} nestedScrollEnabled>
+                        {replayMoves.map((m: any, i: number) => {
+                          const sym = m.symbol || m.player || (i % 2 === 0 ? 'X' : 'O');
+                          const cell = typeof m.cell === 'number' ? m.cell : (typeof m.index === 'number' ? m.index : i);
+                          const isActive = i < replayBoardStep;
+                          return (
+                            <TouchableOpacity key={i} onPress={() => setReplayBoardStep(i + 1)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4, opacity: isActive ? 1 : 0.4 }}>
+                              <Text style={{ color: '#475569', fontSize: 10, width: 20, fontWeight: '700' }}>{i + 1}</Text>
+                              <Text style={{ color: sym === 'X' ? '#00daf3' : '#fd6f85', fontSize: 11, fontWeight: '900', width: 14 }}>{sym}</Text>
+                              <Text style={{ color: C.dim, fontSize: 10 }}>Cell {cell}</Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </ScrollView>
+                    </View>
+                  );
+                })()}
+
+                <TouchableOpacity 
+                  onPress={() => setReplayGame(null)}
+                  style={{ backgroundColor: 'rgba(255,255,255,0.05)', height: 38, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginTop: 6 }}
+                >
+                  <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>Close Replay</Text>
+                </TouchableOpacity>
+
+              </View>
+            </View>
+          </Modal>
+        )}
       </SafeAreaView>
     </View>
   );
 }
 
-const s = StyleSheet.create({
+const getStyles = (C: any, isDark: boolean) => StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
   scroll: { padding: 18 },
   modeSelectorCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : C.card,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: C.border,
@@ -900,9 +1379,9 @@ const s = StyleSheet.create({
   modeBtnContainer: {
     flexDirection: 'row',
     height: 46,
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.02)' : C.bgGlass,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: isDark ? 'rgba(255, 255, 255, 0.05)' : C.border,
     borderRadius: 12,
     overflow: 'hidden',
   },
@@ -914,7 +1393,7 @@ const s = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   modeBtnActive: {
-    backgroundColor: '#fff',
+    backgroundColor: isDark ? '#fff' : C.accent,
   },
   modeBtnText: {
     fontSize: 12,
@@ -923,12 +1402,12 @@ const s = StyleSheet.create({
     letterSpacing: 0.5,
   },
   modeBtnTextActive: {
-    color: '#000',
+    color: isDark ? '#000' : '#fff',
     fontWeight: '900',
   },
   modeHintText: {
     fontSize: 11,
-    color: 'rgba(148, 163, 184, 0.6)',
+    color: C.dim,
     marginTop: 10,
     lineHeight: 15,
     paddingHorizontal: 2,
@@ -952,17 +1431,17 @@ const s = StyleSheet.create({
   crownGlow: {
     width: 44,
     height: 44,
-    borderRadius: 12,
-    backgroundColor: 'rgba(250, 204, 21, 0.08)',
+    borderRadius: 8,
+    backgroundColor: isDark ? '#313D4A' : C.cardHeader,
     borderWidth: 1,
-    borderColor: 'rgba(250, 204, 21, 0.25)',
+    borderColor: C.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: '900',
-    color: '#fff',
+    color: C.txt,
     letterSpacing: 1,
   },
   headerSubTitle: {
@@ -1007,16 +1486,16 @@ const s = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : C.surfaceContainerHighest,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: C.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   // Week Banner Card
   bannerCard: {
-    borderRadius: 16,
+    borderRadius: 10,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: C.border,
@@ -1037,7 +1516,7 @@ const s = StyleSheet.create({
   bannerDivider: {
     width: 1,
     height: 38,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: C.border,
     marginHorizontal: 20,
     ...Platform.select({
       web: { display: 'flex' },
@@ -1059,7 +1538,7 @@ const s = StyleSheet.create({
   bannerDatesText: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#fff',
+    color: C.txt,
   },
   bannerTimerText: {
     fontSize: 20,
@@ -1089,7 +1568,7 @@ const s = StyleSheet.create({
   // Core Premium Card
   card: {
     backgroundColor: C.card,
-    borderRadius: 16,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: C.border,
     overflow: 'hidden',
@@ -1102,7 +1581,7 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.03)',
+    borderBottomColor: C.border,
   },
   titleRow: {
     flexDirection: 'row',
@@ -1112,7 +1591,7 @@ const s = StyleSheet.create({
   cardTitle: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#fff',
+    color: C.txt,
     letterSpacing: 0.5,
   },
   cardContent: {
@@ -1121,9 +1600,9 @@ const s = StyleSheet.create({
 
   // Standings Lists
   countBadge: {
-    backgroundColor: 'rgba(0, 218, 243, 0.1)',
+    backgroundColor: C.accentDim,
     borderWidth: 1,
-    borderColor: 'rgba(0, 218, 243, 0.2)',
+    borderColor: 'rgba(255, 45, 85, 0.25)',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
@@ -1131,7 +1610,7 @@ const s = StyleSheet.create({
   countBadgeText: {
     fontSize: 10,
     fontWeight: '800',
-    color: C.secondary,
+    color: C.accent,
   },
   standingRow: {
     flexDirection: 'row',
@@ -1139,7 +1618,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.03)',
+    borderBottomColor: C.border,
   },
   standingLeft: {
     flexDirection: 'row',
@@ -1179,7 +1658,7 @@ const s = StyleSheet.create({
   },
   barContainer: {
     height: 4,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.06)',
     borderRadius: 2,
     overflow: 'hidden',
   },
@@ -1195,7 +1674,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.03)',
+    borderBottomColor: C.border,
   },
   settingInfo: {
     flex: 1,
@@ -1250,7 +1729,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.02)',
+    borderBottomColor: C.border,
   },
   snapInfo: {
     flex: 1,
@@ -1293,7 +1772,7 @@ const s = StyleSheet.create({
   // Bottom Conditional Mode Sections
   moduleDivider: {
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: C.border,
     marginVertical: 10,
   },
   activeStatusBadge: {
@@ -1311,11 +1790,11 @@ const s = StyleSheet.create({
   subSectionTitle: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#fff',
+    color: C.txt,
     marginBottom: 12,
     letterSpacing: 0.5,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.04)',
+    borderBottomColor: C.border,
     paddingBottom: 6,
   },
   prizeRow: {
@@ -1352,11 +1831,11 @@ const s = StyleSheet.create({
     marginBottom: 6,
   },
   mockNotification: {
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.02)' : C.bgGlass,
     borderRadius: 10,
     padding: 10,
     borderWidth: 1,
-    borderColor: 'rgba(0,229,255,0.15)',
+    borderColor: C.border,
   },
   mockNotificationHeader: {
     flexDirection: 'row',
@@ -1367,7 +1846,7 @@ const s = StyleSheet.create({
   mockNotifTitle: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#fff',
+    color: C.txt,
   },
   mockNotifTime: {
     fontSize: 8,
@@ -1398,7 +1877,7 @@ const s = StyleSheet.create({
   giveawayInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : C.bgGlass,
     borderWidth: 1,
     borderColor: C.border,
     borderRadius: 8,
@@ -1419,12 +1898,12 @@ const s = StyleSheet.create({
     fontWeight: '800',
   },
   smsTextInput: {
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : C.bgGlass,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: C.border,
     padding: 10,
-    color: '#fff',
+    color: C.txt,
     fontSize: 11,
     minHeight: 65,
     textAlignVertical: 'top',
@@ -1476,7 +1955,7 @@ const s = StyleSheet.create({
   // Dry run result logs
   resultsCard: {
     marginTop: 14,
-    backgroundColor: 'rgba(255,255,255,0.02)',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : C.card,
     borderWidth: 1,
     borderColor: C.border,
     borderRadius: 10,
@@ -1494,7 +1973,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 4,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.02)',
+    borderBottomColor: C.border,
   },
 
   // Manual snapshot fallback action
@@ -1523,13 +2002,13 @@ const s = StyleSheet.create({
   },
   fakeInput: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : C.bgGlass,
     borderWidth: 1,
     borderColor: C.border,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    color: '#fff',
+    color: C.txt,
     fontSize: 12,
   },
   fakeAddBtn: {
@@ -1541,10 +2020,10 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   fakeEntriesContainer: {
-    backgroundColor: 'rgba(255,255,255,0.01)',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.01)' : C.card,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.02)',
+    borderColor: C.border,
     paddingHorizontal: 10,
   },
   fakeRow: {
@@ -1553,7 +2032,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.02)',
+    borderBottomColor: C.border,
   },
   fakeName: {
     fontSize: 12,
@@ -1609,5 +2088,49 @@ const s = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     textAlign: 'center',
+  },
+  searchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : C.bgGlass,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 10,
+    height: 38,
+    paddingHorizontal: 8,
+    marginBottom: 12,
+  },
+  searchInput: {
+    flex: 1,
+    color: C.txt,
+    fontSize: 12,
+    paddingVertical: 6,
+    paddingLeft: 8,
+  },
+  paginationRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 12,
+    paddingTop: 8,
+  },
+  pageBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : C.surfaceContainerHighest,
+    borderWidth: 1,
+    borderColor: C.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pageBtnDisabled: {
+    opacity: 0.3,
+  },
+  pageText: {
+    color: C.dim,
+    fontSize: 11,
+    fontWeight: '600',
   },
 });

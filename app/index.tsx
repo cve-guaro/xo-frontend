@@ -8,9 +8,15 @@ import LoginScreen from "./(auth)/login";
 import OfflineNotice from "../components/OfflineNotice";
 
 export default function Index() {
-  const { user, booting, offline, retry } = useAuth();
-  const { ref, promo } = useLocalSearchParams<{ref?: string, promo?: string}>();
+  const { user, booting, offline, retry, loginWithToken } = useAuth();
+  const { ref, promo, token: urlToken, refresh: urlRefresh } = useLocalSearchParams<{ref?: string, promo?: string, token?: string, refresh?: string}>();
   const [retrying, setRetrying] = useState(false);
+
+  useEffect(() => {
+    if (urlToken && !user && loginWithToken) {
+      void loginWithToken(urlToken, urlRefresh);
+    }
+  }, [urlToken, urlRefresh, user, loginWithToken]);
 
   const handleRetry = async () => {
     setRetrying(true);

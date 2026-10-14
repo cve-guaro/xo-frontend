@@ -5,7 +5,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import React, { memo, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
-  Dimensions,
   Easing,
   Image,
   Modal,
@@ -13,11 +12,11 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   Vibration,
   View,
 } from "react-native";
-
-const { width } = Dimensions.get("window");
+import { WebPressable } from "../WebPressable";
 
 interface ResultOverlayProps {
   visible: boolean;
@@ -31,7 +30,6 @@ interface ResultOverlayProps {
 }
 
 const CARD_MAX_W = 340;
-const CARD_W = Math.min(width - 40, CARD_MAX_W);
 
 type UiMeta = {
   title: string;
@@ -68,9 +66,13 @@ const UI_LOSE = (amount: number): UiMeta => ({
 });
 
 function ResultOverlay({ visible, outcome, amount, onHome, onPlayAgain, onSendEmoji, floatingEmoji, insufficientBalance = false }: ResultOverlayProps) {
+  const { width: windowWidth } = useWindowDimensions();
+  const cardW = Math.min(windowWidth - 32, CARD_MAX_W);
+
   const isWin = outcome === "win";
   const appear = useRef(new Animated.Value(0)).current;
   const [canContinue, setCanContinue] = useState(false);
+  const [countdown, setCountdown] = useState(3);
 
   const ui = useMemo<UiMeta>(() => (isWin ? UI_WIN(amount) : UI_LOSE(amount)), [isWin, amount]);
 
@@ -79,6 +81,8 @@ function ResultOverlay({ visible, outcome, amount, onHome, onPlayAgain, onSendEm
     if (!visible) {
       appear.stopAnimation();
       appear.setValue(0);
+      setCanContinue(false);
+      setCountdown(3);
       return;
     }
 
@@ -88,6 +92,7 @@ function ResultOverlay({ visible, outcome, amount, onHome, onPlayAgain, onSendEm
     appear.stopAnimation();
     appear.setValue(0);
     setCanContinue(false);
+    setCountdown(3);
 
     Animated.timing(appear, {
       toValue: 1,
@@ -96,12 +101,19 @@ function ResultOverlay({ visible, outcome, amount, onHome, onPlayAgain, onSendEm
       useNativeDriver: true,
     }).start();
 
-    // Enable buttons after 2.5 seconds
-    const timer = setTimeout(() => {
-      setCanContinue(true);
-    }, 2500);
+    // Enable buttons after 3 seconds with live countdown
+    const interval = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          setCanContinue(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
 
-    return () => clearTimeout(timer);
+    return () => clearInterval(interval);
   }, [visible, appear]);
 
   const cardAnimStyle = useMemo(
@@ -120,7 +132,7 @@ function ResultOverlay({ visible, outcome, amount, onHome, onPlayAgain, onSendEm
   return (
     <Modal visible transparent animationType="none" statusBarTranslucent>
       <View style={styles.container}>
-        <Animated.View style={[styles.card, cardAnimStyle]}>
+        <Animated.View style={[styles.card, { width: cardW }, cardAnimStyle]}>
           <LinearGradient
             colors={ui.border}
             start={START}
@@ -166,24 +178,43 @@ function ResultOverlay({ visible, outcome, amount, onHome, onPlayAgain, onSendEm
                 <Text style={styles.message}>{ui.message}</Text>
 
                 <View style={{ width: "100%", flexDirection: "column", gap: 10 }}>
-                  <TouchableOpacity onPress={onHome} disabled={!canContinue} activeOpacity={0.92} style={[styles.btnWrap, !canContinue && { opacity: 0.5 }]}>
+                  <WebPressable
+                    onPress={canContinue ? onHome : undefined}
+                    disabled={!canContinue}
+                    activeScale={0.96}
+                    style={({ pressed }) => [
+                      styles.btnWrap,
+                      !canContinue && { opacity: 0.5 },
+                      pressed && canContinue && { transform: [{ scale: 0.96 }] },
+                    ]}
+                  >
                     <LinearGradient colors={ui.primaryGrad} style={styles.btn}>
                       <Ionicons name="home-outline" size={18} color="#0c0c1f" />
                       <Text style={styles.btnText}>{ui.primaryText}</Text>
-                      {!canContinue && <Text style={{ color: 'rgba(12,12,31,0.6)', fontSize: 11, marginLeft: 'auto' }}>(2.5s)</Text>}
+                      {!canContinue && <Text style={{ color: 'rgba(12,12,31,0.6)', fontSize: 11, marginLeft: 'auto', fontWeight: '800' }}>({countdown}s)</Text>}
                       {canContinue && <Ionicons name="chevron-forward" size={16} color="#0c0c1f" style={{ marginLeft: 'auto' }} />}
                     </LinearGradient>
-                  </TouchableOpacity>
+                  </WebPressable>
 
-                  {/* Play Again / Rematch Button (for both winner and loser if provided) */}
-                  {onPlayAgain && (
+                  {/* Play Again / Rematch Button (LOSER ONLY) */}
+                  {onPlayAgain && !isWin && (
                     <View>
-                      <TouchableOpacity onPress={insufficientBalance ? undefined : onPlayAgain} disabled={!canContinue || insufficientBalance} activeOpacity={0.92} style={[styles.btnWrap, (!canContinue || insufficientBalance) && { opacity: 0.45 }]}>
+                      <WebPressable
+                        onPress={(!canContinue || insufficientBalance) ? undefined : onPlayAgain}
+                        disabled={!canContinue || insufficientBalance}
+                        activeScale={0.96}
+                        style={({ pressed }) => [
+                          styles.btnWrap,
+                          (!canContinue || insufficientBalance) && { opacity: 0.45 },
+                          pressed && canContinue && !insufficientBalance && { transform: [{ scale: 0.96 }] },
+                        ]}
+                      >
                         <LinearGradient colors={["rgba(255,255,255,0.1)", "rgba(255,255,255,0.05)"]} style={[styles.btn, { borderWidth: 1, borderColor: insufficientBalance ? "rgba(255,75,75,0.3)" : "rgba(255,255,255,0.15)" }]}>
                           <Ionicons name="refresh-outline" size={18} color="#fff" />
                           <Text style={[styles.btnText, { color: '#fff' }]}>Run It Back! 🔥</Text>
+                          {!canContinue && <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, marginLeft: 'auto', fontWeight: '800' }}>({countdown}s)</Text>}
                         </LinearGradient>
-                      </TouchableOpacity>
+                      </WebPressable>
                       {insufficientBalance && (
                         <Text style={{ color: '#ff6b6b', fontSize: 11, fontWeight: '700', textAlign: 'center', marginTop: 6 }}>
                           ⚠️ Insufficient balance for this rematch
@@ -251,15 +282,18 @@ const LOSE_BADGE = ["rgba(255,107,107,0.95)", "rgba(244,63,94,0.85)"] as const;
 // ------------------ Styles ------------------
 const styles = StyleSheet.create({
   container: {
+    ...StyleSheet.absoluteFillObject,
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.44)",
+    backgroundColor: "rgba(0,0,0,0.72)",
     justifyContent: "center",
     alignItems: "center",
-    padding: 20,
-    paddingTop: 100, // Shifted down to not block emoji reaction toast
+    paddingHorizontal: 16,
+    paddingVertical: 24,
+    zIndex: 999999,
+    ...(Platform.OS === 'web' ? { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh' } as any : {}),
   },
 
-  card: { width: CARD_W, borderRadius: 26, overflow: "visible" },
+  card: { borderRadius: 26, overflow: "visible" },
 
   borderGradient: {
     borderRadius: 26,

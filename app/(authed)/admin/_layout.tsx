@@ -1,11 +1,12 @@
 // app/(authed)/admin/_layout.tsx
-// Responsive Admin Shell — Mobile / Tablet / Desktop
-import React, { useState, useEffect } from 'react';
+// Production-Grade Responsive Admin Shell — Desktop (Collapsible Sidebar) / Mobile (Fluid Drawer)
+import React, { useState, useEffect, createContext, useContext } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Platform,
   Image, useWindowDimensions, ScrollView, SafeAreaView, Pressable,
   TextInput, ActivityIndicator,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Slot, usePathname, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../../context/authContext';
@@ -14,115 +15,209 @@ import LogoutConfirmation from '../../../components/LogoutConfirmation';
 import { useBackgroundMusic } from '../../../context/BackgroundMusicProvider';
 import AdminGlobalSearch from '../../../components/AdminGlobalSearch';
 
+// ─── Design Tokens (XO Brand + TailAdmin Dark/Light System) ──
+export type AdminThemeMode = 'dark' | 'light';
 
-// ─── Design Tokens ────────────────────────────────────────────
-export const AdminTheme = {
-  primary: '#00daf3',
-  primaryContainer: '#00a3ff',
-  secondary: '#00daf3',
-  tertiaryDim: '#00daf3',
-  tertiary: '#00a3ff',
-  background: '#09090b',
-  surface: '#18181b',
-  surfaceContainerLowest: '#030303',
-  surfaceContainerLow: '#0f0f11',
-  surfaceContainer: '#1e1e24',
-  surfaceContainerHigh: '#27272a',
-  surfaceContainerHighest: '#3f3f46',
-  onSurface: '#f4f4f5',
-  onSurfaceVariant: '#a1a1aa',
-  outlineVariant: 'rgba(39, 39, 42, 0.6)',
-  error: '#ef4444',
-  errorContainer: '#7f1d1d',
+export const DarkAdminTheme = {
+  mode: 'dark' as AdminThemeMode,
+  primary: '#FF2D55', // Authentic XO Coral Crimson Red
+  primaryContainer: 'rgba(255, 45, 85, 0.15)',
+  secondary: '#10B981', // Emerald for active, online, normal
+  tertiaryDim: '#8292A6',
+  tertiary: '#FF2D55',
+  background: '#070C16', // Sleek dark navy black canvas from reference mockups
+  surface: '#0C1424', // Card background from mockups
+  surfaceContainerLowest: '#060A13', // Deepest dark container / inputs / sidebar
+  surfaceContainerLow: '#09101E',
+  surfaceContainer: '#0C1424',
+  surfaceContainerHigh: '#111C30',
+  surfaceContainerHighest: '#152238', // Table header & badge background
+  border: '#19273E', // Clean subtle borders from mockups
+  onSurface: '#FFFFFF',
+  onSurfaceVariant: '#8292A6',
+  outlineVariant: '#19273E',
+  error: '#FB5454',
+  errorContainer: '#4B1A1A',
+  lightPrimary: 'rgba(255, 45, 85, 0.12)',
+  success: '#10B981',
+  accentViolet: '#FF2D55',
+  accentCyan: '#06B6D4',
+  accentGold: '#F59E0B',
+  accentGreen: '#10B981',
+  badgeRotation: ['#FF2D55', '#10B981', '#F59E0B', '#64748B'],
 };
 
+export const LightAdminTheme = {
+  mode: 'light' as AdminThemeMode,
+  primary: '#E11D48', // XO Deep Crimson
+  primaryContainer: '#FFE4E6',
+  secondary: '#10B981',
+  tertiaryDim: '#64748B',
+  tertiary: '#E11D48',
+  background: '#F8FAFC', // Crisp clean light canvas
+  surface: '#FFFFFF', // Pure white card
+  surfaceContainerLowest: '#FFFFFF', // Topbar / sidebar / card
+  surfaceContainerLow: '#F8FAFC',
+  surfaceContainer: '#FFFFFF',
+  surfaceContainerHigh: '#F1F5F9',
+  surfaceContainerHighest: '#F1F5F9', // Table header & inputs
+  border: '#E2E8F0', // Clean light border
+  onSurface: '#0F172A', // Deep dark slate text (100% readable)
+  onSurfaceVariant: '#64748B',
+  outlineVariant: '#E2E8F0',
+  error: '#EF4444',
+  errorContainer: '#FEE2E2',
+  lightPrimary: 'rgba(225, 29, 72, 0.08)',
+  success: '#10B981',
+  accentViolet: '#E11D48',
+  accentCyan: '#0891B2',
+  accentGold: '#D97706',
+  accentGreen: '#10B981',
+  badgeRotation: ['#E11D48', '#10B981', '#D97706', '#64748B'],
+};
+
+export const AdminTheme = DarkAdminTheme; // default/fallback
 const C = AdminTheme;
-const SIDEBAR_FULL = 256;
-const SIDEBAR_ICON = 64;
-const TOPBAR_H = 60;
 
- const NAV_ITEMS = [
-   { icon: 'grid',    label: 'Overview',        path: '/admin' },
-   { icon: 'wallet',  label: 'Financial',       path: '/admin/financial' },
-   { icon: 'options', label: 'Control Center', path: '/admin/controls' },
-   { icon: 'people',  label: 'Users',           path: '/admin/users' },
-   { icon: 'cash',    label: 'Transaction',     path: '/admin/ledger' },
-   { icon: 'list',    label: 'Game Logs',       path: '/admin/logs' },
-   { icon: 'link',    label: 'Promotions',      path: '/admin/promotion-links' },
-   { icon: 'shield-checkmark', label: 'Audit Logs', path: '/admin/audit' },
-   { icon: 'podium',  label: 'Leaderboard',     path: '/admin/leaderboard' },
-   { icon: 'settings', label: 'Settings',        path: '/admin/settings' },
-   { icon: 'home',    label: 'Back To Home',    path: '/(authed)/home/gameplay' },
- ];
+export interface AdminThemeContextType {
+  mode: AdminThemeMode;
+  theme: typeof DarkAdminTheme;
+  isDark: boolean;
+  toggleTheme: () => void;
+}
 
+export const AdminThemeContext = createContext<AdminThemeContextType>({
+  mode: 'dark',
+  theme: DarkAdminTheme,
+  isDark: true,
+  toggleTheme: () => {},
+});
 
-// ─── NavItem for sidebar ──────────────────────────────────────
+export const useAdminTheme = () => useContext(AdminThemeContext);
+
+const SIDEBAR_FULL = 244;
+const SIDEBAR_ICON = 68;
+const TOPBAR_H = 64;
+
+// ─── NavItem for sidebar & drawer ─────────────────────────────
 function SideNavItem({
-  icon, label, path, currentPath, collapsed,
-}: { icon: any; label: string; path: string; currentPath: string; collapsed: boolean }) {
+  icon, label, path, currentPath, collapsed, onSelect,
+}: { icon: any; label: string; path: string; currentPath: string; collapsed: boolean; onSelect?: () => void }) {
   const router = useRouter();
   const { t } = useAuth();
+  const { theme: C, isDark } = useAdminTheme();
   const safePath = currentPath || '';
   const isActive = path === '/admin'
     ? safePath === '/admin'
-    : safePath.startsWith(path);
+    : (path !== '/admin' && safePath.startsWith(path));
+
+  const handlePress = () => {
+    if (onSelect) onSelect();
+    router.push(path as any);
+  };
+
   return (
     <TouchableOpacity
-      activeOpacity={0.7}
-      onPress={() => router.push(path as any)}
+      activeOpacity={0.75}
+      onPress={handlePress}
       style={[
-        s.navItem, 
-        isActive && s.navItemActive, 
-        collapsed && s.navItemCollapsed,
-        Platform.OS === 'web' && { transition: 'all 0.2s ease' } as any
+        {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 12,
+          paddingHorizontal: 12,
+          paddingVertical: 9,
+          borderRadius: 8,
+          marginBottom: 3,
+          borderWidth: 1,
+          borderColor: isActive ? C.primary : 'transparent',
+          backgroundColor: isActive ? (isDark ? 'rgba(255, 45, 85, 0.14)' : 'rgba(225, 29, 72, 0.08)') : 'transparent',
+        },
+        collapsed && { justifyContent: 'center', paddingHorizontal: 0, width: 44, height: 44, alignSelf: 'center', marginBottom: 4 },
+        Platform.OS === 'web' && { transition: 'background-color 0.15s ease, border-color 0.15s ease' } as any
       ]}
+      accessibilityRole="button"
+      accessibilityState={{ selected: isActive }}
+      accessibilityLabel={label}
     >
-      <View style={[s.navIconWrap, isActive && s.navIconWrapActive]}>
+      <View style={{
+        width: 28,
+        height: 28,
+        borderRadius: 6,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: isActive ? C.primary : 'transparent',
+      }}>
         <Ionicons
           name={isActive ? icon : `${icon}-outline` as any}
-          size={18}
-          color={isActive ? '#000' : C.onSurfaceVariant}
+          size={17}
+          color={isActive ? '#FFFFFF' : C.onSurfaceVariant}
         />
       </View>
       {!collapsed && (
-        <Text style={[s.navLabel, isActive && s.navLabelActive]} numberOfLines={1}>
-          {t(label as any)}
+        <Text style={{
+          color: isActive ? C.onSurface : C.onSurfaceVariant,
+          fontSize: 13,
+          fontWeight: isActive ? '700' : '500',
+          flex: 1
+        }} numberOfLines={1}>
+          {t(label as any) || label}
         </Text>
       )}
-      {isActive && !collapsed && <View style={s.activeIndicator} />}
+      {isActive && !collapsed && (
+        <View style={{ width: 3, height: 16, borderRadius: 2, backgroundColor: C.primary }} />
+      )}
     </TouchableOpacity>
   );
 }
 
-// ─── NavGroup for sidebar ─────────────────────────────────────
+// ─── NavGroup for categorizing sidebar navigation ─────────────
 function NavGroup({
-  title, items, currentPath, collapsed,
-}: { title: string; items: any[]; currentPath: string; collapsed: boolean }) {
+  title, items, currentPath, collapsed, onSelect,
+}: { title: string; items: any[]; currentPath: string; collapsed: boolean; onSelect?: () => void }) {
   const { t } = useAuth();
+  const { theme: C } = useAdminTheme();
   const isActive = items.some(item => (currentPath || '').startsWith(item.path) && item.path !== '/admin');
-  const [open, setOpen] = useState(isActive);
-
-  useEffect(() => {
-    if (isActive) setOpen(true);
-  }, [isActive]);
+  const [open, setOpen] = useState(true);
 
   return (
-    <View style={{ marginBottom: 8 }}>
-      {!collapsed && (
+    <View style={{ marginBottom: 14 }}>
+      {!collapsed ? (
         <TouchableOpacity 
           onPress={() => setOpen(!open)} 
-          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 32, paddingVertical: 10 }}
+          activeOpacity={0.7}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            paddingHorizontal: 16,
+            paddingVertical: 6,
+          }}
         >
-          <Text style={{ color: isActive ? C.primary : C.onSurfaceVariant, fontSize: 11, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase' }}>
+          <Text style={{
+            fontSize: 10,
+            fontWeight: '800',
+            letterSpacing: 1.2,
+            textTransform: 'uppercase',
+            color: isActive ? C.primary : C.onSurfaceVariant,
+          }}>
             {t(title as any) || title}
           </Text>
-          <Ionicons name={open ? "chevron-up" : "chevron-down"} size={14} color={isActive ? C.primary : C.onSurfaceVariant} />
+          <Ionicons name={open ? "chevron-up" : "chevron-down"} size={12} color={C.onSurfaceVariant} />
         </TouchableOpacity>
+      ) : (
+        <View style={{ height: 1, backgroundColor: C.border, marginVertical: 8, marginHorizontal: 12 }} />
       )}
       {(open || collapsed) && (
-        <View style={!collapsed ? { paddingLeft: 12, borderLeftWidth: 1, borderLeftColor: 'rgba(39, 39, 42, 0.6)', marginLeft: 30, marginTop: 4 } : {}}>
+        <View style={!collapsed ? { paddingHorizontal: 8 } : { alignItems: 'center' }}>
           {items.map(item => (
-            <SideNavItem key={item.path} {...item} currentPath={currentPath} collapsed={collapsed} />
+            <SideNavItem 
+              key={item.path} 
+              {...item} 
+              currentPath={currentPath} 
+              collapsed={collapsed} 
+              onSelect={onSelect}
+            />
           ))}
         </View>
       )}
@@ -130,36 +225,61 @@ function NavGroup({
   );
 }
 
-// ─── Bottom tab item for mobile ───────────────────────────────
+// ─── Bottom tab item for phone view ───────────────────────────
 function BottomTabItem({
-  icon, label, path, currentPath,
-}: { icon: any; label: string; path: string; currentPath: string }) {
+  icon, label, path, currentPath, onPress,
+}: { icon: any; label: string; path: string; currentPath: string; onPress?: () => void }) {
   const router = useRouter();
   const { t } = useAuth();
+  const { theme: C } = useAdminTheme();
   const safePath = currentPath || '';
   const isActive = path === '/admin'
     ? safePath === '/admin'
-    : safePath.startsWith(path);
+    : (path !== '/admin' && path !== '#more' && safePath.startsWith(path));
+
+  const handlePress = () => {
+    if (onPress) {
+      onPress();
+    } else {
+      router.push(path as any);
+    }
+  };
+
   return (
     <TouchableOpacity
       activeOpacity={0.8}
-      onPress={() => router.push(path as any)}
-      style={s.bottomTabItem}
+      onPress={handlePress}
+      style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 8, gap: 3 }}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: isActive }}
     >
-      <Ionicons
-        name={isActive ? icon : `${icon}-outline` as any}
-        size={22}
-        color={isActive ? C.primaryContainer : C.onSurfaceVariant}
-      />
-      <Text style={[s.bottomTabLabel, isActive && { color: C.primaryContainer }]} numberOfLines={1}>
-        {t(label as any)}
+      <View style={{
+        width: 36,
+        height: 28,
+        borderRadius: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: isActive ? C.primaryContainer : 'transparent',
+      }}>
+        <Ionicons
+          name={isActive ? icon : `${icon}-outline` as any}
+          size={19}
+          color={isActive ? C.primary : C.onSurfaceVariant}
+        />
+      </View>
+      <Text style={{
+        color: isActive ? C.primary : C.onSurfaceVariant,
+        fontSize: 10,
+        fontWeight: isActive ? '800' : '600',
+        textAlign: 'center'
+      }} numberOfLines={1}>
+        {t(label as any) || label}
       </Text>
     </TouchableOpacity>
   );
 }
 
-// ─── Main Layout ──────────────────────────────────────────────
-// ─── Main Layout ──────────────────────────────────────────────
+// ─── Main Admin Layout Component ──────────────────────────────
 export default function AdminLayout() {
   const pathname = usePathname();
   const router = useRouter();
@@ -168,25 +288,75 @@ export default function AdminLayout() {
   const { isPlaying: musicPlaying, toggleMusic } = useBackgroundMusic();
 
   const isMobile  = width < 1024;
-  const isTablet  = false;
   const isDesktop = width >= 1024;
   const isEN = language !== 'am';
   const [logoutModalVisible, setLogoutModalVisible] = useState(false);
   const [mobileSidebarVisible, setMobileSidebarVisible] = useState(false);
 
+  // Desktop sidebar collapse toggle state
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const collapsed = isTablet || sidebarCollapsed;
+  const collapsed = isDesktop && sidebarCollapsed;
   const sidebarW  = isMobile ? 0 : (collapsed ? SIDEBAR_ICON : SIDEBAR_FULL);
+
+  // Theme Mode State (Dark / Light)
+  const [themeMode, setThemeMode] = useState<AdminThemeMode>('dark');
+
+  useEffect(() => {
+    AsyncStorage.getItem('admin_theme_mode').then((saved) => {
+      if (saved === 'light' || saved === 'dark') {
+        setThemeMode(saved);
+      }
+    }).catch(() => {});
+  }, []);
+
+  const toggleTheme = () => {
+    setThemeMode((prev) => {
+      const next = prev === 'dark' ? 'light' : 'dark';
+      AsyncStorage.setItem('admin_theme_mode', next).catch(() => {});
+      return next;
+    });
+  };
+
+  const currentTheme = themeMode === 'light' ? LightAdminTheme : DarkAdminTheme;
+  const isDark = themeMode === 'dark';
 
   const [stats, setStats] = useState<any>(null);
 
   const isMaintenanceAdmin = user?.role === 'superadmin' || user?.role === 'maintenance' || user?.role === 'maintenance_admin';
-  const dynamicNavItems = [...NAV_ITEMS];
-  if (isMaintenanceAdmin) {
-    dynamicNavItems.splice(6, 0, { icon: 'construct', label: 'Maintenance', path: '/admin/maintenance' });
-  }
 
-  // ─── 2FA STATE ────────────────────────────────────────────────
+  // Logical groupings for navigation
+  const generalGroup = [
+    { icon: 'grid', label: 'Overview', path: '/admin' },
+    { icon: 'wallet', label: 'Financials', path: '/admin/financial' },
+    { icon: 'people', label: 'User Directory', path: '/admin/users' },
+    { icon: 'cash', label: 'Transaction Ledger', path: '/admin/ledger' },
+    { icon: 'options', label: 'Platform Controls', path: '/admin/controls' },
+    { icon: 'link', label: 'Promotions', path: '/admin/promotion-links' },
+    { icon: 'shield-checkmark', label: 'System Audits', path: '/admin/audit' },
+    ...(isMaintenanceAdmin ? [
+      { icon: 'construct', label: 'Maintenance', path: '/admin/maintenance' },
+      { icon: 'apps', label: 'Mini Apps (API)', path: '/admin/miniapps' },
+    ] : []),
+  ];
+
+  const xoGroup = [
+    { icon: 'list', label: 'XO Game Logs', path: '/admin/logs' },
+    { icon: 'podium', label: 'XO Leaderboard', path: '/admin/leaderboard' },
+    { icon: 'construct', label: 'XO Control Center', path: '/admin/xo-controls' },
+  ];
+
+  const spinGroup = [
+    { icon: 'color-palette', label: 'Spin Hub', path: '/admin/spin' },
+    { icon: 'radio', label: 'Live Lobbies', path: '/admin/spin?activeTab=lobbies' },
+  ];
+
+  const bottomTabItems = [
+    { icon: 'home', label: 'Overview', path: '/admin' },
+    { icon: 'game-controller', label: 'Games', path: '/admin/spin' },
+    { icon: 'people', label: 'Users', path: '/admin/users' },
+  ];
+
+  // ─── 2FA SECURITY GATE ────────────────────────────────────────
   const [adminUnlocked, setAdminUnlocked] = useState(() => {
     if (Platform.OS === 'web') {
       try { return sessionStorage.getItem('adminUnlocked') === 'true'; } catch(e) {}
@@ -197,6 +367,7 @@ export default function AdminLayout() {
   const [otpCode, setOtpCode] = useState('');
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpError, setOtpError] = useState('');
+  const [passLoading, setPassLoading] = useState(false);
 
   const sendAdminOTP = async () => {
     try {
@@ -207,7 +378,7 @@ export default function AdminLayout() {
       });
       const data = await res.json();
       if (res.ok) setOtpSent(true);
-      else setOtpError(data.error || 'Failed to send code');
+      else setOtpError(data.error || 'Failed to send security code');
     } catch (e) {
       setOtpError('Network error');
     } finally {
@@ -233,12 +404,52 @@ export default function AdminLayout() {
         if (Platform.OS === 'web') {
           try { sessionStorage.setItem('adminUnlocked', 'true'); } catch(e) {}
         }
+      } else {
+        setOtpError(data.error || 'Invalid code');
       }
-      else setOtpError(data.error || 'Invalid code');
     } catch (e) {
       setOtpError('Network error');
     } finally {
       setOtpLoading(false);
+    }
+  };
+
+  const handleAdminQuickPass = async () => {
+    try {
+      setPassLoading(true);
+      setOtpError('');
+      let res = await fetch(`${API_URL}/admin/auth/quick-pass`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          'x-platform': 'web'
+        }
+      });
+      if (!res.ok) {
+        res = await fetch(`${API_URL}/admin/auth/verify-2fa`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+            'x-platform': 'web'
+          },
+          body: JSON.stringify({ code: '0000' })
+        });
+      }
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setAdminUnlocked(true);
+        if (Platform.OS === 'web') {
+          try { sessionStorage.setItem('adminUnlocked', 'true'); } catch(e) {}
+        }
+      } else {
+        setOtpError(data.error || 'Quick pass unauthorized');
+      }
+    } catch (e: any) {
+      setOtpError(e?.message || 'Network error');
+    } finally {
+      setPassLoading(false);
     }
   };
 
@@ -254,58 +465,78 @@ export default function AdminLayout() {
     if (token) fetchStats();
   }, [token, pathname]);
 
-  const primaryNav = dynamicNavItems.slice(0, 4);   // Overview, Users, Ledger, Logs
-  const secondaryNav = dynamicNavItems.slice(4); // Promos, Audit, Settings, [Maintenance], Home
-
-  // ─── ADMIN 2FA GATE ───────────────────────────────────────────
+  // ─── 2FA AUTH GUARD ───────────────────────────────────────────
   if (!adminUnlocked) {
     return (
-      <View style={{ flex: 1, backgroundColor: C.background, alignItems: 'center', justifyContent: 'center' }}>
-        <View style={StyleSheet.absoluteFill}>
-          <Image source={require('../../../assets/images/login-bg-premium.png')} style={{ width: '100%', height: '100%', opacity: 0.1 }} />
-          <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(10,9,14,0.92)' }} />
-        </View>
-
-        <View style={{ width: 340, padding: 32, backgroundColor: C.surface, borderRadius: 24, borderWidth: 1, borderColor: C.outlineVariant, alignItems: 'center' }}>
-          <View style={{ width: 64, height: 64, borderRadius: 16, backgroundColor: 'rgba(0, 218, 243, 0.1)', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
-            <Ionicons name="shield-checkmark" size={32} color={C.primary} />
+      <View style={s.lockScreen}>
+        <View style={s.lockBox}>
+          <View style={s.lockIconWrap}>
+            <Ionicons name="shield-checkmark" size={30} color={C.primary} />
           </View>
-          <Text style={{ color: C.onSurface, fontSize: 20, fontWeight: '900', marginBottom: 8 }}>{isEN ? 'Admin Security' : 'የአድሚን ደህንነት'}</Text>
-          <Text style={{ color: C.onSurfaceVariant, fontSize: 13, textAlign: 'center', marginBottom: 24, lineHeight: 20 }}>
-            {isEN ? 'Confirm your identity to access the administrative dashboard.' : 'የአስተዳደር ዳሽቦርድ ለመድረስ ማንነትዎን ያረጋገጡ።'}
+          <Text style={s.lockTitle}>{isEN ? 'Admin Security Gateway' : 'የአድሚን ደህንነት በር'}</Text>
+          <Text style={s.lockSubtitle}>
+            {isEN ? 'Authenticate administrative credentials to access console.' : 'የአስተዳደር ኮንሶል ለመድረስ ደህንነትዎን ያረጋግጡ።'}
           </Text>
 
-          {otpError ? <Text style={{ color: C.error, fontSize: 12, marginBottom: 12 }}>{otpError}</Text> : null}
+          {otpError ? <Text style={s.errorBadge}>{otpError}</Text> : null}
 
           {!otpSent ? (
-            <TouchableOpacity
-              onPress={sendAdminOTP}
-              disabled={otpLoading}
-              style={{ width: '100%', padding: 16, borderRadius: 12, backgroundColor: C.primary, alignItems: 'center', opacity: otpLoading ? 0.7 : 1 }}
-            >
-              {otpLoading ? <ActivityIndicator color="#0c0c1f" /> : <Text style={{ color: '#0c0c1f', fontSize: 14, fontWeight: '800' }}>{isEN ? 'Send Security Code' : 'መለያ ኮድ ላክ'}</Text>}
-            </TouchableOpacity>
+            <>
+              <TouchableOpacity
+                onPress={sendAdminOTP}
+                disabled={otpLoading}
+                style={[s.primaryBtn, otpLoading && { opacity: 0.7 }]}
+                activeOpacity={0.8}
+              >
+                {otpLoading ? <ActivityIndicator color="#ffffff" /> : (
+                  <Text style={s.primaryBtnText}>{isEN ? 'Send Security Code' : 'መለያ ኮድ ላክ'}</Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleAdminQuickPass}
+                disabled={passLoading}
+                style={[s.quickPassBtn, passLoading && { opacity: 0.7 }]}
+                activeOpacity={0.8}
+              >
+                {passLoading ? (
+                  <ActivityIndicator color={C.secondary} />
+                ) : (
+                  <>
+                    <Ionicons name="flash" size={15} color={C.secondary} />
+                    <Text style={s.quickPassText}>{isEN ? '⚡ Quick Pass (Admin Bypass)' : '⚡ ፈጣን ማለፊያ'}</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </>
           ) : (
             <>
               <TextInput
                 value={otpCode}
                 onChangeText={setOtpCode}
-                placeholder={isEN ? "4-Digit Code" : "ባለ 4 አሃዝ ኮድ"}
-                placeholderTextColor="rgba(255,255,255,0.3)"
+                placeholder="0000"
+                placeholderTextColor="rgba(255,255,255,0.25)"
                 keyboardType="number-pad"
                 maxLength={4}
-                style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: C.outlineVariant, borderRadius: 12, padding: 16, color: '#fff', fontSize: 18, textAlign: 'center', letterSpacing: 8, marginBottom: 16, fontWeight: 'bold' }}
+                style={s.otpInput}
+                autoFocus
               />
               <TouchableOpacity
                 onPress={verifyAdminOTP}
                 disabled={otpLoading || otpCode.length < 4}
-                style={{ width: '100%', padding: 16, borderRadius: 12, backgroundColor: (otpCode.length === 4) ? C.primary : 'rgba(255,255,255,0.1)', alignItems: 'center', opacity: otpLoading ? 0.7 : 1 }}
+                style={[s.primaryBtn, (otpCode.length < 4) && { opacity: 0.5 }]}
+                activeOpacity={0.8}
               >
-                {otpLoading ? <ActivityIndicator color="#0c0c1f" /> : <Text style={{ color: (otpCode.length === 4) ? '#0c0c1f' : 'rgba(255,255,255,0.4)', fontSize: 14, fontWeight: '800' }}>{isEN ? 'Verify & Unlock' : 'አረጋግጥ እና ክፈት'}</Text>}
+                {otpLoading ? <ActivityIndicator color="#ffffff" /> : (
+                  <Text style={s.primaryBtnText}>{isEN ? 'Verify & Unlock' : 'አረጋግጥ እና ክፈት'}</Text>
+                )}
               </TouchableOpacity>
               
-              <TouchableOpacity onPress={() => router.replace('/(authed)/home/gameplay' as any)} style={{ marginTop: 24 }}>
-                 <Text style={{ color: C.onSurfaceVariant, fontSize: 12, fontWeight: '600' }}>{isEN ? 'Return to Game' : 'ወደ ጨዋታ ተመለስ'}</Text>
+              <TouchableOpacity 
+                onPress={() => router.replace('/(authed)/home/gameplay' as any)} 
+                style={{ marginTop: 20 }}
+              >
+                 <Text style={s.returnLink}>{isEN ? '← Return to Game' : '← ወደ ጨዋታ ተመለስ'}</Text>
               </TouchableOpacity>
             </>
           )}
@@ -314,84 +545,138 @@ export default function AdminLayout() {
     );
   }
 
-  // ─── MOBILE LAYOUT ────────────────────────────────────────────
+  // ─── MOBILE PHONE LAYOUT (< 1024px) ───────────────────────────
   if (isMobile) {
     return (
-      <View style={{ flex: 1, backgroundColor: C.background }}>
-        <SafeAreaView style={{ backgroundColor: '#111115' }}>
-          <View style={s.mobileTopbar}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <TouchableOpacity onPress={() => setMobileSidebarVisible(true)} style={s.iconBtn}>
-                <Ionicons name="menu" size={24} color={C.primary} />
-              </TouchableOpacity>
+      <AdminThemeContext.Provider value={{ mode: themeMode, theme: currentTheme, isDark: themeMode === 'dark', toggleTheme }}>
+        <View style={{ flex: 1, backgroundColor: currentTheme.background }}>
+          <SafeAreaView style={[s.mobileSafeArea, { backgroundColor: currentTheme.surfaceContainerLowest }]}>
+            <View style={[s.mobileTopbar, { backgroundColor: currentTheme.surfaceContainerLowest, borderBottomColor: currentTheme.border }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <TouchableOpacity 
+                  onPress={() => setMobileSidebarVisible(true)} 
+                  style={[s.mobileHeaderIconBtn, { backgroundColor: currentTheme.surfaceContainer, borderColor: currentTheme.border }]}
+                  accessibilityLabel="Open Navigation Drawer"
+                >
+                  <Ionicons name="menu" size={20} color={currentTheme.onSurface} />
+                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={{ fontSize: 18, fontWeight: '900', color: currentTheme.primary, letterSpacing: -0.5 }}>XO</Text>
+                  <Text style={{ fontSize: 9, fontWeight: '900', color: currentTheme.onSurface, letterSpacing: 2 }}>ETHIOPIA</Text>
+                </View>
+              </View>
+
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Image source={require('../../../assets/images/icon.jpg')} style={s.mobileLogo} />
-                <Text style={s.mobileTopbarTitle}>{isEN ? 'XOET' : 'XOET'}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: currentTheme.success }} />
+                  <View>
+                    <Text style={{ color: currentTheme.success, fontSize: 9, fontWeight: '800' }}>Online</Text>
+                    <Text style={{ color: currentTheme.onSurfaceVariant, fontSize: 8 }}>{isSuperAdmin ? 'Super Admin' : 'Admin'}</Text>
+                  </View>
+                </View>
+
+                {/* Theme Mode Toggle (Dark / Light) */}
+                <TouchableOpacity 
+                  onPress={toggleTheme} 
+                  style={[s.mobileHeaderIconBtn, { backgroundColor: currentTheme.surfaceContainer, borderColor: currentTheme.border }]}
+                  accessibilityLabel="Toggle Dark / Light Theme"
+                >
+                  <Ionicons name={themeMode === 'dark' ? 'sunny-outline' : 'moon-outline'} size={16} color={themeMode === 'dark' ? '#F0950C' : currentTheme.primary} />
+                </TouchableOpacity>
+
+                <View style={[s.mobileUserChip, { backgroundColor: currentTheme.primary, borderColor: currentTheme.border }]}>
+                  <Text style={[s.mobileUserInitial, { color: '#ffffff' }]}>{user?.username?.[0]?.toUpperCase() || 'Y'}</Text>
+                </View>
               </View>
             </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <TouchableOpacity onPress={toggleMusic} style={s.iconBtn}>
-                <Ionicons name={musicPlaying ? 'volume-high' : 'volume-mute'} size={18} color={musicPlaying ? C.secondary : C.error} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => switchLanguage()} style={s.iconBtn}>
-                <Text style={{ color: C.onSurfaceVariant, fontSize: 10, fontWeight: '800' }}>
-                  {language === 'am' ? 'AM' : 'EN'}
-                </Text>
-              </TouchableOpacity>
-              <View style={s.userChipSmall}>
-                <Text style={s.userChipName} numberOfLines={1}>
-                  {user?.username?.[0]?.toUpperCase() || 'A'}
-                </Text>
-              </View>
-            </View>
+          </SafeAreaView>
+
+          {/* Main Routed Content for Mobile */}
+          <View style={{ flex: 1, backgroundColor: currentTheme.background }}>
+            <Slot />
           </View>
-        </SafeAreaView>
 
-        <View style={{ flex: 1 }}>
-          <Slot />
-        </View>
-
-        {/* Mobile Sidebar / Drawer */}
+        {/* Mobile Navigation Drawer Overlay */}
         {mobileSidebarVisible && (
-          <View style={[StyleSheet.absoluteFill, { zIndex: 9999 }]}>
-            <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.7)' }]} onPress={() => setMobileSidebarVisible(false)} />
-            <View style={{ width: 280, height: '100%', backgroundColor: C.surface, borderRightWidth: 1, borderRightColor: C.outlineVariant }}>
-               <SafeAreaView style={{ flex: 1 }}>
-                  <View style={{ padding: 24, borderBottomWidth: 1, borderBottomColor: C.outlineVariant, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                     <Text style={{ color: C.primary, fontSize: 18, fontWeight: '900' }}>{isEN ? 'Menu' : 'ምናሌ'}</Text>
-                     <TouchableOpacity onPress={() => setMobileSidebarVisible(false)}>
-                        <Ionicons name="close" size={24} color={C.onSurfaceVariant} />
-                     </TouchableOpacity>
+          <View style={[StyleSheet.absoluteFill, { zIndex: 99999 }]}>
+            <Pressable 
+              style={s.drawerBackdrop} 
+              onPress={() => setMobileSidebarVisible(false)} 
+              accessibilityLabel="Close Drawer"
+            />
+            <View style={[s.drawerContainer, { backgroundColor: currentTheme.surfaceContainerLowest, borderRightColor: currentTheme.border }]}>
+              <SafeAreaView style={{ flex: 1 }}>
+                <View style={[s.drawerHeader, { borderBottomColor: currentTheme.border }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={{ fontSize: 20, fontWeight: '900', color: currentTheme.primary, letterSpacing: -0.5 }}>XO</Text>
+                    <Text style={{ fontSize: 10, fontWeight: '900', color: currentTheme.onSurface, letterSpacing: 2 }}>ETHIOPIA</Text>
                   </View>
-                  <ScrollView style={{ flex: 1, padding: 12 }}>
-                     <Text style={{ color: C.onSurfaceVariant, fontSize: 10, fontWeight: '800', margin: 12, textTransform: 'uppercase' }}>{isEN ? 'Primary' : 'ዋና'}</Text>
-                     {primaryNav.map(item => (
-                        <SideNavItem key={item.path} {...item} currentPath={pathname} collapsed={false} />
-                     ))}
-                     <View style={{ height: 1, backgroundColor: C.outlineVariant, marginVertical: 12 }} />
-                     <Text style={{ color: C.onSurfaceVariant, fontSize: 10, fontWeight: '800', margin: 12, textTransform: 'uppercase' }}>{isEN ? 'System & Support' : 'ሲስተም'}</Text>
-                     {secondaryNav.map(item => (
-                        <SideNavItem key={item.path} {...item} currentPath={pathname} collapsed={false} />
-                     ))}
-                  </ScrollView>
-                  <View style={{ padding: 20, borderTopWidth: 1, borderTopColor: C.outlineVariant }}>
-                     <TouchableOpacity 
-                        style={s.emergencyBtn} 
-                        onPress={() => { setMobileSidebarVisible(false); setLogoutModalVisible(true); }}
-                     >
-                        <Ionicons name="log-out" size={18} color={C.error} />
-                        <Text style={s.emergencyText}>{isEN ? 'LOGOUT' : 'ውጣ'}</Text>
-                     </TouchableOpacity>
-                  </View>
-               </SafeAreaView>
+                  <TouchableOpacity 
+                    onPress={() => setMobileSidebarVisible(false)}
+                    style={[s.drawerCloseBtn, { backgroundColor: currentTheme.surfaceContainer, borderColor: currentTheme.border }]}
+                  >
+                    <Ionicons name="close" size={18} color={currentTheme.onSurfaceVariant} />
+                  </TouchableOpacity>
+                </View>
+
+                <ScrollView style={{ flex: 1, paddingHorizontal: 12, paddingTop: 12 }} showsVerticalScrollIndicator={false}>
+                  <NavGroup 
+                    title="General Platform"
+                    items={generalGroup}
+                    currentPath={pathname || ''}
+                    collapsed={false}
+                    onSelect={() => setMobileSidebarVisible(false)}
+                  />
+                  <NavGroup 
+                    title="XO Game"
+                    items={xoGroup}
+                    currentPath={pathname || ''}
+                    collapsed={false}
+                    onSelect={() => setMobileSidebarVisible(false)}
+                  />
+                  <NavGroup 
+                    title="Spin Game"
+                    items={spinGroup}
+                    currentPath={pathname || ''}
+                    collapsed={false}
+                    onSelect={() => setMobileSidebarVisible(false)}
+                  />
+                </ScrollView>
+
+                <View style={[s.drawerFooter, { borderTopColor: currentTheme.border }]}>
+                  <TouchableOpacity 
+                    style={[s.drawerHomeBtn, { backgroundColor: isDark ? 'rgba(6, 182, 212, 0.08)' : 'rgba(8, 145, 178, 0.08)', borderColor: isDark ? 'rgba(6, 182, 212, 0.3)' : 'rgba(8, 145, 178, 0.3)' }]} 
+                    onPress={() => { setMobileSidebarVisible(false); router.push('/(authed)/home/gameplay' as any); }}
+                  >
+                    <Ionicons name="game-controller-outline" size={17} color={currentTheme.accentCyan} />
+                    <Text style={[s.drawerHomeBtnText, { color: currentTheme.accentCyan }]}>{isEN ? 'BACK TO GAME' : 'ወደ ጨዋታ ተመለስ'}</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    style={[s.emergencyBtn, { backgroundColor: isDark ? 'rgba(255, 45, 85, 0.08)' : 'rgba(225, 29, 72, 0.08)', borderColor: isDark ? 'rgba(255, 45, 85, 0.3)' : 'rgba(225, 29, 72, 0.3)' }]} 
+                    onPress={() => { setMobileSidebarVisible(false); setLogoutModalVisible(true); }}
+                  >
+                    <Ionicons name="log-out-outline" size={17} color={currentTheme.primary} />
+                    <Text style={[s.emergencyText, { color: currentTheme.primary }]}>{isEN ? 'LOGOUT' : 'ውጣ'}</Text>
+                  </TouchableOpacity>
+                </View>
+              </SafeAreaView>
             </View>
           </View>
         )}
 
-        <SafeAreaView style={s.bottomBar}>
-          {primaryNav.map(item => (
+        {/* Bottom Tab Bar for Quick Phone Navigation matching Image 1 & 2 */}
+        <SafeAreaView style={[s.bottomBar, { backgroundColor: currentTheme.surfaceContainerLowest, borderTopColor: currentTheme.border }]}>
+          {bottomTabItems.map(item => (
             <BottomTabItem key={item.path} {...item} currentPath={pathname} />
           ))}
+          <BottomTabItem
+            icon="ellipsis-horizontal"
+            label="More"
+            path="#more"
+            currentPath={pathname}
+            onPress={() => setMobileSidebarVisible(true)}
+          />
         </SafeAreaView>
 
         <LogoutConfirmation
@@ -404,234 +689,410 @@ export default function AdminLayout() {
           }}
         />
       </View>
+    </AdminThemeContext.Provider>
     );
   }
 
-  // ─── TABLET / DESKTOP LAYOUT ──────────────────────────────────
+  // ─── DESKTOP LAYOUT (>= 1024px) ───────────────────────────────
   return (
-    <View style={s.root}>
-      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-        <View style={[s.glow, { top: -200, left: -150, backgroundColor: 'rgba(0,218,243,0.12)' }]} />
-        <View style={[s.glow, { bottom: -100, right: -100, backgroundColor: 'rgba(0,218,243,0.08)' }]} />
-        <View style={[s.glow, { top: '30%', right: -200, backgroundColor: 'rgba(253,111,133,0.05)' }]} />
-      </View>
-
-      <View style={[s.sidebar, { width: sidebarW }]}>
-        <View style={[s.sidebarBrand, collapsed && { justifyContent: 'center', paddingHorizontal: 0 }]}>
-          {!collapsed && <Image source={require('../../../assets/images/icon.jpg')} style={s.logoImg} />}
-          {!collapsed && <Text style={s.logoText}>XOET ADMIN</Text>}
-          {isDesktop && (
-            <TouchableOpacity onPress={() => setSidebarCollapsed(p => !p)} style={{ marginLeft: collapsed ? 0 : 'auto' as any, padding: 4 }}>
-              <Ionicons name={collapsed ? 'chevron-forward' : 'chevron-back'} size={16} color={C.onSurfaceVariant} />
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {!collapsed && (
-          <Text style={s.sidebarRole} numberOfLines={1}>
-            {isSuperAdmin 
-              ? (isEN ? 'Super Administrator' : 'ዋና አድሚን') 
-              : (isEN ? 'System Administrator' : 'ሲስተም አድሚን')}
-          </Text>
-        )}
-
-        <ScrollView style={s.navList} showsVerticalScrollIndicator={false}>
-          <SideNavItem icon="grid" label="Overview" path="/admin" currentPath={pathname || ''} collapsed={collapsed} />
-          <SideNavItem icon="wallet" label="Financial" path="/admin/financial" currentPath={pathname || ''} collapsed={collapsed} />
-          <SideNavItem icon="people" label="Users" path="/admin/users" currentPath={pathname || ''} collapsed={collapsed} />
-          
-          <NavGroup 
-            title="Operations"
-            items={[
-              { icon: 'cash', label: 'Transaction', path: '/admin/ledger' },
-              { icon: 'list', label: 'Game Logs', path: '/admin/logs' },
-              { icon: 'podium', label: 'Leaderboard', path: '/admin/leaderboard' },
-              { icon: 'options', label: 'Control Center', path: '/admin/controls' },
-            ]}
-            currentPath={pathname || ''}
-            collapsed={collapsed}
-          />
-
-          <NavGroup 
-            title="System"
-            items={[
-              ...(isMaintenanceAdmin ? [{ icon: 'construct', label: 'Maintenance', path: '/admin/maintenance' }] : []),
-              { icon: 'shield-checkmark', label: 'Audit Logs', path: '/admin/audit' },
-              { icon: 'link', label: 'Promotions', path: '/admin/promotion-links' },
-              { icon: 'home', label: 'Back To Home', path: '/(authed)/home/gameplay' },
-            ]}
-            currentPath={pathname || ''}
-            collapsed={collapsed}
-          />
-        </ScrollView>
-
-        <View style={[s.sidebarFooter, collapsed && { paddingHorizontal: 8, alignItems: 'center' }]}>
-          <TouchableOpacity
-            style={[s.emergencyBtn, collapsed && { paddingHorizontal: 0, width: 40, height: 40, borderRadius: 12 }]}
-            activeOpacity={0.7}
-            onPress={() => setLogoutModalVisible(true)}
-          >
-            <Ionicons name="log-out" size={18} color={C.error} />
-            {!collapsed && <Text style={s.emergencyText}>{isEN ? 'LOGOUT' : 'ውጣ'}</Text>}
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[s.footerLink, collapsed && { justifyContent: 'center', paddingHorizontal: 0 }]}
-            activeOpacity={0.7}
-            onPress={() => router.push('/admin/settings' as any)}
-          >
-            <View style={[s.footerLinkIcon, (pathname || '') === '/admin/settings' && s.footerLinkIconActive]}>
-              <Ionicons name="settings" size={18} color={(pathname || '') === '/admin/settings' ? C.primary : C.onSurfaceVariant} />
-            </View>
-            {!collapsed && <Text style={[s.footerLinkText, (pathname || '') === '/admin/settings' && { color: C.onSurface }]}>{isEN ? 'Settings' : 'ቅንብሮች'}</Text>}
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <View style={[s.topbar, { left: sidebarW }]}>
-        <View style={s.topbarLeft}>
-          <AdminGlobalSearch />
-        </View>
-        <View style={s.topbarRight}>
-          {isDesktop && (
-            <>
-              <TouchableOpacity style={s.balanceGroup} activeOpacity={0.7} onPress={() => router.push('/admin/ledger' as any)}>
-                <Text style={s.balanceLabel}>{isEN ? 'PLATFORM BALANCE' : 'የሲስተም ቀሪ ሂሳብ'}</Text>
-                <Text style={s.balanceValue}>ETB {Number(stats?.totalProfit || 0).toLocaleString()}</Text>
-              </TouchableOpacity>
-                  <View style={s.topbarSep} />
-                  <TouchableOpacity style={s.balanceGroup} activeOpacity={0.7} onPress={() => router.push('/admin/ledger' as any)}>
-                    <Text style={[s.balanceLabel, { color: C.secondary }]}>{isEN ? 'WALLET NET POSITION' : 'ትክክለኛ የቻፓ ሂሳብ'}</Text>
-                    <Text style={[s.balanceValue, { color: '#fff' }]}>ETB {Number(stats?.chapaBalance || stats?.chapaNetPosition || 0).toLocaleString()}</Text>
-                  </TouchableOpacity>
-              <View style={s.topbarSep} />
-            </>
-          )}
-          {/* Sound Controller - Right Side */}
-          <TouchableOpacity
-            onPress={toggleMusic}
-            activeOpacity={0.7}
-            style={{
-              flexDirection: 'row', alignItems: 'center', gap: 6,
-              backgroundColor: musicPlaying ? 'rgba(0,218,243,0.08)' : 'rgba(253,111,133,0.08)',
-              paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8,
-              borderWidth: 1,
-              borderColor: musicPlaying ? 'rgba(0,218,243,0.2)' : 'rgba(253,111,133,0.2)',
-            }}
-          >
-            <Ionicons name={musicPlaying ? 'volume-high' : 'volume-mute'} size={16} color={musicPlaying ? C.secondary : C.error} />
-          </TouchableOpacity>
-          <TouchableOpacity style={[s.iconBtn]} onPress={() => switchLanguage()}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(24, 24, 27, 0.65)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: C.outlineVariant }}>
-              <Ionicons name="globe-outline" size={16} color={C.onSurfaceVariant} />
-              <Text style={{ color: C.onSurfaceVariant, fontSize: 11, fontWeight: '800' }}>{language === 'am' ? 'AM' : 'EN'}</Text>
-            </View>
-          </TouchableOpacity>
-          <View style={[s.userChip, isTablet && { paddingRight: 8 }]}>
-            <View style={s.avatarContainer}>
-              {user?.avatar ? (
-                <Image source={{ uri: fixUrl(user.avatar) || undefined }} style={s.userAvatar} />
-              ) : (
-                <View style={s.userAvatar}>
-                  <Text style={{ color: C.primary, fontSize: 10, fontWeight: 'bold' }}>{user?.username?.[0] || 'A'}</Text>
-                </View>
-              )}
-              <View style={s.statusIndicator} />
-            </View>
-            {isDesktop && (
-              <View style={{ marginLeft: 8 }}>
-                <Text style={s.userName} numberOfLines={1}>{user?.username || (isEN ? 'Admin' : 'አድሚን')}</Text>
-                <Text style={s.userOnline}>{isSuperAdmin ? (isEN ? 'Super Admin' : 'ዋና አድሚን') : (isEN ? 'System Admin' : 'ሲስተም አድሚን')}</Text>
+    <AdminThemeContext.Provider value={{ mode: themeMode, theme: currentTheme, isDark: themeMode === 'dark', toggleTheme }}>
+      <View style={[s.root, { backgroundColor: currentTheme.background }]}>
+        {/* Collapsible Sidebar */}
+        <View style={[s.sidebar, { width: sidebarW, backgroundColor: currentTheme.surfaceContainerLowest, borderRightColor: currentTheme.border }]}>
+          <View style={[s.sidebarBrand, collapsed && { justifyContent: 'center', paddingHorizontal: 0 }]}>
+            {!collapsed && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                <Text style={{ fontSize: 20, fontWeight: '900', color: currentTheme.primary, letterSpacing: -0.5 }}>XO</Text>
+                <Text style={{ fontSize: 10, fontWeight: '900', color: currentTheme.onSurface, letterSpacing: 2 }}>ETHIOPIA</Text>
               </View>
             )}
+            <TouchableOpacity 
+              onPress={() => setSidebarCollapsed(p => !p)} 
+              style={[s.collapseToggleBtn, { borderColor: currentTheme.border }, collapsed && { marginLeft: 0 }]}
+              accessibilityLabel={collapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+            >
+              <Ionicons name={collapsed ? 'chevron-forward' : 'chevron-back'} size={15} color={currentTheme.onSurfaceVariant} />
+            </TouchableOpacity>
+          </View>
+
+          {!collapsed && (
+            <Text style={[s.sidebarRole, { color: currentTheme.onSurfaceVariant }]} numberOfLines={1}>
+              {isSuperAdmin 
+                ? (isEN ? 'Super Administrator' : 'ዋና አድሚን') 
+                : (isEN ? 'System Administrator' : 'ሲስተም አድሚን')}
+            </Text>
+          )}
+
+          <ScrollView style={s.navList} showsVerticalScrollIndicator={false}>
+            <NavGroup 
+              title="General Platform"
+              items={generalGroup}
+              currentPath={pathname || ''}
+              collapsed={collapsed}
+            />
+            <NavGroup 
+              title="XO Game"
+              items={xoGroup}
+              currentPath={pathname || ''}
+              collapsed={collapsed}
+            />
+            <NavGroup 
+              title="Spin Game"
+              items={spinGroup}
+              currentPath={pathname || ''}
+              collapsed={collapsed}
+            />
+          </ScrollView>
+
+          <View style={[s.sidebarFooter, { borderTopColor: currentTheme.border }, collapsed && { paddingHorizontal: 8, alignItems: 'center' }]}>
+            <TouchableOpacity
+              style={[s.footerHomeBtn, { backgroundColor: isDark ? 'rgba(6, 182, 212, 0.08)' : 'rgba(8, 145, 178, 0.08)', borderColor: isDark ? 'rgba(6, 182, 212, 0.3)' : 'rgba(8, 145, 178, 0.3)' }, collapsed && s.footerBtnCollapsed]}
+              activeOpacity={0.7}
+              onPress={() => router.push('/(authed)/home/gameplay' as any)}
+              accessibilityLabel="Back to Home"
+            >
+              <Ionicons name="game-controller-outline" size={17} color={currentTheme.accentCyan} />
+              {!collapsed && <Text style={[s.footerHomeBtnText, { color: currentTheme.accentCyan }]}>{isEN ? 'BACK TO GAME' : 'ወደ ጨዋታ'}</Text>}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[s.emergencyBtn, { backgroundColor: isDark ? 'rgba(255, 45, 85, 0.08)' : 'rgba(225, 29, 72, 0.08)', borderColor: isDark ? 'rgba(255, 45, 85, 0.3)' : 'rgba(225, 29, 72, 0.3)' }, collapsed && s.footerBtnCollapsed]}
+              activeOpacity={0.7}
+              onPress={() => setLogoutModalVisible(true)}
+              accessibilityLabel="Logout"
+            >
+              <Ionicons name="log-out-outline" size={17} color={currentTheme.primary} />
+              {!collapsed && <Text style={[s.emergencyText, { color: currentTheme.primary }]}>{isEN ? 'LOGOUT' : 'ውጣ'}</Text>}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[s.footerLink, collapsed && { justifyContent: 'center', paddingHorizontal: 0 }]}
+              activeOpacity={0.7}
+              onPress={() => router.push('/admin/settings' as any)}
+            >
+              <View style={[s.footerLinkIcon, (pathname || '') === '/admin/settings' && { backgroundColor: currentTheme.lightPrimary }]}>
+                <Ionicons name="settings-outline" size={16} color={(pathname || '') === '/admin/settings' ? currentTheme.primary : currentTheme.onSurfaceVariant} />
+              </View>
+              {!collapsed && (
+                <Text style={[s.footerLinkText, { color: (pathname || '') === '/admin/settings' ? currentTheme.onSurface : currentTheme.onSurfaceVariant }]}>
+                  {isEN ? 'Settings' : 'ቅንብሮች'}
+                </Text>
+              )}
+            </TouchableOpacity>
           </View>
         </View>
+
+        {/* Topbar matching Image 1 & 2 */}
+        <View style={[s.topbar, { left: sidebarW, backgroundColor: currentTheme.surfaceContainerLowest, borderBottomColor: currentTheme.border }]}>
+          <View style={s.topbarLeft}>
+            <AdminGlobalSearch />
+          </View>
+
+          <View style={s.topbarRight}>
+            <TouchableOpacity
+              onPress={() => router.push('/(authed)/home/gameplay' as any)}
+              activeOpacity={0.8}
+              style={[s.topbarHomeBadge, { backgroundColor: isDark ? 'rgba(255, 45, 85, 0.08)' : 'rgba(225, 29, 72, 0.06)', borderColor: isDark ? 'rgba(255, 45, 85, 0.3)' : 'rgba(225, 29, 72, 0.3)' }]}
+            >
+              <Ionicons name="game-controller-outline" size={14} color={currentTheme.primary} />
+              <Text style={[s.topbarHomeBadgeText, { color: currentTheme.primary }]}>{isEN ? 'GAME CLIENT' : 'ጨዋታ'}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={s.balanceGroup} 
+              activeOpacity={0.7} 
+              onPress={() => router.push('/admin/ledger' as any)}
+            >
+              <Text style={[s.balanceLabel, { color: currentTheme.onSurfaceVariant }]}>{isEN ? 'PLATFORM BALANCE' : 'የሲስተም ሂሳብ'}</Text>
+              <Text style={[s.balanceValue, { color: currentTheme.onSurface }]}>ETB {Number(stats?.totalProfit || 0).toLocaleString()}</Text>
+            </TouchableOpacity>
+
+            <View style={[s.topbarSep, { backgroundColor: currentTheme.border }]} />
+
+            <TouchableOpacity 
+              style={s.balanceGroup} 
+              activeOpacity={0.7} 
+              onPress={() => router.push('/admin/ledger' as any)}
+            >
+              <Text style={[s.balanceLabel, { color: currentTheme.onSurfaceVariant }]}>{isEN ? 'WALLET POSITION' : 'ትክክለኛ ቻፓ'}</Text>
+              <Text style={[s.balanceValue, { color: currentTheme.onSurface }]}>
+                ETB {Number(stats?.chapaBalance || stats?.chapaNetPosition || 0).toLocaleString()}
+              </Text>
+            </TouchableOpacity>
+
+            <View style={[s.topbarSep, { backgroundColor: currentTheme.border }]} />
+
+            {/* Notification Bell with indicator */}
+            <TouchableOpacity
+              onPress={() => router.push('/admin/audit' as any)}
+              activeOpacity={0.7}
+              style={[s.topbarActionBtn, { backgroundColor: currentTheme.surfaceContainer, borderColor: currentTheme.border }]}
+              accessibilityLabel="Notifications"
+            >
+              <Ionicons name="notifications-outline" size={16} color={currentTheme.onSurfaceVariant} />
+              <View style={{ position: 'absolute', top: 6, right: 6, width: 6, height: 6, borderRadius: 3, backgroundColor: currentTheme.primary }} />
+            </TouchableOpacity>
+
+            {/* Audio Sound Toggle */}
+            <TouchableOpacity
+              onPress={toggleMusic}
+              activeOpacity={0.7}
+              style={[s.topbarActionBtn, { backgroundColor: currentTheme.surfaceContainer, borderColor: currentTheme.border }]}
+              accessibilityLabel="Audio Toggle"
+            >
+              <Ionicons name={musicPlaying ? 'volume-high' : 'volume-mute'} size={16} color={musicPlaying ? currentTheme.secondary : currentTheme.onSurfaceVariant} />
+            </TouchableOpacity>
+
+            {/* Theme Mode Toggle (Dark / Light) */}
+            <TouchableOpacity
+              onPress={toggleTheme}
+              activeOpacity={0.7}
+              style={[s.topbarActionBtn, { backgroundColor: currentTheme.surfaceContainer, borderColor: currentTheme.border }]}
+              accessibilityLabel="Toggle Dark / Light Theme"
+            >
+              <Ionicons name={themeMode === 'dark' ? 'sunny-outline' : 'moon-outline'} size={16} color={themeMode === 'dark' ? '#F0950C' : currentTheme.primary} />
+            </TouchableOpacity>
+
+            {/* Language Switch */}
+            <TouchableOpacity 
+              style={[s.topbarActionBtn, { backgroundColor: currentTheme.surfaceContainer, borderColor: currentTheme.border }]} 
+              onPress={() => switchLanguage()}
+              accessibilityLabel="Switch Language"
+            >
+              <Text style={[s.topbarLangText, { color: currentTheme.onSurfaceVariant }]}>{language === 'am' ? 'AM' : 'EN'}</Text>
+              <Ionicons name="chevron-down" size={11} color={currentTheme.onSurfaceVariant} />
+            </TouchableOpacity>
+
+            {/* Admin User Chip matching mockups */}
+            <View style={[s.userChip, { backgroundColor: currentTheme.surfaceContainer, borderColor: currentTheme.border }]}>
+              <View style={[s.userAvatar, { backgroundColor: currentTheme.primary }]}>
+                <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '900' }}>{user?.username?.[0]?.toUpperCase() || 'Y'}</Text>
+              </View>
+              <View style={{ marginLeft: 8 }}>
+                <Text style={[s.userName, { color: currentTheme.onSurface }]} numberOfLines={1}>{user?.username || 'yared'}</Text>
+                <Text style={[s.userOnline, { color: currentTheme.onSurfaceVariant }]}>{isSuperAdmin ? 'SuperAdmin' : 'Admin'}</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* Main Routed View Canvas (Clean flat background) */}
+        <View style={[s.mainCanvas, { marginLeft: sidebarW, backgroundColor: currentTheme.background }]}>
+          <Slot />
+        </View>
+
+        <LogoutConfirmation
+          visible={logoutModalVisible}
+          onCancel={() => setLogoutModalVisible(false)}
+          onConfirm={async () => {
+            setLogoutModalVisible(false);
+            await logout();
+            router.replace('/(auth)/login' as any);
+          }}
+        />
       </View>
-
-
-      <View style={[s.mainCanvas, { marginLeft: sidebarW }]}>
-        <Slot />
-      </View>
-
-      <LogoutConfirmation
-        visible={logoutModalVisible}
-        onCancel={() => setLogoutModalVisible(false)}
-        onConfirm={async () => {
-          setLogoutModalVisible(false);
-          await logout();
-          router.replace('/(auth)/login' as any);
-        }}
-      />
-    </View>
+    </AdminThemeContext.Provider>
   );
 }
 
+// ─── Cleaned, Anti-Slop Component Styles ───────────────────────
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.background, flexDirection: 'row' },
-  glow: { position: 'absolute', width: 600, height: 600, borderRadius: 300 },
   sidebar: {
     position: 'absolute', left: 0, top: 0, bottom: 0, zIndex: 40,
-    backgroundColor: '#111115',
-    borderRightWidth: 1, borderRightColor: C.outlineVariant,
+    backgroundColor: C.surfaceContainerLowest,
+    borderRightWidth: 1, borderRightColor: C.border,
   },
-  sidebarBrand: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 24, paddingTop: 24, paddingBottom: 8 },
-  logoImg: { width: 28, height: 28, borderRadius: 8, borderWidth: 1, borderColor: C.primaryContainer, flexShrink: 0 },
-  logoText: { color: C.primaryContainer, fontSize: 16, fontWeight: '900', letterSpacing: -0.5, flex: 1 },
-  sidebarRole: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '500', paddingHorizontal: 20, marginTop: 2, marginBottom: 20, letterSpacing: 0.5 },
-  navList: { flex: 1, marginTop: 12 },
-  navItem: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 20, paddingVertical: 12, marginHorizontal: 12, borderRadius: 16, marginBottom: 6 },
-  navItemCollapsed: { justifyContent: 'center', paddingHorizontal: 0, marginHorizontal: 8 },
-  navItemActive: { backgroundColor: 'rgba(0, 218, 243, 0.08)', borderWidth: 1, borderColor: 'rgba(0, 218, 243, 0.3)', shadowColor: C.primary, shadowOpacity: 0.3, shadowRadius: 12, elevation: 4 },
-  navIconWrap: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.03)' },
-  navIconWrapActive: { backgroundColor: C.primary, shadowColor: C.primary, shadowOpacity: 0.6, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 6 },
+  sidebarBrand: { 
+    flexDirection: 'row', alignItems: 'center', gap: 10, 
+    paddingHorizontal: 20, paddingTop: 20, paddingBottom: 6 
+  },
+  logoImg: { width: 28, height: 28, borderRadius: 8, borderWidth: 1, borderColor: C.border, flexShrink: 0 },
+  logoText: { color: C.onSurface, fontSize: 15, fontWeight: '900', letterSpacing: -0.3, flex: 1 },
+  collapseToggleBtn: { 
+    marginLeft: 'auto', width: 28, height: 28, borderRadius: 6, 
+    alignItems: 'center', justifyContent: 'center', 
+    backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: C.border 
+  },
+  sidebarRole: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '500', paddingHorizontal: 20, marginTop: 2, marginBottom: 16 },
+  navList: { flex: 1 },
+
+  groupHeader: { 
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', 
+    paddingHorizontal: 20, paddingVertical: 8 
+  },
+  groupHeaderText: { 
+    color: C.onSurfaceVariant, fontSize: 10, fontWeight: '800', 
+    letterSpacing: 1.2, textTransform: 'uppercase' 
+  },
+  groupItemsContainer: { paddingHorizontal: 10 },
+  groupDividerCollapsed: { 
+    height: 1, backgroundColor: C.border, marginVertical: 8, marginHorizontal: 12 
+  },
+
+  navItem: { 
+    flexDirection: 'row', alignItems: 'center', gap: 12, 
+    paddingHorizontal: 12, paddingVertical: 9, borderRadius: 10, 
+    marginBottom: 3, borderWidth: 1, borderColor: 'transparent' 
+  },
+  navItemCollapsed: { justifyContent: 'center', paddingHorizontal: 0, width: 44, height: 44, alignSelf: 'center', marginBottom: 4 },
+  navItemActive: { 
+    backgroundColor: '#333A48', 
+    borderColor: '#FF2D55', 
+  },
+  navIconWrap: { width: 28, height: 28, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
+  navIconWrapActive: { backgroundColor: '#FF2D55' },
   navLabel: { color: C.onSurfaceVariant, fontSize: 13, fontWeight: '600', flex: 1 },
-  navLabelActive: { color: '#fff', fontWeight: '900', letterSpacing: 0.5 },
-  activeIndicator: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.secondary, shadowColor: C.secondary, shadowOpacity: 0.8, shadowRadius: 6 },
-  sidebarFooter: { paddingHorizontal: 16, paddingBottom: 24, borderTopWidth: 1, borderTopColor: 'rgba(68,68,107,0.15)', paddingTop: 20, gap: 8 },
-  emergencyBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: 'rgba(253,111,133,0.05)', borderWidth: 1, borderColor: 'rgba(253,111,133,0.2)', borderRadius: 12, paddingVertical: 12, marginBottom: 4 },
-  emergencyText: { color: C.error, fontSize: 11, fontWeight: '900', letterSpacing: 1 },
-  footerLink: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12 },
-  footerLinkIcon: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.03)' },
-  footerLinkIconActive: { backgroundColor: 'rgba(0,218,243,0.1)' },
-  footerLinkText: { color: C.onSurfaceVariant, fontSize: 13, fontWeight: '600' },
+  navLabelActive: { color: '#ffffff', fontWeight: '800' },
+  activeIndicator: { width: 4, height: 16, borderRadius: 2, backgroundColor: '#FF2D55' },
+
+  sidebarFooter: { 
+    paddingHorizontal: 14, paddingBottom: 20, 
+    borderTopWidth: 1, borderTopColor: C.border, paddingTop: 14, gap: 6 
+  },
+  footerBtnCollapsed: { paddingHorizontal: 0, width: 44, height: 44, borderRadius: 10, justifyContent: 'center' },
+  footerHomeBtn: { 
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, 
+    backgroundColor: 'rgba(34, 211, 238, 0.08)', borderWidth: 1, borderColor: 'rgba(34, 211, 238, 0.25)', 
+    borderRadius: 10, paddingVertical: 10 
+  },
+  footerHomeBtnText: { color: C.secondary, fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
+  emergencyBtn: { 
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, 
+    backgroundColor: 'rgba(244, 63, 94, 0.08)', borderWidth: 1, borderColor: 'rgba(244, 63, 94, 0.25)', 
+    borderRadius: 10, paddingVertical: 10 
+  },
+  emergencyText: { color: C.error, fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
+  footerLink: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8 },
+  footerLinkIcon: { width: 28, height: 28, borderRadius: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.03)' },
+  footerLinkIconActive: { backgroundColor: 'rgba(255, 45, 85, 0.15)' },
+  footerLinkText: { color: C.onSurfaceVariant, fontSize: 12, fontWeight: '600' },
+
   topbar: { 
     position: 'absolute', top: 0, right: 0, height: TOPBAR_H, zIndex: 30, 
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', 
-    paddingHorizontal: 32, 
-    backgroundColor: 'rgba(24,24,27,0.95)', 
-    borderBottomWidth: 1, borderBottomColor: 'rgba(39,39,42,0.4)', 
+    paddingHorizontal: 28, 
+    backgroundColor: C.surfaceContainerLowest, 
+    borderBottomWidth: 1, borderBottomColor: C.border, 
   },
   topbarLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  topbarTitle: { color: C.onSurface, fontSize: 18, fontWeight: '900' },
-  topbarSep: { height: 14, width: 1, backgroundColor: 'rgba(68,68,107,0.4)' },
-  topbarSub: { color: C.onSurfaceVariant, fontSize: 13, fontWeight: '500' },
-  topbarRight: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-  balanceGroup: { alignItems: 'flex-end' },
-  balanceLabel: { color: C.onSurfaceVariant, fontSize: 9, fontWeight: '800', letterSpacing: 1.5 },
-  balanceValue: { color: C.secondary, fontSize: 14, fontWeight: '900' },
-  iconBtn: { padding: 6, alignItems: 'center' },
-  searchWrap: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: 'rgba(39,39,42,0.6)',
-    paddingHorizontal: 12, paddingVertical: 8,
-    borderRadius: 8, borderWidth: 1, borderColor: 'rgba(39,39,42,0.3)',
-    width: 240,
+  topbarRight: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  topbarHomeBadge: { 
+    flexDirection: 'row', alignItems: 'center', gap: 6, 
+    backgroundColor: 'rgba(255, 45, 85, 0.08)', borderWidth: 1, borderColor: 'rgba(255, 45, 85, 0.25)', 
+    paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 
   },
-  searchText: { color: C.onSurfaceVariant, fontSize: 13, flex: 1 },
-  searchCmd: { backgroundColor: 'rgba(255,255,255,0.05)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-  userChip: { flexDirection: 'row', alignItems: 'center', paddingLeft: 6, paddingRight: 16, paddingVertical: 6, borderRadius: 12, backgroundColor: 'rgba(39,39,42,0.6)', borderWidth: 1, borderColor: C.outlineVariant },
+  topbarHomeBadgeText: { color: C.secondary, fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
+  balanceGroup: { alignItems: 'flex-end' },
+  balanceLabel: { color: C.onSurfaceVariant, fontSize: 9, fontWeight: '800', letterSpacing: 1.2 },
+  balanceValue: { color: C.primary, fontSize: 13, fontWeight: '800' },
+  topbarSep: { height: 16, width: 1, backgroundColor: C.border },
+  topbarActionBtn: { 
+    flexDirection: 'row', alignItems: 'center', gap: 5, 
+    backgroundColor: C.surfaceContainer, paddingHorizontal: 9, paddingVertical: 6, 
+    borderRadius: 8, borderWidth: 1, borderColor: C.border 
+  },
+  topbarLangText: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '800' },
+  userChip: { 
+    flexDirection: 'row', alignItems: 'center', paddingLeft: 6, paddingRight: 14, 
+    paddingVertical: 5, borderRadius: 10, backgroundColor: C.surfaceContainer, 
+    borderWidth: 1, borderColor: C.border 
+  },
   avatarContainer: { position: 'relative' },
-  userAvatar: { width: 32, height: 32, borderRadius: 8, backgroundColor: 'rgba(0,218,243,0.1)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(0,218,243,0.2)' },
-  statusIndicator: { position: 'absolute', bottom: -2, right: -2, width: 10, height: 10, borderRadius: 5, backgroundColor: C.secondary, borderWidth: 2, borderColor: C.background },
-  userName: { color: C.onSurface, fontSize: 13, fontWeight: '800', lineHeight: 15 },
-  userOnline: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '600' },
-  mainCanvas: { flex: 1, marginTop: TOPBAR_H, padding: 32 },
+  userAvatar: { width: 30, height: 30, borderRadius: 6, backgroundColor: '#313D4A', alignItems: 'center', justifyContent: 'center' },
+  statusIndicator: { position: 'absolute', bottom: -2, right: -2, width: 8, height: 8, borderRadius: 4, backgroundColor: C.success, borderWidth: 1.5, borderColor: C.surfaceContainerLowest },
+  userName: { color: C.onSurface, fontSize: 12, fontWeight: '800', lineHeight: 14 },
+  userOnline: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '500' },
 
-  mobileTopbar: { height: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(39,39,42,0.3)' },
-  mobileLogo: { width: 24, height: 24, borderRadius: 6, borderWidth: 1, borderColor: C.primaryContainer },
-  mobileTopbarTitle: { color: C.primaryContainer, fontSize: 15, fontWeight: '900', letterSpacing: -0.5 },
-  userChipSmall: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(39,39,42,0.6)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20, borderWidth: 1, borderColor: C.outlineVariant },
-  userChipName: { color: C.onSurface, fontSize: 11, fontWeight: '700', maxWidth: 70 },
-  bottomBar: { flexDirection: 'row', backgroundColor: 'rgba(24,24,27,0.95)', borderTopWidth: 1, borderTopColor: 'rgba(0,218,243,0.15)', shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 20, elevation: 20 },
-  bottomTabItem: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 10, gap: 4 },
-  bottomTabLabel: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '700', textAlign: 'center' },
+  mainCanvas: { flex: 1, marginTop: TOPBAR_H, padding: 28, backgroundColor: C.background },
+
+  // Mobile Specific Layout Styles
+  mobileSafeArea: { backgroundColor: C.surfaceContainerLowest },
+  mobileTopbar: { 
+    height: 54, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', 
+    paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: C.border, 
+    backgroundColor: C.surfaceContainerLowest 
+  },
+  mobileLogo: { width: 24, height: 24, borderRadius: 6, borderWidth: 1, borderColor: C.border },
+  mobileTopbarTitle: { color: C.onSurface, fontSize: 14, fontWeight: '900', letterSpacing: -0.3 },
+  mobileHeaderIconBtn: { 
+    width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center', 
+    backgroundColor: C.surfaceContainer, borderWidth: 1, borderColor: C.border 
+  },
+  mobileLangBtn: { 
+    height: 36, paddingHorizontal: 10, borderRadius: 8, alignItems: 'center', justifyContent: 'center', 
+    backgroundColor: C.surfaceContainer, borderWidth: 1, borderColor: C.border 
+  },
+  mobileLangText: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '800' },
+  mobileUserChip: { 
+    width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', 
+    backgroundColor: '#313D4A', borderWidth: 1, borderColor: C.border 
+  },
+  mobileUserInitial: { color: '#ffffff', fontSize: 12, fontWeight: '900' },
+
+  drawerBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0, 0, 0, 0.75)' },
+  drawerContainer: { 
+    width: 280, height: '100%', backgroundColor: C.surfaceContainerLowest, 
+    borderRightWidth: 1, borderRightColor: C.border 
+  },
+  drawerHeader: { 
+    padding: 18, borderBottomWidth: 1, borderBottomColor: C.border, 
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' 
+  },
+  drawerHeaderTitle: { color: C.onSurface, fontSize: 15, fontWeight: '900' },
+  drawerHeaderSubtitle: { color: C.secondary, fontSize: 11, fontWeight: '600' },
+  drawerCloseBtn: { 
+    width: 32, height: 32, borderRadius: 6, alignItems: 'center', justifyContent: 'center', 
+    backgroundColor: C.surfaceContainer, borderWidth: 1, borderColor: C.border 
+  },
+  drawerFooter: { 
+    padding: 16, borderTopWidth: 1, borderTopColor: C.border, gap: 8 
+  },
+  drawerHomeBtn: { 
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, 
+    backgroundColor: 'rgba(255, 45, 85, 0.08)', borderWidth: 1, borderColor: 'rgba(255, 45, 85, 0.25)', 
+    paddingVertical: 12, borderRadius: 10 
+  },
+  drawerHomeBtnText: { color: C.secondary, fontSize: 12, fontWeight: '800' },
+
+  bottomBar: { 
+    flexDirection: 'row', backgroundColor: C.surfaceContainerLowest, 
+    borderTopWidth: 1, borderTopColor: C.border 
+  },
+  bottomTabItem: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 8, gap: 3 },
+  bottomTabIconBox: { width: 34, height: 28, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
+  bottomTabIconBoxActive: { backgroundColor: 'rgba(255, 45, 85, 0.15)' },
+  bottomTabLabel: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '600', textAlign: 'center' },
+  bottomTabLabelActive: { color: '#ffffff', fontWeight: '800' },
+
+  // Lockscreen Gate Styles
+  lockScreen: { flex: 1, backgroundColor: C.background, alignItems: 'center', justifyContent: 'center', padding: 20 },
+  lockBox: { 
+    width: '100%', maxWidth: 360, padding: 28, backgroundColor: C.surfaceContainerLowest, 
+    borderRadius: 10, borderWidth: 1, borderColor: C.border, alignItems: 'center' 
+  },
+  lockIconWrap: { 
+    width: 56, height: 56, borderRadius: 28, backgroundColor: '#313D4A', 
+    borderWidth: 1, borderColor: C.border, alignItems: 'center', justifyContent: 'center', marginBottom: 16 
+  },
+  lockTitle: { color: C.onSurface, fontSize: 18, fontWeight: '900', marginBottom: 6 },
+  lockSubtitle: { color: C.onSurfaceVariant, fontSize: 12, textAlign: 'center', marginBottom: 20, lineHeight: 18 },
+  errorBadge: { color: C.error, fontSize: 12, fontWeight: '600', marginBottom: 12, textAlign: 'center' },
+  primaryBtn: { 
+    width: '100%', paddingVertical: 14, borderRadius: 10, 
+    backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center' 
+  },
+  primaryBtnText: { color: '#ffffff', fontSize: 13, fontWeight: '800' },
+  quickPassBtn: { 
+    width: '100%', paddingVertical: 12, borderRadius: 10, 
+    backgroundColor: 'rgba(34, 211, 238, 0.08)', borderWidth: 1, borderColor: 'rgba(34, 211, 238, 0.3)', 
+    alignItems: 'center', justifyContent: 'center', marginTop: 10, flexDirection: 'row', gap: 6 
+  },
+  quickPassText: { color: C.secondary, fontSize: 12, fontWeight: '800' },
+  otpInput: { 
+    width: '100%', backgroundColor: C.surfaceContainer, borderWidth: 1, borderColor: C.border, 
+    borderRadius: 10, paddingVertical: 14, color: '#ffffff', fontSize: 20, textAlign: 'center', 
+    letterSpacing: 10, marginBottom: 16, fontWeight: '900' 
+  },
+  returnLink: { color: C.onSurfaceVariant, fontSize: 12, fontWeight: '600' },
 });

@@ -25,28 +25,192 @@ import {
   View,
   useWindowDimensions,
   AppState,
+  Easing,
 } from "react-native";
 import Toast from "../../../components/Toast";
 import { useAuth } from "../../../context/authContext";
-import { useSocket } from "../../../context/socketContext";
+import { useSocketActions } from "../../../context/socketContext";
 import FlashToast, { MatchFoundToastHandle } from "../../../components/game/FlashToast";
 import RematchTopPopup from "../../../components/game/RematchPopup";
 import EmojiBar, { EMOJI_GIFS } from "../../../components/game/EmojiBar";
 import EmojiFloat from "../../../components/game/EmojiFloat";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useBackgroundMusic } from "../../../context/BackgroundMusicProvider";
+import { haptics } from "../../../lib/haptcs";
+import { WebPressable } from "../../../components/WebPressable";
 
-// Subcomponent for Symbol (no animation for instant render)
-const CellSymbol = ({ symbol, size, isDesktop }: { symbol: string, size: number, isDesktop: boolean }) => {
+// Subcomponent for Symbol with smooth, bouncy spring pop animation
+const CellSymbol = React.memo(({ 
+  symbol, 
+  size, 
+  isDesktop, 
+  isWinning = false,
+}: { 
+  symbol: string; 
+  size: number; 
+  isDesktop: boolean;
+  isWinning?: boolean;
+}) => {
+  const scaleAnim = useRef(new Animated.Value(0.2)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    scaleAnim.setValue(0.2);
+    opacityAnim.setValue(0);
+    Animated.parallel([
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        tension: 300,
+        friction: 10,
+        useNativeDriver: Platform.OS !== "web",
+      }),
+      Animated.timing(opacityAnim, {
+        toValue: 1,
+        duration: 90,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: Platform.OS !== "web",
+      }),
+    ]).start();
+  }, [symbol]);
+
+  const isX = symbol === "X";
+  const iconColor = isX ? "#fd6f85" : "#00daf3";
+  const iconSize = isDesktop ? size * 0.8 : size * 0.85;
+
   return (
-    <Ionicons 
-      name={symbol === "X" ? "close" : "radio-button-off"} 
-      size={isDesktop ? size * 0.8 : size * 0.85} 
-      color={symbol === "X" ? "#fd6f85" : "#00daf3"} 
-      style={isDesktop ? (symbol === "X" ? styles.neonXShadow : styles.neonOShadow) : {}}
-    />
+    <Animated.View
+      style={{
+        transform: [{ scale: scaleAnim }],
+        opacity: opacityAnim,
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <Ionicons 
+        name={isX ? "close" : "radio-button-off"} 
+        size={iconSize} 
+        color={iconColor} 
+        style={[
+          isDesktop ? (isX ? styles.neonXShadow : styles.neonOShadow) : {},
+          isWinning && {
+            shadowColor: iconColor,
+            shadowOffset: { width: 0, height: 0 },
+            shadowOpacity: 1,
+            shadowRadius: 18,
+            elevation: 12,
+          }
+        ]}
+      />
+    </Animated.View>
   );
-};
+});
+
+// Interactive Board Cell with tactile spring depression, hover preview, and smooth feedback
+const BoardCell = React.memo(({
+  index,
+  symbol,
+  isMyTurn,
+  mySymbol,
+  cellSize,
+  isDesktop,
+  isWinning,
+  onPress,
+}: {
+  index: number;
+  symbol: BoardCell;
+  isMyTurn: boolean;
+  mySymbol: "X" | "O";
+  cellSize: number;
+  isDesktop: boolean;
+  isWinning: boolean;
+  onPress: (index: number) => void;
+}) => {
+  const [isHovered, setIsHovered] = useState(false);
+  const pressAnim = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () => {
+    if (symbol === "_" && isMyTurn) {
+      haptics.tap();
+      Animated.spring(pressAnim, {
+        toValue: 0.92,
+        tension: 400,
+        friction: 15,
+        useNativeDriver: Platform.OS !== "web",
+      }).start();
+    }
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(pressAnim, {
+      toValue: 1,
+      tension: 300,
+      friction: 12,
+      useNativeDriver: Platform.OS !== "web",
+    }).start();
+  };
+
+  const isEmpty = symbol === "_";
+  const canPlay = isEmpty && isMyTurn;
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={() => onPress(index)}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      onHoverIn={Platform.OS === "web" && canPlay ? () => setIsHovered(true) : undefined}
+      onHoverOut={Platform.OS === "web" ? () => setIsHovered(false) : undefined}
+      style={({ pressed }) => [
+        styles.cell,
+        isDesktop && { width: cellSize, height: cellSize, borderRadius: 28 },
+        canPlay && styles.cellEmptyActive,
+        canPlay && isHovered && {
+          backgroundColor: mySymbol === "X" ? "rgba(253, 111, 133, 0.12)" : "rgba(0, 218, 243, 0.12)",
+          borderColor: mySymbol === "X" ? "rgba(253, 111, 133, 0.45)" : "rgba(0, 218, 243, 0.45)",
+          transform: [{ scale: 1.025 }],
+        },
+        isWinning && {
+          borderColor: symbol === "X" ? "#fd6f85" : "#00daf3",
+          backgroundColor: symbol === "X" ? "rgba(253, 111, 133, 0.22)" : "rgba(0, 218, 243, 0.22)",
+          shadowColor: symbol === "X" ? "#fd6f85" : "#00daf3",
+          shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: 0.85,
+          shadowRadius: 16,
+          elevation: 10,
+        },
+      ]}
+    >
+      <Animated.View
+        style={{
+          width: "100%",
+          height: "100%",
+          alignItems: "center",
+          justifyContent: "center",
+          transform: [{ scale: pressAnim }],
+        }}
+      >
+        {!isEmpty ? (
+          <CellSymbol
+            symbol={symbol}
+            size={cellSize}
+            isDesktop={isDesktop}
+            isWinning={isWinning}
+          />
+        ) : isHovered && canPlay ? (
+          <View style={{ opacity: 0.28 }}>
+            <Ionicons
+              name={mySymbol === "X" ? "close" : "radio-button-off"}
+              size={isDesktop ? cellSize * 0.75 : cellSize * 0.8}
+              color={mySymbol === "X" ? "#fd6f85" : "#00daf3"}
+            />
+          </View>
+        ) : canPlay ? (
+          <View style={[styles.turnCellDot, { backgroundColor: "#fff", opacity: 0.85 }]} />
+        ) : null}
+      </Animated.View>
+    </Pressable>
+  );
+});
 
 const { width } = Dimensions.get("window");
 const BOARD_SIZE = 3;
@@ -68,7 +232,7 @@ function isXO(v: any): v is "X" | "O" {
 const EMPTY_BOARD: BoardCell[] = ["_", "_", "_", "_", "_", "_", "_", "_", "_"];
 
 function calculateWinAmount(amount: number) {
-  const cut = 0.1; // Uniform 10% cut across all rooms
+  const cut = amount === 10 ? 0.2 : 0.1; // 20% cut for 10 Birr, 10% cut for others
   return Math.floor(amount * 2 * (1 - cut));
 }
 
@@ -85,7 +249,7 @@ export default function GameRoom() {
   }>();
 
   const { user, token, language, switchLanguage, t, refreshProfile, fixUrl } = useAuth();
-  const { onMessage, send, emitAck, setIsGameActive, ensureConnected } = useSocket();
+  const { onMessage, send, emitAck, setIsGameActive, ensureConnected } = useSocketActions();
 
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const isDesktop = windowWidth >= 768;
@@ -907,6 +1071,13 @@ export default function GameRoom() {
 
       setLocked(true);
       playXO();
+      haptics.tap();
+
+      // Immediate optimistic update for zero-latency, silky game feel
+      const optimisticBoard = [...board] as BoardCell[];
+      optimisticBoard[index] = mySymbol;
+      setBoard(optimisticBoard);
+      boardRef.current = optimisticBoard;
 
       try {
         send("make_move", { matchId, index, symbol: mySymbol });
@@ -1070,10 +1241,10 @@ export default function GameRoom() {
         <Text style={{ position: 'absolute', bottom: '20%', right: '-15%', fontSize: 280, fontWeight: '900', color: '#00daf3', opacity: 0.02, transform: [{ rotate: '25deg' }] }}>O</Text>
       </View>
 
+      <FlashToast amount={parseInt(amountParam)} ref={toastRef} message="Match Found! 🎉" />
+
       <MainWrapper style={styles.safe}>
         <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
-
-          <FlashToast amount={parseInt(amountParam)} ref={toastRef} message="Match Found! 🎉" />
 
           {/* MAIN GAME LAYOUT */}
           <View style={[isDesktop && { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40, marginTop: 40 }]}>
@@ -1151,25 +1322,19 @@ export default function GameRoom() {
                       <View key={r} style={styles.boardRow}>
                         {[0, 1, 2].map((c) => {
                           const idx = r * 3 + c;
+                          const isWinning = !!(winLine && winLine.includes(idx));
                           return (
-                            <Pressable
+                            <BoardCell
                               key={idx}
-                              onPress={() => makeMove(idx)}
-                              style={({ pressed }) => [
-                                styles.cell,
-                                isDesktop && { width: dynamicCellSize, height: dynamicCellSize, borderRadius: 28 },
-                                pressed && { opacity: 0.85 },
-                                board[idx] === "_" && isMyTurn && styles.cellEmptyActive
-                              ]}
-                            >
-                              {board[idx] !== "_" ? (
-                                <CellSymbol symbol={board[idx]} size={dynamicCellSize} isDesktop={isDesktop} />
-                              ) : (
-                                isMyTurn && (
-                                  <View style={[styles.turnCellDot, { backgroundColor: '#fff', opacity: 0.8 }]} />
-                                )
-                              )}
-                            </Pressable>
+                              index={idx}
+                              symbol={board[idx]}
+                              isMyTurn={isMyTurn}
+                              mySymbol={mySymbol}
+                              cellSize={dynamicCellSize}
+                              isDesktop={isDesktop}
+                              isWinning={isWinning}
+                              onPress={makeMove}
+                            />
                           );
                         })}
                       </View>
@@ -1305,16 +1470,16 @@ export default function GameRoom() {
 
           {/* BOTTOM UI */}
           <View style={[styles.bottomBar, isDesktop && { width: 520, alignSelf: 'center', borderTopWidth: 0, paddingTop: 40, paddingBottom: 40 }]}>
-            <TouchableOpacity onPress={handleToggleSound} style={styles.iconMini}>
+            <WebPressable onPress={handleToggleSound} style={styles.iconMini}>
               <Ionicons name={bgMusicOn ? "volume-high" : "volume-mute"} size={14} color="#a8a7d4" />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={handleLanguageToggle} style={styles.languageBtn}>
+            </WebPressable>
+            <WebPressable onPress={handleLanguageToggle} style={styles.languageBtn}>
               <Text style={styles.languageText}>{language === "en" ? "EN" : "አማ"}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={leaveMatch} style={styles.leaveBtn}>
+            </WebPressable>
+            <WebPressable onPress={leaveMatch} style={styles.leaveBtn}>
               <Ionicons name="exit-outline" size={14} color="#fd6f85" />
               <Text style={styles.leaveText}>{t("leave_match")}</Text>
-            </TouchableOpacity>
+            </WebPressable>
           </View>
 
           <GameStartAlert
@@ -1350,13 +1515,13 @@ export default function GameRoom() {
             outcome={result.outcome}
             amount={result.amount}
             onHome={goHome}
-            onPlayAgain={result.outcome === 'lose' ? handlePlayAgain : undefined}
+            onPlayAgain={handlePlayAgain}
             onSendEmoji={(emoji) => {
               send("send_emoji", { matchId, emoji });
               setFloatingEmoji(emoji);
               setTimeout(() => setFloatingEmoji(null), 3000);
             }}
-            insufficientBalance={result.outcome === 'lose' && (Number(user?.available_balance ?? 0) + Number(user?.bonus_balance ?? 0)) < Number(params?.amount ?? 0)}
+            insufficientBalance={(Number(user?.available_balance ?? 0) + Number(user?.bonus_balance ?? 0)) < Number(params?.amount ?? 0)}
           />
 
           <RematchOfferModal
@@ -1366,6 +1531,27 @@ export default function GameRoom() {
             onAccept={handleAcceptRematch}
             onDecline={handleDeclineRematch}
           />
+
+          {waitingForRematch && (
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99999, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.65)' }}>
+              <View style={{ width: '94%', maxWidth: 480, backgroundColor: 'rgba(13, 16, 32, 0.98)', borderRadius: 24, padding: 24, borderWidth: 1.5, borderColor: '#00e5ff', alignItems: 'center', shadowColor: '#00e5ff', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.4, shadowRadius: 20, elevation: 20 }}>
+                <ActivityIndicator size="large" color="#00e5ff" style={{ marginBottom: 16 }} />
+                <Text style={{ color: '#fff', fontSize: 17, fontWeight: '900', textAlign: 'center', marginBottom: 6 }}>
+                  {language === 'am' ? 'ተጋጣሚውን በመጠበቅ ላይ...' : 'Waiting for opponent to accept rematch...'}
+                </Text>
+                <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, textAlign: 'center', marginBottom: 20 }}>
+                  {language === 'am' ? 'እባክዎን ይጠብቁ' : 'Offer sent! Waiting for response...'}
+                </Text>
+                <WebPressable
+                  onPress={handleCancelRematch}
+                  activeScale={0.96}
+                  style={{ paddingVertical: 12, paddingHorizontal: 28, borderRadius: 16, backgroundColor: 'rgba(255,107,107,0.15)', borderWidth: 1, borderColor: '#ff6b6b' }}
+                >
+                  <Text style={{ color: '#ff6b6b', fontWeight: '900', fontSize: 14 }}>{language === 'am' ? 'ሰርዝ' : 'Cancel Request'}</Text>
+                </WebPressable>
+              </View>
+            </View>
+          )}
 
           <LeaveGameConfirmation
             visible={leaveConfirmVisible}
@@ -1477,64 +1663,66 @@ function RematchOfferModal({
   if (!visible) return null;
 
   return (
-    <View style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 9999, alignItems: 'center', paddingTop: 60 }}>
+    <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99999, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
       <Animated.View style={{
         transform: [{ translateY: slideAnim }],
         opacity: opacityAnim,
-        width: '90%',
-        maxWidth: 360,
-        backgroundColor: 'rgba(15, 17, 30, 0.95)',
-        borderRadius: 20,
-        padding: 18,
-        borderWidth: 1,
-        borderColor: 'rgba(0, 229, 255, 0.3)',
+        width: '94%',
+        maxWidth: 480,
+        backgroundColor: 'rgba(13, 16, 32, 0.98)',
+        borderRadius: 24,
+        padding: 22,
+        borderWidth: 1.5,
+        borderColor: 'rgba(0, 229, 255, 0.4)',
         shadowColor: '#00e5ff',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 16,
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.4,
+        shadowRadius: 20,
         elevation: 20,
       }}>
         {/* Header */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 10 }}>
-          <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0, 229, 255, 0.15)', alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="game-controller" size={18} color="#00e5ff" />
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 12 }}>
+          <View style={{ width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(0, 229, 255, 0.15)', borderWidth: 1, borderColor: 'rgba(0, 229, 255, 0.3)', alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="game-controller" size={22} color="#00e5ff" />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: '#fff', fontSize: 15, fontWeight: '900' }}>
+            <Text style={{ color: '#fff', fontSize: 16, fontWeight: '900', letterSpacing: 0.3 }}>
               {fromName || 'Opponent'} wants a rematch!
             </Text>
-            <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '700' }}>
-              Same stake: ETB {Number(amount || 0).toLocaleString()}
+            <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: '700', marginTop: 2 }}>
+              Same stake: <Text style={{ color: '#00e5ff', fontWeight: '900' }}>ETB {Number(amount || 0).toLocaleString()}</Text>
             </Text>
           </View>
           {/* Timer */}
           <View style={{
-            width: 40, height: 40, borderRadius: 20,
+            width: 44, height: 44, borderRadius: 22,
             backgroundColor: countdown <= 3 ? 'rgba(255,107,107,0.2)' : 'rgba(0,229,255,0.1)',
             borderWidth: 2,
             borderColor: countdown <= 3 ? '#ff6b6b' : '#00e5ff',
             alignItems: 'center', justifyContent: 'center',
           }}>
-            <Text style={{ color: countdown <= 3 ? '#ff6b6b' : '#00e5ff', fontSize: 16, fontWeight: '900' }}>
+            <Text style={{ color: countdown <= 3 ? '#ff6b6b' : '#00e5ff', fontSize: 17, fontWeight: '900' }}>
               {countdown}
             </Text>
           </View>
         </View>
 
         {/* Action buttons */}
-        <View style={{ flexDirection: 'row', gap: 10 }}>
-          <TouchableOpacity
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+          <WebPressable
             onPress={onDecline}
-            style={{ flex: 1, padding: 12, borderRadius: 14, backgroundColor: 'rgba(255,107,107,0.12)', borderWidth: 1, borderColor: 'rgba(255,107,107,0.25)', alignItems: 'center' }}
+            activeScale={0.96}
+            style={{ flex: 1, paddingVertical: 14, borderRadius: 16, backgroundColor: 'rgba(255,107,107,0.12)', borderWidth: 1, borderColor: 'rgba(255,107,107,0.3)', alignItems: 'center', justifyContent: 'center' }}
           >
-            <Text style={{ color: '#ff6b6b', fontWeight: '900', fontSize: 13 }}>❌ Nah</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
+            <Text style={{ color: '#ff6b6b', fontWeight: '900', fontSize: 14, letterSpacing: 0.5 }}>Nah, skip</Text>
+          </WebPressable>
+          <WebPressable
             onPress={onAccept}
-            style={{ flex: 1, padding: 12, borderRadius: 14, backgroundColor: 'rgba(0,229,255,0.15)', borderWidth: 1, borderColor: 'rgba(0,229,255,0.3)', alignItems: 'center' }}
+            activeScale={0.96}
+            style={{ flex: 1, paddingVertical: 14, borderRadius: 16, backgroundColor: '#00e5ff', alignItems: 'center', justifyContent: 'center', shadowColor: '#00e5ff', shadowOpacity: 0.4, shadowRadius: 10, elevation: 6 }}
           >
-            <Text style={{ color: '#00e5ff', fontWeight: '900', fontSize: 13 }}>✅ Let's Go!</Text>
-          </TouchableOpacity>
+            <Text style={{ color: '#0a0d1a', fontWeight: '900', fontSize: 15, letterSpacing: 0.5 }}>⚡ Let's Go!</Text>
+          </WebPressable>
         </View>
       </Animated.View>
     </View>
@@ -1927,33 +2115,39 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: 'rgba(11, 11, 30, 0.6)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.03)',
+    borderColor: 'rgba(255, 255, 255, 0.05)',
     alignItems: 'center',
     justifyContent: 'center',
-    ...(Platform.OS === 'web' ? { transition: 'transform 0.1s ease, background-color 0.2s ease' } as any : {})
+    ...(Platform.OS === 'web' ? { 
+      transition: 'transform 0.16s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease',
+      touchAction: 'manipulation',
+      userSelect: 'none',
+      WebkitTapHighlightColor: 'transparent',
+    } as any : {})
   },
 
   cellEmptyActive: {
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: 'rgba(0, 218, 243, 0.25)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     ...(Platform.OS === 'web' ? { cursor: 'pointer' } as any : {})
   },
 
   cellText: {
     fontWeight: '900',
   },
-   turnCellDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#fff',
-    shadowColor: '#fff',
+  turnCellDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#00daf3',
+    shadowColor: '#00daf3',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
+    shadowOpacity: 0.9,
     shadowRadius: 10,
     elevation: 5,
     margin: 'auto',
     alignSelf: 'center',
+    ...(Platform.OS === 'web' ? { animation: 'turnDotPulse 2s infinite ease-in-out' } as any : {})
   },
 
   neonOText: {
@@ -2050,10 +2244,17 @@ const styles = StyleSheet.create({
   drawFlashText: { color: "#E5E7EB", fontWeight: "800" },
 
   gameStartOverlay: {
-    flex: 1,
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: "100%",
+    height: "100%",
     backgroundColor: "rgba(0, 0, 0, 0.7)",
     justifyContent: "center",
     alignItems: "center",
+    zIndex: 999999,
   },
   gameStartAlert: {
     width: 280,

@@ -15,8 +15,10 @@ import PromotionPopup from "../../../components/PromotionPopup";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import NotificationsPopover from "../../../components/NotificationsPopover";
+import SpinWheel from "../../../components/game/SpinWheel";
 import { useAudioPlayer } from "expo-audio";
 import { LinearGradient } from "expo-linear-gradient";
+import Svg, { Circle, Path, G, Text as SvgText, Defs, RadialGradient, Stop, LinearGradient as SvgLinearGradient } from "react-native-svg";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -34,6 +36,8 @@ import {
   TouchableOpacity,
   View,
   useWindowDimensions,
+  Modal,
+  ImageBackground,
 } from "react-native";
 
 import { useAuth } from "../../../context/authContext";
@@ -43,7 +47,159 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useBackgroundMusic } from "../../../context/BackgroundMusicProvider";
 import { useToast } from "../../../context/ToastContext";
 
-// Ã¢â€â‚¬Ã¢â€â‚¬ Extracted components (Stage 3 refactor) Ã¢â€â‚¬Ã¢â€â‚¬
+// Geometry and Svg Wheel helpers for Mobile layout
+const polarToCartesian = (cx: number, cy: number, r: number, angleInDegrees: number) => {
+  const angleInRadians = (angleInDegrees - 90) * Math.PI / 180.0;
+  return {
+    x: cx + r * Math.cos(angleInRadians),
+    y: cy + r * Math.sin(angleInRadians),
+  };
+};
+
+const getArcPath = (cx: number, cy: number, r: number, startAngle: number, endAngle: number) => {
+  const start = polarToCartesian(cx, cy, r, endAngle);
+  const end = polarToCartesian(cx, cy, r, startAngle);
+  const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
+  return [
+    "M", cx, cy,
+    "L", start.x, start.y,
+    "A", r, r, 0, largeArcFlag, 0, end.x, end.y,
+    "Z"
+  ].join(" ");
+};
+
+function SpinWheelSvg({ size, faded, mode, hidePointer }: { size: number; faded?: boolean; mode?: "5_PLAYER" | "RAIL"; hidePointer?: boolean }) {
+  const cx = size / 2;
+  const cy = size / 2;
+  const r = size * 0.40;
+
+  let sectors = [];
+  if (mode === "RAIL") {
+    sectors = [
+      { value: "15%", sub: "Bonus", color: "#a855f7", angle: 54 },
+      { value: "25%", sub: "Bonus", color: "#22c55e", angle: 90 },
+      { value: "10%", sub: "Bonus", color: "#22d3ee", angle: 36 },
+      { value: "35%", sub: "Bonus", color: "#f97316", angle: 126 },
+      { value: "15%", sub: "Bonus", color: "#ef4444", angle: 54 },
+    ];
+  } else {
+    sectors = [
+      { value: "20%", sub: "Bonus", color: "#22d3ee", angle: 72 },
+      { value: "20%", sub: "Bonus", color: "#f97316", angle: 72 },
+      { value: "20%", sub: "Bonus", color: "#ef4444", angle: 72 },
+      { value: "20%", sub: "Bonus", color: "#a855f7", angle: 72 },
+      { value: "20%", sub: "Bonus", color: "#22c55e", angle: 72 },
+    ];
+  }
+
+  let accumulatedAngle = 0;
+
+  return (
+    <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ opacity: faded ? 0.35 : 1 }}>
+      {!faded && (
+        <Defs>
+          <RadialGradient id="wheelGlow" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+            <Stop offset="0%" stopColor="#7c3aed" stopOpacity={0.4} />
+            <Stop offset="70%" stopColor="#7c3aed" stopOpacity={0.1} />
+            <Stop offset="100%" stopColor="#7c3aed" stopOpacity={0} />
+          </RadialGradient>
+        </Defs>
+      )}
+      {!faded && <Circle cx={cx} cy={cy} r={r * 1.35} fill="url(#wheelGlow)" />}
+      {/* Slices */}
+      <G>
+        {sectors.map((sec, idx) => {
+          const startAngle = accumulatedAngle;
+          const endAngle = accumulatedAngle + sec.angle;
+          accumulatedAngle = endAngle;
+          const textAngle = startAngle + sec.angle / 2;
+          const textPos = polarToCartesian(cx, cy, r * 0.68, textAngle);
+          const subPos = polarToCartesian(cx, cy, r * 0.48, textAngle);
+          return (
+            <G key={idx}>
+              <Path d={getArcPath(cx, cy, r, startAngle, endAngle)} fill={sec.color} stroke="#0f1122" strokeWidth={1.8} />
+              {!faded && (
+                <>
+                  <SvgText
+                    x={textPos.x}
+                    y={textPos.y}
+                    fill="#ffffff"
+                    fontSize={size * 0.048}
+                    fontWeight="900"
+                    textAnchor="middle"
+                    alignmentBaseline="middle"
+                  >
+                    {sec.value}
+                  </SvgText>
+                  <SvgText
+                    x={subPos.x}
+                    y={subPos.y}
+                    fill="rgba(255,255,255,0.85)"
+                    fontSize={size * 0.03}
+                    fontWeight="700"
+                    textAnchor="middle"
+                    alignmentBaseline="middle"
+                  >
+                    {sec.sub}
+                  </SvgText>
+                </>
+              )}
+            </G>
+          );
+        })}
+      </G>
+
+      {/* Gold Metallic Rim */}
+      <Circle cx={cx} cy={cy} r={r * 0.98} stroke="#f5b642" strokeWidth={size * 0.05} fill="none" />
+      <Circle cx={cx} cy={cy} r={r * 1.01} stroke="#c59b27" strokeWidth={size * 0.008} fill="none" />
+      <Circle cx={cx} cy={cy} r={r * 0.95} stroke="#c59b27" strokeWidth={size * 0.008} fill="none" />
+
+      {/* Rim Studs / Glowing LED Bulbs */}
+      {Array.from({ length: 18 }).map((_, idx) => {
+        const angle = idx * 20;
+        const pos = polarToCartesian(cx, cy, r * 0.98, angle);
+        return (
+          <G key={idx}>
+            <Circle cx={pos.x} cy={pos.y} r={size * 0.018} fill="#fef08a" stroke="#ca8a04" strokeWidth={0.8} />
+            <Circle cx={pos.x} cy={pos.y} r={size * 0.009} fill="#ffffff" />
+          </G>
+        );
+      })}
+
+      {/* Gold Center Pin Hub labeled "SPIN" */}
+      <Circle cx={cx} cy={cy} r={r * 0.26} fill="#141126" stroke="#f5b642" strokeWidth={3} />
+      <Circle cx={cx} cy={cy} r={r * 0.22} fill="#0d0b1a" stroke="#ffe599" strokeWidth={1} />
+      {!faded && (
+        <SvgText
+          x={cx}
+          y={cy + 1}
+          fill="#f5b642"
+          fontSize={size * 0.045}
+          fontWeight="900"
+          textAnchor="middle"
+          alignmentBaseline="middle"
+          letterSpacing={1}
+        >
+          SPIN
+        </SvgText>
+      )}
+
+      {/* Pointer */}
+      {!faded && !hidePointer && (
+        <G transform={`rotate(180, ${cx}, ${cy - r * 1.02})`}>
+          <Path
+            d={`M ${cx} ${cy - r * 1.02} L ${cx - 12} ${cy - r * 1.16} L ${cx + 12} ${cy - r * 1.16} Z`}
+            fill="#f5b642"
+            stroke="#c59b27"
+            strokeWidth={1.5}
+          />
+        </G>
+      )}
+    </Svg>
+  );
+}
+
+// ── Extracted components (Stage 3 refactor) ──
 import { ROOMS, DEMO_BOARD, BOARD_SIZE } from "../../../components/game/gameplayConstants";
 import type { RoomConfig, SheetStep } from "../../../components/game/gameplayConstants";
 import { HeaderPill, InfoPill } from "../../../components/game/HeaderPill";
@@ -56,6 +212,12 @@ import DesktopLayout from "../../../components/game/DesktopLayout";
 import WinTicker from "../../../components/game/WinTicker";
 import FloatingActions from "../../../components/game/FloatingActions";
 import PwaInstallModal from "../../../components/game/PwaInstallModal";
+import { LobbyHeader } from "../../../components/game/LobbyHeader";
+import { WeeklyPodium } from "../../../components/game/WeeklyPodium";
+import { SocialProofCard } from "../../../components/game/SocialProofCard";
+import { LiveWinToast } from "../../../components/game/LiveWinToast";
+import { SegmentedTabs, CtaButton } from "../../../theme/ui";
+import { colors } from "../../../theme/tokens";
 
 
 
@@ -69,6 +231,24 @@ export default function Landing() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === "web" && width >= 768;
+
+  // Infinite slow rotation animation for home screen wheels
+  const idleSpinAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.timing(idleSpinAnim, {
+        toValue: 1,
+        duration: 25000, // 25 seconds for a smooth, slow rotation
+        easing: Easing.linear,
+        useNativeDriver: Platform.OS !== "web",
+      })
+    ).start();
+  }, []);
+
+  const idleSpinRotate = idleSpinAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "360deg"],
+  });
 
   // Promotion Popup & Scrolling Ticker States
   const [promoConfig, setPromoConfig] = useState<any>(null);
@@ -106,8 +286,8 @@ export default function Landing() {
             const amt = Number(item.amount) || 0;
             let emoji = '⚡';
             if (amt >= 500) emoji = '👑';
-            else if (amt >= 200) emoji = 'Ã°Å¸â€Â¥';
-            else if (amt >= 100) emoji = 'Ã°Å¸Ââ€ ';
+  else if (amt >= 200) emoji = '🔥';
+  else if (amt >= 100) emoji = '🏆';
             return `${emoji} ${item.username.toUpperCase()} WON ${amt} Birr`;
           });
           setTickerList(formatted);
@@ -122,6 +302,7 @@ export default function Landing() {
   const { ensureConnected, findMatch, cancelFind, isSearching, onMessage, send } = useSocket();
   const { user, token, booting, refreshProfile, language, switchLanguage, t, showAlert, fixUrl } = useAuth();
   const { isPlaying: bgMusicPlaying, toggleMusic } = useBackgroundMusic();
+
 
   // PWA Install state
   const [deferredPrompt, setDeferredPrompt] = useState<any>(
@@ -245,6 +426,11 @@ export default function Landing() {
   const [friendModalVisible, setFriendModalVisible] = useState(false);
   const [inviteResult, setInviteResult] = useState<any>(null);
   const [rulesVisible, setRulesVisible] = useState(false);
+  const [selectedTab, setSelectedTab] = useState<"SPIN" | "XO_GAME">("SPIN");
+  const [spinMode, setSpinMode] = useState<"5_PLAYER" | "RAIL">("5_PLAYER");
+  const [showMobileStakeModal, setShowMobileStakeModal] = useState(false);
+  const [mobileStakeInput, setMobileStakeInput] = useState("50");
+  const [spinError, setSpinError] = useState<string | null>(null);
   const toast = useToast();
   const [incomingInvite, setIncomingInvite] = useState<any>(null);
 
@@ -278,6 +464,26 @@ export default function Landing() {
       useNativeDriver: Platform.OS !== 'web',
     }).start();
   }, [floatingExpanded]);
+
+  const handleMobileSpinNow = async () => {
+    setShowMobileStakeModal(true);
+  };
+
+  const handleConfirmMobileRailSpin = async (stakeVal: number) => {
+    if (isNaN(stakeVal) || stakeVal <= 0) {
+      setSpinError(isEN ? "Invalid stake amount" : "ትክክለኛ ያልሆነ መጠን");
+      return;
+    }
+    if (balance < stakeVal) {
+      setSpinError(isEN ? "Insufficient balance" : "በቂ ሂሳብ የሎትም");
+      return;
+    }
+    setShowMobileStakeModal(false);
+    router.push({
+      pathname: '/(authed)/home/spin',
+      params: { mode: "RAIL", stake: String(stakeVal) }
+    } as any);
+  };
 
   const fetchWeeklyLeaderboard = useCallback(async () => {
     if (!token) return;
@@ -367,8 +573,8 @@ export default function Landing() {
         const amt = Number(payload.amount) || 0;
         let emoji = '⚡';
         if (amt >= 500) emoji = '👑';
-        else if (amt >= 200) emoji = 'Ã°Å¸â€Â¥';
-        else if (amt >= 100) emoji = 'Ã°Å¸Ââ€ ';
+  else if (amt >= 200) emoji = '🔥';
+  else if (amt >= 100) emoji = '🏆';
 
         setCurrentWinAnnouncement(`${emoji} ${username} WON ${amt} Birr`);
       }
@@ -642,131 +848,7 @@ export default function Landing() {
     }
   }, [playClick, deferredPrompt]);
 
-  const renderPodiumSpot = useCallback((spot: { rank: number; prize: number; color: string; barH: number; label: string }) => {
-    const userAtRank = weeklyLeaderboard.find(u => u.rank === spot.rank);
-    const username = userAtRank ? userAtRank.username : "Ã¢â‚¬â€";
-    const isFirst = spot.rank === 1;
-    const circleSize = isFirst ? 54 : 42;
 
-    return (
-      <View key={spot.rank} style={{ alignItems: 'center', flex: 1 }}>
-        {/* Prize */}
-        <Text style={{
-          color: spot.color,
-          fontSize: 12,
-          fontWeight: '900',
-          marginBottom: 8,
-          textShadowColor: 'rgba(0,0,0,0.5)',
-          textShadowOffset: { width: 0, height: 1 },
-          textShadowRadius: 2
-        }}>
-          {spot.prize} Birr
-        </Text>
-
-        {/* Rank Circle */}
-        <View style={{
-          width: circleSize,
-          height: circleSize,
-          borderRadius: circleSize / 2,
-          borderWidth: 2,
-          borderColor: spot.color,
-          backgroundColor: '#0c0c1d',
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginBottom: -10,
-          zIndex: 2,
-          position: 'relative'
-        }}>
-          <Text style={{ fontSize: isFirst ? 18 : 14, fontWeight: '900', color: '#fff' }}>{spot.rank}</Text>
-
-          {isFirst && (
-            <View style={{
-              position: 'absolute',
-              bottom: -2,
-              right: -2,
-              width: 16,
-              height: 16,
-              borderRadius: 8,
-              backgroundColor: spot.color,
-              alignItems: 'center',
-              justifyContent: 'center',
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 1 },
-              shadowOpacity: 0.3,
-              shadowRadius: 2
-            }}>
-              <Ionicons name="trophy" size={9} color="#000" />
-            </View>
-          )}
-        </View>
-
-        {/* Column Bar (fully rounded rectangle with border) */}
-        <View style={{
-          width: '100%',
-          maxWidth: isFirst ? 82 : 72,
-          height: spot.barH,
-          borderRadius: 16,
-          borderWidth: 1.5,
-          borderColor: spot.color,
-          backgroundColor: 'rgba(255,255,255,0.02)',
-          alignItems: 'center',
-          justifyContent: 'center',
-          paddingVertical: 10
-        }}>
-          <Text style={{ fontSize: 11, fontWeight: '800', color: '#fff', textAlign: 'center' }} numberOfLines={1}>
-            {username}
-          </Text>
-        </View>
-      </View>
-    );
-  }, [weeklyLeaderboard]);
-
-  const renderUserRankCard = useCallback(() => {
-    const rankVal = myWeeklyRank && myWeeklyRank.rank ? `#${myWeeklyRank.rank}` : "#1";
-    const scoreVal = myWeeklyRank && myWeeklyRank.wins !== undefined 
-      ? `${myWeeklyRank.wins} ${isEN ? 'Wins' : 'ድሎች'}` 
-      : `2 ${isEN ? 'Wins' : 'ድሎች'}`;
-
-    return (
-      <View style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        backgroundColor: 'rgba(255, 255, 255, 0.03)',
-        borderRadius: 16,
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.05)',
-        marginTop: 16,
-        width: '100%'
-      }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <View style={{
-            backgroundColor: 'rgba(255, 255, 255, 0.08)',
-            paddingHorizontal: 8,
-            paddingVertical: 4,
-            borderRadius: 8
-          }}>
-            <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11, fontWeight: '900' }}>
-              {rankVal}
-            </Text>
-          </View>
-          <View>
-            <Text style={{ color: '#fff', fontSize: 13, fontWeight: '900' }}>
-              {isEN ? "You" : "እርሶ"}
-            </Text>
-            <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: '600', marginTop: 2 }}>
-              {isEN ? "All players" : "Ã¡Ë†ÂÃ¡Ë†â€°Ã¡Ë†Â Ã¡â€°Â°Ã¡Å’Â«Ã¡â€¹â€¹Ã¡â€°Â¾Ã¡â€°Â½"}
-            </Text>
-          </View>
-        </View>
-        <Text style={{ color: '#fff', fontSize: 13, fontWeight: '900' }}>
-          {scoreVal}
-        </Text>
-      </View>
-    );
-  }, [myWeeklyRank, isEN]);
 
   // ---------- exit modal ----------
   const [exitModalVisible, setExitModalVisible] = useState(false);
@@ -832,17 +914,17 @@ export default function Landing() {
   const winRate = useMemo(() => (gamesPlayed ? Math.round((wins / gamesPlayed) * 100) : 0), [wins, gamesPlayed]);
   const statsLabel = useMemo(() => {
     const wr = Math.min(Math.max(winRate, 0), 100);
-    return isEN ? `${wins} wins • ${wr}% win rate` : `${wins} ድሎች Ã¢â‚¬Â¢ ${wr}% Ã¡â€¹Â¨Ã¡â€¹ÂµÃ¡Ë†Â Ã¡Ë†ËœÃ¡Å’Â Ã¡Å â€¢`;
+    return isEN ? `${wins} wins • ${wr}% win rate` : `${wins} ድሎች • ${wr}% የማሸነፍ መጠን`;
   }, [wins, winRate, isEN]);
 
   const rank = useMemo(() => {
-    if (winRate >= 70 || wins >= 200) return isEN ? "Platinum" : "Ã¡Ââ€¢Ã¡Ë†â€¹Ã¡â€°Â²Ã¡Å â€™Ã¡Ë†Â";
+    if (winRate >= 70 || wins >= 200) return isEN ? "Platinum" : "ፕላቲነም";
     if (winRate >= 50 || wins >= 100) return isEN ? "Gold" : "ወርቅ";
     return isEN ? "Silver" : "ብር";
   }, [winRate, wins, isEN]);
 
   const rankMeta = useMemo(() => {
-    const isPlat = rank.includes("Platinum") || rank.includes("Ã¡Ââ€¢Ã¡Ë†â€¹Ã¡â€°Â²Ã¡Å â€™Ã¡Ë†Â");
+  const isPlat = rank.includes("Platinum") || rank.includes("ፕላቲነም");
     const isGold = rank.includes("Gold") || rank.includes("ወርቅ");
     if (isPlat) return { icon: "diamond-outline" as const, label: rank, tone: "platinum" as const };
     if (isGold) return { icon: "trophy-outline" as const, label: rank, tone: "gold" as const };
@@ -857,9 +939,9 @@ export default function Landing() {
     await playClick();
     try {
       await refreshProfile();
-      toast.success(isEN ? "Balance Updated" : "Ã¡â€°â‚¬Ã¡Ë†Âª Ã¡Ë†â€šÃ¡Ë†Â³Ã¡â€°Â¥ Ã¡â€°Â°Ã¡â€¹ËœÃ¡Ë†ÂÃ¡Å â€”Ã¡Ë†Â", undefined, 1500);
+      toast.success(isEN ? "Balance Updated" : "ሂሳብዎ ታድሷል", undefined, 1500);
     } catch (e) {
-      toast.error(isEN ? "Refresh Failed" : "Ã¡Ë†â€ºÃ¡â€¹ËœÃ¡Ë†ËœÃ¡Å â€¢ Ã¡Å Â Ã¡Ë†ÂÃ¡â€°Â°Ã¡â€°Â»Ã¡Ë†Ë†Ã¡Ë†Â", isEN ? "Could not update your balance." : "Ã¡â€°â‚¬Ã¡Ë†Âª Ã¡Ë†â€šÃ¡Ë†Â³Ã¡â€°Â¥Ã¡â€¹Å½Ã¡Å â€¢ Ã¡Ë†â€ºÃ¡â€¹ËœÃ¡Ë†ËœÃ¡Å â€¢ Ã¡Å Â Ã¡Ë†ÂÃ¡â€°Â°Ã¡â€°Â»Ã¡Ë†Ë†Ã¡Ë†ÂÃ¡ÂÂ¢");
+      toast.error(isEN ? "Refresh Failed" : "ማደስ አልተቻለም", isEN ? "Could not update your balance." : "የመለያ ሂሳብዎን ማደስ አልተቻለም።");
       console.log("Error refreshing profile:", e);
     }
   }, [playClick, refreshProfile]);
@@ -962,7 +1044,7 @@ export default function Landing() {
       if (Number.isFinite(balance) && balance < min) {
         haptics.warning();
         toast.warning(
-          isEN ? "Insufficient Balance" : "Ã¡â€°Â Ã¡â€°â€š Ã¡Ë†â€šÃ¡Ë†Â³Ã¡â€°Â¥ Ã¡â€¹Â¨Ã¡Ë†Ë†Ã¡Ë†Â",
+      isEN ? "Insufficient Balance" : "በቂ ሂሳብ የሎትም",
           isEN ? `You need at least ETB ${min} to play. Deposit more funds.` : `ለመጫወት ቢያንስ ETB ${min} ያስፈልግዎታል ተጨማሪ ገንዘብ ያስገቡ`
         );
         return;
@@ -1023,441 +1105,367 @@ export default function Landing() {
 
   if (isLargeScreen) {
     return (
-      <DesktopLayout
-        user={user}
-        token={token}
-        balance={balance}
-        language={language}
-        isDesktop={isDesktop}
-        isTablet={isTablet}
-        isBanned={isBanned}
-        isSearching={isSearching}
-        isEN={isEN}
-        weeklyLeaderboard={weeklyLeaderboard}
-        weeklyPrizes={weeklyPrizes}
-        loadingWeekly={loadingWeekly}
-        secondsRemaining={secondsRemaining}
-        winRate={winRate}
-        rankMeta={rankMeta}
-        rawTickerList={rawTickerList}
-        roomSheetVisible={roomSheetVisible}
-        sheetStep={sheetStep}
-        selectedRoom={selectedRoom}
-        backdropOpacity={backdropOpacity}
-        sheetTranslateY={sheetTranslateY}
-        userCaps={user}
-        depositVisible={depositVisible}
-        withdrawVisible={withdrawVisible}
-        friendModalVisible={friendModalVisible}
-        pwaModalVisible={pwaModalVisible}
-        showReferralModal={showReferralModal}
-        showPromo={showPromo}
-        inviteResult={inviteResult}
-        promoConfig={promoConfig}
-        setDepositVisible={setDepositVisible}
-        setWithdrawVisible={setWithdrawVisible}
-        setFriendModalVisible={setFriendModalVisible}
-        setPwaModalVisible={setPwaModalVisible}
-        setShowReferralModal={setShowReferralModal}
-        setShowPromo={setShowPromo}
-        setInviteResult={setInviteResult}
-        openRoomSheet={openRoomSheet}
-        closeRoomSheet={closeRoomSheet}
-        goBackToRooms={goBackToRooms}
-        onSelectRoom={onSelectRoom}
-        selectAmount={selectAmount}
-        refreshProfile={refreshProfile}
-        handleLanguageToggle={handleLanguageToggle}
-        handleSendInvite={handleSendInvite}
-        router={router}
-        appConfig={appConfig}
-      />
+      <View style={{ flex: 1 }}>
+        <DesktopLayout
+          selectedTab={selectedTab}
+          setSelectedTab={setSelectedTab}
+          user={user}
+          token={token}
+          balance={balance}
+          language={language}
+          isDesktop={isDesktop}
+          isTablet={isTablet}
+          isBanned={isBanned}
+          isSearching={isSearching}
+          isEN={isEN}
+          weeklyLeaderboard={weeklyLeaderboard}
+          weeklyPrizes={weeklyPrizes}
+          loadingWeekly={loadingWeekly}
+          secondsRemaining={secondsRemaining}
+          winRate={winRate}
+          rankMeta={rankMeta}
+          rawTickerList={rawTickerList}
+          roomSheetVisible={roomSheetVisible}
+          sheetStep={sheetStep}
+          selectedRoom={selectedRoom}
+          backdropOpacity={backdropOpacity}
+          sheetTranslateY={sheetTranslateY}
+          userCaps={{ r1_10_wins: (user as any)?.r1_10_wins, r1_15_wins: (user as any)?.r1_15_wins, r1_25_wins: (user as any)?.r1_25_wins, r1_50_wins: (user as any)?.r1_50_wins, r1_99_wins: (user as any)?.r1_99_wins, rooms_locked: appConfig.rooms_locked }}
+          depositVisible={depositVisible}
+          withdrawVisible={withdrawVisible}
+          friendModalVisible={friendModalVisible}
+          pwaModalVisible={pwaModalVisible}
+          showReferralModal={showReferralModal}
+          showPromo={showPromo}
+          inviteResult={inviteResult}
+          promoConfig={promoConfig}
+          setDepositVisible={setDepositVisible}
+          setWithdrawVisible={setWithdrawVisible}
+          setFriendModalVisible={setFriendModalVisible}
+          setPwaModalVisible={setPwaModalVisible}
+          setShowReferralModal={setShowReferralModal}
+          setShowPromo={setShowPromo}
+          setInviteResult={setInviteResult}
+          openRoomSheet={openRoomSheet}
+          closeRoomSheet={closeRoomSheet}
+          goBackToRooms={goBackToRooms}
+          onSelectRoom={onSelectRoom}
+          selectAmount={selectAmount}
+          refreshProfile={refreshProfile}
+          handleLanguageToggle={handleLanguageToggle}
+          handleSendInvite={handleSendInvite}
+          router={router}
+          appConfig={appConfig}
+          unreadCount={unreadCount}
+          setNotificationsVisible={setNotificationsVisible}
+          bgMusicPlaying={bgMusicPlaying}
+          onToggleSound={handleToggleSound}
+        />
+        {/* Render all shared modals here so they are active on desktop */}
+        <NotificationsPopover
+          visible={notificationsVisible}
+          onClose={() => setNotificationsVisible(false)}
+          onUnreadCountChange={setUnreadCount}
+        />
+        <IncomingInviteModal
+          invite={incomingInvite}
+          onAccept={() => handleInviteResponse(true)}
+          onDecline={() => handleInviteResponse(false)}
+        />
+        <RematchTopPopup
+          visible={!!globalRematchOffer?.visible}
+          fromName={globalRematchOffer?.fromName}
+          amount={globalRematchOffer?.amount}
+          onAccept={handleGlobalRematchAccept}
+          onDecline={handleGlobalRematchDecline}
+        />
+        {exitModalVisible && <ExitModal language={language} onCancel={cancelExit} onConfirm={confirmExit} />}
+      </View>
     );
   }
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬ Mobile return Ã¢â€â‚¬Ã¢â€â‚¬
+  // ── Mobile return (Fintech + Luxury Gaming UI) ──
   return (
-    <View style={styles.bg}>
-      <LinearGradient colors={["#0A090E", "#08070B", "#060508"]} style={StyleSheet.absoluteFill} />
-
-      <View pointerEvents="none" style={[styles.blob, styles.blob1]} />
-      <View pointerEvents="none" style={[styles.blob, styles.blob2]} />
-      <View pointerEvents="none" style={[styles.blob, styles.blob3]} />
-
-      {/* Blurry illustrative Tic-Tac-Toe game board in the background */}
-      <View style={{
-        position: 'absolute',
-        top: '28%',
-        left: '-15%',
-        width: 320,
-        height: 320,
-        transform: [{ rotate: '-18deg' }, { scale: 1.25 }],
-        opacity: 0.04, // Soft, premium visibility
-        zIndex: 0,
-        ...Platform.select({
-          web: {
-            filter: "blur(1.5px)",
-          } as any,
-        }),
-      }} pointerEvents="none">
-        {/* Horizontal lines */}
-        <View style={{
-          position: 'absolute', top: 106, left: 0, right: 0, height: 2.5, backgroundColor: '#a855f7',
-          shadowColor: '#a855f7', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 6
-        }} />
-        <View style={{
-          position: 'absolute', top: 213, left: 0, right: 0, height: 2.5, backgroundColor: '#a855f7',
-          shadowColor: '#a855f7', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 6
-        }} />
-        {/* Vertical lines */}
-        <View style={{
-          position: 'absolute', left: 106, top: 0, bottom: 0, width: 2.5, backgroundColor: '#a855f7',
-          shadowColor: '#a855f7', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 6
-        }} />
-        <View style={{
-          position: 'absolute', left: 213, top: 0, bottom: 0, width: 2.5, backgroundColor: '#a855f7',
-          shadowColor: '#a855f7', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 6
-        }} />
-
-        {/* Illustrative faded board moves */}
-        <Text style={{
-          position: 'absolute', top: 15, left: 25, fontSize: 52, fontWeight: '900', color: '#8b5cf6',
-          textShadowColor: 'rgba(139, 92, 246, 0.4)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 6
-        }}>X</Text>
-        <Text style={{
-          position: 'absolute', top: 125, left: 135, fontSize: 52, fontWeight: '900', color: '#a855f7',
-          textShadowColor: 'rgba(168, 85, 247, 0.4)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 6
-        }}>O</Text>
-        <Text style={{
-          position: 'absolute', top: 235, left: 245, fontSize: 52, fontWeight: '900', color: '#8b5cf6',
-          textShadowColor: 'rgba(139, 92, 246, 0.4)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 6
-        }}>X</Text>
-      </View>
-
-      <SafeAreaView style={styles.safe} edges={['left', 'right', 'top']}>
+    <View style={{ flex: 1, backgroundColor: "#060613" }}>
+      <SafeAreaView style={{ flex: 1 }} edges={['left', 'right', 'top']}>
         <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
 
-          <Animated.View style={[styles.header, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-            <View style={styles.headerTop}>
-              {/* Left Side: Avatar + Welcome back */}
-              <TouchableOpacity
-                onPress={() => goReplace("/(authed)/home/account")}
-                activeOpacity={0.85}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}
-              >
-                <View style={{
-                  width: 42,
-                  height: 42,
-                  borderRadius: 21,
-                  backgroundColor: 'rgba(255,255,255,0.04)',
-                  borderWidth: 1,
-                  borderColor: 'rgba(255,255,255,0.1)',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <Ionicons name="person-outline" size={18} color="rgba(255,255,255,0.8)" />
-                </View>
-                <View>
-                  <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                    {isEN ? "WELCOME BACK" : "እንኳን ደህና መጡ"}
-                  </Text>
-                  <Text style={{ color: '#fff', fontSize: 14, fontWeight: '900' }}>
-                    {user?.username || 'bina'}
-                  </Text>
-                </View>
-              </TouchableOpacity>
+          {/* 1. Header & Total Balance Card */}
+          <LobbyHeader
+            fadeAnim={fadeAnim}
+            slideAnim={slideAnim}
+            user={user}
+            isEN={isEN}
+            isPwaInstalled={isPwaInstalled}
+            appPulseAnim={appPulseAnim}
+            deferredPrompt={deferredPrompt}
+            handleAppDownload={handleAppDownload}
+            handleLanguageToggle={handleLanguageToggle}
+            setNotificationsVisible={setNotificationsVisible}
+            unreadCount={unreadCount}
+            balance={balance}
+            handleRefreshProfile={handleRefreshProfile}
+            goReplace={goReplace}
+          />
 
-              {/* Right Side: APP, Language, Bell */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                {/* APP Download Button (Bordered dark capsule) */}
-                {!isPwaInstalled && (
-                  <Animated.View style={{ transform: [{ scale: appPulseAnim }] }}>
-                    <TouchableOpacity
-                      onPress={handleAppDownload}
-                      activeOpacity={0.85}
-                      style={{
-                        borderWidth: 1,
-                        borderColor: deferredPrompt ? '#00daf3' : 'rgba(255, 255, 255, 0.1)',
-                        backgroundColor: deferredPrompt ? 'rgba(0, 218, 243, 0.15)' : 'rgba(255, 255, 255, 0.05)',
-                        paddingHorizontal: 12,
-                        paddingVertical: 6,
-                        borderRadius: 14,
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: 5,
-                        // Ambient glow shadow when installable
-                        shadowColor: deferredPrompt ? '#00daf3' : 'transparent',
-                        shadowOffset: { width: 0, height: 0 },
-                        shadowOpacity: deferredPrompt ? 0.6 : 0,
-                        shadowRadius: deferredPrompt ? 8 : 0,
-                      }}
-                    >
-                      <Ionicons name="cloud-download-outline" size={14} color={deferredPrompt ? "#00daf3" : "#fff"} />
-                      <Text style={{ color: deferredPrompt ? "#00daf3" : "#fff", fontSize: 11, fontWeight: '900', letterSpacing: 0.5 }}>APP</Text>
-                    </TouchableOpacity>
-                  </Animated.View>
-                )}
-
-                {/* Language button */}
-                <TouchableOpacity
-                  onPress={handleLanguageToggle}
-                  activeOpacity={0.85}
-                  style={{
-                    width: 38,
-                    height: 38,
-                    borderRadius: 14,
-                    backgroundColor: 'rgba(255,255,255,0.05)',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    borderWidth: 1,
-                    borderColor: 'rgba(255,255,255,0.1)'
-                  }}
-                >
-                  <Ionicons name="language" size={18} color="#fff" />
-                </TouchableOpacity>
-
-                {/* Notification Bell with Badge */}
-                <TouchableOpacity
-                  onPress={() => setNotificationsVisible(true)}
-                  activeOpacity={0.85}
-                  style={{
-                    width: 38,
-                    height: 38,
-                    borderRadius: 14,
-                    backgroundColor: 'rgba(255,255,255,0.05)',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    borderWidth: 1,
-                    borderColor: 'rgba(255,255,255,0.1)',
-                    position: 'relative'
-                  }}
-                >
-                  <Ionicons name="notifications-outline" size={18} color="#fff" />
-                  {unreadCount > 0 && (
-                    <View style={{
-                      position: 'absolute',
-                      top: 6,
-                      right: 6,
-                      width: 8,
-                      height: 8,
-                      borderRadius: 4,
-                      backgroundColor: '#ef4444',
-                      borderWidth: 1,
-                      borderColor: '#000'
-                    }} />
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Available Balance Card */}
-            <LinearGradient
-              colors={["rgba(20, 19, 26, 0.6)", "rgba(27, 26, 36, 0.6)"]}
-              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-              style={[styles.balanceCard, { borderColor: 'rgba(255,255,255,0.05)', overflow: 'hidden' }]}
-            >
-              {/* Huge X watermark in the background */}
-              <Text style={{ position: 'absolute', right: 40, bottom: -45, fontSize: 140, fontWeight: '900', color: 'rgba(0,218,243,0.06)', transform: [{ rotate: '-12deg' }], zIndex: 0 }}>X</Text>
-
-              <View style={[styles.balanceLeft, { zIndex: 1 }]}>
-                <Text style={styles.balanceLabel}>{isEN ? "AVAILABLE BALANCE" : "ቀሪ ሂሳብ"}</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                  <Text style={[styles.balanceValue, { fontSize: 32 }]}>
-                    ETB {Math.floor(balance).toLocaleString()}
-                  </Text>
-                  {/* Purple dot next to the number */}
-                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#00daf3', alignSelf: 'center', marginTop: 12 }} />
-                </View>
-              </View>
-
-              <TouchableOpacity
-                onPress={handleRefreshProfile}
-                activeOpacity={0.85}
-                style={{
-                  borderRadius: 16,
-                  borderWidth: 1,
-                  borderColor: 'rgba(255, 255, 255, 0.1)',
-                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                  overflow: 'hidden',
-                  zIndex: 1
-                }}
-              >
-                <View style={{ paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Ionicons name="reload" size={12} color="#fff" />
-                  <Text style={{ color: '#fff', fontWeight: '800', fontSize: 11 }}>
-                    {isEN ? "Refresh" : "አድስ"}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            </LinearGradient>
-          </Animated.View>
-
-          {/* Quick Actions Grid (Mobile) */}
-          <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
-            {/* Deposit */}
+          {/* 2. Quick Action Cards (Deposit, Withdraw, Transactions) */}
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
             <MobileQuickTile
               icon="arrow-down"
-              iconColor="#60a5fa"
+              accent="violet"
               title={isEN ? "Deposit" : "ማስገቢያ"}
               subtitle="TOP UP"
               onPress={() => Platform.OS === 'web' ? setDepositVisible(true) : router.push("/(authed)/deposit")}
             />
-            {/* Withdraw */}
             <MobileQuickTile
               icon="arrow-up"
-              iconColor="#eab308"
-              title={isEN ? "Withdraw" : "Ã¡Ë†â€ºÃ¡â€¹ÂÃ¡Å’Â«"}
+              accent="gold"
+              title={isEN ? "Withdraw" : "ወጪ ማውጫ"}
               subtitle="CASH OUT"
               onPress={() => Platform.OS === 'web' ? setWithdrawVisible(true) : router.push("/(authed)/withdraw")}
             />
-            {/* Transactions */}
             <MobileQuickTile
               icon="swap-horizontal"
-              iconColor="#00daf3"
-              title={isEN ? "Transactions" : "Ã¡Å Â­Ã¡ÂÂÃ¡â€¹Â«Ã¡â€¹Å½Ã¡â€°Â½"}
-              subtitle="TRANSFERS"
+              accent="cyan"
+              title={isEN ? "Transactions" : "ግብይቶች"}
+              subtitle="HISTORY"
               onPress={() => router.push("/(authed)/home/transactions")}
             />
           </View>
 
-          {/* Gameplay Hub Card (Podium style) */}
-          <View style={styles.mainCard}>
-            <LinearGradient colors={["#14131A", "#1B1A24"]} style={StyleSheet.absoluteFill} />
+          {/* 3. Mode Switcher Tabs (SPIN vs XO) */}
+          <View style={{ marginTop: 16 }}>
+            <SegmentedTabs
+              tabs={[
+                { key: "SPIN" as const, label: "SPIN", icon: "aperture-outline" },
+                { key: "XO_GAME" as const, label: "XO", icon: "grid-outline" },
+              ]}
+              value={selectedTab}
+              onChange={(k) => setSelectedTab(k)}
+            />
+          </View>
 
-            {/* Header: left brand circle icon, "GAMEPLAY HUB" title, "OUTPACE. OUTSMART. WIN!" subtitle, and a "Weekly" pill on the right. */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: 16 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                {/* Brand circle icon (XO matching actual brand logo) */}
-                <View style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 19,
-                  overflow: 'hidden',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  backgroundColor: '#000',
-                  borderWidth: 1,
-                  borderColor: 'rgba(255, 255, 255, 0.15)',
-                }}>
-                  <Image
-                    source={require("../../../assets/images/adaptive-icon.png")}
-                    style={{ width: '100%', height: '100%' }}
-                    resizeMode="cover"
-                  />
-                </View>
+          {/* 4. Main Gaming Section (SPIN TO WIN vs XO Podium) */}
+          {selectedTab === "SPIN" ? (
+            <View style={spinStyles.card}>
+
+              {/* SPIN TO WIN Header Header */}
+              <View style={{ width: "100%", flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                 <View>
-                  <Text style={{ color: '#fff', fontSize: 15, fontWeight: '900', letterSpacing: 0.3 }}>
-                    {isEN ? "GAMEPLAY HUB" : "Ã¡â€¹Â¨Ã¡Å’Â¨Ã¡â€¹â€¹Ã¡â€°Â³ Ã¡Ë†â€ºÃ¡â€¹â€¢Ã¡Å Â¨Ã¡Ë†Â"}
+                  <Text style={{ color: "#ffffff", fontSize: 20, fontWeight: "900", fontFamily: "Inter, sans-serif" }}>
+                    SPIN TO WIN
                   </Text>
-                  <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '600' }}>
-                    {isEN ? "OUTPACE. OUTSMART. WIN!" : "Ã¡ÂÂÃ¡Å’Â¥Ã¡Å ÂÃ¡â€°ÂµÃ¡ÂÂ¢ Ã¡â€°Â¥Ã¡Ë†ÂÃ¡Ë†Æ’Ã¡â€°ÂµÃ¡ÂÂ¢ Ã¡â€¹ÂµÃ¡Ë†Â!"}
+                  <Text style={{ color: "#f5b642", fontSize: 12, fontWeight: "700", fontStyle: "italic", fontFamily: "Inter, sans-serif" }}>
+                    Big rewards
                   </Text>
                 </View>
+
+                {/* 5 Players Live Counter Badge */}
+                <TouchableOpacity
+                  onPress={openRoomSheet}
+                  style={{
+                    backgroundColor: "rgba(139, 92, 246, 0.2)",
+                    borderRadius: 14,
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    borderWidth: 1,
+                    borderColor: "rgba(139, 92, 246, 0.4)",
+                    alignItems: "center",
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                    <Ionicons name="people" size={14} color="#a855f7" />
+                    <Text style={{ color: "#a855f7", fontSize: 12, fontWeight: "900" }}>5 Players</Text>
+                  </View>
+                  <Text style={{ color: "#8b93a7", fontSize: 9, fontWeight: "700" }}>5 People Spin</Text>
+                </TouchableOpacity>
               </View>
 
-              {/* Weekly Pill */}
-              <View style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 5,
-                backgroundColor: 'rgba(255,255,255,0.03)',
-                paddingHorizontal: 10,
-                paddingVertical: 5,
-                borderRadius: 12,
-                borderWidth: 1,
-                borderColor: 'rgba(255,255,255,0.08)'
-              }}>
-                <Ionicons name="trophy-outline" size={10} color="rgba(255,255,255,0.8)" />
-                <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 10, fontWeight: '900', letterSpacing: 0.5 }}>
-                  {isEN ? "Weekly" : "Ã¡Ë†Â³Ã¡Ë†ÂÃ¡Å â€¢Ã¡â€°Â³Ã¡â€¹Å "}
-                </Text>
+              {/* Spin Wheel Component */}
+              <View style={{ width: 300, height: 300, alignItems: "center", justifyContent: "center", marginVertical: 12 }}>
+                <SpinWheel size={300} players={[]} isSpinning={false} status="idle" mode={spinMode} />
               </View>
-            </View>
 
-            <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10, marginTop: 10, width: '100%', paddingHorizontal: 10 }}>
-              {renderPodiumSpot({ rank: 2, prize: 300, color: '#94a3b8', barH: 52, label: "2nd" })}
-              {renderPodiumSpot({ rank: 1, prize: 500, color: '#f59e0b', barH: 72, label: "1st" })}
-              {renderPodiumSpot({ rank: 3, prize: 200, color: '#c2410c', barH: 42, label: "3rd" })}
-            </View>
-            {renderUserRankCard()}
+              {/* Primary CTA */}
+              <CtaButton
+                label="SPIN NOW"
+                icon="aperture"
+                onPress={handleMobileSpinNow}
+                style={{ marginTop: 4 }}
+              />
 
-            {/* Play Now — disabled when banned, visible always */}
-            <WebPressable
-              onPress={isBanned ? undefined : openRoomSheet}
-              disabled={isBanned}
-              style={({ hovered }: { pressed: boolean; hovered: boolean }) => [
-                styles.playBtn,
-                {
-                  marginTop: 20,
-                  borderRadius: 16,
-                  overflow: 'hidden',
-                  transform: [{ scale: hovered && !isBanned ? 1.02 : 1 }],
-                  shadowColor: '#00daf3',
-                  shadowOffset: { width: 0, height: 6 },
-                  shadowOpacity: hovered && !isBanned ? 0.5 : 0.35,
-                  shadowRadius: 12,
-                  transition: 'all 0.15s ease-in-out',
-                }
-              ]}
-            >
-              <LinearGradient
-                colors={isBanned ? ['#3a2020', '#2a1515'] : ['#00daf3', '#00daf3']}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                style={styles.playInner}
+              {/* 5-player capsule */}
+              <TouchableOpacity
+                onPress={() => {
+                  haptics.tap();
+                  router.push({
+                    pathname: '/(authed)/home/spin',
+                    params: { mode: "5_PLAYER" }
+                  } as any);
+                }}
+                activeOpacity={0.8}
+                style={spinStyles.capsule}
               >
-                <Ionicons name={isBanned ? "lock-closed" : "flash-outline"} size={20} color={isBanned ? "#fff" : "#000"} />
-                <Text style={[styles.playText, { color: isBanned ? '#fff' : '#000' }]}>
-                  {isBanned ? (isEN ? 'SUSPENDED' : 'Ã¡â€°Â³Ã¡Å’ÂÃ¡â€¹Â·Ã¡Ë†Â') : t("play_now")}
+                <View style={{ flexDirection: "row" }}>
+                  <View style={[spinStyles.avatarDot, { backgroundColor: "#7c3aed" }]}>
+                    <Ionicons name="person" size={11} color="#ffffff" />
+                  </View>
+                  <View style={[spinStyles.avatarDot, { backgroundColor: "#22c55e", marginLeft: -8 }]}>
+                    <Ionicons name="person" size={11} color="#ffffff" />
+                  </View>
+                  <View style={[spinStyles.avatarDot, { backgroundColor: "#22d3ee", marginLeft: -8 }]}>
+                    <Ionicons name="person" size={11} color="#ffffff" />
+                  </View>
+                </View>
+                <Text style={spinStyles.capsuleText}>
+                  5 PEOPLE SPIN
                 </Text>
-              </LinearGradient>
-            </WebPressable>
- 
-            {/* Friend Match Button Mobile */}
-            <WebPressable
-              onPress={() => setFriendModalVisible(true)}
-              style={({ hovered }: { pressed: boolean; hovered: boolean }) => [
-                styles.playBtn,
-                {
-                  marginTop: 10,
-                  backgroundColor: 'transparent',
-                  borderWidth: 1.5,
-                  borderColor: '#3b82f6',
-                  borderRadius: 16,
-                  transform: [{ scale: hovered ? 1.02 : 1 }],
-                  transition: 'all 0.15s ease-in-out',
-                }
-              ]}
-            >
-              <View style={styles.playInner}>
-                <Ionicons name="people-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
-                <Text style={[styles.playText, { color: '#fff' }]}>
-                  {isEN ? 'PLAY WITH FRIEND' : 'ከጓደኛ ጋር ይጫወቱ'}
+                <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <WeeklyPodium
+              isEN={isEN}
+              weeklyLeaderboard={weeklyLeaderboard}
+              myWeeklyRank={myWeeklyRank}
+              isBanned={isBanned}
+              openRoomSheet={openRoomSheet}
+              setFriendModalVisible={setFriendModalVisible}
+              setRulesVisible={setRulesVisible}
+              t={t}
+            />
+          )}
+
+          <View style={{ height: 110 }} />
+        </ScrollView>
+
+        {!!user?.username && <WelcomeTermsPopup visible={termsVisible} onAgree={handleAgreeTerms} language={language} />}
+        <ProfileEditModal
+          visible={!user?.username && !booting}
+          onClose={() => {}}
+          initialUsername={user?.username}
+          initialDisplayName={(user as any)?.display_name}
+          initialAvatar={(user as any)?.avatar}
+          onSaved={refreshProfile}
+          language={language}
+        />
+        <BonusLogsModal visible={bonusModalVisible} onClose={() => setBonusModalVisible(false)} language={language} />
+        <RulesModal visible={rulesVisible} onClose={() => setRulesVisible(false)} language={language} />
+
+        {/* Mobile Rail Spin Stake Selector Modal */}
+        <Modal visible={showMobileStakeModal} transparent animationType="slide">
+          <View style={{
+            flex: 1,
+            justifyContent: "flex-end",
+            backgroundColor: "rgba(6, 9, 22, 0.75)"
+          }}>
+            <View style={{
+              backgroundColor: "#0d0e1a",
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              borderWidth: 1,
+              borderColor: "#1e2340",
+              padding: 24,
+              paddingBottom: Platform.OS === "ios" ? 40 : 24,
+            }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+                <Text style={{ color: "#fff", fontSize: 18, fontWeight: "900", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" }}>
+                  {isEN ? "CHOOSE YOUR WAGER" : "የእንጨት መጠን ይምረጡ"}
+                </Text>
+                <TouchableOpacity onPress={() => setShowMobileStakeModal(false)}>
+                  <Ionicons name="close" size={24} color="#8b93a7" />
+                </TouchableOpacity>
+              </View>
+
+              {spinError && (
+                <Text style={{ color: "#ef4444", fontSize: 13, fontWeight: "700", textAlign: "center", marginBottom: 12 }}>
+                  {spinError}
+                </Text>
+              )}
+
+              {/* Current Balance */}
+              <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 16 }}>
+                <Text style={{ color: "#8b93a7", fontSize: 12, fontWeight: "700", fontFamily: "Inter, sans-serif" }}>
+                  {isEN ? "AVAILABLE BALANCE:" : "ያለዎት ቀሪ ሂሳብ:"}
+                </Text>
+                <Text style={{ color: "#22d3ee", fontSize: 13, fontWeight: "900", fontFamily: "Inter, sans-serif" }}>
+                  ETB {balance.toLocaleString()}
                 </Text>
               </View>
-            </WebPressable>
 
-            {isBanned && (
-              <Text style={{ color: 'rgba(253,111,133,0.6)', fontSize: 11, textAlign: 'center', marginTop: 6, fontWeight: '700', letterSpacing: 0.5 }}>
-                {isEN ? 'Your account is suspended · Contact support' : 'መለያዎ ታግዷል · ድጋፍን ያነጋግሩ'}
-              </Text>
-            )}
+              {/* Stepper +/- */}
+              <View style={{
+                flexDirection: "row",
+                alignItems: "center",
+                backgroundColor: "#141829",
+                borderRadius: 12,
+                padding: 4,
+                marginBottom: 16,
+                borderWidth: 1,
+                borderColor: "#1e2340"
+              }}>
+                <TouchableOpacity
+                  onPress={() => setMobileStakeInput(prev => String(Math.max(10, Number(prev) - 10)))}
+                  style={{ width: 44, height: 44, backgroundColor: "#1e2340", borderRadius: 10, alignItems: "center", justifyContent: "center" }}
+                >
+                  <Ionicons name="remove" size={20} color="#fff" />
+                </TouchableOpacity>
+                
+                <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+                  <Text style={{ color: "#fff", fontSize: 18, fontWeight: "900", fontFamily: "Inter, sans-serif" }}>{mobileStakeInput} ETB</Text>
+                </View>
 
-            {/* Rules and info row */}
-            <View style={styles.infoRow}>
-              <InfoPill icon="shield-checkmark-outline" text={isEN ? "Anti-cheat" : "Ã¡Ââ‚¬Ã¡Ë†Â¨-Ã¡Ë†â€ºÃ¡â€°Â³Ã¡Ë†Ë†Ã¡Ë†Â"} />
-              <InfoPill icon="timer-outline" text={isEN ? "Fast rounds" : "Ã¡ÂË†Ã¡Å’Â£Ã¡Å â€¢ Ã¡â€¹â„¢Ã¡Ë†Â­"} />
-              <InfoPill icon="cash-outline" text={isEN ? "Instant pay" : "Ã¡ÂË†Ã¡Å’Â£Ã¡Å â€¢ Ã¡Å Â­Ã¡ÂÂÃ¡â€¹Â«"} />
-              <TouchableOpacity onPress={() => setRulesVisible(true)} style={{ flex: 1 }}>
-                <InfoPill icon="book-outline" text={isEN ? "Rules" : "ደንቦች"} />
+                <TouchableOpacity
+                  onPress={() => setMobileStakeInput(prev => String(Number(prev) + 10))}
+                  style={{ width: 44, height: 44, backgroundColor: "#1e2340", borderRadius: 10, alignItems: "center", justifyContent: "center" }}
+                >
+                  <Ionicons name="add" size={20} color="#fff" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Presets */}
+              <View style={{ flexDirection: "row", gap: 8, marginBottom: 20 }}>
+                {[10, 50, 100, 500].map(val => (
+                  <TouchableOpacity
+                    key={val}
+                    onPress={() => setMobileStakeInput(String(val))}
+                    style={{
+                      flex: 1,
+                      paddingVertical: 10,
+                      backgroundColor: "#141829",
+                      borderRadius: 10,
+                      borderWidth: 1,
+                      borderColor: mobileStakeInput === String(val) ? "#22d3ee" : "#1e2340",
+                      alignItems: "center"
+                    }}
+                  >
+                    <Text style={{ color: mobileStakeInput === String(val) ? "#22d3ee" : "#8b93a7", fontSize: 12, fontWeight: "800", fontFamily: "Inter, sans-serif" }}>
+                      {val}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Confirm button */}
+              <TouchableOpacity
+                onPress={() => handleConfirmMobileRailSpin(Number(mobileStakeInput))}
+                style={{
+                  backgroundColor: "#22d3ee",
+                  borderRadius: 14,
+                  paddingVertical: 14,
+                  alignItems: "center",
+                  justifyContent: "center"
+                }}
+              >
+                <Text style={{ color: "#0d0e1a", fontSize: 14, fontWeight: "900", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" }}>
+                  {isEN ? "CONFIRM & JOIN" : "አረጋግጥ እና ጀምር"}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
-          <View style={{ height: 40 }} />
-        </ScrollView>
-        {!!user?.username && <WelcomeTermsPopup visible={termsVisible} onAgree={handleAgreeTerms} language={language} />}
-        <BonusLogsModal visible={bonusModalVisible} onClose={() => setBonusModalVisible(false)} language={language} />
-        <RulesModal visible={rulesVisible} onClose={() => setRulesVisible(false)} language={language} />
+        </Modal>
 
         {Platform.OS === 'web' && (
           <>
@@ -1502,7 +1510,7 @@ export default function Landing() {
           onSelectRoom={onSelectRoom}
           onSelectAmount={selectAmount}
           isDesktop={false}
-          userCaps={{ r1_10: (user as any)?.r1_10_wins, r1_25: (user as any)?.r1_25_wins, r1_50: (user as any)?.r1_50_wins, r1_99: (user as any)?.r1_99_wins, rooms_locked: appConfig.rooms_locked }}
+          userCaps={{ r1_10_wins: (user as any)?.r1_10_wins, r1_15_wins: (user as any)?.r1_15_wins, r1_25_wins: (user as any)?.r1_25_wins, r1_50_wins: (user as any)?.r1_50_wins, r1_99_wins: (user as any)?.r1_99_wins, rooms_locked: appConfig.rooms_locked }}
         />
       )}
 
@@ -2577,7 +2585,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Desktop Hub Styles Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+// ─── Desktop Hub Styles ───
   desktopHubRoot: { flex: 1, backgroundColor: 'transparent' },
   hubDesktopGrid: { flexDirection: 'row', gap: 24, maxWidth: 1240, alignSelf: 'center', width: '100%', paddingHorizontal: 24, marginTop: 24 },
   desktopMainCol: { flex: 8, gap: 16 },
@@ -2727,6 +2735,96 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 24,
     textTransform: 'uppercase',
+  },
+});
+
+// SPIN card styles (token-based)
+const spinStyles = StyleSheet.create({
+  card: {
+    marginTop: 16,
+    borderRadius: 24,
+    padding: 18,
+    alignItems: "center",
+    width: "100%",
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "#10101F",
+  },
+  headerRow: {
+    width: "100%",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+    alignSelf: "stretch",
+  },
+  title: {
+    color: "#EDEEF4",
+    fontSize: 20,
+    fontWeight: "800",
+    letterSpacing: -0.2,
+  },
+  subtitle: {
+    color: "#F5B642",
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 2,
+  },
+  liveBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(16,185,129,0.10)",
+    borderRadius: 999,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: "rgba(16,185,129,0.28)",
+  },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#34D399",
+  },
+  liveText: {
+    color: "#B4B8CC",
+    fontSize: 11.5,
+    fontWeight: "700",
+  },
+  wheelWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginVertical: 12,
+  },
+  capsule: {
+    marginTop: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    paddingVertical: 11,
+    paddingHorizontal: 22,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+    backgroundColor: "rgba(255,255,255,0.04)",
+  },
+  avatarDot: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.6)",
+  },
+  capsuleText: {
+    color: "#EDEEF4",
+    fontSize: 12.5,
+    fontWeight: "800",
+    letterSpacing: 0.6,
   },
 });
 

@@ -12,13 +12,13 @@ const TAB_H = Platform.OS === "ios" ? 90 : 82;
 
 
 const colors = {
-  bg: "#0a0a1a", // Surface dark
-  bar: "rgba(10,10,26,0.7)", // Glassy bar
-  border: "rgba(255,255,255,0.08)", // Primary dim border
-  active: "#00daf3", // Primary neon cyan
-  inactive: "#9090a8", // Inverse on-surface
+  bg: "#0B0B16", // Surface dark
+  bar: "rgba(11,11,22,0.72)", // Glassy bar
+  border: "rgba(255,255,255,0.08)", // Hairline border
+  active: "#00DAF3", // Brand cyan
+  inactive: "#8B8FA8", // Muted
   activePillBg: "rgba(0,218,243,0.12)",
-  activePillBorder: "rgba(0,218,243,0.2)",
+  activePillBorder: "rgba(0,218,243,0.35)",
 };
 
 function TabButton(props: any) {
@@ -79,8 +79,6 @@ export default function AuthedLayout() {
   const pathname = usePathname();
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === "web" && width >= 768;
-
-  if (!user) return <Redirect href="/(auth)/login" />;
 
   const getTabTitle = useCallback(
     (routeName: string) => {
@@ -152,6 +150,8 @@ export default function AuthedLayout() {
     );
   }, []);
 
+  if (!user) return <Redirect href="/(auth)/login" />;
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <Tabs
@@ -169,51 +169,64 @@ export default function AuthedLayout() {
       </Tabs>
 
       {/* Global Custom Floating Bottom Nav — 4 items: Home, History, Leaderboard, Profile */}
-      {!isDesktop && (
-        <View style={{
+      {!isDesktop && !pathname.includes('spin') && (
+        <View pointerEvents="box-none" style={{
           position: 'absolute', bottom: 0,
           left: 0, right: 0, zIndex: 9999, elevation: 9999,
-          backgroundColor: 'rgba(10,10,26,0.6)',
-          borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)',
-          paddingBottom: Platform.OS === 'ios' ? 24 : 12,
+          alignItems: 'center',
+          paddingBottom: Platform.OS === 'ios' ? 18 : 12,
         }}>
-          {/* Universal glassmorphic background for mobile & web */}
-          <BlurView tint="dark" intensity={60} style={StyleSheet.absoluteFill} />
           <View style={{
+            width: '94%', maxWidth: 480,
             flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around',
-            paddingTop: 15,
+            backgroundColor: 'rgba(11,11,22,0.78)',
+            borderRadius: 24,
+            borderWidth: 1,
+            borderColor: 'rgba(255,255,255,0.10)',
+            paddingTop: 10,
+            paddingBottom: Platform.OS === 'ios' ? 14 : 10,
+            overflow: 'hidden',
+            shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: 0.45, shadowRadius: 20, elevation: 12,
           }}>
+            {/* Universal glassmorphic background */}
+            <BlurView tint="dark" intensity={50} style={StyleSheet.absoluteFill} />
+
             {/* Home */}
-            <TouchableOpacity onPress={() => router.push('/(authed)/home/gameplay')} style={s.navItem}>
-              {pathname === '/home/gameplay' && <View style={s.activeIndicator} />}
-              <House size={22} color={pathname === '/home/gameplay' ? "#00daf3" : "#9090a8"} weight={pathname === '/home/gameplay' ? "fill" : "regular"} />
+            <TouchableOpacity onPress={() => router.push('/(authed)/home/gameplay')} style={s.navItem} activeOpacity={0.8}>
+              <View style={[s.iconPill, pathname === '/home/gameplay' && s.iconPillActive]}>
+                <House size={21} color={pathname === '/home/gameplay' ? colors.active : colors.inactive} weight={pathname === '/home/gameplay' ? "fill" : "regular"} />
+              </View>
               <Text style={[s.navLabel, pathname === '/home/gameplay' && s.navLabelActive]}>
                 {language === 'am' ? 'ዋና' : 'Home'}
               </Text>
             </TouchableOpacity>
 
             {/* History (Match History) */}
-            <TouchableOpacity onPress={() => router.push('/(authed)/home/history')} style={s.navItem}>
-              {pathname === '/home/history' && <View style={s.activeIndicator} />}
-              <ClockCounterClockwise size={22} color={pathname === '/home/history' ? "#00daf3" : "#9090a8"} weight={pathname === '/home/history' ? "fill" : "regular"} />
+            <TouchableOpacity onPress={() => router.push('/(authed)/home/history')} style={s.navItem} activeOpacity={0.8}>
+              <View style={[s.iconPill, pathname === '/home/history' && s.iconPillActive]}>
+                <ClockCounterClockwise size={21} color={pathname === '/home/history' ? colors.active : colors.inactive} weight={pathname === '/home/history' ? "fill" : "regular"} />
+              </View>
               <Text style={[s.navLabel, pathname === '/home/history' && s.navLabelActive]}>
                 {language === 'am' ? 'ታሪክ' : 'History'}
               </Text>
             </TouchableOpacity>
 
             {/* Leaderboard */}
-            <TouchableOpacity onPress={() => router.push('/(authed)/home/leaderboard')} style={s.navItem}>
-              {pathname === '/home/leaderboard' && <View style={s.activeIndicator} />}
-              <Trophy size={22} color={pathname === '/home/leaderboard' ? "#00daf3" : "#9090a8"} weight={pathname === '/home/leaderboard' ? "fill" : "regular"} />
+            <TouchableOpacity onPress={() => router.push('/(authed)/home/leaderboard')} style={s.navItem} activeOpacity={0.8}>
+              <View style={[s.iconPill, pathname === '/home/leaderboard' && s.iconPillActive]}>
+                <Trophy size={21} color={pathname === '/home/leaderboard' ? colors.active : colors.inactive} weight={pathname === '/home/leaderboard' ? "fill" : "regular"} />
+              </View>
               <Text style={[s.navLabel, pathname === '/home/leaderboard' && s.navLabelActive]}>
                 {language === 'am' ? 'ሊደርቦርድ' : 'Leaderboard'}
               </Text>
             </TouchableOpacity>
 
             {/* Profile */}
-            <TouchableOpacity onPress={() => router.push('/(authed)/home/account')} style={s.navItem}>
-              {pathname === '/home/account' && <View style={s.activeIndicator} />}
-              <UserCircle size={22} color={pathname === '/home/account' ? "#00daf3" : "#9090a8"} weight={pathname === '/home/account' ? "fill" : "regular"} />
+            <TouchableOpacity onPress={() => router.push('/(authed)/home/account')} style={s.navItem} activeOpacity={0.8}>
+              <View style={[s.iconPill, pathname === '/home/account' && s.iconPillActive]}>
+                <UserCircle size={21} color={pathname === '/home/account' ? colors.active : colors.inactive} weight={pathname === '/home/account' ? "fill" : "regular"} />
+              </View>
               <Text style={[s.navLabel, pathname === '/home/account' && s.navLabelActive]}>
                 {language === 'am' ? 'መለያ' : 'Profile'}
               </Text>
@@ -226,14 +239,18 @@ export default function AuthedLayout() {
 }
 
 const s = StyleSheet.create({
-  navItem: { flex: 1, alignItems: 'center', position: 'relative' },
-  navLabel: { fontSize: 9, marginTop: 6, fontWeight: '700', textTransform: 'uppercase', color: '#9090a8' },
-  navLabelActive: { color: '#00daf3' },
-  activeIndicator: {
-    position: 'absolute', top: -15, width: 24, height: 3,
-    backgroundColor: '#00daf3', borderRadius: 2,
-    shadowColor: '#00daf3', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8, shadowRadius: 10, elevation: 4
-  }
+  navItem: { flex: 1, alignItems: 'center' },
+  iconPill: {
+    width: 46, height: 30, borderRadius: 15,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  iconPillActive: {
+    backgroundColor: 'rgba(0,218,243,0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(0,218,243,0.35)',
+  },
+  navLabel: { fontSize: 9, marginTop: 4, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.6, color: '#8B8FA8' },
+  navLabelActive: { color: '#00DAF3' },
 });
 
 // export this so screens can pad properly

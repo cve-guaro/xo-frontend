@@ -108,6 +108,8 @@ const Notice = memo(function Notice({ type, text, onClose }: { type: "error" | "
 });
 
 const MethodCard = memo(function MethodCard({ item, selected, onPress }: { item: any; selected: boolean; onPress: () => void; }) {
+  const { language } = useAuth();
+  const isEN = language === "en";
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.methodOuter, pressed && { opacity: 0.92 }]}>
       <LinearGradient colors={item.colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.methodGradient}>
@@ -128,7 +130,7 @@ const MethodCard = memo(function MethodCard({ item, selected, onPress }: { item:
         </View>
         <View style={styles.methodHintRow}>
           <Ionicons name="shield-checkmark" size={14} color="rgba(255,255,255,0.9)" />
-          <Text style={styles.methodHint}>Secure payout • Usually instant</Text>
+          <Text style={styles.methodHint}>{isEN ? "Secure payout • Usually instant" : "ደህንነቱ የተጠበቀ ክፍያ • አብዛኛውን ጊዜ ፈጣን"}</Text>
         </View>
       </LinearGradient>
     </Pressable>
@@ -311,8 +313,8 @@ export default function WithdrawScreen() {
                     <Ionicons name="chevron-back" size={22} color="#E5E7EB" />
                   </TouchableOpacity>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.headerTitle}>Withdraw</Text>
-                    <Text style={styles.headerSub}>Send money to your wallet</Text>
+                    <Text style={styles.headerTitle}>{isEN ? "Withdraw" : "ማውጫ"}</Text>
+                    <Text style={styles.headerSub}>{isEN ? "Send money to your wallet" : "ገንዘብ ወደ አካውንትዎ ያስተላልፉ"}</Text>
                   </View>
                 </View>
               )}
@@ -326,12 +328,12 @@ export default function WithdrawScreen() {
 
               <LinearGradient colors={["rgba(166,139,255,0.15)", "rgba(0,218,243,0.05)", "rgba(255,255,255,0.02)"]} style={styles.hero}>
                 <View style={styles.heroLeft}>
-                  <Text style={styles.heroKicker}>Withdrawable Balance</Text>
+                  <Text style={styles.heroKicker}>{isEN ? "Withdrawable Balance" : "ሊወጣ የሚችል ቀሪ ሂሳብ"}</Text>
                   <Text style={styles.heroText}>ETB {Number(withdrawableBalance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
                 </View>
                 <View style={styles.heroBadge}>
                   <Ionicons name="flash" size={16} color="#0B0B0F" />
-                  <Text style={styles.heroBadgeText}>Instant</Text>
+                  <Text style={styles.heroBadgeText}>{isEN ? "Instant" : "ወዲያውኑ"}</Text>
                 </View>
               </LinearGradient>
               
@@ -342,7 +344,7 @@ export default function WithdrawScreen() {
               {notice && <Notice type={notice.type} text={notice.text} onClose={() => setNotice(null)} />}
 
               <View style={styles.block}>
-                <Text style={styles.blockTitle}>Withdraw Amount</Text>
+                <Text style={styles.blockTitle}>{isEN ? "Withdraw Amount" : "የማውጫ መጠን"}</Text>
                 <View style={[styles.amountCard, isInvalidAmount && styles.amountCardError]}>
                   <View style={[styles.amountTopRow, isInvalidAmount && { borderBottomColor: "rgba(248,113,113,0.3)" }]}>
                     <Text style={[styles.amountPrefix, isInvalidAmount && { color: "#f87171" }]}>ETB</Text>
@@ -368,7 +370,7 @@ export default function WithdrawScreen() {
               </View>
 
               <View style={styles.block}>
-                <Text style={styles.blockTitle}>Payout Provider</Text>
+                <Text style={styles.blockTitle}>{isEN ? "Payout Provider" : "የክፍያ አቅራቢ"}</Text>
                 <View style={styles.methodsGrid}>
                   {methods.map((m) => (
                     <View key={m.key} style={styles.methodGridItem}>
@@ -412,7 +414,7 @@ export default function WithdrawScreen() {
                   )}
                 </LinearGradient>
               </TouchableOpacity>
-              <Text style={styles.footerHint}>Secure Payout System • Terms Apply</Text>
+              <Text style={styles.footerHint}>{isEN ? "Secure Payout System • Terms Apply" : "ደህንነቱ የተጠበቀ የክፍያ ስርዓት • ደንቦች ተፈጻሚ ይሆናሉ"}</Text>
             </View>
 
             {!isWeb && (
@@ -422,7 +424,7 @@ export default function WithdrawScreen() {
                     <TouchableOpacity onPress={() => setCheckoutUrl(null)} style={styles.webBtn}>
                       <Ionicons name="close" size={20} color="#E5E7EB" />
                     </TouchableOpacity>
-                    <Text style={styles.webTitle}>Withdrawal Terminal</Text>
+                    <Text style={styles.webTitle}>{isEN ? "Withdrawal Terminal" : "የማውጫ ተርሚናል"}</Text>
                     <View style={{ width: 44 }} />
                   </View>
                   {checkoutUrl && (

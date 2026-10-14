@@ -1,0 +1,3644 @@
+// app/(authed)/home/spin.tsx
+// ────────────────────────────────────────────────────────────────────────────
+// Full-page Spin game screen with desktop layout integration.
+// Shows room browser → waiting room → live spin → result.
+// Connects to backend via socket for all real-time state.
+// ────────────────────────────────────────────────────────────────────────────
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  StyleSheet,
+  Platform,
+  ActivityIndicator,
+  Image,
+  ImageBackground,
+  useWindowDimensions,
+  Modal,
+  Pressable,
+  Animated,
+  Easing,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter, useLocalSearchParams } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
+import Svg, { Path, Ellipse } from "react-native-svg";
+import { useAuth } from "../../../context/authContext";
+import { useSocket } from "../../../context/socketContext";
+import { useFocusEffect } from "@react-navigation/native";
+import { API_URL, AGORA_APP_ID } from "../../../config";
+import SpinWheel from "../../../components/game/SpinWheel";
+import { SlidingNumber } from "../../../components/game/SlidingNumber";
+import { WebDepositModal, WebWithdrawModal } from "../../../components/WebModals";
+import { voiceService } from "../../../lib/voiceService";
+import { useAudioPlayer } from "expo-audio";
+import { useBackgroundMusic } from "../../../context/BackgroundMusicProvider";
+
+// ── Coin Stack Icon Component ─────────────────────────────────────────────
+function CoinStackIcon({ size = 16, color = "#facc15" }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <ellipse cx="12" cy="6" rx="8" ry="3" fill={color} stroke="#b45309" strokeWidth="1" />
+      <path d="M4 6v5c0 1.66 3.58 3 8 3s8-1.34 8-3V6" fill={color} stroke="#b45309" strokeWidth="1" />
+      <ellipse cx="12" cy="11" rx="8" ry="2.5" fill="#eab308" />
+      <path d="M4 11v5c0 1.66 3.58 3 8 3s8-1.34 8-3v-5" fill={color} stroke="#b45309" strokeWidth="1" />
+      <ellipse cx="12" cy="16" rx="8" ry="2.5" fill="#ca8a04" />
+    </Svg>
+  );
+}
+
+// ── 3D Crown Icon Component (Image 4) ──────────────────────────────────────
+function CrownIcon({ size = 36 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="#ffffff">
+      <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z" />
+    </Svg>
+  );
+}
+
+
+
+// ── Animated Voice Equalizer Wave ─────────────────────────────────────────
+function SpeakingWaveAnimation() {
+  const bar1 = useRef(new Animated.Value(4)).current;
+  const bar2 = useRef(new Animated.Value(12)).current;
+  const bar3 = useRef(new Animated.Value(8)).current;
+  const bar4 = useRef(new Animated.Value(16)).current;
+
+  useEffect(() => {
+    const createLoop = (anim: Animated.Value, min: number, max: number, duration: number) => {
+      return Animated.loop(
+        Animated.sequence([
+          Animated.timing(anim, { toValue: max, duration, useNativeDriver: false }),
+          Animated.timing(anim, { toValue: min, duration, useNativeDriver: false }),
+        ])
+      );
+    };
+
+    const anim1 = createLoop(bar1, 4, 18, 250);
+    const anim2 = createLoop(bar2, 3, 16, 320);
+    const anim3 = createLoop(bar3, 5, 20, 280);
+    const anim4 = createLoop(bar4, 4, 14, 350);
+
+    anim1.start();
+    anim2.start();
+    anim3.start();
+    anim4.start();
+
+    return () => {
+      anim1.stop();
+      anim2.stop();
+      anim3.stop();
+      anim4.stop();
+    };
+  }, [bar1, bar2, bar3, bar4]);
+
+  return (
+    <View style={{ flexDirection: "row", alignItems: "flex-end", height: 18, gap: 2, marginLeft: 6 }}>
+      <Animated.View style={{ width: 3, height: bar1, backgroundColor: "#22c55e", borderRadius: 2 }} />
+      <Animated.View style={{ width: 3, height: bar2, backgroundColor: "#22c55e", borderRadius: 2 }} />
+      <Animated.View style={{ width: 3, height: bar3, backgroundColor: "#22c55e", borderRadius: 2 }} />
+      <Animated.View style={{ width: 3, height: bar4, backgroundColor: "#22c55e", borderRadius: 2 }} />
+    </View>
+  );
+}
+
+// ── Animated User Mic Button with Pulsing Green Wave (when speaking/unmuted) ──
+function AnimatedUserMicButton({
+  isMuted,
+  isSpeaking,
+  onPress,
+}: {
+  isMuted: boolean;
+  isSpeaking: boolean;
+  onPress: () => void;
+}) {
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    let loop: Animated.CompositeAnimation | null = null;
+    if (!isMuted || isSpeaking) {
+      loop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, { toValue: 1.15, duration: 400, useNativeDriver: Platform.OS !== "web" }),
+          Animated.timing(pulseAnim, { toValue: 1, duration: 400, useNativeDriver: Platform.OS !== "web" }),
+        ])
+      );
+      loop.start();
+    } else {
+      pulseAnim.setValue(1);
+    }
+    return () => {
+      if (loop) loop.stop();
+    };
+  }, [isMuted, isSpeaking, pulseAnim]);
+
+  const activeColor = !isMuted ? "#22c55e" : "#64748b";
+  const activeBg = !isMuted ? "rgba(34, 197, 94, 0.18)" : "rgba(100, 116, 139, 0.15)";
+  const activeBorder = !isMuted ? "#22c55e" : "rgba(100, 116, 139, 0.4)";
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      style={{
+        width: 40,
+        height: 40,
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+      activeOpacity={0.8}
+    >
+      <Animated.View
+        style={{
+          width: 38,
+          height: 38,
+          borderRadius: 19,
+          borderWidth: 1.5,
+          borderColor: activeBorder,
+          backgroundColor: activeBg,
+          alignItems: "center",
+          justifyContent: "center",
+          transform: [{ scale: pulseAnim }],
+        }}
+      >
+        <Ionicons
+          name={isMuted ? "mic-off" : "mic"}
+          size={18}
+          color={activeColor}
+        />
+      </Animated.View>
+    </TouchableOpacity>
+  );
+}
+
+// ── Celebration Boom Animation (Confetti Explosion & Shockwaves) ───────────
+const CELEBRATION_COLORS = [
+  "#facc15", "#ff2d55", "#a855f7", "#10b981", "#38bdf8", "#f97316", "#ec4899", "#ffffff"
+];
+
+const PARTICLES_CONFIG = Array.from({ length: 48 }, (_, i) => {
+  const angle = (i / 48) * (Math.PI * 2) + (Math.random() * 0.2 - 0.1);
+  const distance = 110 + Math.random() * 240;
+  const size = 6 + Math.random() * 8;
+  const isCircle = i % 3 === 0;
+  const isStar = i % 5 === 0;
+  const color = CELEBRATION_COLORS[i % CELEBRATION_COLORS.length];
+  const spin = (Math.random() > 0.5 ? 1 : -1) * (360 + Math.random() * 720);
+  return {
+    angle,
+    targetX: Math.cos(angle) * distance,
+    targetY: Math.sin(angle) * distance,
+    size,
+    isCircle,
+    isStar,
+    color,
+    spin,
+    delay: Math.floor(Math.random() * 120),
+  };
+});
+
+function CelebrationBoom() {
+  const blastAnim = useRef(new Animated.Value(0)).current;
+  const shock1Anim = useRef(new Animated.Value(0)).current;
+  const shock2Anim = useRef(new Animated.Value(0)).current;
+  const glowAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(blastAnim, {
+        toValue: 1,
+        duration: 1600,
+        useNativeDriver: Platform.OS !== "web",
+      }),
+      Animated.timing(shock1Anim, {
+        toValue: 1,
+        duration: 1200,
+        useNativeDriver: Platform.OS !== "web",
+      }),
+      Animated.sequence([
+        Animated.delay(150),
+        Animated.timing(shock2Anim, {
+          toValue: 1,
+          duration: 1300,
+          useNativeDriver: Platform.OS !== "web",
+        }),
+      ]),
+      Animated.sequence([
+        Animated.timing(glowAnim, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: Platform.OS !== "web",
+        }),
+        Animated.timing(glowAnim, {
+          toValue: 0.35,
+          duration: 1200,
+          useNativeDriver: Platform.OS !== "web",
+        }),
+      ]),
+    ]).start();
+  }, [blastAnim, shock1Anim, shock2Anim, glowAnim]);
+
+  const shock1Scale = shock1Anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.2, 3.2],
+  });
+  const shock1Opacity = shock1Anim.interpolate({
+    inputRange: [0, 0.2, 0.8, 1],
+    outputRange: [1, 0.85, 0.2, 0],
+  });
+
+  const shock2Scale = shock2Anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.2, 2.6],
+  });
+  const shock2Opacity = shock2Anim.interpolate({
+    inputRange: [0, 0.2, 0.8, 1],
+    outputRange: [0.9, 0.8, 0.15, 0],
+  });
+
+  return (
+    <View
+      pointerEvents="none"
+      style={[
+        StyleSheet.absoluteFillObject,
+        {
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 10,
+        },
+      ]}
+    >
+      {/* Central Radiating Glow Aura */}
+      <Animated.View
+        style={{
+          position: "absolute",
+          width: 260,
+          height: 260,
+          borderRadius: 130,
+          backgroundColor: "rgba(250, 204, 21, 0.28)",
+          opacity: glowAnim,
+          transform: [
+            {
+              scale: glowAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0.8, 1.8],
+              }),
+            },
+          ],
+        }}
+      />
+
+      {/* Shockwave 1: Golden Explosion Ring */}
+      <Animated.View
+        style={{
+          position: "absolute",
+          width: 200,
+          height: 200,
+          borderRadius: 100,
+          borderWidth: 4,
+          borderColor: "#facc15",
+          opacity: shock1Opacity,
+          transform: [{ scale: shock1Scale }],
+          shadowColor: "#facc15",
+          shadowOpacity: 0.9,
+          shadowRadius: 16,
+        }}
+      />
+
+      {/* Shockwave 2: Crimson Pink Shockwave */}
+      <Animated.View
+        style={{
+          position: "absolute",
+          width: 200,
+          height: 200,
+          borderRadius: 100,
+          borderWidth: 3,
+          borderColor: "#f43f5e",
+          opacity: shock2Opacity,
+          transform: [{ scale: shock2Scale }],
+          shadowColor: "#f43f5e",
+          shadowOpacity: 0.8,
+          shadowRadius: 14,
+        }}
+      />
+
+      {/* 48 Confetti & Sparkle Shards Exploding Outward */}
+      {PARTICLES_CONFIG.map((p, idx) => {
+        const transX = blastAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, p.targetX],
+        });
+        const transY = blastAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, p.targetY],
+        });
+        const rot = blastAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: ["0deg", `${p.spin}deg`],
+        });
+        const scale = blastAnim.interpolate({
+          inputRange: [0, 0.2, 0.7, 1],
+          outputRange: [0, 1.4, 1.1, 0.85],
+        });
+        const opacity = blastAnim.interpolate({
+          inputRange: [0, 0.1, 0.75, 1],
+          outputRange: [0, 1, 0.95, 0],
+        });
+
+        return (
+          <Animated.View
+            key={`confetti-${idx}`}
+            style={{
+              position: "absolute",
+              width: p.isCircle ? p.size : p.isStar ? p.size * 1.4 : p.size * 1.8,
+              height: p.isCircle ? p.size : p.isStar ? p.size * 1.4 : p.size * 0.7,
+              borderRadius: p.isCircle ? p.size / 2 : 2,
+              backgroundColor: p.isStar ? "transparent" : p.color,
+              alignItems: "center",
+              justifyContent: "center",
+              opacity,
+              transform: [
+                { translateX: transX },
+                { translateY: transY },
+                { rotate: rot },
+                { scale },
+              ],
+            }}
+          >
+            {p.isStar && (
+              <Text style={{ color: p.color, fontSize: p.size * 1.2, fontWeight: "900" }}>
+                ✦
+              </Text>
+            )}
+          </Animated.View>
+        );
+      })}
+    </View>
+  );
+}
+
+// ── Types ──────────────────────────────────────────────────────────────────
+type SpinPlayer = {
+  userId: string;
+  username: string;
+  seatIndex: number;
+  avatar?: string | null;
+  isBot?: boolean;
+  stake?: number;
+};
+
+type RoundState = {
+  roundId: string;
+  configId: number;
+  betAmount: number;
+  maxPlayers: number;
+  roomName: string;
+  status: "waiting" | "locked" | "spinning" | "resolved" | "paid" | "cancelled";
+  countdown: number;
+  players: SpinPlayer[];
+  pot: number;
+  mode: "5_PLAYER" | "RAIL";
+};
+
+// ── Screen states ──────────────────────────────────────────────────────────
+type ScreenState = "browse" | "waiting" | "spinning" | "result";
+
+export default function SpinGameScreen() {
+  const router = useRouter();
+  const { width: screenW, height: screenH } = useWindowDimensions();
+  const isCompactScreen = screenH < 740;
+  const mobileWheelSize = Math.max(
+    140,
+    Math.min(
+      screenW - 56,
+      isCompactScreen ? Math.round(screenH * 0.32) : Math.round(screenH * 0.36),
+      275
+    )
+  );
+  const { token, user, refreshProfile } = useAuth();
+  const balance = Number(user?.available_balance || 0);
+  const { mode, stake } = useLocalSearchParams();
+  const { ensureConnected, emitAck, onMessage, send } = useSocket();
+
+  const { isPlaying: bgMusicPlaying, muteMusic } = useBackgroundMusic();
+  const muteMusicRef = useRef(muteMusic);
+  useEffect(() => {
+    muteMusicRef.current = muteMusic;
+  }, [muteMusic]);
+
+  // ---------- Sound Effects ----------
+  const clickSound = useAudioPlayer(require("../../../assets/sounds/click.wav"));
+  const winSound = useAudioPlayer(require("../../../assets/sounds/win.mp3"));
+  const loseSound = useAudioPlayer(require("../../../assets/sounds/lose.wav"));
+  const spinLoopSound = useAudioPlayer(require("../../../assets/sounds/spin.mp3"));
+  const addMoneySound = useAudioPlayer(require("../../../assets/sounds/add_money.mp3"));
+
+  const playClick = useCallback(() => {
+    try {
+      clickSound.seekTo(0);
+      clickSound.play();
+    } catch (e) { console.warn("clickSound error:", e); }
+  }, [clickSound]);
+
+  const playWin = useCallback(() => {
+    try {
+      winSound.seekTo(0);
+      winSound.volume = 1;
+      winSound.play();
+    } catch (e) { console.warn("winSound error:", e); }
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      try {
+        const audio = new Audio(require("../../../assets/sounds/win.mp3"));
+        audio.volume = 1;
+        audio.play().catch(() => {});
+      } catch {}
+    }
+  }, [winSound]);
+
+  const playLose = useCallback(() => {
+    try {
+      loseSound.seekTo(0);
+      loseSound.volume = 1;
+      loseSound.play();
+    } catch (e) { console.warn("loseSound error:", e); }
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      try {
+        const audio = new Audio(require("../../../assets/sounds/lose.wav"));
+        audio.volume = 1;
+        audio.play().catch(() => {});
+      } catch {}
+    }
+  }, [loseSound]);
+
+  const playSpinLoop = useCallback(() => {
+    try {
+      // Restart cleanly from the beginning each spin — a previously-finished
+      // player will not resume without seekTo(0), which made the spin silent.
+      spinLoopSound.seekTo(0);
+      spinLoopSound.loop = true;
+      spinLoopSound.volume = 1;
+      spinLoopSound.play();
+    } catch (e) { console.warn("spinLoopSound error:", e); }
+  }, [spinLoopSound]);
+
+  const stopSpinLoop = useCallback(() => {
+    try {
+      spinLoopSound.pause();
+      spinLoopSound.seekTo(0);
+    } catch (e) { console.warn("stopSpinLoop error:", e); }
+  }, [spinLoopSound]);
+
+  const isSpinningRef = useRef(false);
+  const pendingResultDataRef = useRef<{ winnerId: string; winnerName: string; prizeAmount: number } | null>(null);
+
+  const handleSpinComplete = useCallback(() => {
+    stopSpinLoop();
+    setIsSpinning(false);
+    isSpinningRef.current = false;
+
+    // Show result modal ONLY after the wheel has physically finished spinning and landed on the winner!
+    if (pendingResultDataRef.current) {
+      const res = pendingResultDataRef.current;
+      pendingResultDataRef.current = null;
+      setResultData(res);
+      setScreenState("result");
+      const isWinner = Boolean(
+        user && (
+          String(res.winnerId) === String(user.id) ||
+          String(res.winnerId) === String((user as any)?._id) ||
+          (res.winnerName && user.username && res.winnerName.toLowerCase() === user.username.toLowerCase())
+        )
+      );
+      if (isWinner) {
+        playWin();
+      } else {
+        playLose();
+      }
+    }
+  }, [stopSpinLoop, user, playWin, playLose]);
+
+  const stopAllSounds = useCallback(() => {
+    try { spinLoopSound.pause(); spinLoopSound.seekTo(0); } catch (e) {}
+    try { winSound.pause(); } catch (e) {}
+    try { loseSound.pause(); } catch (e) {}
+    try { addMoneySound.pause(); } catch (e) {}
+  }, [spinLoopSound, winSound, loseSound, addMoneySound]);
+
+  const playAddMoney = useCallback(() => {
+    try { addMoneySound.play(); } catch (e) { console.warn("addMoneySound error:", e); }
+  }, [addMoneySound]);
+
+  // ── State ────────────────────────────────────────────────────────────
+  const [screenState, setScreenState] = useState<ScreenState>("browse");
+  const [round, setRound] = useState<RoundState | null>(null);
+  const [isSpinning, setIsSpinning] = useState(false);
+  const [winningSlice, setWinningSlice] = useState<number | null>(null);
+  const [spinDuration, setSpinDuration] = useState(5000);
+  const [resultData, setResultData] = useState<{
+    winnerId: string;
+    winnerName: string;
+    prizeAmount: number;
+  } | null>(null);
+  const [countdown, setCountdown] = useState(0);
+  const [joinLoading, setJoinLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [depositVisible, setDepositVisible] = useState(false);
+  const [withdrawVisible, setWithdrawVisible] = useState(false);
+  const [addAmount, setAddAmount] = useState(10);
+  const [addLoading, setAddLoading] = useState(false);
+  const [mobilePlayersSheetVisible, setMobilePlayersSheetVisible] = useState(false);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [preSpinCountdown, setPreSpinCountdown] = useState<number | null>(null);
+  const preSpinTimerRef = useRef<any>(null);
+  const countdownTimerRef = useRef<any>(null);
+  // Store pending spin data so we can defer the spin until preSpinCountdown finishes
+  const pendingSpinDataRef = useRef<{ winningSlice: number; spinDuration: number; roundId: string; winnerId?: string } | null>(null);
+  const [pendingWinnerId, setPendingWinnerId] = useState<string | null>(null);
+  const targetEndTimeRef = useRef<number | null>(null);
+  // ── Rematch State ──────────────────────────────────────────────
+  const [rematchAvailable, setRematchAvailable] = useState<{ originalRoundId: string; timeoutMs: number; betAmount: number } | null>(null);
+  const [rematchAccepted, setRematchAccepted] = useState<boolean>(false);
+  const [rematchCount, setRematchCount] = useState<number>(0);
+
+  // ── Voice Chat State ───────────────────────────────────────────
+  const [micMuted, setMicMuted] = useState(true);
+  const [betAmount, setBetAmount] = useState(100);
+  const [leaderboard, setLeaderboard] = useState<any[]>([]);
+  const [preJoinRoom, setPreJoinRoom] = useState<any | null>(null);
+  const [mutedPlayers, setMutedPlayers] = useState<Set<string>>(new Set());
+  const [masterSpeakerMuted, setMasterSpeakerMuted] = useState(false);
+  const [speakingUserIds, setSpeakingUserIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    const unsub = voiceService.onSpeaking((speakers) => {
+      setSpeakingUserIds(speakers);
+    });
+    return () => unsub();
+  }, []);
+  const [speakingUsers, setSpeakingUsers] = useState<Record<string, number>>({});
+
+  const mutedPlayersRef = useRef<Set<string>>(new Set());
+  const masterSpeakerMutedRef = useRef(false);
+  const [mutedRemoteUsers, setMutedRemoteUsers] = useState<Record<string, boolean>>({});
+  const [allRemoteMuted, setAllRemoteMuted] = useState(false);
+  const mediaRecorderRef = useRef<any>(null);
+  const streamRef = useRef<any>(null);
+
+  useEffect(() => {
+    mutedPlayersRef.current = mutedPlayers;
+  }, [mutedPlayers]);
+
+  useEffect(() => {
+    masterSpeakerMutedRef.current = masterSpeakerMuted;
+  }, [masterSpeakerMuted]);
+
+  const isSpeaking = useCallback((userId: string) => {
+    const lastActive = speakingUsers[userId];
+    if (!lastActive) return false;
+    return Date.now() - lastActive < 1000;
+  }, [speakingUsers]);
+
+  const toggleMutePlayer = useCallback((targetUserId: string) => {
+    setMutedPlayers(prev => {
+      const next = new Set(prev);
+      const isCurrentlyMuted = next.has(targetUserId);
+      const nextMuted = !isCurrentlyMuted;
+      if (isCurrentlyMuted) {
+        next.delete(targetUserId);
+      } else {
+        next.add(targetUserId);
+      }
+      voiceService.muteRemoteUser(targetUserId, nextMuted);
+      return next;
+    });
+  }, []);
+
+  const startRecording = useCallback(async () => {
+    if (Platform.OS !== "web") return;
+    try {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+        try { mediaRecorderRef.current.stop(); } catch (e) {}
+      }
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track: any) => track.stop());
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" });
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const arrayBuffer = reader.result;
+            if (arrayBuffer) {
+              send("spin:voice_chunk", { chunk: arrayBuffer });
+            }
+          };
+          reader.readAsArrayBuffer(event.data);
+        }
+      };
+
+      mediaRecorder.start(250);
+    } catch (err) {
+      console.warn("Voice capture failed:", err);
+    }
+  }, [send]);
+
+  const stopRecording = useCallback(() => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      try { mediaRecorderRef.current.stop(); } catch (e) {}
+      mediaRecorderRef.current = null;
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track: any) => track.stop());
+      streamRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (screenState === "waiting" && !micMuted) {
+      startRecording();
+    } else {
+      stopRecording();
+    }
+    return () => {
+      stopRecording();
+    };
+  }, [screenState, micMuted, startRecording, stopRecording]);
+
+  const isDesktop = Platform.OS === "web" && screenW >= 900;
+
+  // ── Redirect fallback if no active round and browse state ───────────
+  // Skip redirect if `mode` param is present — the auto-join effect hasn't fired yet.
+  useEffect(() => {
+    if (screenState === "browse" && !joinLoading && !round && !mode) {
+      router.replace("/(authed)/home/gameplay");
+    }
+  }, [screenState, joinLoading, round, router, mode]);
+
+  // ── Stuck-state recovery ────────────────────────────────────────────
+  // If the game gets stuck (e.g. socket disconnected during spin), auto-recover
+  useEffect(() => {
+    if (screenState !== "spinning" && screenState !== "waiting") return;
+
+    const stuckTimeout = setTimeout(() => {
+      if (screenState === "spinning") {
+        // Stuck in spinning for 20s — force recover
+        console.warn("[SPIN] Stuck in spinning state, auto-recovering...");
+        stopSpinLoop();
+        setIsSpinning(false);
+        setScreenState("browse");
+        setRound(null);
+        setWinningSlice(null);
+        setPendingWinnerId(null);
+        pendingSpinDataRef.current = null;
+        setResultData(null);
+        setError("Connection lost during spin. Please try again.");
+        refreshProfile();
+      }
+    }, 20000);
+
+    return () => clearTimeout(stuckTimeout);
+  }, [screenState, stopSpinLoop, refreshProfile]);
+
+  // ── Socket message handler ───────────────────────────────────────────
+  useEffect(() => {
+    const unsub = onMessage((msg) => {
+      const { type, payload } = msg;
+
+      switch (type) {
+        case "spin:player_joined":
+          setRound(prev => {
+            if (!prev || prev.roundId !== payload.roundId) return prev;
+            if (prev.players.some(p => p.userId === payload.userId)) return prev;
+            const updatedPlayers = [
+              ...prev.players,
+              {
+                userId: payload.userId,
+                username: payload.username,
+                seatIndex: payload.seatIndex,
+                avatar: payload.avatar,
+                stake: payload.stake,
+              },
+            ];
+            return {
+              ...prev,
+              players: updatedPlayers,
+              pot: prev.mode === "5_PLAYER"
+                ? prev.betAmount * updatedPlayers.length
+                : updatedPlayers.reduce((sum, p) => sum + Number(p.stake || 0), 0),
+            };
+          });
+          break;
+
+        case "spin:player_left":
+          setRound(prev => {
+            if (!prev || prev.roundId !== payload.roundId) return prev;
+            const updated = prev.players.filter(p => p.userId !== payload.userId);
+            return {
+              ...prev,
+              players: updated,
+              pot: prev.mode === "5_PLAYER"
+                ? prev.betAmount * updated.length
+                : updated.reduce((sum, p) => sum + Number(p.stake || 0), 0),
+            };
+          });
+          break;
+
+        case "spin:stake_updated":
+          setRound(prev => {
+            if (!prev || prev.roundId !== payload.roundId) return prev;
+            const updated = prev.players.map(p => {
+              if (p.userId === payload.userId) {
+                return { ...p, stake: payload.newStake };
+              }
+              return p;
+            });
+            return {
+              ...prev,
+              players: updated,
+              pot: payload.pot,
+            };
+          });
+          break;
+        
+        case "spin:countdown": {
+          // Server countdown takes priority — sync target end timestamp smoothly
+          const sec = payload.secondsLeft;
+          const newTarget = Date.now() + sec * 1000;
+          if (!targetEndTimeRef.current || Math.abs(newTarget - targetEndTimeRef.current) > 1500) {
+            targetEndTimeRef.current = newTarget;
+          }
+          const rem = Math.max(0, Math.ceil((targetEndTimeRef.current - Date.now()) / 1000));
+          setCountdown(rem);
+          break;
+        }
+
+        case "spin:locked":
+          setRound(prev => {
+            if (prev && prev.roundId !== payload.roundId) return prev;
+            return {
+              ...(prev || { roundId: payload.roundId, configId: 0, betAmount: 10, maxPlayers: 5, roomName: "Spin Room", countdown: 0, mode: "RAIL", players: payload.players || [] }),
+              status: "locked",
+              pot: payload.pot,
+            } as RoundState;
+          });
+          // Start 3-2-1 pre-spin countdown
+          setPreSpinCountdown(3);
+          if (preSpinTimerRef.current) clearInterval(preSpinTimerRef.current);
+          preSpinTimerRef.current = setInterval(() => {
+            setPreSpinCountdown(prev => {
+              if (prev === null || prev <= 1) {
+                clearInterval(preSpinTimerRef.current);
+                preSpinTimerRef.current = null;
+                return null;
+              }
+              return prev - 1;
+            });
+          }, 1000);
+          break;
+
+        case "spin:start":
+          // Server officially fires the spin with confirmed winningSlice and winnerId
+          if (preSpinTimerRef.current) {
+            clearInterval(preSpinTimerRef.current);
+            preSpinTimerRef.current = null;
+          }
+          setPreSpinCountdown(null);
+          setWinningSlice(payload.winningSlice);
+          setSpinDuration(payload.spinDuration || 5000);
+          setPendingWinnerId(payload.winnerId || null);
+          pendingResultDataRef.current = null;
+
+          isSpinningRef.current = true;
+          setIsSpinning(true);
+          setScreenState("spinning");
+          setRound(r => {
+            if (r && r.roundId !== payload.roundId) return r;
+            playSpinLoop();
+            return {
+              ...(r || { roundId: payload.roundId, configId: 0, betAmount: 10, maxPlayers: 5, roomName: "Spin Room", countdown: 0, mode: "RAIL", players: [] }),
+              status: "spinning",
+            } as RoundState;
+          });
+          break;
+
+        case "spin:result":
+          setRound(prev => {
+            if (prev && prev.roundId !== payload.roundId) return prev;
+            return {
+              ...(prev || { roundId: payload.roundId, configId: 0, betAmount: 10, maxPlayers: 5, roomName: "Spin Room", countdown: 0, mode: "RAIL", players: [] }),
+              status: "resolved",
+            } as RoundState;
+          });
+
+          const roundResult = {
+            winnerId: payload.winnerId,
+            winnerName: payload.winnerName,
+            prizeAmount: payload.prizeAmount,
+          };
+
+          // If the wheel is still in motion, queue the result so the pointer visibly lands FIRST!
+          if (isSpinningRef.current) {
+            pendingResultDataRef.current = roundResult;
+          } else {
+            stopSpinLoop();
+            setResultData(roundResult);
+            setScreenState("result");
+            const isUserInRound = round?.players.some(p => p.userId === user?.id);
+            if (isUserInRound) {
+              if (payload.winnerId === user?.id) {
+                playWin();
+              } else {
+                playLose();
+              }
+            }
+          }
+          // Refresh balance
+          setTimeout(() => refreshProfile(), 1500);
+          break;
+
+        case "spin:rematch_available":
+          setRematchAvailable({
+            originalRoundId: payload.originalRoundId,
+            timeoutMs: payload.timeoutMs || 15000,
+            betAmount: payload.betAmount || 100,
+          });
+          setRematchAccepted(false);
+          setRematchCount(0);
+          break;
+
+        case "spin:rematch_status":
+          setRematchCount(payload.acceptedCount || 0);
+          break;
+
+        case "spin:rematch_started":
+          if (payload.data) {
+            setRound(payload.data as RoundState);
+            setScreenState("waiting");
+            setIsSpinning(false);
+            setWinningSlice(null);
+        setPendingWinnerId(null);
+        pendingSpinDataRef.current = null;
+            setResultData(null);
+            setRematchAvailable(null);
+            setRematchAccepted(false);
+            setRematchCount(0);
+          }
+          break;
+
+        case "spin:cancelled":
+          stopSpinLoop();
+          setError("Room cancelled: " + (payload.reason || "Not enough players"));
+          setScreenState("browse");
+          setRound(null);
+          setIsSpinning(false);
+          setWinningSlice(null);
+        setPendingWinnerId(null);
+        pendingSpinDataRef.current = null;
+          setResultData(null);
+          // Refresh balance (refund)
+          setTimeout(() => refreshProfile(), 1000);
+          break;
+
+        case "spin:player_muted":
+          if (payload.userId === user?.id) {
+            setMicMuted(payload.muted);
+            voiceService.setMute(payload.muted);
+          } else {
+            const remoteUid = voiceService.stringToUid(payload.userId);
+            voiceService.muteRemoteUser(remoteUid, payload.muted);
+            setMutedPlayers(prev => {
+              const next = new Set(prev);
+              if (payload.muted) next.add(payload.userId);
+              else next.delete(payload.userId);
+              return next;
+            });
+          }
+          break;
+
+        case "spin:error":
+          setError(payload.message || "Something went wrong");
+          break;
+
+        case "spin:voice_chunk":
+          const { userId, chunk } = payload;
+          if (mutedPlayersRef.current.has(userId) || masterSpeakerMutedRef.current) break;
+
+          if (Platform.OS === "web" && chunk) {
+            try {
+              const blob = new Blob([chunk], { type: "audio/webm;codecs=opus" });
+              const url = URL.createObjectURL(blob);
+              const audio = new Audio(url);
+              audio.play().catch(() => {});
+            } catch (e) {
+              console.warn("Audio playback error:", e);
+            }
+          }
+
+          setSpeakingUsers(prev => ({
+            ...prev,
+            [userId]: Date.now(),
+          }));
+          break;
+      }
+    });
+
+    return () => {
+      unsub();
+      stopSpinLoop();
+    };
+  }, [onMessage, refreshProfile, stopSpinLoop]);
+
+  // ── Join room handler ────────────────────────────────────────────────
+  const handleJoinRoom = useCallback(async (roomMode: string, stakeVal?: number) => {
+    setJoinLoading(true);
+    setError(null);
+
+    try {
+      const connected = await ensureConnected(token || undefined);
+      if (!connected) {
+        setError("Connection failed. Please try again.");
+        return;
+      }
+
+      const result = await emitAck("spin:join", { mode: roomMode, stake: stakeVal, token });
+      
+      if (result.ok && result.data) {
+        muteMusicRef.current?.();
+        const state = result.data as RoundState;
+        setRound(state);
+        const serverCountdown = state.countdown || 0;
+        setCountdown(serverCountdown);
+        setScreenState("waiting");
+        setIsSpinning(false);
+        setWinningSlice(null);
+        setPendingWinnerId(null);
+        pendingSpinDataRef.current = null;
+        setResultData(null);
+
+        // Start a smooth client-side countdown timer based on target timestamp
+        targetEndTimeRef.current = Date.now() + serverCountdown * 1000;
+        if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+        if (serverCountdown > 0) {
+          countdownTimerRef.current = setInterval(() => {
+            if (!targetEndTimeRef.current) return;
+            const rem = Math.max(0, Math.ceil((targetEndTimeRef.current - Date.now()) / 1000));
+            setCountdown(rem);
+            if (rem <= 0) {
+              clearInterval(countdownTimerRef.current);
+              countdownTimerRef.current = null;
+              targetEndTimeRef.current = null;
+              // Timer expired — wait for server spin:locked and spin:start.
+              // NEVER start the animation without confirmed winner from server.
+              setCountdown(0);
+            }
+          }, 300);
+        }
+
+        // Join Agora voice channel (fire and forget, don't block)
+        const voiceUid = voiceService.stringToUid(user?.id || "");
+        voiceService.initialize(AGORA_APP_ID).then(async (initialized) => {
+          if (initialized) {
+            try {
+              await voiceService.joinChannel(state.roundId, voiceUid);
+              await voiceService.setMute(true); // Default to muted
+            } catch (e) {
+              console.warn("[SPIN] Voice join failed (non-critical):", e);
+            }
+          }
+        }).catch(() => {});
+        setMicMuted(true);
+      } else {
+        const errMsg = result.error === "INSUFFICIENT_BALANCE"
+          ? "Not enough balance. Deposit first!"
+          : result.error === "ALREADY_IN_ROUND"
+          ? "You're already in a spin room"
+          : result.error === "ALREADY_IN_GAME"
+          ? "Finish your current XO game first"
+          : result.error === "INVALID_STAKE"
+          ? "Invalid stake amount"
+          : result.error === "SPIN_GAME_DISABLED"
+          ? "🔧 The Spin game is currently under maintenance. Please check back later!"
+          : result.error || "Failed to join room";
+        setError(errMsg);
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to join room");
+    } finally {
+      setJoinLoading(false);
+    }
+  }, [ensureConnected, emitAck, token, user]);
+
+  // Keep a ref to the current round so cleanup can access it without stale closure
+  const roundRef = useRef<RoundState | null>(null);
+  useEffect(() => { roundRef.current = round; }, [round]);
+  const joinAttemptedRef = useRef(false);
+
+  // ── Auto-join room when screen comes into focus & cleanup audio on leave ──
+  useFocusEffect(
+    useCallback(() => {
+      muteMusicRef.current?.();
+      if (!joinAttemptedRef.current) {
+        if (mode === "RAIL" && stake && !roundRef.current) {
+          joinAttemptedRef.current = true;
+          handleJoinRoom("RAIL", Number(stake));
+        }
+      }
+
+      return () => {
+        // Immediate silence + server leave when navigating away
+        stopAllSounds();
+        voiceService.leaveChannel();
+        stopRecording();
+        if (countdownTimerRef.current) { clearInterval(countdownTimerRef.current); countdownTimerRef.current = null; }
+        const currentRound = roundRef.current;
+        if (currentRound) {
+          emitAck("spin:leave", { roundId: currentRound.roundId, token }).catch(() => {});
+        }
+        joinAttemptedRef.current = false;
+      };
+    }, [mode, stake, handleJoinRoom, stopAllSounds, stopRecording, emitAck, token])
+  );
+
+  // ── Actual leave (called after confirmation) ────────────────────────
+  const doLeaveRoom = useCallback(async () => {
+    setShowLeaveConfirm(false);
+    stopAllSounds();
+    stopRecording();
+    if (countdownTimerRef.current) { clearInterval(countdownTimerRef.current); countdownTimerRef.current = null; }
+    voiceService.leaveChannel();
+    if (round) {
+      await emitAck("spin:leave", { roundId: round.roundId, token }).catch(() => {});
+    }
+    setScreenState("browse");
+    setRound(null);
+    setIsSpinning(false);
+    setWinningSlice(null);
+        setPendingWinnerId(null);
+        pendingSpinDataRef.current = null;
+    setResultData(null);
+    joinAttemptedRef.current = false;
+    refreshProfile();
+    router.replace("/(authed)/home/gameplay");
+  }, [round, emitAck, token, refreshProfile, router, stopAllSounds, stopRecording]);
+
+  // ── Rematch vote handler ──────────────────────────────────────────
+  const handleRematchClick = useCallback(async () => {
+    if (!rematchAvailable || !token) return;
+    try {
+      const result = await emitAck("spin:rematch_vote", {
+        roundId: rematchAvailable.originalRoundId,
+        accept: true,
+        token,
+      });
+      if (result.ok) {
+        setRematchAccepted(true);
+        if ((result as any).acceptedCount !== undefined) {
+          setRematchCount((result as any).acceptedCount);
+        }
+      } else {
+        if (result.error === "INSUFFICIENT_BALANCE") {
+          setError("Not enough balance for 100 ETB rematch!");
+        } else {
+          setError("Rematch request failed.");
+        }
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to submit rematch vote.");
+    }
+  }, [rematchAvailable, token, emitAck]);
+
+  // ── Leave room handler — shows confirmation popup ──────────────────
+  const handleLeaveRoom = useCallback(() => {
+    setShowLeaveConfirm(true);
+  }, []);
+
+  // ── Play again handler ───────────────────────────────────────────────
+  const handlePlayAgain = useCallback(() => {
+    stopSpinLoop();
+    voiceService.leaveChannel();
+    const currentMode = (round?.mode || mode || "5_PLAYER") as string;
+    const currentStake = round?.betAmount || (stake ? Number(stake) : betAmount);
+    setScreenState("browse");
+    setRound(null);
+    setIsSpinning(false);
+    setWinningSlice(null);
+        setPendingWinnerId(null);
+        pendingSpinDataRef.current = null;
+    setResultData(null);
+    setCountdown(0);
+    if (countdownTimerRef.current) { clearInterval(countdownTimerRef.current); countdownTimerRef.current = null; }
+    joinAttemptedRef.current = true;
+    handleJoinRoom(currentMode, currentStake);
+  }, [round, mode, stake, betAmount, handleJoinRoom, stopSpinLoop]);
+
+  // Fetch monthly leaderboard for 5-Player right panel
+  const fetchLeaderboard = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_URL}/leaderboard/monthly`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setLeaderboard(data.leaderboard || []);
+      }
+    } catch (e) {
+      console.error("Leaderboard fetch error:", e);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (round?.mode === "5_PLAYER") {
+      fetchLeaderboard();
+    }
+  }, [round?.mode, fetchLeaderboard]);
+
+  // Poll active rooms to render live wheel preview before joining RAIL mode
+  const fetchPreJoinRoom = useCallback(async () => {
+    try {
+      const res = await emitAck("spin:get_rooms", {});
+      if (res.ok && res.data) {
+        const railRoom = res.data.find((r: any) => r.id === 1);
+        if (railRoom) {
+          setPreJoinRoom(railRoom);
+        }
+      }
+    } catch (e) {
+      console.error("Fetch pre-join room error:", e);
+    }
+  }, [emitAck]);
+
+  useEffect(() => {
+    if (mode === "RAIL" && !round) {
+      fetchPreJoinRoom();
+      const interval = setInterval(fetchPreJoinRoom, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [mode, round, fetchPreJoinRoom]);
+
+  // Voice Chat clean up
+  useEffect(() => {
+    return () => {
+      voiceService.leaveChannel();
+    };
+  }, []);
+
+  const handleAddStake = useCallback(async (amount: number) => {
+    setAddLoading(true);
+    setError(null);
+    try {
+      const currentRoundId = roundRef.current?.roundId;
+      const result = await emitAck("spin:add_stake", { amount, roundId: currentRoundId, token });
+      if (result.ok) {
+        // Handled via spin:stake_updated event
+        playAddMoney();
+      } else {
+        setError(result.error === "INSUFFICIENT_BALANCE" ? "Not enough balance. Deposit first!" : (result.error || "Failed to add stake"));
+      }
+    } catch (e: any) {
+      setError(e.message || "Failed to add stake");
+    } finally {
+      setAddLoading(false);
+    }
+  }, [emitAck, token, playAddMoney]);
+
+  const handleToggleMic = useCallback(async () => {
+    const nextMuted = !micMuted;
+    setMicMuted(nextMuted);
+    await voiceService.setMute(nextMuted);
+  }, [micMuted]);
+
+  const handleToggleSpeaker = useCallback(async () => {
+    const nextMuted = !masterSpeakerMuted;
+    setMasterSpeakerMuted(nextMuted);
+    // Locally mute all remote streams in Agora
+    if (round?.players) {
+      round.players.forEach(p => {
+        if (p.userId !== user?.id && !p.isBot) {
+          const pUid = voiceService.stringToUid(p.userId);
+          voiceService.muteRemoteUser(pUid, nextMuted);
+        }
+      });
+    }
+  }, [masterSpeakerMuted, round?.players, user?.id]);
+
+  const handleHostMuteUser = useCallback(async (targetUserId: string, isCurrentlyMuted: boolean) => {
+    // Host mute target user for everyone
+    await emitAck("spin:mute_player", { targetUserId, muted: !isCurrentlyMuted });
+  }, [emitAck]);
+
+  // ── Navigation ───────────────────────────────────────────────────────
+  const handleNavClick = (screen: string) => {
+    if (screen === "home") router.push("/(authed)/home/gameplay");
+    else if (screen === "history") router.push("/(authed)/home/history");
+    else if (screen === "leaderboard") router.push("/(authed)/home/leaderboard");
+    else if (screen === "profile") router.push("/(authed)/home/account");
+    else if (screen === "admin") router.push("/admin" as any);
+  };
+
+  const formatCountdown = useCallback((totalSec: number) => {
+    const mins = Math.floor(Math.max(0, totalSec) / 60);
+    const secs = Math.max(0, totalSec) % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  }, []);
+
+  const is5Player = round?.mode === "5_PLAYER" || mode === "5_PLAYER";
+  const isRail = round?.mode === "RAIL" || mode === "RAIL";
+
+  const previewPlayers = React.useMemo(() => {
+    if (round) return round.players;
+    // When user is not in a round, all slots remain empty (grey)
+    return [];
+  }, [round]);
+
+  // Deduplicate and aggregate stakes by userId so the same user NEVER appears twice in slices or seats
+  const displayPlayers = React.useMemo(() => {
+    const rawList = round ? round.players : previewPlayers;
+    const map = new Map<string, SpinPlayer>();
+    for (const p of rawList) {
+      if (!p || !p.userId) continue;
+      const existing = map.get(p.userId);
+      if (existing) {
+        map.set(p.userId, {
+          ...existing,
+          stake: (Number(existing.stake) || 0) + (Number(p.stake) || 0),
+        });
+      } else {
+        map.set(p.userId, { ...p });
+      }
+    }
+    return Array.from(map.values());
+  }, [round, previewPlayers]);
+
+  // Sorted players: highest stake down to lowest (Image 3)
+  const sortedPlayers = React.useMemo(() => {
+    return [...displayPlayers].sort((a, b) => Number(b.stake || 0) - Number(a.stake || 0));
+  }, [displayPlayers]);
+
+  const previewPot = React.useMemo(() => {
+    if (round) return round.pot;
+    const roomBet = preJoinRoom?.betAmount || betAmount;
+    const roomCount = typeof preJoinRoom?.currentPlayers === "number" ? preJoinRoom.currentPlayers : 0;
+    return (roomCount * roomBet) + betAmount;
+  }, [round, preJoinRoom?.currentPlayers, preJoinRoom?.betAmount, betAmount]);
+
+  const isMyWin = Boolean(
+    resultData &&
+    user &&
+    (String(resultData.winnerId) === String(user.id) ||
+     String(resultData.winnerId) === String((user as any)?._id) ||
+     (resultData.winnerName && user.username && resultData.winnerName.toLowerCase() === user.username.toLowerCase()))
+  );
+
+  useEffect(() => {
+    if (screenState === "result" && resultData) {
+      if (isMyWin) {
+        playWin();
+      }
+    }
+  }, [screenState, resultData, isMyWin, playWin]);
+  const wheelSize = isDesktop ? Math.min(screenW * 0.32, 400) : Math.min(screenW * 0.86, 330);
+
+  // ══════════════════════════════════════════════════════════════════════
+  // ██  RENDER
+  // ══════════════════════════════════════════════════════════════════════
+  return (
+    <View style={ds.root}>
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: "#0a0e1a" }]} />
+
+      {/* Modals */}
+      <WebDepositModal visible={depositVisible} onClose={() => setDepositVisible(false)} user={user} token={token || undefined} onSuccess={refreshProfile} />
+      <WebWithdrawModal visible={withdrawVisible} onClose={() => setWithdrawVisible(false)} user={user} token={token || undefined} onSuccess={refreshProfile} />
+
+      {/* Leave Confirmation Modal */}
+      <Modal visible={showLeaveConfirm} transparent animationType="fade" onRequestClose={() => setShowLeaveConfirm(false)}>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "center", alignItems: "center" }}>
+          <View style={{
+            width: "85%",
+            maxWidth: 360,
+            backgroundColor: "#141830",
+            borderRadius: 24,
+            borderWidth: 1.5,
+            borderColor: "#1f2744",
+            padding: 28,
+            alignItems: "center",
+          }}>
+            <View style={{
+              width: 56,
+              height: 56,
+              borderRadius: 28,
+              backgroundColor: "rgba(239, 68, 68, 0.15)",
+              borderWidth: 1.5,
+              borderColor: "#ef4444",
+              alignItems: "center",
+              justifyContent: "center",
+              marginBottom: 16,
+            }}>
+              <Ionicons name="exit-outline" size={28} color="#ef4444" />
+            </View>
+            <Text style={{ color: "#fff", fontSize: 18, fontWeight: "900", marginBottom: 8, fontFamily: "Inter, sans-serif" }}>Leave Room?</Text>
+            <Text style={{ color: "#8b93a7", fontSize: 13, fontWeight: "600", textAlign: "center", lineHeight: 20, marginBottom: 24, fontFamily: "Inter, sans-serif" }}>
+              You will forfeit your stake and leave the current spin room. Are you sure?
+            </Text>
+            <View style={{ flexDirection: "row", gap: 12, width: "100%" }}>
+              <TouchableOpacity
+                onPress={() => setShowLeaveConfirm(false)}
+                style={{
+                  flex: 1,
+                  paddingVertical: 14,
+                  borderRadius: 16,
+                  borderWidth: 1.5,
+                  borderColor: "#1f2744",
+                  backgroundColor: "rgba(255,255,255,0.04)",
+                  alignItems: "center",
+                }}
+                activeOpacity={0.85}
+              >
+                <Text style={{ color: "#8b93a7", fontSize: 13, fontWeight: "800" }}>STAY</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={doLeaveRoom}
+                style={{
+                  flex: 1,
+                  paddingVertical: 14,
+                  borderRadius: 16,
+                  backgroundColor: "rgba(239, 68, 68, 0.2)",
+                  borderWidth: 1.5,
+                  borderColor: "#ef4444",
+                  alignItems: "center",
+                }}
+                activeOpacity={0.85}
+              >
+                <Text style={{ color: "#ef4444", fontSize: 13, fontWeight: "900" }}>LEAVE</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── HEADER ── */}
+      {isDesktop && (
+        <View style={ds.header}>
+          <View style={ds.headerInner}>
+            {/* Logo */}
+            <TouchableOpacity onPress={() => handleNavClick("home")} style={ds.logoWrap} activeOpacity={0.85}>
+              <Image source={require("../../../assets/images/icon.jpg")} style={ds.logoImg} />
+              <Text style={ds.logoText}>XO ETHIOPIA</Text>
+            </TouchableOpacity>
+
+
+
+            {/* Right: Profile */}
+            <View style={ds.utilCluster}>
+              <TouchableOpacity onPress={() => handleNavClick("profile")} style={ds.profileChip} activeOpacity={0.85}>
+                <View style={ds.profileAvatar}>
+                  <Text style={ds.profileAvatarText}>
+                    {user?.username ? user.username.slice(0, 2).toUpperCase() : "ME"}
+                  </Text>
+                </View>
+                <Text style={ds.profileName}>{user?.username || "Player"}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* ── MAIN BODY ── */}
+      {isDesktop ? (
+        <ScrollView style={ds.body} contentContainerStyle={ds.bodyContent} showsVerticalScrollIndicator={false}>
+          {is5Player ? (
+            /* ════════════════════════════════════════════════════════════════
+               ██  5-PLAYER SPIN ROOM LAYOUT (DESKTOP)
+               ════════════════════════════════════════════════════════════════ */
+            <View style={ds.twoColumnRow}>
+              {/* LEFT SIDE: Wheel + seat slots */}
+              <View style={ds.mainColumn5P}>
+                <View style={[ds.waitingHeader, { flexDirection: "row", alignItems: "center", justifyContent: "space-between" }]}>
+                  <View>
+                    <Text style={ds.waitingTitle}>5-PLAYER SPIN</Text>
+                    <Text style={ds.waitingSubtitle}>
+                      {round
+                        ? `Waiting for players… ${round.players.length}/5`
+                        : "Click Join to enter 5-player room"}
+                    </Text>
+                  </View>
+                  {/* Voice mic & speaker controls for Web / Desktop layout */}
+                  <View style={ds.voiceControlsRow}>
+                    <TouchableOpacity
+                      onPress={handleToggleMic}
+                      disabled={!round}
+                      style={[ds.voiceControlBtn, micMuted && { backgroundColor: "rgba(239, 68, 68, 0.15)", borderColor: "#ef4444" }, !round && { opacity: 0.4 }]}
+                    >
+                      <Ionicons name={micMuted ? "mic-off" : "mic"} size={16} color={micMuted ? "#ef4444" : "#22d3ee"} />
+                      <Text style={[ds.voiceControlBtnText, { color: micMuted ? "#ef4444" : "#22d3ee" }]}>
+                        {micMuted ? "Mic Off" : "Mic On"}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={handleToggleSpeaker}
+                      disabled={!round}
+                      style={[ds.voiceControlBtn, masterSpeakerMuted && { backgroundColor: "rgba(239, 68, 68, 0.15)", borderColor: "#ef4444" }, !round && { opacity: 0.4 }]}
+                    >
+                      <Ionicons name={masterSpeakerMuted ? "volume-mute" : "volume-high"} size={16} color={masterSpeakerMuted ? "#ef4444" : "#a78bfa"} />
+                      <Text style={[ds.voiceControlBtnText, { color: masterSpeakerMuted ? "#ef4444" : "#a78bfa" }]}>
+                        {masterSpeakerMuted ? "Muted All" : "Hear Lobby"}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Wheel */}
+                <View style={ds.wheelCenter}>
+                  <SpinWheel
+                    size={wheelSize}
+                    players={round ? round.players : previewPlayers}
+                    isSpinning={screenState === "spinning"}
+                    winningSlice={winningSlice}
+                    winnerId={pendingWinnerId}
+                    spinDuration={spinDuration}
+                    onSpinComplete={handleSpinComplete}
+                    status={round ? round.status : "waiting"}
+                    mode="5_PLAYER"
+                    speakingUserIds={speakingUserIds}
+                  />
+                </View>
+
+                {/* Bottom confirmed player slots (Exactly 5 seats) */}
+                <View style={[ds.playerSlots, { marginTop: 32, flexWrap: "wrap", justifyContent: "space-between" }]}>
+                  {Array.from({ length: 5 }).map((_, idx) => {
+                    const player = round?.players.find(p => p.seatIndex === idx) || round?.players[idx];
+                    const isSelf = player?.userId === user?.id;
+                    return (
+                      <View
+                        key={idx}
+                        style={[
+                          ds.playerSeatCard,
+                          player && { borderColor: "#8b5cf6", backgroundColor: "rgba(139, 92, 246, 0.08)" },
+                          isSelf && { borderColor: "#22d3ee", backgroundColor: "rgba(34, 211, 238, 0.08)" },
+                        ]}
+                      >
+                        {player ? (
+                          <>
+                            <View style={[ds.seatAvatar, { backgroundColor: isSelf ? "#22d3ee" : "#8b5cf6" }]}>
+                              <Text style={ds.seatAvatarText}>{player.username.slice(0, 2).toUpperCase()}</Text>
+                            </View>
+                            <Text style={ds.seatName} numberOfLines={1}>{isSelf ? "You" : player.username}</Text>
+                            <Text style={ds.seatStake}>{player.stake || 100} ETB</Text>
+                            <View style={ds.seatCheckmark}>
+                              <Ionicons name="checkmark-circle" size={16} color="#22c55e" />
+                            </View>
+                            {!isSelf && player.userId && (
+                              <TouchableOpacity
+                                onPress={() => toggleMutePlayer(player.userId)}
+                                style={{ position: "absolute", top: 6, right: 6, padding: 4 }}
+                                activeOpacity={0.8}
+                              >
+                                <Ionicons
+                                  name={mutedPlayers.has(player.userId) ? "mic-off-outline" : "mic-outline"}
+                                  size={16}
+                                  color={mutedPlayers.has(player.userId) ? "#ef4444" : "#8b93a7"}
+                                />
+                              </TouchableOpacity>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <View style={[ds.seatAvatar, { backgroundColor: "#1e2340", borderStyle: "dashed", borderWidth: 1 }]}>
+                              <Ionicons name="person-outline" size={16} color="#4b5563" />
+                            </View>
+                            <Text style={[ds.seatName, { color: "#4b5563" }]}>Waiting for player...</Text>
+                          </>
+                        )}
+                      </View>
+                    );
+                  })}
+                </View>
+
+                {/* Join / Leave Room Button */}
+                {round && round.players.some(p => String(p.userId) === String(user?.id)) ? (
+                  <TouchableOpacity onPress={handleLeaveRoom} style={ds.leaveBtn} activeOpacity={0.85}>
+                    <Ionicons name="exit-outline" size={16} color="#ef4444" />
+                    <Text style={ds.leaveBtnText}>LEAVE ROOM</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <View style={{ alignItems: "center", gap: 10, marginTop: 16 }}>
+                    <TouchableOpacity
+                      disabled={Boolean(joinLoading || isSpinning || (round && round.players.length >= 5))}
+                      onPress={() => handleJoinRoom("5_PLAYER", 100)}
+                      style={[
+                        ds.joinBtn5P,
+                        Boolean(joinLoading || isSpinning || (round && round.players.length >= 5)) && { opacity: 0.6 }
+                      ]}
+                      activeOpacity={0.85}
+                    >
+                      {joinLoading ? (
+                        <ActivityIndicator size="small" color="#ffffff" />
+                      ) : (
+                        <>
+                          <Ionicons name="play" size={18} color="#ffffff" />
+                          <Text style={ds.joinBtn5PText}>
+                            {round && round.players.length >= 5 ? "ROOM FULL" : "JOIN GAME (100 ETB)"}
+                          </Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => router.replace("/(authed)/home/gameplay")}
+                      style={{ paddingVertical: 6, paddingHorizontal: 16 }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={{ color: "#8b93a7", fontSize: 12, fontWeight: "600" }}>Back to Rooms</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+
+              {/* RIGHT SIDE: Active Room Players & Per-User Voice Controls Panel */}
+              <View style={ds.sidebar5P}>
+                <View style={ds.rightSidebarPanel}>
+                  <View style={ds.leaderboardHeader}>
+                    <Text style={ds.leaderboardTitle}>ROOM PLAYERS ({round?.players?.length || 0}/5)</Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        const newAllMuted = !allRemoteMuted;
+                        setAllRemoteMuted(newAllMuted);
+                        voiceService.muteAllRemoteUsers(newAllMuted);
+                      }}
+                      style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: allRemoteMuted ? "rgba(239, 68, 68, 0.2)" : "rgba(34, 197, 94, 0.15)", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 }}
+                    >
+                      <Ionicons name={allRemoteMuted ? "volume-mute" : "volume-high"} size={14} color={allRemoteMuted ? "#ef4444" : "#22c55e"} />
+                      <Text style={{ color: allRemoteMuted ? "#ef4444" : "#22c55e", fontSize: 11, fontWeight: "600" }}>
+                        {allRemoteMuted ? "Muted All" : "Mute All"}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                  {Array.from({ length: 5 }, (_, idx) => {
+                    const player = round?.players && round.players[idx] ? round.players[idx] : null;
+                    const isSelf = player?.userId === user?.id;
+                    const isMuted = player ? !!mutedRemoteUsers[player.userId] : false;
+                    return (
+                      <View key={player?.userId || idx} style={ds.leaderRow}>
+                        <View style={[ds.leaderBadge, { backgroundColor: player ? (isSelf ? "#06b6d4" : "#3b82f6") : "rgba(255,255,255,0.08)", opacity: player ? 1 : 0.4 }]}>
+                          <Text style={ds.leaderBadgeText}>{idx + 1}</Text>
+                        </View>
+                        <View style={ds.leaderDetails}>
+                          <Text style={[ds.leaderName, !player && { color: "rgba(255,255,255,0.3)" }]} numberOfLines={1}>
+                            {player ? `${player.username}${isSelf ? " (You)" : ""}` : "Waiting for player..."}
+                          </Text>
+                          <Text style={[ds.leaderVal, !player && { color: "rgba(255,255,255,0.2)" }]}>
+                            {player ? `${player.stake} ETB` : "Empty Seat"}
+                          </Text>
+                        </View>
+                        {player && !isSelf && (
+                          <TouchableOpacity
+                            onPress={() => {
+                              const nextMuted = !isMuted;
+                              setMutedRemoteUsers(prev => ({ ...prev, [player.userId]: nextMuted }));
+                              voiceService.muteRemoteUser(player.userId, nextMuted);
+                            }}
+                            style={{ padding: 6, backgroundColor: isMuted ? "rgba(239,68,68,0.2)" : "rgba(255,255,255,0.08)", borderRadius: 8 }}
+                          >
+                            <Ionicons name={isMuted ? "mic-off" : "mic"} size={16} color={isMuted ? "#ef4444" : "#22c55e"} />
+                          </TouchableOpacity>
+                        )}
+                        {player && isSelf && (
+                          <View style={{ padding: 6, backgroundColor: "rgba(6, 182, 212, 0.15)", borderRadius: 8 }}>
+                            <Ionicons name="person" size={16} color="#06b6d4" />
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            </View>
+          ) : (
+            /* ════════════════════════════════════════════════════════════════
+               ██  RAIL SPIN ROOM LAYOUT (DESKTOP)
+               ════════════════════════════════════════════════════════════════ */
+            <View style={ds.threeColumnRow}>
+              {/* COLUMN 1: Stakes & Bet Selector */}
+              <View style={ds.betSelectorColumn}>
+                <View style={{ marginBottom: 16 }}>
+                  <Text style={ds.waitingTitle}>Endless Spin</Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
+                    <View style={ds.publicPill}>
+                      <Text style={ds.publicPillText}>Public Room</Text>
+                    </View>
+                    <Text style={{ color: "#8b93a7", fontSize: 11 }}>Stakes vary  •  Unlimited players</Text>
+                  </View>
+                  <TouchableOpacity style={ds.roomInfoBtn} activeOpacity={0.8}>
+                    <Ionicons name="information-circle-outline" size={14} color="#8b93a7" />
+                    <Text style={ds.roomInfoBtnText}>Room Info</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {!round ? (
+                  /* ── PRE-JOIN BET SELECTOR ── */
+                  <View style={ds.betCard}>
+                    <Text style={ds.betCardLabel}>YOUR BET AMOUNT</Text>
+                    <Text style={ds.betCardVal}>{betAmount} ETB</Text>
+                    <Text style={ds.betLimits}>Min 10 ETB  •  Max 10,000 ETB</Text>
+
+                    {/* Stepper +/- */}
+                    <View style={ds.stepperRow}>
+                      <TouchableOpacity
+                        onPress={() => setBetAmount(prev => Math.max(10, prev - 10))}
+                        disabled={!!round}
+                        style={[ds.stepperBtn, !!round && { opacity: 0.3 }]}
+                      >
+                        <Ionicons name="remove" size={18} color="#fff" />
+                      </TouchableOpacity>
+                      <View style={ds.stepperInput}>
+                        <Text style={ds.stepperValText}>{betAmount}</Text>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => setBetAmount(prev => Math.min(10000, prev + 10))}
+                        disabled={!!round}
+                        style={[ds.stepperBtn, !!round && { opacity: 0.3 }]}
+                      >
+                        <Ionicons name="add" size={18} color="#fff" />
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Preset Chips */}
+                    <View style={ds.presetChips}>
+                      {[10, 50, 100, 500].map((preset) => (
+                        <TouchableOpacity
+                          key={preset}
+                          disabled={!!round}
+                          onPress={() => setBetAmount(preset)}
+                          style={[
+                            ds.presetChip,
+                            betAmount === preset && ds.presetChipActive,
+                            !!round && { opacity: 0.3 },
+                          ]}
+                        >
+                          <Text style={[ds.presetChipText, betAmount === preset && ds.presetChipTextActive]}>
+                            {preset}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+
+                    {/* Place Bet CTA */}
+                    <TouchableOpacity
+                      disabled={joinLoading || !!round}
+                      onPress={() => handleJoinRoom("RAIL", betAmount)}
+                      style={[ds.placeBetBtn, !!round && ds.placeBetBtnDisabled]}
+                    >
+                      {joinLoading ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <Text style={ds.placeBetBtnText}>{round ? "BET CONFIRMED" : "PLACE BET"}</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  /* ── IN-GAME MONEY INCREASER ── */
+                  <View style={ds.betCard}>
+                    <Text style={ds.betCardLabel}>YOUR TOTAL STAKE</Text>
+                    <Text style={[ds.betCardVal, { color: "#22d3ee" }]}>
+                      {(() => {
+                        const p = round.players.find(x => x.userId === user?.id);
+                        return p ? p.stake : 0;
+                      })()} ETB
+                    </Text>
+                    <Text style={ds.betLimits}>
+                      {round.status !== "waiting"
+                        ? "Round has started. Stakes locked!"
+                        : countdown <= 5
+                        ? "Room is locking! Stakes locked!"
+                        : "Add more money to increase your odds!"}
+                    </Text>
+
+                    {/* Preset Chips to add */}
+                    <View style={ds.presetChips}>
+                      {[10, 50, 100, 500].map((val) => {
+                        const isLocking = round.status !== "waiting" || countdown <= 5;
+                        return (
+                          <TouchableOpacity
+                            key={val}
+                            disabled={isLocking}
+                            onPress={() => setAddAmount(val)}
+                            style={[
+                              ds.presetChip,
+                              addAmount === val && ds.presetChipActive,
+                              isLocking && { opacity: 0.3 },
+                            ]}
+                          >
+                            <Text style={[ds.presetChipText, addAmount === val && ds.presetChipTextActive]}>
+                              +{val}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+
+                    {/* Stepper to configure exact add amount */}
+                    <View style={[ds.stepperRow, (round.status !== "waiting" || countdown <= 5) && { opacity: 0.4 }]}>
+                      <TouchableOpacity
+                        onPress={() => setAddAmount(prev => Math.max(10, prev - 10))}
+                        disabled={round.status !== "waiting" || countdown <= 5}
+                        style={ds.stepperBtn}
+                      >
+                        <Ionicons name="remove" size={18} color="#fff" />
+                      </TouchableOpacity>
+                      <View style={ds.stepperInput}>
+                        <Text style={ds.stepperValText}>+{addAmount} ETB</Text>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => setAddAmount(prev => Math.min(10000, prev + 10))}
+                        disabled={round.status !== "waiting" || countdown <= 5}
+                        style={ds.stepperBtn}
+                      >
+                        <Ionicons name="add" size={18} color="#fff" />
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Add Stake CTA */}
+                    <TouchableOpacity
+                      disabled={addLoading || round.status !== "waiting" || countdown <= 5}
+                      onPress={() => handleAddStake(addAmount)}
+                      style={[
+                        ds.placeBetBtn,
+                        { backgroundColor: "#06b6d4" },
+                        (addLoading || round.status !== "waiting" || countdown <= 5) && {
+                          backgroundColor: "rgba(6, 182, 212, 0.15)",
+                          borderColor: "rgba(6, 182, 212, 0.3)",
+                          borderWidth: 1,
+                        },
+                      ]}
+                    >
+                      {addLoading ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <Text style={ds.placeBetBtnText}>
+                          {round.status !== "waiting" || countdown <= 5 ? "LOCKED" : "ADD TO STAKE"}
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+
+              {/* COLUMN 2: Wheel + Countdown + Pot */}
+              <View style={ds.wheelCenterColumn}>
+                {/* SPIN ENDS IN */}
+                <View style={ds.countdownBox}>
+                  <Text style={ds.countdownLabel}>SPIN ENDS IN</Text>
+                  <Text style={ds.countdownTime}>
+                    {formatCountdown(countdown)}
+                  </Text>
+                </View>
+
+                {/* Dynamic Wheel */}
+                <View style={ds.wheelCenter}>
+                  <SpinWheel
+                    size={wheelSize}
+                    players={previewPlayers}
+                    isSpinning={screenState === "spinning"}
+                    winningSlice={winningSlice}
+                    winnerId={pendingWinnerId}
+                    spinDuration={spinDuration}
+                    onSpinComplete={handleSpinComplete}
+                    status={round ? round.status : "waiting"}
+                    mode="RAIL"
+                    speakingUserIds={speakingUserIds}
+                  />
+                </View>
+
+                {/* Mic & Hear Lobby toggles */}
+                <View style={ds.voiceControlsRow}>
+                  <TouchableOpacity
+                    onPress={handleToggleMic}
+                    disabled={!round}
+                    style={[ds.voiceControlBtn, micMuted && { backgroundColor: "rgba(239, 68, 68, 0.15)", borderColor: "#ef4444" }, !round && { opacity: 0.4 }]}
+                  >
+                    <Ionicons name={micMuted ? "mic-off" : "mic"} size={16} color={micMuted ? "#ef4444" : "#22d3ee"} />
+                    <Text style={[ds.voiceControlBtnText, { color: micMuted ? "#ef4444" : "#22d3ee" }]}>
+                      {micMuted ? "Mic Off" : "Mic On"}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={handleToggleSpeaker}
+                    disabled={!round}
+                    style={[ds.voiceControlBtn, masterSpeakerMuted && { backgroundColor: "rgba(239, 68, 68, 0.15)", borderColor: "#ef4444" }, !round && { opacity: 0.4 }]}
+                  >
+                    <Ionicons name={masterSpeakerMuted ? "volume-mute" : "volume-high"} size={16} color={masterSpeakerMuted ? "#ef4444" : "#a78bfa"} />
+                    <Text style={[ds.voiceControlBtnText, { color: masterSpeakerMuted ? "#ef4444" : "#a78bfa" }]}>
+                      {masterSpeakerMuted ? "Muted All" : "Hear Lobby"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* CURRENT POT */}
+                <View style={ds.potBox}>
+                  <Text style={ds.potBoxLabel}>CURRENT POT</Text>
+                  <Text style={ds.potBoxVal}>{previewPot.toLocaleString()} ETB</Text>
+                </View>
+
+                {/* Leave Room */}
+                <TouchableOpacity onPress={handleLeaveRoom} style={ds.leaveBtn} activeOpacity={0.85}>
+                  <Ionicons name="exit-outline" size={16} color="#ef4444" />
+                  <Text style={ds.leaveBtnText}>LEAVE ROOM</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* COLUMN 3: Players List */}
+              <View style={ds.playersListColumn}>
+                <View style={ds.rightSidebarPanel}>
+                  <View style={ds.leaderboardHeader}>
+                    <Text style={ds.leaderboardTitle}>PLAYERS IN ROOM ({round ? round.players.length : 0})</Text>
+                    <View style={ds.liveIndicatorDot} />
+                  </View>
+                  
+                  <ScrollView style={{ maxHeight: 350, marginVertical: 12 }}>
+                    {(round ? round.players : []).map((p: any, idx: number) => {
+                      const isSelf = p.userId === user?.id;
+                      const isHost = idx === 0;
+                      const isMuted = mutedPlayers.has(p.userId);
+                      const isSelfHost = round?.players[0]?.userId === user?.id;
+                      
+                      return (
+                        <View key={p.userId || idx} style={ds.playerRow}>
+                          <View style={[ds.seatAvatar, { backgroundColor: isSelf ? "#22d3ee" : "#8b5cf6", marginRight: 8 }]}>
+                            <Text style={ds.seatAvatarText}>{p.username.slice(0, 2).toUpperCase()}</Text>
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={ds.playerName} numberOfLines={1}>
+                              {isSelf ? "You" : p.username}
+                            </Text>
+                            <Text style={ds.playerBet}>{p.stake || 100} ETB</Text>
+                          </View>
+                          {isHost && (
+                            <View style={ds.hostBadge}>
+                              <Text style={ds.hostBadgeText}>HOST</Text>
+                            </View>
+                          )}
+                          {isSpeaking(p.userId) && (
+                            <Ionicons name="volume-high" size={14} color="#10b981" style={{ marginRight: 6 }} />
+                          )}
+                          {!isSelf && !p.isBot && (
+                            <TouchableOpacity 
+                              onPress={() => {
+                                if (isSelfHost) {
+                                  handleHostMuteUser(p.userId, isMuted);
+                                } else {
+                                  toggleMutePlayer(p.userId);
+                                }
+                              }}
+                              style={{ padding: 4 }}
+                            >
+                              <Ionicons 
+                                name={isMuted ? "mic-off-outline" : "mic-outline"} 
+                                size={16} 
+                                color={isMuted ? "#ef4444" : "#8b93a7"} 
+                              />
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              </View>
+            </View>
+          )}
+        </ScrollView>
+      ) : (
+        /* ════════════════════════════════════════════════════════════════
+           ██  MOBILE SPIN ROOM LAYOUT
+           ════════════════════════════════════════════════════════════════ */
+        <View style={{ flex: 1, backgroundColor: "#060814", paddingHorizontal: 16, paddingTop: 10, paddingBottom: 16, justifyContent: "space-between", position: "relative" }}>
+          {/* Top Header Row (Matching Image 2: Circular Back, Center Timer, Speaker + Mic) */}
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", width: "100%", marginBottom: 6, position: "relative", zIndex: 10 }}>
+            {/* Back Button (Left) */}
+            <TouchableOpacity
+              onPress={handleLeaveRoom}
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 22,
+                backgroundColor: "rgba(15, 23, 42, 0.75)",
+                borderWidth: 1,
+                borderColor: "rgba(255, 255, 255, 0.15)",
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 2,
+              }}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="chevron-back" size={22} color="#ffffff" />
+            </TouchableOpacity>
+
+            {/* Dead-Centered Countdown Timer Pill (Rail mode only) */}
+            {!is5Player && (
+              <View style={{
+                position: "absolute",
+                left: 0,
+                right: 0,
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 1,
+                pointerEvents: "none",
+              }}>
+                <View style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 8,
+                  backgroundColor: "rgba(15, 23, 42, 0.85)",
+                  borderRadius: 22,
+                  paddingHorizontal: 20,
+                  paddingVertical: 8,
+                  borderWidth: 1,
+                  borderColor: "rgba(30, 58, 138, 0.8)",
+                }}>
+                  <Ionicons name="time-outline" size={18} color="#facc15" />
+                  <Text style={{ color: "#facc15", fontSize: 16, fontWeight: "800", fontFamily: "Inter, sans-serif" }}>
+                    {countdown > 0 ? formatCountdown(countdown) : "01:18"}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* Top Right Action Icons: Speaker & Mic */}
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10, zIndex: 2 }}>
+              <TouchableOpacity
+                onPress={handleToggleSpeaker}
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
+                  backgroundColor: "rgba(15, 23, 42, 0.75)",
+                  borderWidth: 1,
+                  borderColor: "rgba(255, 255, 255, 0.15)",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+                activeOpacity={0.8}
+              >
+                <Ionicons name={masterSpeakerMuted ? "volume-mute" : "volume-high"} size={20} color="#ffffff" />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleToggleMic}
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
+                  backgroundColor: "rgba(15, 23, 42, 0.75)",
+                  borderWidth: 1,
+                  borderColor: micMuted ? "rgba(244, 63, 94, 0.5)" : "rgba(34, 197, 94, 0.5)",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+                activeOpacity={0.8}
+              >
+                <Ionicons name={micMuted ? "mic-off" : "mic"} size={20} color={micMuted ? "#f43f5e" : "#22c55e"} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Prize Pool Header Card (Exact Image 2 Design with Trophy, Celebration Chevrons & Pink Neon Bar) */}
+          <View style={{
+            alignItems: "center",
+            justifyContent: "center",
+            width: "100%",
+            marginVertical: isCompactScreen ? 2 : 4,
+            paddingVertical: isCompactScreen ? 8 : 12,
+            paddingHorizontal: 16,
+            backgroundColor: "rgba(10, 20, 44, 0.85)",
+            borderRadius: 20,
+            borderWidth: 1,
+            borderColor: "rgba(99, 102, 241, 0.35)",
+            position: "relative",
+          }}>
+            {/* 🏆 PRIZE POOL */}
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 2 }}>
+              <Ionicons name="trophy" size={15} color="#eab308" />
+              <Text style={{ color: "#facc15", fontSize: 11, fontWeight: "800", letterSpacing: 1.5 }}>
+                PRIZE POOL
+              </Text>
+            </View>
+
+            {/* Celebration Wings Flanking the Amount */}
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 12 }}>
+              {/* Left Celebration Chevrons */}
+              <Svg width={30} height={20} viewBox="0 0 30 20">
+                <Path d="M4 2 L12 10 L4 18" stroke="#ec4899" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity={0.4} />
+                <Path d="M11 2 L19 10 L11 18" stroke="#ec4899" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity={0.75} />
+                <Path d="M18 2 L26 10 L18 18" stroke="#ec4899" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+              </Svg>
+
+              {/* Amount in Bright Gold */}
+              <Text style={{ color: "#fde047", fontSize: isCompactScreen ? 28 : 34, fontWeight: "900", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" }}>
+                {previewPot.toLocaleString()} ETB
+              </Text>
+
+              {/* Right Celebration Chevrons */}
+              <Svg width={30} height={20} viewBox="0 0 30 20">
+                <Path d="M12 2 L4 10 L12 18" stroke="#ec4899" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                <Path d="M19 2 L11 10 L19 18" stroke="#ec4899" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity={0.75} />
+                <Path d="M26 2 L18 10 L26 18" stroke="#ec4899" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity={0.4} />
+              </Svg>
+            </View>
+
+            {/* Pink Neon Underline Bar */}
+            <View style={{
+              width: 85,
+              height: 3.5,
+              backgroundColor: "#ec4899",
+              borderRadius: 2,
+              marginTop: 4,
+              shadowColor: "#ec4899",
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.85,
+              shadowRadius: 5,
+            }} />
+          </View>
+
+          {/* Center Spin Wheel */}
+          <View style={{ flex: 1, alignItems: "center", justifyContent: "center", marginVertical: isCompactScreen ? 4 : 10, position: "relative" }}>
+            <SpinWheel
+              size={mobileWheelSize}
+              players={round ? round.players : previewPlayers}
+              isSpinning={screenState === "spinning"}
+              winningSlice={winningSlice}
+              winnerId={pendingWinnerId}
+              spinDuration={spinDuration}
+              onSpinComplete={handleSpinComplete}
+              status={round ? round.status : "waiting"}
+              mode={is5Player ? "5_PLAYER" : "RAIL"}
+              speakingUserIds={speakingUserIds}
+            />
+
+            {/* 3-Second Pre-Spin Countdown Readiness Overlay */}
+            {(preSpinCountdown !== null || round?.status === "locked") && (
+              <View style={{
+                position: "absolute",
+                width: mobileWheelSize,
+                height: mobileWheelSize,
+                borderRadius: mobileWheelSize / 2,
+                backgroundColor: "rgba(6, 8, 20, 0.78)",
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 25,
+              }}>
+                <Text style={{ color: "#f5b642", fontSize: 64, fontWeight: "900" }}>
+                  {preSpinCountdown !== null ? preSpinCountdown : 3}
+                </Text>
+                <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "900", letterSpacing: 2, marginTop: 4 }}>
+                  GET READY!
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* Bottom Controls Area */}
+          <View style={{ width: "100%", alignItems: "center", paddingBottom: 6 }}>
+            {is5Player ? (
+              /* ── 5-PLAYER MODE CONTROLS: Fixed entry, no steppers or bet increment ── */
+              round && round.players.some(p => String(p.userId) === String(user?.id)) ? (
+                /* Already in 5-player round: Show waiting status card */
+                <View style={{
+                  width: "100%",
+                  backgroundColor: "rgba(13, 20, 38, 0.85)",
+                  borderRadius: 20,
+                  borderWidth: 1,
+                  borderColor: "rgba(99, 102, 241, 0.25)",
+                  paddingVertical: 14,
+                  paddingHorizontal: 16,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#22c55e" }} />
+                    <Text style={{ color: "#ffffff", fontSize: 15, fontWeight: "800", fontFamily: "Inter, sans-serif" }}>
+                      Waiting for Players ({round.players.length}/5)
+                    </Text>
+                  </View>
+                  <Text style={{ color: "#94a3b8", fontSize: 12, fontWeight: "600" }}>
+                    Fixed 100 ETB entry • Round spins automatically when full
+                  </Text>
+                </View>
+              ) : (
+                /* Not in round yet: Show single clean JOIN GAME button */
+                <TouchableOpacity
+                  disabled={Boolean(joinLoading || isSpinning || (round && round.players.length >= 5))}
+                  onPress={() => handleJoinRoom("5_PLAYER", 100)}
+                  style={{
+                    backgroundColor: "#f43f5e",
+                    borderRadius: 28,
+                    height: 52,
+                    width: "100%",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderWidth: 1,
+                    borderColor: "rgba(255, 255, 255, 0.15)",
+                    opacity: Boolean(joinLoading || isSpinning || (round && round.players.length >= 5)) ? 0.7 : 1,
+                  }}
+                  activeOpacity={0.85}
+                >
+                  {joinLoading ? (
+                    <ActivityIndicator size="small" color="#ffffff" />
+                  ) : (
+                    <Text style={{ color: "#ffffff", fontSize: 16, fontWeight: "900", letterSpacing: 1, fontFamily: "Inter, sans-serif" }}>
+                      JOIN GAME (100 ETB)
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              )
+            ) : (
+              /* ── RAIL MODE CONTROLS: Dynamic progressive pot with stepper ── */
+              <>
+                {/* Stepper Capsule */}
+                <View style={{
+                  backgroundColor: "rgba(13, 20, 38, 0.85)",
+                  borderRadius: 28,
+                  borderWidth: 1,
+                  borderColor: "rgba(255, 255, 255, 0.12)",
+                  height: isCompactScreen ? 46 : 52,
+                  paddingHorizontal: 8,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  width: "100%",
+                }}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (round) setAddAmount(prev => Math.max(10, prev - 10));
+                      else setBetAmount(prev => Math.max(10, prev - 10));
+                    }}
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 18,
+                      backgroundColor: "rgba(255, 255, 255, 0.08)",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="remove" size={18} color="#ffffff" />
+                  </TouchableOpacity>
+
+                  <Text style={{ color: "#ffffff", fontSize: 16, fontWeight: "800", fontFamily: "Inter, sans-serif" }}>
+                    +{round ? addAmount : betAmount} ETB
+                  </Text>
+
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (round) setAddAmount(prev => Math.min(10000, prev + 10));
+                      else setBetAmount(prev => Math.min(10000, prev + 10));
+                    }}
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 18,
+                      backgroundColor: "rgba(255, 255, 255, 0.08)",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="add" size={18} color="#ffffff" />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Helper Info Text: Positioned right above ADD BET */}
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginVertical: isCompactScreen ? 4 : 8 }}>
+                  <Ionicons name="information-circle-outline" size={14} color="#94a3b8" />
+                  <Text style={{ color: "#94a3b8", fontSize: 12, fontWeight: "600" }}>
+                    Higher bet = higher chance to win
+                  </Text>
+                </View>
+
+                {/* ADD BET Full-width Pink Button */}
+                <TouchableOpacity
+                  disabled={joinLoading || addLoading || isSpinning}
+                  onPress={() => {
+                    if (round) handleAddStake(addAmount);
+                    else handleJoinRoom("RAIL", betAmount);
+                  }}
+                  style={{
+                    backgroundColor: "#f43f5e",
+                    borderRadius: 28,
+                    height: isCompactScreen ? 48 : 54,
+                    width: "100%",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderWidth: 1,
+                    borderColor: "rgba(255, 255, 255, 0.15)",
+                    opacity: joinLoading || addLoading || isSpinning ? 0.7 : 1,
+                  }}
+                  activeOpacity={0.85}
+                >
+                  {joinLoading || addLoading ? (
+                    <ActivityIndicator size="small" color="#ffffff" />
+                  ) : (
+                    <Text style={{ color: "#ffffff", fontSize: 16, fontWeight: "900", letterSpacing: 1, fontFamily: "Inter, sans-serif" }}>
+                      ADD BET
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </>
+            )}
+
+            {/* View All Players Capsule Drawer Trigger */}
+            <TouchableOpacity
+              onPress={() => setMobilePlayersSheetVisible(true)}
+              style={{
+                backgroundColor: "rgba(13, 20, 38, 0.65)",
+                borderRadius: 24,
+                borderWidth: 1,
+                borderColor: "rgba(255, 255, 255, 0.1)",
+                height: isCompactScreen ? 42 : 46,
+                paddingHorizontal: 16,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                width: "100%",
+                marginTop: isCompactScreen ? 8 : 14,
+              }}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="people" size={18} color="#94a3b8" />
+              <Text style={{ color: "#94a3b8", fontSize: 13, fontWeight: "600" }}>
+                View all players (more)
+              </Text>
+              <Ionicons name="chevron-down" size={16} color="#94a3b8" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════════
+         ██  PRE-SPIN COUNTDOWN OVERLAY (3…2…1…)
+         ════════════════════════════════════════════════════════════════ */}
+      {preSpinCountdown !== null && (
+        <View style={ds.overlayBackdrop}>
+          <View style={ds.countdownOverlay}>
+            <Text style={ds.countdownOverlayNumber}>
+              {preSpinCountdown > 0 ? preSpinCountdown : "SPIN!"}
+            </Text>
+            <Text style={ds.countdownOverlayLabel}>
+              {preSpinCountdown > 0 ? "Get Ready…" : ""}
+            </Text>
+          </View>
+        </View>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════════
+         ██  WINNER / LOSER POPUP OVERLAY (Exact Match Image 4)
+         ════════════════════════════════════════════════════════════════ */}
+      {screenState === "result" && resultData && (
+        <View style={ds.overlayBackdrop}>
+          {isMyWin && <CelebrationBoom />}
+          <View style={{
+            backgroundColor: "#0d1326",
+            borderWidth: 1,
+            borderColor: "rgba(255, 255, 255, 0.12)",
+            borderRadius: 24,
+            padding: 24,
+            alignItems: "center",
+            width: "90%",
+            maxWidth: 360,
+            zIndex: 20,
+          }}>
+            {isMyWin ? (
+              /* ── YOU WON! (Image 4 Left) ── */
+              <>
+                {/* Crown with Ambient Glow */}
+                <View style={{ alignItems: "center", justifyContent: "center", width: 84, height: 84, marginBottom: 12 }}>
+                  <LinearGradient
+                    colors={["#facc15", "#f59e0b", "#d97706"]}
+                    style={{ width: 72, height: 72, borderRadius: 20, alignItems: "center", justifyContent: "center", shadowColor: "#facc15", shadowOpacity: 0.6, shadowRadius: 16 }}
+                  >
+                    <CrownIcon size={38} />
+                  </LinearGradient>
+                </View>
+
+                {/* Title & Subtitle */}
+                <Text style={{ color: "#ffffff", fontSize: 24, fontWeight: "900", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" }}>
+                  YOU WON!
+                </Text>
+                <Text style={{ color: "#94a3b8", fontSize: 13, fontWeight: "600", marginTop: 4 }}>
+                  Congratulations
+                </Text>
+
+                {/* Prize Box */}
+                <View style={{
+                  backgroundColor: "rgba(15, 23, 42, 0.95)",
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  borderColor: "rgba(168, 85, 247, 0.35)",
+                  width: "100%",
+                  paddingVertical: 14,
+                  paddingHorizontal: 16,
+                  marginTop: 16,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 12,
+                }}>
+                  <CoinStackIcon size={28} />
+                  <View>
+                    <Text style={{ color: "#a855f7", fontSize: 10, fontWeight: "800", letterSpacing: 1 }}>YOUR PRIZE</Text>
+                    <Text style={{ color: "#facc15", fontSize: 24, fontWeight: "900", marginTop: 2, fontFamily: "Inter, sans-serif" }}>
+                      {resultData.prizeAmount.toLocaleString()} ETB
+                    </Text>
+                  </View>
+                </View>
+
+                <Text style={{ color: "#64748b", fontSize: 12, fontWeight: "600", marginTop: 14, marginBottom: 18 }}>
+                  Keep playing and win more!
+                </Text>
+
+                {/* Pink OK Button */}
+                <TouchableOpacity
+                  onPress={doLeaveRoom}
+                  style={{
+                    backgroundColor: "#f43f5e",
+                    borderRadius: 24,
+                    height: 48,
+                    width: "100%",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderWidth: 1,
+                    borderColor: "rgba(255, 255, 255, 0.15)",
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Text style={{ color: "#ffffff", fontSize: 15, fontWeight: "900", letterSpacing: 1 }}>
+                    OK
+                  </Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              /* ── ROUND OVER (Image 4 Right) ── */
+              <>
+                {/* Purple Person Avatar */}
+                <View style={{ alignItems: "center", justifyContent: "center", width: 80, height: 80, marginBottom: 12 }}>
+                  <View style={{ width: 68, height: 68, borderRadius: 34, backgroundColor: "#7c3aed", alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "rgba(168, 85, 247, 0.4)" }}>
+                    <Ionicons name="person" size={34} color="#ffffff" />
+                  </View>
+                </View>
+
+                {/* Title & Subtitle */}
+                <Text style={{ color: "#ffffff", fontSize: 22, fontWeight: "900", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" }}>
+                  ROUND OVER
+                </Text>
+                <Text style={{ color: "#94a3b8", fontSize: 13, fontWeight: "600", marginTop: 4 }}>
+                  Better luck next time
+                </Text>
+
+                {/* Winner Card */}
+                <View style={{
+                  backgroundColor: "rgba(15, 23, 42, 0.95)",
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  borderColor: "rgba(255, 255, 255, 0.08)",
+                  width: "100%",
+                  paddingVertical: 12,
+                  paddingHorizontal: 14,
+                  marginTop: 16,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}>
+                  {/* Winner avatar and name */}
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                    <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: "#7c3aed", alignItems: "center", justifyContent: "center" }}>
+                      <Ionicons name="person" size={20} color="#ffffff" />
+                    </View>
+                    <View>
+                      <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "700" }}>{resultData.winnerName}</Text>
+                      <Text style={{ color: "#94a3b8", fontSize: 11, fontWeight: "600" }}>Won this round</Text>
+                    </View>
+                  </View>
+
+                  {/* Prize */}
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <CoinStackIcon size={22} />
+                    <View>
+                      <Text style={{ color: "#94a3b8", fontSize: 10, fontWeight: "800" }}>PRIZE</Text>
+                      <Text style={{ color: "#facc15", fontSize: 15, fontWeight: "900" }}>
+                        {resultData.prizeAmount.toLocaleString()} ETB
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* PLAY AGAIN Purple Button */}
+                <TouchableOpacity
+                  onPress={handlePlayAgain}
+                  style={{
+                    backgroundColor: "#7c3aed",
+                    borderRadius: 24,
+                    height: 48,
+                    width: "100%",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginTop: 18,
+                    borderWidth: 1,
+                    borderColor: "rgba(255, 255, 255, 0.15)",
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "900", letterSpacing: 0.5 }}>
+                    PLAY AGAIN
+                  </Text>
+                </TouchableOpacity>
+
+                {/* LEAVE Outline Button */}
+                <TouchableOpacity
+                  onPress={() => {
+                    voiceService.leaveChannel();
+                    setScreenState("browse");
+                    setRound(null);
+                    setIsSpinning(false);
+                    setWinningSlice(null);
+                    setPendingWinnerId(null);
+                    pendingSpinDataRef.current = null;
+                    setResultData(null);
+                    setCountdown(0);
+                    refreshProfile();
+                    router.replace("/(authed)/home/gameplay");
+                  }}
+                  style={{
+                    backgroundColor: "transparent",
+                    borderWidth: 1,
+                    borderColor: "rgba(255, 255, 255, 0.2)",
+                    borderRadius: 24,
+                    height: 48,
+                    width: "100%",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginTop: 10,
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "900", letterSpacing: 0.5 }}>
+                    LEAVE
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </View>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════════
+         ██  MOBILE PLAYERS BOTTOM SHEET DRAWER (Exact Match Image 3)
+         ════════════════════════════════════════════════════════════════ */}
+      <Modal
+        visible={mobilePlayersSheetVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setMobilePlayersSheetVisible(false)}
+      >
+        <View style={ds.drawerOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setMobilePlayersSheetVisible(false)} />
+
+          <View style={{
+            backgroundColor: "#0c1022",
+            borderTopLeftRadius: 28,
+            borderTopRightRadius: 28,
+            borderWidth: 1,
+            borderColor: "rgba(255, 255, 255, 0.1)",
+            paddingHorizontal: 20,
+            paddingBottom: 34,
+            paddingTop: 12,
+            width: "100%",
+            maxHeight: "75%",
+          }}>
+            {/* Top Grab Handle */}
+            <TouchableOpacity
+              onPress={() => setMobilePlayersSheetVisible(false)}
+              style={{ alignItems: "center", paddingVertical: 4, marginBottom: 12 }}
+              activeOpacity={0.8}
+            >
+              <View style={{ width: 44, height: 4, borderRadius: 2, backgroundColor: "rgba(255, 255, 255, 0.25)" }} />
+            </TouchableOpacity>
+
+            {/* Players Header with chevron (Image 3) */}
+            <TouchableOpacity
+              onPress={() => setMobilePlayersSheetVisible(false)}
+              style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16, paddingHorizontal: 4 }}
+              activeOpacity={0.8}
+            >
+              <Text style={{ color: "#ffffff", fontSize: 16, fontWeight: "900", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" }}>
+                PLAYERS ({sortedPlayers.length})
+              </Text>
+              <Ionicons name="chevron-down" size={20} color="#94a3b8" />
+            </TouchableOpacity>
+
+            {/* Sorted Players List (High stake to low stake) */}
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 380 }}>
+              {sortedPlayers.map((p: any, idx: number) => {
+                const isSelf = p.userId === user?.id;
+                const isMuted = mutedPlayers.has(p.userId);
+                const isSelfHost = round?.players[0]?.userId === user?.id;
+                const isSpeaking = Array.isArray(speakingUserIds) && speakingUserIds.some(id => String(id) === String(p.userId));
+
+                // Image 3 Avatar Colors: Self is pink #f43f5e, others cycle cyan/purple/blue
+                const otherColors = ["#0284c7", "#7c3aed", "#0284c7", "#10b981", "#f59e0b"];
+                const avatarBg = isSelf ? "#f43f5e" : otherColors[idx % otherColors.length];
+                const rawName = p.username || "Player";
+                const cleanName = isSelf ? "You" : (rawName.split(" ")[0].split("_")[0]);
+
+                return (
+                  <View
+                    key={p.userId || idx}
+                    style={{
+                      backgroundColor: "rgba(15, 23, 42, 0.85)",
+                      borderRadius: 16,
+                      borderWidth: 1,
+                      borderColor: "rgba(255, 255, 255, 0.08)",
+                      paddingHorizontal: 14,
+                      paddingVertical: 12,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      marginBottom: 10,
+                    }}
+                  >
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flex: 1 }}>
+                      {/* Avatar Circle */}
+                      <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: avatarBg, alignItems: "center", justifyContent: "center" }}>
+                        <Ionicons name="person" size={22} color="#ffffff" />
+                      </View>
+
+                      {/* Name & Stake Column */}
+                      <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                          <Text style={{ color: "#ffffff", fontSize: 15, fontWeight: "700" }}>
+                            {cleanName}
+                          </Text>
+                          {isSpeaking && <SpeakingWaveAnimation />}
+                        </View>
+                        <Text style={{ color: "#facc15", fontSize: 13, fontWeight: "800", marginTop: 2 }}>
+                          {p.stake || 10} ETB
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Microphone Icon Button on right (Pulsing green when speaking/on, grey when muted, click to mute) */}
+                    <AnimatedUserMicButton
+                      isMuted={isSelf ? micMuted : isMuted}
+                      isSpeaking={isSpeaking}
+                      onPress={() => {
+                        if (isSelf) {
+                          handleToggleMic();
+                        } else if (isSelfHost) {
+                          handleHostMuteUser(p.userId, isMuted);
+                        } else {
+                          toggleMutePlayer(p.userId);
+                        }
+                      }}
+                    />
+                  </View>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ██  STYLES
+// ══════════════════════════════════════════════════════════════════════════════
+const ds = StyleSheet.create({
+  root: { flex: 1, backgroundColor: "#0a0e1a" },
+  // ── Header ──
+  header: {
+    backgroundColor: "#0f1324",
+    borderBottomWidth: 1,
+    borderBottomColor: "#1e2340",
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    zIndex: 100,
+  },
+  headerInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    maxWidth: 1600,
+    alignSelf: "center",
+    width: "100%",
+  },
+  logoWrap: { flexDirection: "row", alignItems: "center", gap: 10 },
+  logoImg: { width: 34, height: 34, borderRadius: 8 },
+  logoText: { color: "#fff", fontSize: 16, fontWeight: "900", letterSpacing: 1, fontFamily: "Inter, sans-serif" },
+  toggleWrap: { flexDirection: "row", backgroundColor: "#141829", borderRadius: 10, padding: 3 },
+  toggleBtn: { paddingHorizontal: 20, paddingVertical: 8, borderRadius: 8 },
+  toggleBtnActive: { backgroundColor: "#8b5cf6" },
+  toggleText: { color: "#8b93a7", fontSize: 12, fontWeight: "800", letterSpacing: 1, fontFamily: "Inter, sans-serif" },
+  toggleTextActive: { color: "#fff" },
+  utilCluster: { flexDirection: "row", alignItems: "center", gap: 12 },
+  balancePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#141829",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  balanceLabel: { color: "#8b93a7", fontSize: 9, fontWeight: "800", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" },
+  refreshBalBtn: { padding: 4 },
+  profileChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#141829",
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  profileAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#8b5cf6",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  profileAvatarText: { color: "#fff", fontSize: 11, fontWeight: "900" },
+  profileName: { color: "#fff", fontSize: 12, fontWeight: "700", fontFamily: "Inter, sans-serif" },
+  // ── Body ──
+  body: { flex: 1 },
+  bodyContent: { paddingHorizontal: 24, paddingVertical: 20, maxWidth: 1600, alignSelf: "center", width: "100%" },
+  mainRow: { flexDirection: "row", gap: 24 },
+  // ── Left sidebar ──
+  leftSidebar: { width: 260, gap: 12 },
+  card: {
+    backgroundColor: "#141829",
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#1e2340",
+  },
+  userHeader: { flexDirection: "row", alignItems: "center", gap: 12 },
+  userAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#8b5cf6",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  userAvatarText: { color: "#fff", fontSize: 16, fontWeight: "900" },
+  userName: { color: "#fff", fontSize: 14, fontWeight: "800", fontFamily: "Inter, sans-serif" },
+  onlineRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
+  onlineDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#22c55e" },
+  onlineText: { color: "#22c55e", fontSize: 10, fontWeight: "700" },
+  navItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    position: "relative",
+  },
+  navItemActive: { backgroundColor: "rgba(139, 92, 246, 0.08)" },
+  navActiveBar: {
+    position: "absolute",
+    left: 0,
+    top: 6,
+    bottom: 6,
+    width: 3,
+    borderRadius: 2,
+    backgroundColor: "#8b5cf6",
+  },
+
+  navText: { color: "#8b93a7", fontSize: 13, fontWeight: "700", fontFamily: "Inter, sans-serif" },
+  navTextActive: { color: "#fff" },
+  sectionLabel: {
+    color: "#8b93a7",
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 1,
+    marginBottom: 12,
+    fontFamily: "Inter, sans-serif",
+  },
+  walletBtns: { flexDirection: "row", gap: 8 },
+  walletBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 8,
+    alignItems: "center",
+  },
+  walletBtnText: { fontSize: 11, fontWeight: "800", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" },
+  // ── Center column ──
+  centerColumn: { flex: 1 },
+  errorBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "rgba(239, 68, 68, 0.1)",
+    borderWidth: 1,
+    borderColor: "#ef4444",
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    marginBottom: 16,
+  },
+  errorText: { color: "#ef4444", fontSize: 13, fontWeight: "700", flex: 1, fontFamily: "Inter, sans-serif" },
+  // ── Waiting state ──
+  waitingContainer: { flex: 1 },
+  waitingHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  waitingTitle: { color: "#fff", fontSize: 24, fontWeight: "900", fontFamily: "Inter, sans-serif" },
+  waitingSubtitle: { color: "#8b93a7", fontSize: 13, fontWeight: "600", marginTop: 2, fontFamily: "Inter, sans-serif" },
+  countdownPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(245, 182, 66, 0.1)",
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: "rgba(245, 182, 66, 0.3)",
+  },
+  countdownText: { color: "#f5b642", fontSize: 18, fontWeight: "900", fontFamily: "Inter, sans-serif" },
+  wheelCenter: { alignItems: "center", paddingVertical: 24 },
+  playerSlots: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 12,
+    flexWrap: "wrap",
+    marginBottom: 20,
+  },
+  playerSlot: {
+    alignItems: "center",
+    gap: 6,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#1e2340",
+    backgroundColor: "#141829",
+    minWidth: 100,
+  },
+  slotAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#1e2340",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  slotAvatarText: { color: "#fff", fontSize: 14, fontWeight: "900" },
+  slotName: { color: "#fff", fontSize: 11, fontWeight: "700", fontFamily: "Inter, sans-serif" },
+  potInfo: {
+    alignItems: "center",
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#1e2340",
+  },
+  potLabel: { color: "#8b93a7", fontSize: 10, fontWeight: "800", letterSpacing: 1, fontFamily: "Inter, sans-serif" },
+  potValue: { color: "#22c55e", fontSize: 28, fontWeight: "900", marginTop: 4, fontFamily: "Inter, sans-serif" },
+  leaveBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    alignSelf: "center",
+    borderWidth: 1,
+    borderColor: "#ef4444",
+    borderRadius: 10,
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    marginTop: 16,
+  },
+  leaveBtnText: { color: "#ef4444", fontSize: 12, fontWeight: "800", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" },
+  joinBtn5P: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    alignSelf: "center",
+    backgroundColor: "#f43f5e",
+    borderRadius: 14,
+    paddingHorizontal: 36,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+    shadowColor: "#f43f5e",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  joinBtn5PText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "900",
+    letterSpacing: 1,
+    fontFamily: "Inter, sans-serif",
+  },
+  // ── Spinning & Result ──
+  spinningContainer: { flex: 1, alignItems: "center" },
+  spinningTitle: {
+    color: "#fff",
+    fontSize: 28,
+    fontWeight: "900",
+    textAlign: "center",
+    marginBottom: 8,
+    fontFamily: "Inter, sans-serif",
+  },
+  resultCard: {
+    backgroundColor: "#141829",
+    borderRadius: 16,
+    padding: 32,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#1e2340",
+    marginTop: 24,
+    minWidth: 300,
+  },
+  resultCardWin: {
+    borderColor: "#22c55e",
+    backgroundColor: "rgba(34, 197, 94, 0.05)",
+  },
+  resultLabel: { color: "#8b93a7", fontSize: 12, fontWeight: "800", letterSpacing: 1, fontFamily: "Inter, sans-serif" },
+  resultName: { color: "#fff", fontSize: 22, fontWeight: "900", marginTop: 8, fontFamily: "Inter, sans-serif" },
+  resultPrize: { color: "#f5b642", fontSize: 32, fontWeight: "900", marginTop: 8, fontFamily: "Inter, sans-serif" },
+  playAgainBtn: {
+    backgroundColor: "#8b5cf6",
+    borderRadius: 10,
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+    marginTop: 20,
+  },
+  playAgainText: { color: "#fff", fontSize: 14, fontWeight: "900", letterSpacing: 1, fontFamily: "Inter, sans-serif" },
+  voiceControlsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#141829",
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#1e2340",
+    marginBottom: 20,
+    flexWrap: "wrap",
+    gap: 12,
+  },
+  voiceControlBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderWidth: 1,
+    borderColor: "#1e2340",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: "rgba(255,255,255,0.02)",
+  },
+  voiceControlBtnText: {
+    fontSize: 11,
+    fontWeight: "700",
+    fontFamily: "Inter, sans-serif",
+  },
+  slotActionBtn: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#1e2340",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  speakingIndicator: {
+    backgroundColor: "rgba(34, 197, 94, 0.15)",
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
+  // ── 5P & Rail Custom layout ──
+  twoColumnRow: {
+    flexDirection: Platform.OS === "web" ? "row" : "column",
+    gap: 24,
+    width: "100%",
+  },
+  threeColumnRow: {
+    flexDirection: Platform.OS === "web" ? "row" : "column",
+    gap: 24,
+    width: "100%",
+  },
+  mainColumn5P: {
+    flex: 1.8,
+    gap: 16,
+  },
+  sidebar5P: {
+    flex: 1,
+    minWidth: 280,
+  },
+  betSelectorColumn: {
+    flex: 1,
+    minWidth: 260,
+  },
+  wheelCenterColumn: {
+    flex: 1.5,
+    alignItems: "center",
+    gap: 16,
+  },
+  playersListColumn: {
+    flex: 1,
+    minWidth: 280,
+  },
+  rightSidebarPanel: {
+    backgroundColor: "#141829",
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: "#1e2340",
+  },
+  playerSeatCard: {
+    width: Platform.OS === "web" ? "18%" : "47%",
+    backgroundColor: "#141829",
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#1e2340",
+    alignItems: "center",
+    marginBottom: 12,
+    position: "relative",
+  },
+  seatAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+  },
+  seatAvatarText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "900",
+  },
+  seatName: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  seatStake: {
+    color: "#22d3ee",
+    fontSize: 11,
+    fontWeight: "800",
+    marginTop: 4,
+  },
+  seatCheckmark: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+  },
+  publicPill: {
+    backgroundColor: "rgba(34, 211, 238, 0.12)",
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: "rgba(34, 211, 238, 0.2)",
+  },
+  publicPillText: {
+    color: "#22d3ee",
+    fontSize: 10,
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+  roomInfoBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 10,
+    alignSelf: "flex-start",
+  },
+  roomInfoBtnText: {
+    color: "#8b93a7",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  betCard: {
+    backgroundColor: "#141829",
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: "#1e2340",
+  },
+  betCardLabel: {
+    color: "#8b93a7",
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 1,
+  },
+  betCardVal: {
+    color: "#fff",
+    fontSize: 24,
+    fontWeight: "900",
+    marginVertical: 6,
+  },
+  betLimits: {
+    color: "#4b5563",
+    fontSize: 10,
+    fontWeight: "600",
+    marginBottom: 16,
+  },
+  stepperRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#0f1324",
+    borderRadius: 10,
+    padding: 4,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#1e2340",
+  },
+  stepperBtn: {
+    width: 36,
+    height: 36,
+    backgroundColor: "#1e2340",
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stepperInput: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stepperValText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  presetChips: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 6,
+    marginBottom: 16,
+  },
+  presetChip: {
+    flex: 1,
+    paddingVertical: 8,
+    backgroundColor: "#0f1324",
+    borderRadius: 8,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#1e2340",
+  },
+  presetChipActive: {
+    borderColor: "#8b5cf6",
+    backgroundColor: "rgba(139, 92, 246, 0.08)",
+  },
+  presetChipText: {
+    color: "#8b93a7",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  presetChipTextActive: {
+    color: "#a78bfa",
+  },
+  placeBetBtn: {
+    backgroundColor: "#8b5cf6",
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 8,
+  },
+  placeBetBtnDisabled: {
+    backgroundColor: "rgba(139, 92, 246, 0.15)",
+    borderColor: "rgba(139, 92, 246, 0.3)",
+    borderWidth: 1,
+  },
+  placeBetBtnText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  countdownBox: {
+    backgroundColor: "#141829",
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderWidth: 1,
+    borderColor: "#1e2340",
+    alignItems: "center",
+    width: 160,
+  },
+  countdownLabel: {
+    color: "#8b93a7",
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  countdownTime: {
+    color: "#f5b642",
+    fontSize: 20,
+    fontWeight: "900",
+    marginTop: 2,
+  },
+  potBox: {
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  potBoxLabel: {
+    color: "#8b93a7",
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 1,
+  },
+  potBoxVal: {
+    color: "#22c55e",
+    fontSize: 26,
+    fontWeight: "900",
+    marginTop: 4,
+  },
+  liveIndicatorDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#22c55e",
+  },
+  playerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#1e2340",
+  },
+  playerName: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  playerSubStake: {
+    color: "#8b93a7",
+    fontSize: 10,
+    marginTop: 1,
+  },
+  playerRowStake: {
+    color: "#22d3ee",
+    fontSize: 11,
+    fontWeight: "800",
+    marginLeft: 12,
+  },
+  moderateMicBtn: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 6,
+  },
+  leaderboardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  leaderboardTitle: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  leaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#1e2340",
+  },
+  leaderBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+  leaderBadgeText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "800",
+  },
+  leaderDetails: {
+    flex: 1,
+  },
+  leaderName: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  leaderVal: {
+    color: "#8b93a7",
+    fontSize: 10,
+    marginTop: 1,
+  },
+  standingsBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#0f1324",
+    borderRadius: 10,
+    paddingVertical: 10,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: "#1e2340",
+  },
+  standingsBtnText: {
+    color: "#8b93a7",
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  celebrationOverlay: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+  },
+  celebrationCard: {
+    backgroundColor: "#141829",
+    borderRadius: 24,
+    padding: 30,
+    width: "100%",
+    maxWidth: 420,
+    alignItems: "center",
+    borderWidth: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  celebrationCardWin: {
+    borderColor: "#22d3ee",
+    backgroundColor: "#0b1528",
+  },
+  celebrationCardLose: {
+    borderColor: "#1e2340",
+  },
+  celebrationEmoji: {
+    fontSize: 48,
+    marginBottom: 16,
+    textAlign: "center",
+  },
+  celebrationTitle: {
+    fontSize: 24,
+    fontWeight: "900",
+    color: "#22d3ee",
+    textAlign: "center",
+    letterSpacing: 1,
+    fontFamily: "Inter, sans-serif",
+  },
+  celebrationSubtitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#fff",
+    marginTop: 8,
+    textAlign: "center",
+    fontFamily: "Inter, sans-serif",
+  },
+  celebrationPrizeBox: {
+    backgroundColor: "rgba(255,255,255,0.03)",
+    borderColor: "#1e2340",
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    marginVertical: 20,
+    alignItems: "center",
+    width: "100%",
+  },
+  celebrationPrizeLabel: {
+    color: "#8b93a7",
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 1,
+    fontFamily: "Inter, sans-serif",
+  },
+  celebrationPrizeVal: {
+    color: "#22c55e",
+    fontSize: 32,
+    fontWeight: "900",
+    marginTop: 6,
+    fontFamily: "Inter, sans-serif",
+  },
+  celebrationShareText: {
+    color: "#6b7280",
+    fontSize: 12,
+    fontWeight: "600",
+    textAlign: "center",
+    marginBottom: 20,
+    fontFamily: "Inter, sans-serif",
+  },
+  celebrationCloseBtn: {
+    backgroundColor: "#8b5cf6",
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
+  },
+  celebrationCloseBtnText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+    fontFamily: "Inter, sans-serif",
+  },
+  playerBet: {
+    color: "#22d3ee",
+    fontSize: 11,
+    fontWeight: "700",
+    marginTop: 2,
+    fontFamily: "Inter, sans-serif",
+  },
+  hostBadge: {
+    backgroundColor: "rgba(139, 92, 246, 0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(139, 92, 246, 0.3)",
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginLeft: 6,
+  },
+  hostBadgeText: {
+    color: "#a78bfa",
+    fontSize: 9,
+    fontWeight: "800",
+  },
+  // ── Overlay styles ──
+  overlayBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0, 0, 0, 0.75)",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 1000,
+  },
+  countdownOverlay: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  countdownOverlayNumber: {
+    color: "#fff",
+    fontSize: 120,
+    fontWeight: "900",
+    textShadowColor: "rgba(139, 92, 246, 0.8)",
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 40,
+    fontFamily: "Inter, sans-serif",
+  },
+  countdownOverlayLabel: {
+    color: "#8b93a7",
+    fontSize: 18,
+    fontWeight: "700",
+    marginTop: 8,
+    fontFamily: "Inter, sans-serif",
+  },
+  resultPopup: {
+    backgroundColor: "#141829",
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "#1e2340",
+    padding: 32,
+    width: "90%",
+    maxWidth: 400,
+    alignItems: "center",
+  },
+  resultIconCircle: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  resultTitle: {
+    fontSize: 26,
+    fontWeight: "900",
+    marginBottom: 20,
+    textAlign: "center",
+    fontFamily: "Inter, sans-serif",
+  },
+  resultWinnerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  resultWinnerName: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "800",
+    fontFamily: "Inter, sans-serif",
+  },
+  resultWinnerLabel: {
+    color: "#8b93a7",
+    fontSize: 11,
+    fontWeight: "600",
+    marginTop: 2,
+    fontFamily: "Inter, sans-serif",
+  },
+  resultPrizeBox: {
+    backgroundColor: "rgba(34, 197, 94, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(34, 197, 94, 0.25)",
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    alignItems: "center",
+    marginBottom: 24,
+    width: "100%",
+  },
+  resultPrizeLabel: {
+    color: "#8b93a7",
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 1,
+    fontFamily: "Inter, sans-serif",
+  },
+  resultPrizeAmount: {
+    color: "#22c55e",
+    fontSize: 36,
+    fontWeight: "900",
+    marginTop: 4,
+    fontFamily: "Inter, sans-serif",
+  },
+  resultActions: {
+    flexDirection: "row",
+    gap: 12,
+    width: "100%",
+  },
+  resultPlayAgainBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "#8b5cf6",
+    borderRadius: 12,
+    paddingVertical: 14,
+  },
+  resultPlayAgainText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+    fontFamily: "Inter, sans-serif",
+  },
+  resultLeaveBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "rgba(239, 68, 68, 0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(239, 68, 68, 0.3)",
+    borderRadius: 12,
+    paddingVertical: 14,
+  },
+  resultLeaveText: {
+    color: "#ef4444",
+    fontSize: 13,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+    fontFamily: "Inter, sans-serif",
+  },
+
+  // ── Mobile User Avatars & Bottom Sheet Drawer Styles ──
+  userAvatarsBarRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "rgba(20, 26, 48, 0.8)",
+    borderWidth: 1.5,
+    borderColor: "#2a3458",
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginVertical: 10,
+  },
+  userAvatarChipCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1.8,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  drawerOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "flex-end",
+  },
+  drawerCard: {
+    backgroundColor: "#0d1120",
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderWidth: 1.5,
+    borderColor: "#1f2744",
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 24,
+    width: "100%",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -8 },
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  drawerHandleWrap: {
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+  drawerHandleBar: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "rgba(255, 255, 255, 0.25)",
+  },
+  drawerTitle: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+    marginBottom: 14,
+    fontFamily: "Inter, sans-serif",
+  },
+  drawerPlayerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(20, 26, 48, 0.75)",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#1e2646",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 10,
+  },
+  drawerAvatarCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  drawerPlayerName: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "800",
+    fontFamily: "Inter, sans-serif",
+  },
+  drawerPlayerStake: {
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 2,
+    fontFamily: "Inter, sans-serif",
+  },
+  drawerMicBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1.5,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  drawerBottomClose: {
+    alignItems: "center",
+    paddingTop: 12,
+  },
+});

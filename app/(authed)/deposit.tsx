@@ -116,6 +116,8 @@ const Notice = memo(function Notice({ type, text, onClose }: { type: "error" | "
 });
 
 const MethodCard = memo(function MethodCard({ item, selected, onPress }: { item: PaymentMethod; selected: boolean; onPress: () => void; }) {
+  const { language } = useAuth();
+  const isEN = language === "en";
   const colors = item.colors ?? ["#00daf3", "#22D3EE"];
   const icon = item.icon ?? "card-outline";
 
@@ -143,7 +145,7 @@ const MethodCard = memo(function MethodCard({ item, selected, onPress }: { item:
         </View>
         <View style={styles.methodHintRow}>
           <Ionicons name="lock-closed" size={14} color="rgba(255,255,255,0.9)" />
-          <Text style={styles.methodHint}>Secure checkout • instant deposit</Text>
+          <Text style={styles.methodHint}>{isEN ? "Secure checkout • instant deposit" : "ደህንነቱ የተጠበቀ ክፍያ • ፈጣን ተቀማጭ"}</Text>
         </View>
       </LinearGradient>
     </Pressable>
@@ -215,15 +217,19 @@ export default function DepositScreen() {
 
   const validate = useCallback(() => {
     if (!method) {
-      setNotice({ type: "info", text: "Choose a payment method to continue." });
+      setNotice({ type: "info", text: isEN ? "Choose a payment method to continue." : "ለመቀጠል የክፍያ አማራጭ ይምረጡ።" });
+      toast.push(isEN ? "Choose a payment method to continue." : "ለመቀጠል የክፍያ አማራጭ ይምረጡ።", "info");
       return false;
     }
     if (!amountNumber || amountNumber < MIN_DEPOSIT) {
+      const errMsg = isEN ? `Minimum deposit is ${MIN_DEPOSIT} ETB.` : `ዝቅተኛ ተቀማጭ ${MIN_DEPOSIT} ብር ነው።`;
+      setNotice({ type: "error", text: errMsg });
+      toast.push(errMsg, "error");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       return false;
     }
     return true;
-  }, [amountNumber, method]);
+  }, [amountNumber, method, isEN, toast]);
 
   const startDeposit = useCallback(async () => {
     haptics.heavy();
@@ -266,7 +272,7 @@ export default function DepositScreen() {
         await refreshProfile?.();
         toast.push("Payment completed", "success");
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-        router.back();
+        router.replace("/(authed)/home/gameplay");
         return;
       }
     } catch (err: any) {
@@ -320,8 +326,8 @@ export default function DepositScreen() {
                     <Ionicons name="chevron-back" size={22} color="#E5E7EB" />
                   </TouchableOpacity>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.headerTitle}>Deposit</Text>
-                    <Text style={styles.headerSub}>Top up your balance instantly</Text>
+                    <Text style={styles.headerTitle}>{isEN ? "Deposit" : "ገንዘብ ማስገቢያ"}</Text>
+                    <Text style={styles.headerSub}>{isEN ? "Top up your balance instantly" : "ሂሳብዎን ወዲያውኑ ይሙሉ"}</Text>
                   </View>
                 </View>
               )}
@@ -336,12 +342,12 @@ export default function DepositScreen() {
               {/* Hero */}
               <LinearGradient colors={["rgba(0,218,243,0.15)", "rgba(0,218,243,0.05)", "rgba(255,255,255,0.02)"]} style={styles.hero}>
                 <View style={styles.heroLeft}>
-                  <Text style={styles.heroKicker}>Fast Checkout</Text>
-                  <Text style={styles.heroText}>Deposit with {methodMeta?.label || "provider"} • Instant</Text>
+                  <Text style={styles.heroKicker}>{isEN ? "Fast Checkout" : "ፈጣን ክፍያ"}</Text>
+                  <Text style={styles.heroText}>{isEN ? `Deposit with ${methodMeta?.label || "provider"} • Instant` : `በ${methodMeta?.label || "አቅራቢ"} ያስገቡ • ፈጣን`}</Text>
                 </View>
                 <View style={styles.heroBadge}>
                   <Ionicons name="shield-checkmark" size={16} color="#0B0B0F" />
-                  <Text style={styles.heroBadgeText}>Verified</Text>
+                  <Text style={styles.heroBadgeText}>{isEN ? "Verified" : "የተረጋገጠ"}</Text>
                 </View>
               </LinearGradient>
 
@@ -349,7 +355,7 @@ export default function DepositScreen() {
 
               {/* Amount Input */}
               <View style={styles.block}>
-                <Text style={styles.blockTitle}>Amount</Text>
+                <Text style={styles.blockTitle}>{isEN ? "Amount" : "የገንዘብ መጠን"}</Text>
                 <View style={[styles.amountCard, isInvalidAmount && styles.amountCardError]}>
                   <View style={[styles.amountTopRow, isInvalidAmount && { borderBottomColor: "rgba(248,113,113,0.3)" }]}>
                     <Text style={[styles.amountPrefix, isInvalidAmount && { color: "#f87171" }]}>ETB</Text>
@@ -376,7 +382,7 @@ export default function DepositScreen() {
 
               {/* Method Selection */}
               <View style={styles.block}>
-                <Text style={styles.blockTitle}>Method</Text>
+                <Text style={styles.blockTitle}>{isEN ? "Method" : "የክፍያ አማራጭ"}</Text>
                 <View style={styles.methodsGrid}>
                   {methods.map((m) => (
                     <View key={m.key} style={styles.methodGridItem}>
@@ -401,12 +407,12 @@ export default function DepositScreen() {
                   {busy ? <ActivityIndicator color="#0B0B0F" /> : (
                     <>
                       <Ionicons name="flash" size={20} color="#0B0B0F" />
-                      <Text style={styles.ctaText}>Proceed to Payment {amountNumber > 0 ? `• ETB ${amountNumber}` : ""}</Text>
+                      <Text style={styles.ctaText}>{isEN ? `Proceed to Payment ${amountNumber > 0 ? `• ETB ${amountNumber}` : ""}` : `ክፍያውን ይቀጥሉ ${amountNumber > 0 ? `• ${amountNumber} ብር` : ""}`}</Text>
                     </>
                   )}
                 </LinearGradient>
               </TouchableOpacity>
-              <Text style={styles.footerHint}>Secure 128-bit SSL Encrypted Transaction</Text>
+              <Text style={styles.footerHint}>{isEN ? "Secure 128-bit SSL Encrypted Transaction" : "ደህንነቱ የተጠበቀ ባለ 128-ቢት SSL የተመሰጠረ ግብይት"}</Text>
             </View>
 
             {!isWeb && (
@@ -416,7 +422,7 @@ export default function DepositScreen() {
                     <TouchableOpacity onPress={() => setCheckoutUrl(null)} style={styles.webBtn}>
                       <Ionicons name="close" size={20} color="#E5E7EB" />
                     </TouchableOpacity>
-                    <Text style={styles.webTitle}>Secure Payment Terminal</Text>
+                    <Text style={styles.webTitle}>{isEN ? "Secure Payment Terminal" : "ደህንነቱ የተጠበቀ የክፍያ ተርሚናል"}</Text>
                     <View style={{ width: 44 }} />
                   </View>
                   {checkoutUrl && (

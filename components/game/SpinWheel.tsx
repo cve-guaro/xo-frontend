@@ -1,0 +1,433 @@
+// components/game/SpinWheel.tsx
+// ────────────────────────────────────────────────────────────────────────────
+// Animated multiplayer spin wheel for the Spin game.
+// Receives player data + winning slice from server, then animates.
+// ────────────────────────────────────────────────────────────────────────────
+import React, { useRef, useEffect, useState } from "react";
+import { View, Animated, Easing, StyleSheet, Text, Platform } from "react-native";
+import Svg, { Circle, Path, G, Text as SvgText, Defs, RadialGradient, Stop, LinearGradient } from "react-native-svg";
+
+type Player = {
+  userId: string;
+  username: string;
+  seatIndex: number;
+  avatar?: string | null;
+};
+
+type SpinWheelProps = {
+  size: number;
+  players: Player[];
+  isSpinning: boolean;
+  winningSlice?: number | null;
+  winnerId?: string | null;
+  spinDuration?: number; // ms
+  onSpinComplete?: () => void;
+  status: "waiting" | "locked" | "spinning" | "resolved" | "paid" | "cancelled" | "idle";
+  mode?: "5_PLAYER" | "RAIL";
+  speakingUserIds?: string[];
+};
+
+// Slice colors — matches Image 2 (Green, Cyan/Blue, Orange, Purple)
+const SLICE_COLORS = [
+  "#16a34a", // Vibrant Green (Image 2)
+  "#0284c7", // Vibrant Sky/Cyan Blue (Image 2)
+  "#ea580c", // Vibrant Orange (Image 2)
+  "#7c3aed", // Vibrant Purple (Image 2)
+  "#ef4444", // Red
+  "#f59e0b", // Amber/Gold
+  "#ec4899", // Pink
+  "#06b6d4", // Cyan
+];
+
+const polarToCartesian = (cx: number, cy: number, r: number, angleInDegrees: number) => {
+  const angleInRadians = (angleInDegrees - 90) * Math.PI / 180.0;
+  return {
+    x: cx + r * Math.cos(angleInRadians),
+    y: cy + r * Math.sin(angleInRadians),
+  };
+};
+
+const getArcPath = (cx: number, cy: number, r: number, startAngle: number, endAngle: number) => {
+  const start = polarToCartesian(cx, cy, r, endAngle);
+  const end = polarToCartesian(cx, cy, r, startAngle);
+  const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
+  return [
+    "M", cx, cy,
+    "L", start.x, start.y,
+    "A", r, r, 0, largeArcFlag, 0, end.x, end.y,
+    "Z",
+  ].join(" ");
+};
+
+export default function SpinWheel({
+  size,
+  players,
+  isSpinning,
+  winningSlice,
+  winnerId,
+  spinDuration = 5000,
+  onSpinComplete,
+  status,
+  mode = "RAIL",
+  speakingUserIds = [],
+}: SpinWheelProps) {
+  const rotation = useRef(new Animated.Value(0)).current;
+  const [hasSpun, setHasSpun] = useState(false);
+
+  const cx = size / 2;
+  const cy = size / 2;
+  const r = size * 0.44;
+  const is5Player = mode === "5_PLAYER";
+  const playerCount = is5Player ? 5 : Math.max(players.length, 1);
+  const angleStep = 360 / playerCount;
+
+  const hasStakes = !is5Player && players.some(p => (p as any).stake && (p as any).stake > 0);
+  const totalStake = !is5Player ? players.reduce((sum, p) => sum + Number((p as any).stake || 0), 0) : 0;
+
+  // Pre-calculate slices cleanly to prevent render mutation glitches
+  const slices = React.useMemo(() => {
+    let currentAngle = 0;
+    return Array.from({ length: playerCount }).map((_, idx) => {
+      const startAngle = currentAngle;
+      const angle = (hasStakes && totalStake > 0)
+        ? (Number((players[idx] as any)?.stake || 0) / totalStake) * 360
+        : angleStep;
+      const endAngle = startAngle + angle;
+      currentAngle = endAngle;
+      return { idx, startAngle, angle, endAngle };
+    });
+  }, [playerCount, hasStakes, totalStake, players, angleStep]);
+
+  // Trigger spin animation — ONLY when server has declared a confirmed winner
+  useEffect(() => {
+    const hasValidWinner = (winnerId !== null && winnerId !== undefined && String(winnerId).length > 0) ||
+      (typeof winningSlice === "number" && winningSlice >= 0);
+
+    if ((isSpinning || status === "spinning") && !hasSpun && players.length > 0 && hasValidWinner) {
+      // Resolve target slice. Prefer winnerId lookup (immune to array reordering).
+      // In 5-player mode, slices are ordered by seatIndex; in Rail mode, by players array position.
+      let resolvedSliceIdx = -1;
+      const winnerPlayer = winnerId ? players.find(p => String(p.userId) === String(winnerId)) : undefined;
+      if (winnerPlayer) {
+        resolvedSliceIdx = (is5Player && typeof winnerPlayer.seatIndex === "number" && winnerPlayer.seatIndex >= 0)
+          ? winnerPlayer.seatIndex
+          : players.indexOf(winnerPlayer);
+      } else if (typeof winningSlice === "number" && winningSlice >= 0) {
+        resolvedSliceIdx = winningSlice;
+      }
+
+      // Never default to slice 0 if the winner cannot be resolved
+      if (resolvedSliceIdx < 0 || resolvedSliceIdx >= slices.length) {
+        console.warn("[SPIN_WHEEL] Unable to resolve slice for winnerId:", winnerId, "winningSlice:", winningSlice);
+        return;
+      }
+
+      setHasSpun(true);
+
+      // Calculate exact center angle of winning slice from precomputed slices
+      const targetSlice = slices[resolvedSliceIdx];
+      const sliceCenterAngle = (targetSlice.startAngle + targetSlice.endAngle) / 2;
+
+      const fullRotations = 9; // fast, satisfying spin
+      const finalStopAngle = ((360 - sliceCenterAngle) % 360 + 360) % 360;
+      const targetAngle = fullRotations * 360 + finalStopAngle;
+
+      Animated.timing(rotation, {
+        toValue: targetAngle,
+        duration: spinDuration,
+        easing: Easing.bezier(0.12, 0.9, 0.2, 1), // punchy start, long smooth deceleration
+        useNativeDriver: Platform.OS !== "web",
+      }).start(() => {
+        onSpinComplete?.();
+      });
+    }
+
+    // Reset when a new round starts
+    if ((status === "waiting" || status === "idle") && !isSpinning) {
+      rotation.setValue(0);
+      setHasSpun(false);
+    }
+  }, [isSpinning, winningSlice, winnerId, status, players, hasStakes, totalStake, angleStep, is5Player, spinDuration, onSpinComplete]);
+
+  const activeRotateStyle = rotation.interpolate({
+    inputRange: [0, 360],
+    outputRange: ["0deg", "360deg"],
+  });
+
+  // Collapsed/hidden layouts can briefly report a negative size (window tab-switch
+  // on web reports width ≈ 1). Rendering the SVG with a negative size spams
+  // "attribute r: A negative value is not valid" and breaks the wheel — skip it.
+  if (!size || size <= 0) return null;
+
+  return (
+    <View style={[styles.container, { width: size, height: size }]} pointerEvents="none">
+      {/* Animated wheel */}
+      <Animated.View
+        style={{
+          transform: [{ rotate: activeRotateStyle }],
+          width: size,
+          height: size,
+          zIndex: 2,
+          ...(Platform.OS === "web" ? ({ willChange: "transform", touchAction: "pan-y" } as any) : {}),
+        }}
+      >
+        <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+          <Defs>
+            <RadialGradient id="spinGlow" cx="50%" cy="50%" r="50%">
+              <Stop offset="0%" stopColor="#7c3aed" stopOpacity={0.3} />
+              <Stop offset="100%" stopColor="#7c3aed" stopOpacity={0} />
+            </RadialGradient>
+            <RadialGradient id="centerHubGrad" cx="50%" cy="50%" r="50%" fx="30%" fy="30%">
+              <Stop offset="0%" stopColor="#ffffff" />
+              <Stop offset="35%" stopColor="#fde047" />
+              <Stop offset="75%" stopColor="#ca8a04" />
+              <Stop offset="100%" stopColor="#854d0e" />
+            </RadialGradient>
+            <RadialGradient id="wheelGlow" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+              <Stop offset="0%" stopColor="#a855f7" stopOpacity={0.5} />
+              <Stop offset="70%" stopColor="#a855f7" stopOpacity={0.15} />
+              <Stop offset="100%" stopColor="#a855f7" stopOpacity={0} />
+            </RadialGradient>
+            <LinearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <Stop offset="0%" stopColor="#fde047" />
+              <Stop offset="50%" stopColor="#ca8a04" />
+              <Stop offset="100%" stopColor="#854d0e" />
+            </LinearGradient>
+          </Defs>
+          {/* Slices */}
+          <G>
+            {slices.map(({ idx, startAngle, angle, endAngle }) => {
+              const textAngle = startAngle + angle / 2;
+              const textPos = polarToCartesian(cx, cy, r * 0.60, textAngle);
+              
+              let player: Player | undefined;
+              if (is5Player) {
+                player = players.find(p => p.seatIndex === idx) || (players[idx]?.seatIndex === undefined ? players[idx] : undefined);
+              } else {
+                player = players[idx];
+              }
+
+              const isEmptySlot = is5Player && !player;
+              const sliceColor = isEmptySlot ? "#2d3748" : SLICE_COLORS[idx % SLICE_COLORS.length];
+
+              if (isEmptySlot) {
+                return (
+                  <G key={idx}>
+                    <Path
+                      d={getArcPath(cx, cy, r, startAngle, endAngle)}
+                      fill={sliceColor}
+                      stroke="#1e293b"
+                      strokeWidth={2}
+                    />
+
+                    {/* Empty Slot Avatar Silhouette from Image 2 */}
+                    <Circle
+                      cx={textPos.x}
+                      cy={textPos.y - 7}
+                      r={size * 0.052}
+                      fill="rgba(255, 255, 255, 0.08)"
+                      stroke="#475569"
+                      strokeWidth={1.5}
+                    />
+                    {/* Head */}
+                    <Circle
+                      cx={textPos.x}
+                      cy={textPos.y - 11}
+                      r={size * 0.019}
+                      fill="#94a3b8"
+                    />
+                    {/* Shoulders */}
+                    <Path
+                      d={`M ${textPos.x - 8} ${textPos.y + 1} C ${textPos.x - 8} ${textPos.y - 5}, ${textPos.x + 8} ${textPos.y - 5}, ${textPos.x + 8} ${textPos.y + 1} Z`}
+                      fill="#94a3b8"
+                    />
+
+                    <SvgText
+                      x={textPos.x}
+                      y={textPos.y + 16}
+                      fill="#94a3b8"
+                      fontSize={Math.min(size * 0.034, 10)}
+                      fontWeight="800"
+                      textAnchor="middle"
+                      alignmentBaseline="middle"
+                      letterSpacing={1.2}
+                    >
+                      EMPTY
+                    </SvgText>
+                  </G>
+                );
+              }
+
+              // Format name matching Image 2: Short uppercase name (e.g., ASH, MEK)
+              const rawPlayerName = player ? ((player as any).display_name || player.username || "USER") : "USER";
+              const shortName = String(rawPlayerName).trim().slice(0, 4).toUpperCase();
+
+              return (
+                <G key={idx}>
+                  <Path
+                    d={getArcPath(cx, cy, r, startAngle, endAngle)}
+                    fill={sliceColor}
+                    stroke="#0b0f19"
+                    strokeWidth={2}
+                  />
+
+                  {/* Player Avatar Circle from Image 2 */}
+                  <Circle
+                    cx={textPos.x}
+                    cy={textPos.y - 7}
+                    r={size * 0.052}
+                    fill="rgba(255, 255, 255, 0.22)"
+                    stroke="#ffffff"
+                    strokeWidth={1.5}
+                  />
+                  {/* Head */}
+                  <Circle
+                    cx={textPos.x}
+                    cy={textPos.y - 11}
+                    r={size * 0.019}
+                    fill="#ffffff"
+                  />
+                  {/* Shoulders */}
+                  <Path
+                    d={`M ${textPos.x - 8} ${textPos.y + 1} C ${textPos.x - 8} ${textPos.y - 5}, ${textPos.x + 8} ${textPos.y - 5}, ${textPos.x + 8} ${textPos.y + 1} Z`}
+                    fill="#ffffff"
+                  />
+
+                  {/* Short Uppercase Player Name (e.g. ASH, MEK) */}
+                  <SvgText
+                    x={textPos.x}
+                    y={textPos.y + 16}
+                    fill="#ffffff"
+                    fontSize={Math.min(size * 0.038, 11)}
+                    fontWeight="900"
+                    textAnchor="middle"
+                    alignmentBaseline="middle"
+                    letterSpacing={0.5}
+                  >
+                    {shortName}
+                  </SvgText>
+                </G>
+              );
+            })}
+          </G>
+
+          {/* Gold Studded Metallic Rim */}
+          <Circle cx={cx} cy={cy} r={r * 1.04} stroke="url(#goldGrad)" strokeWidth={size * 0.065} fill="none" />
+          <Circle cx={cx} cy={cy} r={r * 1.09} fill="none" stroke="url(#goldGrad)" strokeWidth={2.5} />
+
+          {/* Glowing Bulbs / Lights on the rim */}
+          <G>
+            {Array.from({ length: 20 }).map((_, i) => {
+              const angle = i * (360 / 20);
+              const pos = polarToCartesian(cx, cy, r * 1.04, angle);
+              return (
+                <G key={i}>
+                  <Circle cx={pos.x} cy={pos.y} r={size * 0.016} fill="#ca8a04" opacity={0.4} />
+                  <Circle cx={pos.x} cy={pos.y} r={size * 0.010} fill="#fef08a" />
+                </G>
+              );
+            })}
+          </G>
+
+        </Svg>
+      </Animated.View>
+
+      {/* Center 3D Gold Hub with XO ETHIOPIA logo (Always Upright - never inverted) */}
+      <View style={[StyleSheet.absoluteFillObject, { pointerEvents: "none", zIndex: 6 }]} pointerEvents="none">
+        <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+          <Defs>
+            <RadialGradient id="staticCenterHubGrad" cx="50%" cy="50%" r="50%" fx="30%" fy="30%">
+              <Stop offset="0%" stopColor="#ffffff" />
+              <Stop offset="35%" stopColor="#fde047" />
+              <Stop offset="75%" stopColor="#ca8a04" />
+              <Stop offset="100%" stopColor="#854d0e" />
+            </RadialGradient>
+            <LinearGradient id="staticGoldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <Stop offset="0%" stopColor="#fde047" />
+              <Stop offset="50%" stopColor="#ca8a04" />
+              <Stop offset="100%" stopColor="#854d0e" />
+            </LinearGradient>
+          </Defs>
+          <Circle cx={cx} cy={cy} r={r * 0.25} fill="url(#staticGoldGrad)" stroke="#78350f" strokeWidth={2} />
+          <Circle cx={cx} cy={cy} r={r * 0.21} fill="url(#staticCenterHubGrad)" stroke="#b45309" strokeWidth={1.5} />
+          <SvgText
+            x={cx}
+            y={cy - 2}
+            fill="#000000"
+            fontSize={Math.max(size * 0.052, 13)}
+            fontWeight="900"
+            textAnchor="middle"
+            alignmentBaseline="middle"
+            letterSpacing={1}
+          >
+            XO
+          </SvgText>
+          <SvgText
+            x={cx}
+            y={cy + 9}
+            fill="#000000"
+            fontSize={Math.max(size * 0.021, 6.5)}
+            fontWeight="900"
+            textAnchor="middle"
+            alignmentBaseline="middle"
+            letterSpacing={0.8}
+          >
+            ETHIOPIA
+          </SvgText>
+        </Svg>
+      </View>
+
+      {/* Red Pointer with Inner White Triangle pointing down at top rim */}
+      <View style={[StyleSheet.absoluteFillObject, { pointerEvents: "none", zIndex: 10 }]} pointerEvents="none">
+        <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+          <Defs>
+            <LinearGradient id="redPointerGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <Stop offset="0%" stopColor="#ff2a4b" />
+              <Stop offset="60%" stopColor="#dc2626" />
+              <Stop offset="100%" stopColor="#991b1b" />
+            </LinearGradient>
+            <LinearGradient id="pointerGoldBorder" x1="0%" y1="0%" x2="100%" y2="100%">
+              <Stop offset="0%" stopColor="#fef08a" />
+              <Stop offset="100%" stopColor="#ca8a04" />
+            </LinearGradient>
+          </Defs>
+          <G>
+            {/* Outer Drop Shadow */}
+            <Path
+              d={`M ${cx - size * 0.055} ${cy - r * 1.15} L ${cx + size * 0.055} ${cy - r * 1.15} L ${cx} ${cy - r * 0.88} Z`}
+              fill="rgba(0,0,0,0.4)"
+            />
+            {/* Main Outer Red Triangle Pointer */}
+            <Path
+              d={`M ${cx - size * 0.05} ${cy - r * 1.16} L ${cx + size * 0.05} ${cy - r * 1.16} L ${cx} ${cy - r * 0.90} Z`}
+              fill="url(#redPointerGrad)"
+              stroke="url(#pointerGoldBorder)"
+              strokeWidth={1.5}
+            />
+            {/* Inner White Triangle */}
+            <Path
+              d={`M ${cx - size * 0.024} ${cy - r * 1.14} L ${cx + size * 0.024} ${cy - r * 1.14} L ${cx} ${cy - r * 0.98} Z`}
+              fill="#ffffff"
+            />
+          </G>
+        </Svg>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    position: "relative",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  glow: {
+    position: "absolute",
+    backgroundColor: "rgba(124, 58, 237, 0.12)",
+  },
+  pointer: {
+    position: "absolute",
+    zIndex: 10,
+  },
+});

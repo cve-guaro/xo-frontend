@@ -1,5 +1,6 @@
 // XO ET — Service Worker (PWA offline support + caching)
-const CACHE_NAME = "xoet-v5";
+// v8: Force cache bust after June 2026 room amounts + UI updates deployment.
+const CACHE_NAME = "xoet-v8";
 const STATIC_ASSETS = [
   "/",
   "/manifest.json",
@@ -8,7 +9,7 @@ const STATIC_ASSETS = [
   "/icon-512.png",
 ];
 
-// Install — pre-cache essential static assets
+// Install — pre-cache essential static assets and immediately activate
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
@@ -20,7 +21,7 @@ self.addEventListener("install", (event) => {
   self.skipWaiting();
 });
 
-// Activate — clean up old caches
+// Activate — clean up ALL old caches aggressively, then claim clients
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
@@ -29,29 +30,35 @@ self.addEventListener("activate", (event) => {
           .filter((key) => key !== CACHE_NAME)
           .map((key) => caches.delete(key))
       )
-    )
+    ).then(() => self.clients.claim())
   );
-  event.waitUntil(clients.claim());
 });
 
-// Fetch — network-first for API calls, cache-first for static assets
+// Fetch — network-first for everything important, with smart fallbacks
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
-  // Skip non-GET requests, cross-origin API calls, and websocket connections
+  // Skip non-GET requests
   if (event.request.method !== "GET") return;
+
+  // Skip cross-origin requests entirely (API servers, WebSocket, CDNs)
   if (url.origin !== self.location.origin) return;
+
+  // Skip API and admin routes
   if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/admin/")) return;
-  if (url.protocol === "ws:" || url.protocol === "wss:") return;
+
+  // Skip audio/video files entirely — let the browser handle them directly
+  if (url.pathname.match(/\.(wav|mp3|ogg|mp4|webm|m4a)$/i)) return;
 
   // For navigation requests (HTML pages): network-first with offline fallback
   if (event.request.mode === "navigate") {
     event.respondWith(
       fetch(event.request)
         .then((response) => {
-          // Cache successful navigation responses
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          if (response && response.status === 200) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone).catch(() => {})).catch(() => {});
+          }
           return response;
         })
         .catch(() => {
@@ -63,26 +70,42 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // For static assets (JS, CSS, images): stale-while-revalidate
-  if (
-    url.pathname.match(/\.(js|css|png|jpg|jpeg|svg|woff2?|ttf|eot|ico)$/) ||
-    url.pathname.startsWith("/_expo/static/") ||
-    url.pathname.startsWith("/_next/") ||
-    url.pathname.startsWith("/static/")
-  ) {
+  // For JS and CSS bundles: NETWORK-FIRST to always serve fresh code
+  // This prevents stale cached bundles with old/broken text from being served.
+  if (url.pathname.match(/\.(js|css)$/) || url.pathname.startsWith("/_expo/static/")) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response && response.status === 200) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone).catch(() => {})).catch(() => {});
+          }
+          return response;
+        })
+        .catch(() => {
+          return caches.match(event.request).then((cached) => {
+            if (cached) return cached;
+            return new Response("Asset not available offline", { status: 404, statusText: "Offline" });
+          });
+        })
+    );
+    return;
+  }
+
+  // For images and fonts: cache-first (these rarely change)
+  if (url.pathname.match(/\.(png|jpg|jpeg|svg|woff2?|ttf|eot|ico|webp|gif)$/)) {
     event.respondWith(
       caches.open(CACHE_NAME).then((cache) =>
         cache.match(event.request).then((cached) => {
-          const fetchPromise = fetch(event.request)
-            .then((response) => {
-              if (response.ok) {
-                cache.put(event.request, response.clone());
-              }
-              return response;
-            })
-            .catch(() => cached);
-
-          return cached || fetchPromise;
+          if (cached) return cached;
+          return fetch(event.request).then((response) => {
+            if (response && response.status === 200) {
+              cache.put(event.request, response.clone()).catch(() => {});
+            }
+            return response;
+          }).catch(() => {
+            return new Response("Asset not available offline", { status: 404, statusText: "Offline" });
+          });
         })
       )
     );
@@ -91,6 +114,11 @@ self.addEventListener("fetch", (event) => {
 
   // Default: network-first
   event.respondWith(
-    fetch(event.request).catch(() => caches.match(event.request))
+    fetch(event.request).catch(() => {
+      return caches.match(event.request).then((cached) => {
+        if (cached) return cached;
+        return new Response("Not found (offline)", { status: 404, statusText: "Offline" });
+      });
+    })
   );
 });

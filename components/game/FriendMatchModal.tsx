@@ -4,7 +4,7 @@ import { View, Text, TextInput, TouchableOpacity, Modal, ActivityIndicator, Styl
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/authContext';
 
-const BET_OPTIONS = [10, 25, 50, 99, 100, 250, 500];
+const BET_OPTIONS = [10, 15, 25, 50, 99, 100, 250, 500];
 const CAP_LIMIT = 25;
 const SEND_COOLDOWN_MS = 45000;
 
@@ -26,7 +26,8 @@ interface Props {
 }
 
 export default function FriendMatchModal({ visible, onClose, onSendInvite, inviteResult }: Props) {
-  const { t } = useAuth();
+  const { t, language } = useAuth();
+  const isEN = language === "en";
   const [username, setUsername] = useState('');
   const [selectedBet, setSelectedBet] = useState<number | null>(null);
   const [searching, setSearching] = useState(false);
@@ -41,7 +42,7 @@ export default function FriendMatchModal({ visible, onClose, onSendInvite, invit
   const wasDeclined = inviteResult?.declined === true;
 
   const statusColor = target?.status === 'online' ? '#34d399' : target?.status === 'in_game' ? '#f87171' : '#64748b';
-  const statusLabel = target?.status === 'online' ? 'Online' : target?.status === 'in_game' ? 'In Game' : 'Offline';
+  const statusLabel = target?.status === 'online' ? (isEN ? 'Online' : 'መስመር ላይ') : target?.status === 'in_game' ? (isEN ? 'In Game' : 'በጨዋታ ላይ') : (isEN ? 'Offline' : 'ከመስመር ውጭ');
 
   const handleSearch = () => {
     if (!username.trim()) return;
@@ -97,12 +98,28 @@ export default function FriendMatchModal({ visible, onClose, onSendInvite, invit
   }, []);
 
   const getLockInfo = (amt: number): { locked: boolean; reason: string } => {
-    // Note: Room 1 win caps are disabled for Friend Matches per admin request.
+    // 1. Balance check (both players must afford)
     const senderCantAfford = senderBalance < amt;
     const targetCantAfford = targetBalance < amt;
 
-    if (senderCantAfford) return { locked: true, reason: 'Low balance' };
-    if (targetCantAfford) return { locked: true, reason: "They can't afford" };
+    if (senderCantAfford) return { locked: true, reason: isEN ? 'Low balance' : 'ዝቅተኛ ሂሳብ' };
+    if (targetCantAfford) return { locked: true, reason: isEN ? "They can't afford" : "የበቂ ሂሳብ የላቸውም" };
+
+    // 2. Win cap check (15-win cap for 10 & 15 Birr)
+    const CAP_LIMIT_VAL = 15;
+    if (amt === 10) {
+      const senderCapped = (senderCaps?.r1_10 || 0) >= CAP_LIMIT_VAL;
+      const targetCapped = (targetCaps?.r1_10 || 0) >= CAP_LIMIT_VAL;
+      if (senderCapped) return { locked: true, reason: isEN ? 'Win cap reached' : 'ገደብ ላይ ደርሰዋል' };
+      if (targetCapped) return { locked: true, reason: isEN ? 'Friend capped' : 'ተጋባዡ ገደብ ላይ ደርሷል' };
+    }
+    if (amt === 15) {
+      const senderCapped = (senderCaps?.r1_15 || 0) >= CAP_LIMIT_VAL;
+      const targetCapped = (targetCaps?.r1_15 || 0) >= CAP_LIMIT_VAL;
+      if (senderCapped) return { locked: true, reason: isEN ? 'Win cap reached' : 'ገደብ ላይ ደርሰዋል' };
+      if (targetCapped) return { locked: true, reason: isEN ? 'Friend capped' : 'ተጋባዡ ገደብ ላይ ደርሷል' };
+    }
+
     return { locked: false, reason: '' };
   };
 
@@ -113,18 +130,18 @@ export default function FriendMatchModal({ visible, onClose, onSendInvite, invit
       <View style={s.overlay}>
         <View style={s.box}>
           <View style={s.header}>
-            <Text style={s.title}>Challenge a Friend</Text>
+            <Text style={s.title}>{isEN ? "Challenge a Friend" : "ከጓደኛ ጋር ይጫወቱ"}</Text>
             <TouchableOpacity onPress={onClose} style={s.closeBtn}>
               <Ionicons name="close" size={20} color="#e5e3ff" />
             </TouchableOpacity>
           </View>
 
           {/* Username Search */}
-          <Text style={s.label}>OPPONENT USERNAME</Text>
+          <Text style={s.label}>{isEN ? "OPPONENT USERNAME" : "የተቃዋሚ የተጠቃሚ ስም"}</Text>
           <View style={s.searchRow}>
             <TextInput
               style={s.input}
-              placeholder="Enter username..."
+              placeholder={isEN ? "Enter username..." : "የተጠቃሚ ስም ያስገቡ..."}
               placeholderTextColor="rgba(168,167,212,0.4)"
               value={username}
               onChangeText={setUsername}
@@ -141,10 +158,10 @@ export default function FriendMatchModal({ visible, onClose, onSendInvite, invit
             <View style={s.errorBox}>
               <Ionicons name="alert-circle" size={16} color="#f87171" />
               <Text style={s.errorText}>
-                {inviteResult.reason === 'user_not_found' ? 'User not found'
-                  : inviteResult.reason === 'cannot_invite_self' ? 'Cannot invite yourself'
-                  : inviteResult.reason === 'invalid_bet' ? 'Invalid bet amount'
-                  : 'Invite failed, try again'}
+                {inviteResult.reason === 'user_not_found' ? (isEN ? 'User not found' : 'ተጠቃሚው አልተገኘም')
+                  : inviteResult.reason === 'cannot_invite_self' ? (isEN ? 'Cannot invite yourself' : 'ራስዎን መጋበዝ አይችሉም')
+                  : inviteResult.reason === 'invalid_bet' ? (isEN ? 'Invalid bet amount' : 'የተሳሳተ የውርርድ መጠን')
+                  : (isEN ? 'Invite failed, try again' : 'መጋበዝ አልተቻለም፣ እንደገና ይሞክሩ')}
               </Text>
             </View>
           )}
@@ -164,11 +181,11 @@ export default function FriendMatchModal({ visible, onClose, onSendInvite, invit
               {/* Your balance context */}
               <View style={s.balanceRow}>
                 <Ionicons name="wallet-outline" size={14} color="#00daf3" />
-                <Text style={s.balanceText}>Your balance: <Text style={{ color: '#e5e3ff', fontWeight: '900' }}>{senderBalance.toLocaleString()} ETB</Text></Text>
+                <Text style={s.balanceText}>{isEN ? "Your balance: " : "ቀሪ ሂሳብዎ: "}<Text style={{ color: '#e5e3ff', fontWeight: '900' }}>{senderBalance.toLocaleString()} {isEN ? "ETB" : "ብር"}</Text></Text>
               </View>
 
               {/* Bet Selection */}
-              <Text style={[s.label, { marginTop: 12 }]}>SELECT BET AMOUNT</Text>
+              <Text style={[s.label, { marginTop: 12 }]}>{isEN ? "SELECT BET AMOUNT" : "የውርርድ መጠን ይምረጡ"}</Text>
               <View style={s.betGrid}>
                 {BET_OPTIONS.map(amt => {
                   const { locked, reason } = getLockInfo(amt);
@@ -181,7 +198,7 @@ export default function FriendMatchModal({ visible, onClose, onSendInvite, invit
                       disabled={locked}
                     >
                       {locked && <Ionicons name="lock-closed" size={10} color="#64748b" style={{ position: 'absolute', top: 4, right: 4 }} />}
-                      <Text style={[s.betText, selected && s.betTextSelected, locked && s.betTextLocked]}>{amt} ETB</Text>
+                      <Text style={[s.betText, selected && s.betTextSelected, locked && s.betTextLocked]}>{amt} {isEN ? "ETB" : "ብር"}</Text>
                       {locked && <Text style={s.lockedHint}>{reason}</Text>}
                     </TouchableOpacity>
                   );
@@ -205,17 +222,17 @@ export default function FriendMatchModal({ visible, onClose, onSendInvite, invit
                   <>
                     <Ionicons name="paper-plane" size={18} color="#0c0c1f" />
                     <Text style={s.inviteBtnText}>
-                      {`Send Challenge (${selectedBet || '...'} ETB)`}
+                      {isEN ? `Send Challenge (${selectedBet || '...'} ETB)` : `ግብዣ ላክ (${selectedBet || '...'} ብር)`}
                     </Text>
                   </>
                 )}
               </TouchableOpacity>
 
               {target.status !== 'online' && target.status !== 'in_game' && (
-                <Text style={s.offlineHint}>⚠️ Player is offline — invite will be sent when they come online</Text>
+                <Text style={s.offlineHint}>{isEN ? "⚠️ Player is offline — invite will be sent when they come online" : "⚠️ ተጫዋቹ ከመስመር ውጭ ነው — መስመር ላይ ሲገባ ግብዣው ይላካል"}</Text>
               )}
               {target.status === 'in_game' && (
-                <Text style={s.offlineHint}>⚠️ Player is currently in a game — they'll see your invite after</Text>
+                <Text style={s.offlineHint}>{isEN ? "⚠️ Player is currently in a game — they'll see your invite after" : "⚠️ ተጫዋቹ በአሁኑ ጊዜ በጨዋታ ላይ ነው — ከጨዋታው በኋላ ግብዣዎን ያያል"}</Text>
               )}
               {wasDeclined && (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, backgroundColor: 'rgba(248,113,113,0.1)', borderRadius: 12, marginTop: 10, borderWidth: 1, borderColor: 'rgba(248,113,113,0.2)' }}>

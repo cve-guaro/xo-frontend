@@ -1,39 +1,57 @@
-// app/(authed)/admin/ledger.tsx — God Mode: Financial Ledger
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, StyleSheet, Platform, useWindowDimensions, Modal, Pressable } from 'react-native';
+// app/(authed)/admin/ledger.tsx — Financial Ledger (XOET Design System)
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  ActivityIndicator,
+  StyleSheet,
+  Platform,
+  useWindowDimensions,
+  Modal,
+  Pressable,
+} from 'react-native';
 import AnimatedList from '../../../components/AnimatedList';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../../context/authContext';
 import { API_URL } from '../../../config';
-import { AdminTheme as C } from './_layout';
-
-const glass: any = {
-  backgroundColor: 'rgba(24, 24, 27, 0.65)',
-};
+import { useAdminTheme } from './_layout';
 
 interface Tx {
-  id: string; tx_ref?: string; provider_ref?: string;
-  user_id: string; username?: string; number?: string;
-  type: string; amount: number; provider?: string;
-  bank?: string; status: string; created_at: string;
+  id: string;
+  tx_ref?: string;
+  provider_ref?: string;
+  user_id: string;
+  username?: string;
+  number?: string;
+  type: string;
+  amount: number;
+  provider?: string;
+  bank?: string;
+  status: string;
+  created_at: string;
   provider_payload?: any;
 }
 
-const TABS = ['Deposits', 'Withdrawals'];
+const TABS = ['Recent Deposit Requests', 'Recent Withdrawal Requests'];
 
 export default function AdminLedger() {
+  const { theme: C, isDark } = useAdminTheme();
+  const styles = useMemo(() => getStyles(C, isDark), [C, isDark]);
   const { token, t, showAlert, isSuperAdmin } = useAuth();
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
-  const isTablet = width >= 768 && width < 1024;
+
   const [txs, setTxs] = useState<Tx[]>([]);
   const [filtered, setFiltered] = useState<Tx[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
-  const [tab, setTab] = useState(0);
-  const [actionId, setActionId] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<'All'|'Pending'|'Admin Review'|'Success'|'Failed'>('All');
+  const [tab, setTab] = useState(0); // 0 = Deposits, 1 = Withdrawals
+  const [statusFilter, setStatusFilter] = useState<'All' | 'Pending' | 'Admin Review' | 'Success' | 'Failed'>('All');
   const [amountRange, setAmountRange] = useState<'all' | '0-100' | '100-10000' | '10000-100000'>('all');
+  const [gameFilter, setGameFilter] = useState<'all' | 'xo' | 'spin'>('all');
   const [page, setPage] = useState(0);
   const [total, setTotal] = useState(0);
   const [stats, setStats] = useState<any>(null);
@@ -41,44 +59,71 @@ export default function AdminLedger() {
   const [reviewModalVisible, setReviewModalVisible] = useState(false);
   const [reviewData, setReviewData] = useState<any>(null);
   const [reviewLoading, setReviewLoading] = useState(false);
-
-  const openReviewModal = async (id: string) => {
-    setReviewModalVisible(true); setReviewLoading(true); setReviewData(null);
-    try {
-      const res = await fetch(`${API_URL}/admin/transactions/${id}/details`, { headers: { Authorization: `Bearer ${token}` } });
-      if (res.ok) setReviewData(await res.json());
-    } finally { setReviewLoading(false); }
-  };
-
-  const [confirmAction, setConfirmAction] = useState<'approve'|'reject'|null>(null);
-
-  const execTxAction = async (action: 'approve'|'reject'|'ban'|'delete', txId: string, userId: string) => {
-    try {
-      let url = ''; let method = 'PATCH';
-      if (action === 'approve') url = `${API_URL}/admin/transactions/${txId}/approve`;
-      if (action === 'reject') url = `${API_URL}/admin/transactions/${txId}/reject`;
-      if (action === 'ban') { url = `${API_URL}/admin/users/${userId}/ban`; method = 'POST'; }
-      if (action === 'delete') { url = `${API_URL}/admin/users/${userId}`; method = 'DELETE'; }
-
-      const res = await fetch(url, { method, headers: { Authorization: `Bearer ${token}` }});
-      if (res.ok) {
-         showAlert(`Success`, `Action ${action} completed successfully.`);
-         setReviewModalVisible(false);
-         setConfirmAction(null);
-         fetchTxs();
-      } else showAlert('Error', 'Action failed');
-    } catch { showAlert('Error', 'Network error'); }
-  };
+  const [confirmAction, setConfirmAction] = useState<'approve' | 'reject' | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
   const limit = 20;
+
+  const openReviewModal = async (id: string) => {
+    setReviewModalVisible(true);
+    setReviewLoading(true);
+    setReviewData(null);
+    try {
+      const res = await fetch(`${API_URL}/admin/transactions/${id}/details`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) setReviewData(await res.json());
+    } finally {
+      setReviewLoading(false);
+    }
+  };
+
+  const execTxAction = async (action: 'approve' | 'reject' | 'ban' | 'delete', txId: string, userId: string) => {
+    if (actionLoading) return;
+    setActionLoading(true);
+    try {
+      let url = '';
+      let method = 'PATCH';
+      if (action === 'approve') url = `${API_URL}/admin/transactions/${txId}/approve`;
+      if (action === 'reject') url = `${API_URL}/admin/transactions/${txId}/reject`;
+      if (action === 'ban') {
+        url = `${API_URL}/admin/users/${userId}/ban`;
+        method = 'POST';
+      }
+      if (action === 'delete') {
+        url = `${API_URL}/admin/users/${userId}`;
+        method = 'DELETE';
+      }
+
+      const res = await fetch(url, {
+        method,
+        headers: { Authorization: `Bearer ${token}`, 'x-platform': 'web' },
+      });
+      if (res.ok) {
+        showAlert('Success', `Action ${action} completed successfully.`);
+        setReviewModalVisible(false);
+        setConfirmAction(null);
+        fetchTxs();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        showAlert('Error', err.error || `Action ${action} failed`);
+      }
+    } catch {
+      showAlert('Error', 'Network error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   const fetchStats = useCallback(async () => {
     try {
       const res = await fetch(`${API_URL}/admin/dashboard-data`, {
-        headers: { Authorization: `Bearer ${token}`, 'x-platform': 'web' }
+        headers: { Authorization: `Bearer ${token}`, 'x-platform': 'web' },
       });
       if (res.ok) setStats(await res.json());
-    } catch (e) { console.log('[admin/stats]', e); }
+    } catch (e) {
+      console.log('[admin/stats]', e);
+    }
   }, [token]);
 
   const fetchTxs = useCallback(async () => {
@@ -87,13 +132,23 @@ export default function AdminLedger() {
       const offset = page * limit;
       const type = tab === 0 ? 'deposit' : 'withdrawal';
       const status = statusFilter === 'All' ? '' : statusFilter.toLowerCase();
-      
+
       let url = `${API_URL}/admin/transactions?limit=${limit}&offset=${offset}&type=${type}`;
-      if (status) url += `&status=${status === 'success' ? 'success,succeeded' : status === 'failed' ? 'failed,rejected' : status === 'admin review' ? 'pending_manual' : status}`;
+      if (status) {
+        url += `&status=${
+          status === 'success'
+            ? 'success,succeeded'
+            : status === 'failed'
+            ? 'failed,rejected'
+            : status === 'admin review'
+            ? 'pending_manual'
+            : status
+        }`;
+      }
       if (amountRange !== 'all') url += `&amountRange=${amountRange}`;
 
-      const res = await fetch(url, { 
-        headers: { Authorization: `Bearer ${token}`, 'x-platform': 'web' } 
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}`, 'x-platform': 'web' },
       });
       if (res.ok) {
         const d = await res.json();
@@ -101,464 +156,648 @@ export default function AdminLedger() {
         setTxs(list);
         setTotal(d.total ?? 0);
       }
-    } catch (e) { console.log('[admin/txs]', e); }
-    finally { setLoading(false); }
+    } catch (e) {
+      console.log('[admin/txs]', e);
+    } finally {
+      setLoading(false);
+    }
   }, [token, page, limit, tab, statusFilter, amountRange]);
 
-  useEffect(() => { fetchTxs(); fetchStats(); }, [fetchTxs, fetchStats]);
+  useEffect(() => {
+    fetchTxs();
+    fetchStats();
+  }, [fetchTxs, fetchStats]);
 
   useEffect(() => {
-    // Local filter for the search query (since search isn't server-side for ledger yet)
-    if (query) {
+    let list = txs;
+    if (query.trim()) {
       const q = query.toLowerCase();
-      const list = txs.filter(t => {
-        const d = fmtDate(t.created_at);
-        const amt = etb(t.amount);
-        const method = (t.provider || t.bank || '').toLowerCase();
-        
-        return (
-          t.username?.toLowerCase().includes(q) || 
-          t.number?.includes(q) || 
-          t.id?.toLowerCase().includes(q) || 
-          t.tx_ref?.toLowerCase().includes(q) ||
-          amt.includes(q) ||
-          method.includes(q) ||
-          d.date.toLowerCase().includes(q) ||
-          d.time.toLowerCase().includes(q)
-        );
-      });
-      setFiltered(list);
-    } else {
-      setFiltered(txs);
+      list = list.filter(
+        (t) =>
+          (t.username || '').toLowerCase().includes(q) ||
+          (t.number || '').includes(q) ||
+          (t.tx_ref || '').toLowerCase().includes(q) ||
+          (t.provider_ref || '').toLowerCase().includes(q) ||
+          (t.user_id || '').toLowerCase().includes(q)
+      );
     }
-  }, [txs, query]);
-
-  // Reset page when tab, status filter, or amount range changes
-  useEffect(() => { setPage(0); }, [tab, statusFilter, amountRange]);
-
+    setFiltered(list);
+  }, [query, txs]);
 
   const etb = (v: number) => Number(v || 0).toFixed(2);
   const initials = (t: Tx) => (t.username || t.number || '??').slice(0, 2).toUpperCase();
   const fmtDate = (iso: string) => {
-    try { const d = new Date(iso); return { date: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }), time: d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) }; }
-    catch { return { date: '—', time: '—' }; }
+    try {
+      const d = new Date(iso);
+      return {
+        date: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        time: d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+      };
+    } catch {
+      return { date: '—', time: '—' };
+    }
   };
 
-  // Stats - Real dynamic values from backend
   const s = stats || {};
-  const totalVol = Number(s.volume24h || s.totalDeposits || 0);
   const pendingCount = Number(s.pendingWithdrawals || 0);
-  const sRate = Number(s.successRate || 98.4);
+
+  const renderStatusBadge = (statusStr: string) => {
+    const sUpper = (statusStr || '').toUpperCase();
+    const isPending = sUpper === 'PENDING' || sUpper === 'WAITING';
+    const isAdminPending = sUpper === 'PENDING_MANUAL';
+    const isSuccess = sUpper === 'SUCCESS' || sUpper === 'SUCCEEDED' || sUpper === 'COMPLETED' || sUpper === 'PAID';
+
+    if (isPending) {
+      return (
+        <View style={styles.statusPending}>
+          <Ionicons name="time-outline" size={12} color="#c084fc" />
+          <Text style={[styles.statusText, { color: '#c084fc' }]}>PENDING</Text>
+        </View>
+      );
+    }
+    if (isAdminPending) {
+      return (
+        <View style={styles.statusPendingManual}>
+          <Ionicons name="hourglass-outline" size={12} color="#fbbf24" />
+          <Text style={[styles.statusText, { color: '#fbbf24' }]}>ADMIN REV</Text>
+        </View>
+      );
+    }
+    if (isSuccess) {
+      return (
+        <View style={styles.statusSuccess}>
+          <Ionicons name="checkmark-circle-outline" size={12} color="#10b981" />
+          <Text style={[styles.statusText, { color: '#10b981' }]}>SUCCESS</Text>
+        </View>
+      );
+    }
+    return (
+      <View style={styles.statusFailed}>
+        <Ionicons name="alert-circle-outline" size={12} color="#ff2d55" />
+        <Text style={[styles.statusText, { color: '#ff2d55' }]}>FAILED</Text>
+      </View>
+    );
+  };
 
   return (
-    <View style={{ flex: 1 }}>
-      {/* Ambient glows */}
-      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-        <View style={[styles.glow, { top: -100, right: -100, backgroundColor: `${C.primary}0d` }]} />
-        <View style={[styles.glow, { bottom: -100, left: 0, backgroundColor: `${C.secondary}0d`, width: 400, height: 400 }]} />
-      </View>
-
+    <View style={styles.root}>
       <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
-        {/* Header row — stacks on mobile */}
-        <View style={[styles.pageHeader, isMobile && { flexDirection: 'column', alignItems: 'flex-start', gap: 12, padding: 16 }]}>
-          <View>
-            <Text style={[styles.pageTitle, isMobile && { fontSize: 20 }]}>{t('financial_ledger')}</Text>
-            {!isMobile && <Text style={styles.pageSub}>Manage real-time liquidity and user transaction requests across the abyss.</Text>}
+        {/* ════════════════════════════════════════════════════════════════
+            ██  HEADER (Image 2 Top)
+            ════════════════════════════════════════════════════════════════ */}
+        <View style={[styles.pageHeader, isMobile && { flexDirection: 'column', alignItems: 'stretch', gap: 14 }]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+            <View style={styles.headerIconBadge}>
+              <Ionicons name="receipt-outline" size={24} color="#FF2D55" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.pageTitle}>{t('financial_ledger') || 'Financial Ledger'}</Text>
+              <Text style={styles.pageSub}>
+                Manage user deposit and withdrawal transaction requests and wallet activity.
+              </Text>
+            </View>
           </View>
-          {/* Tabs */}
+
+          {/* Tab Switch Pills: Recent Deposit Requests vs Recent Withdrawal Requests */}
           <View style={styles.tabContainer}>
-            <View style={styles.tabBar}>
-              {TABS.map((tabLabel, i) => (
-                <TouchableOpacity key={tabLabel} onPress={() => setTab(i)} style={[styles.tabBtn, tab === i && styles.tabBtnActive]}>
-                  <Text style={[styles.tabText, tab === i && styles.tabTextActive]}>{t((tabLabel === 'Deposits' ? 'recent_deposits' : 'recent_withdrawals') as any)}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            <TouchableOpacity
+              onPress={() => {
+                setTab(0);
+                setPage(0);
+              }}
+              style={[styles.tabBtn, tab === 0 ? styles.tabBtnActive : styles.tabBtnInactive]}
+              activeOpacity={0.85}
+            >
+              <Text style={[styles.tabText, tab === 0 ? styles.tabTextActive : styles.tabTextInactive]}>
+                Recent Deposit Requests
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => {
+                setTab(1);
+                setPage(0);
+              }}
+              style={[styles.tabBtn, tab === 1 ? styles.tabBtnActive : styles.tabBtnInactive]}
+              activeOpacity={0.85}
+            >
+              <Text style={[styles.tabText, tab === 1 ? styles.tabTextActive : styles.tabTextInactive]}>
+                Recent Withdrawal Requests
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
 
-        {/* Stats bento — wraps into 2x2 or 1x4 based on space */}
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: isMobile ? 12 : 20, marginBottom: isMobile ? 24 : 32 }}>
-          {/* Card 1: Deposits */}
-          <View style={[styles.statCard, glass, { minWidth: isMobile ? '48%' : 180, flex: 1, padding: isMobile ? 16 : 24 }]}>
+        {/* ════════════════════════════════════════════════════════════════
+            ██  4 KPI CARDS (Image 2 Bento)
+            ════════════════════════════════════════════════════════════════ */}
+        <View style={[styles.statsRow, isMobile && { gap: 10 }]}>
+          {/* Card 1: Total Deposit */}
+          <View style={[styles.statCard, isMobile && { width: '48%', flex: undefined, minWidth: '48%' }]}>
             <View style={styles.statTop}>
-              <Text style={[styles.statLabel, isMobile && { fontSize: 9, letterSpacing: 1 }]} numberOfLines={1}>Total Deposit</Text>
-              <Ionicons name="arrow-down-circle" size={16} color={C.secondary} />
+              <View style={styles.statIconBadgeGreen}>
+                <Ionicons name="arrow-down-outline" size={16} color="#10b981" />
+              </View>
+              <Text style={styles.statLabel} numberOfLines={1}>TOTAL DEPOSIT</Text>
+              <Ionicons name="trending-up-outline" size={14} color="#10b981" />
             </View>
-            <Text style={[styles.statValue, { color: C.secondary }, isMobile && { fontSize: 18 }]} numberOfLines={1}>ETB {etb(s.totalDeposits || 0)}</Text>
-            <Text style={[styles.statSub, isMobile && { fontSize: 9 }]} numberOfLines={1}>Today: ETB {etb(s.volume24h || 0)}</Text>
+            <Text style={styles.statValue} numberOfLines={1}>ETB {etb(s.totalDeposits || 0)}</Text>
           </View>
 
-          {/* Card 2: Withdrawals */}
-          <View style={[styles.statCard, glass, { minWidth: isMobile ? '48%' : 180, flex: 1, padding: isMobile ? 16 : 24 }]}>
+          {/* Card 2: Total Withdrawal */}
+          <View style={[styles.statCard, isMobile && { width: '48%', flex: undefined, minWidth: '48%' }]}>
             <View style={styles.statTop}>
-              <Text style={[styles.statLabel, isMobile && { fontSize: 9, letterSpacing: 1 }]} numberOfLines={1}>Total Withdrawal</Text>
-              <Ionicons name="arrow-up-circle" size={16} color="#a68cff" />
+              <View style={styles.statIconBadgeRed}>
+                <Ionicons name="arrow-up-outline" size={16} color="#f43f5e" />
+              </View>
+              <Text style={styles.statLabel} numberOfLines={1}>TOTAL WITHDRAWAL</Text>
+              <Ionicons name="trending-down-outline" size={14} color="#f43f5e" />
             </View>
-            <Text style={[styles.statValue, { color: '#a68cff' }, isMobile && { fontSize: 18 }]} numberOfLines={1}>ETB {etb(s.totalWithdrawals || 0)}</Text>
-            <Text style={[styles.statSub, isMobile && { fontSize: 9 }]} numberOfLines={1}>Today: —</Text>
+            <Text style={styles.statValue} numberOfLines={1}>ETB {etb(s.totalWithdrawals || 0)}</Text>
           </View>
 
-          {/* Card 3: Pending */}
-          <View style={[styles.statCard, glass, { minWidth: isMobile ? '48%' : 180, flex: 1, padding: isMobile ? 16 : 24 }]}>
+          {/* Card 3: Admin Pending */}
+          <View style={[styles.statCard, isMobile && { width: '48%', flex: undefined, minWidth: '48%' }]}>
             <View style={styles.statTop}>
-              <Text style={[styles.statLabel, isMobile && { fontSize: 9, letterSpacing: 1 }]} numberOfLines={1}>Admin Pending</Text>
-              <Ionicons name="hourglass" size={16} color="#ffabf3" />
+              <View style={styles.statIconBadgeAmber}>
+                <Ionicons name="hourglass-outline" size={16} color="#f59e0b" />
+              </View>
+              <Text style={styles.statLabel} numberOfLines={1}>ADMIN PENDING</Text>
+              <Ionicons name="time-outline" size={14} color="#f59e0b" />
             </View>
-            <Text style={[styles.statValue, { color: '#ff51fa' }, isMobile && { fontSize: 18 }]} numberOfLines={1}>{pendingCount}</Text>
-            <Text style={[styles.statSub, isMobile && { fontSize: 9 }]} numberOfLines={1}>Total Pending: {s.pendingWithdrawalAmount || 0}</Text>
+            <Text style={styles.statValue} numberOfLines={1}>{pendingCount}</Text>
           </View>
 
-          {/* Card 4: Failed */}
-          <View style={[styles.statCard, glass, { minWidth: isMobile ? '48%' : 180, flex: 1, padding: isMobile ? 16 : 24 }]}>
+          {/* Card 4: Failed Withdrawal */}
+          <View style={[styles.statCard, isMobile && { width: '48%', flex: undefined, minWidth: '48%' }]}>
             <View style={styles.statTop}>
-              <Text style={[styles.statLabel, isMobile && { fontSize: 9, letterSpacing: 1 }]} numberOfLines={1}>Failed Withdrawal</Text>
-              <Ionicons name="warning" size={16} color={C.error} />
+              <View style={styles.statIconBadgeRed}>
+                <Ionicons name="alert-circle-outline" size={16} color="#ef4444" />
+              </View>
+              <Text style={styles.statLabel} numberOfLines={1}>FAILED WITHDRAWAL</Text>
+              <Ionicons name="trending-down-outline" size={14} color="#ef4444" />
             </View>
-            <Text style={[styles.statValue, { color: C.error }, isMobile && { fontSize: 18 }]} numberOfLines={1}>{s.failedWithdrawals || 0}</Text>
-            <Text style={[styles.statSub, isMobile && { fontSize: 9 }]} numberOfLines={1}>Failed Deposit: 0</Text>
+            <Text style={styles.statValue} numberOfLines={1}>{s.failedWithdrawals || 0}</Text>
           </View>
         </View>
 
-        {/* Table */}
-        <View style={[styles.tableCard, glass, { borderRadius: 24, overflow: 'hidden' }]}>
-          <View style={[styles.tableHead, isMobile && { flexDirection: 'column', alignItems: 'flex-start', gap: 10, padding: 16 }]}>
-            <Text style={[styles.tableTitle, isMobile && { fontSize: 16 }]}>{tab === 0 ? t('Recent Deposit Requests') : t('Recent Withdrawal Requests')}</Text>
-            <View style={[{ flexDirection: 'row', alignItems: 'center', gap: 10 }, isMobile && { width: '100%' as any }]}>
-              <View style={[styles.searchBox, isMobile && { flex: 1 }]}>
-                <Ionicons name="search" size={16} color="rgba(168,167,212,0.5)" />
+        {/* ════════════════════════════════════════════════════════════════
+            ██  MAIN CONTAINER / TABLE CARD (Image 2)
+            ════════════════════════════════════════════════════════════════ */}
+        <View style={styles.tableCard}>
+          {/* Header Row with Title, Search, and Filters */}
+          <View style={[styles.tableHead, isMobile && { flexDirection: 'column', alignItems: 'stretch', gap: 12, padding: 14 }]}>
+            <Text style={styles.tableTitle}>
+              {tab === 0 ? 'Recent Deposit Requests' : 'Recent Withdrawal Requests'}
+            </Text>
+
+            <View style={[styles.filterBar, isMobile && { flexDirection: 'column', width: '100%' }]}>
+              {/* Search Box */}
+              <View style={[styles.searchBox, isMobile && { width: '100%' }]}>
+                <Ionicons name="search" size={16} color={isDark ? 'rgba(148,163,184,0.6)' : 'rgba(100,116,139,0.7)'} />
                 <TextInput
                   style={styles.searchInput}
-                  placeholder={t("Search ledger...")}
-                  placeholderTextColor="rgba(168,167,212,0.4)"
+                  placeholder="Search ledger..."
+                  placeholderTextColor={isDark ? 'rgba(148,163,184,0.45)' : 'rgba(100,116,139,0.5)'}
                   value={query}
                   onChangeText={setQuery}
-                  {...(Platform.OS === 'web' ? { outlineStyle: 'none' } as any : {})}
+                  {...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : {})}
                 />
               </View>
-              <TouchableOpacity
-                style={[styles.filterChip, statusFilter !== 'All' && { backgroundColor: C.primary, borderColor: C.primary }]}
-                onPress={() => {
-                  const map: any = { 'All':'Pending', 'Pending':'Admin Review', 'Admin Review': 'Success', 'Success':'Failed', 'Failed':'All' };
-                  setStatusFilter(map[statusFilter] || 'All');
-                }}
-              >
-                <Ionicons name="filter" size={14} color={statusFilter !== 'All' ? '#fff' : C.primary} />
-                <Text style={[styles.filterChipText, statusFilter !== 'All' && { color: '#fff' }]}>{t('Status')}: {t(statusFilter)}</Text>
-              </TouchableOpacity>
-              
-              <View style={[styles.searchBox, { width: isMobile ? '100%' : 160, height: 40, paddingVertical: 0 }]}>
-                 <Ionicons name="cash-outline" size={14} color="rgba(168,167,212,0.6)" />
-                 {Platform.OS === 'web' ? (
+
+              <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                {/* Status Filter Pill */}
+                <TouchableOpacity
+                  style={[styles.filterChip, statusFilter !== 'All' && styles.filterChipActive]}
+                  onPress={() => {
+                    const map: any = {
+                      All: 'Pending',
+                      Pending: 'Admin Review',
+                      'Admin Review': 'Success',
+                      Success: 'Failed',
+                      Failed: 'All',
+                    };
+                    setStatusFilter(map[statusFilter] || 'All');
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="filter" size={13} color="#FF2D55" />
+                  <Text style={styles.filterChipText}>Status: {statusFilter}</Text>
+                </TouchableOpacity>
+
+                {/* Amount Range Pill */}
+                <View style={styles.dropdownChip}>
+                  <Ionicons name="cash-outline" size={13} color={isDark ? 'rgba(148,163,184,0.8)' : 'rgba(100,116,139,0.8)'} />
+                  {Platform.OS === 'web' ? (
                     <select
                       value={amountRange}
                       onChange={(e: any) => setAmountRange(e.target.value as any)}
-                      style={{ background: 'transparent', border: 'none', color: 'rgba(229,227,255,0.8)', fontSize: 12, fontWeight: 700, outlineStyle: 'none', cursor: 'pointer' as any, flex: 1 } as any}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: isDark ? '#f1f5f9' : '#0f172a',
+                        fontSize: 12,
+                        fontWeight: '700',
+                        outlineStyle: 'none',
+                        cursor: 'pointer' as any,
+                      } as any}
                     >
-                      <option value="all" style={{ background: '#111128' }}>All Ranges</option>
-                      <option value="0-100" style={{ background: '#111128' }}>0-100 ETB</option>
-                      <option value="100-10000" style={{ background: '#111128' }}>100-10k ETB</option>
-                      <option value="10000-100000" style={{ background: '#111128' }}>10k-100k ETB</option>
+                      <option value="all" style={{ background: isDark ? '#0c1424' : '#fff', color: isDark ? '#fff' : '#000' }}>All Ranges</option>
+                      <option value="0-100" style={{ background: isDark ? '#0c1424' : '#fff', color: isDark ? '#fff' : '#000' }}>0-100 ETB</option>
+                      <option value="100-10000" style={{ background: isDark ? '#0c1424' : '#fff', color: isDark ? '#fff' : '#000' }}>100-10k ETB</option>
+                      <option value="10000-100000" style={{ background: isDark ? '#0c1424' : '#fff', color: isDark ? '#fff' : '#000' }}>10k-100k ETB</option>
                     </select>
-                 ) : (
-                    <TouchableOpacity style={{ flex: 1 }} onPress={() => {
-                       const order = ['all', '0-100', '100-10000', '10000-100000'] as const;
-                       setAmountRange(order[(order.indexOf(amountRange) + 1) % order.length]);
-                    }}>
-                       <Text style={{ color: '#e5e3ff', fontSize: 11, fontWeight: '700' }}>{amountRange.toUpperCase()}</Text>
+                  ) : (
+                    <TouchableOpacity
+                      onPress={() => {
+                        const order = ['all', '0-100', '100-10000', '10000-100000'] as const;
+                        setAmountRange(order[(order.indexOf(amountRange) + 1) % order.length]);
+                      }}
+                    >
+                      <Text style={styles.dropdownChipText}>{amountRange === 'all' ? 'All Ranges' : amountRange.toUpperCase()}</Text>
                     </TouchableOpacity>
-                 )}
+                  )}
+                  <Ionicons name="chevron-down" size={12} color={isDark ? 'rgba(148,163,184,0.6)' : 'rgba(100,116,139,0.6)'} />
+                </View>
+
+                {/* Game Filter Pill */}
+                <View style={styles.dropdownChip}>
+                  <Ionicons name="game-controller-outline" size={13} color={isDark ? 'rgba(148,163,184,0.8)' : 'rgba(100,116,139,0.8)'} />
+                  {Platform.OS === 'web' ? (
+                    <select
+                      value={gameFilter}
+                      onChange={(e: any) => setGameFilter(e.target.value as any)}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: isDark ? '#f1f5f9' : '#0f172a',
+                        fontSize: 12,
+                        fontWeight: '700',
+                        outlineStyle: 'none',
+                        cursor: 'pointer' as any,
+                      } as any}
+                    >
+                      <option value="all" style={{ background: isDark ? '#0c1424' : '#fff', color: isDark ? '#fff' : '#000' }}>All Games</option>
+                      <option value="xo" style={{ background: isDark ? '#0c1424' : '#fff', color: isDark ? '#fff' : '#000' }}>XO Games</option>
+                      <option value="spin" style={{ background: isDark ? '#0c1424' : '#fff', color: isDark ? '#fff' : '#000' }}>Spin Game</option>
+                    </select>
+                  ) : (
+                    <TouchableOpacity
+                      onPress={() => {
+                        const order = ['all', 'xo', 'spin'] as const;
+                        setGameFilter(order[(order.indexOf(gameFilter as any) + 1) % order.length] as any);
+                      }}
+                    >
+                      <Text style={styles.dropdownChipText}>{gameFilter === 'all' ? 'All Games' : gameFilter.toUpperCase()}</Text>
+                    </TouchableOpacity>
+                  )}
+                  <Ionicons name="chevron-down" size={12} color={isDark ? 'rgba(148,163,184,0.6)' : 'rgba(100,116,139,0.6)'} />
+                </View>
               </View>
             </View>
           </View>
 
-          {/* Table body — horizontal scroll on mobile */}
-          <ScrollView horizontal={isMobile} showsHorizontalScrollIndicator={isMobile}>
-            <View style={isMobile ? { minWidth: 900 } : undefined}>
-              {/* Column headers */}
-              <View style={[styles.colRow, { backgroundColor: 'rgba(17,17,40,0.8)', borderBottomWidth: 1, borderBottomColor: 'rgba(39, 39, 42, 0.4)' }]}>
-                <View style={{ flex: 2 }}><Text style={styles.colHead}>User Account</Text></View>
-                <View style={{ flex: 1.1 }}><Text style={styles.colHead}>Amount (ETB)</Text></View>
-                <View style={{ flex: 0.9 }}><Text style={styles.colHead}>Method</Text></View>
-                <View style={{ flex: 1.2 }}><Text style={styles.colHead}>Timestamp</Text></View>
-                <View style={{ flex: 0.9 }}><Text style={styles.colHead}>Status</Text></View>
-                <View style={{ flex: 1.3 }}><Text style={[styles.colHead, { textAlign: 'right' }]}>Receipt</Text></View>
-              </View>
+          {/* ════════════════════════════════════════════════════════════════
+              ██  CONTENT: MOBILE CARDS vs DESKTOP TABLE
+              ════════════════════════════════════════════════════════════════ */}
+          {isMobile ? (
+            /* ── MOBILE CARDS FEED (Image 2 Right Side) ── */
+            <View style={{ padding: 14 }}>
+              <AnimatedList
+                items={loading ? [] : filtered}
+                renderItem={(tx: Tx) => {
+                  const d = fmtDate(tx.created_at);
+                  const ini = initials(tx);
 
-          <AnimatedList
-            items={loading ? [] : filtered}
-            renderItem={(tx: Tx) => {
-              const d = fmtDate(tx.created_at);
-              const status = (tx.status || '').toUpperCase();
-              const isPending = status === 'PENDING' || status === 'WAITING';
-              const isAdminPending = status === 'PENDING_MANUAL';
-              const isSuccess = status === 'SUCCESS' || status === 'SUCCEEDED' || status === 'COMPLETED' || status === 'PAID';
-              const isFailed = status === 'FAILED' || status === 'REJECTED' || status === 'ERROR' || status === 'CANCELLED';
-              
-              const providerColor = tx.provider?.toUpperCase() === 'CHAPA' ? C.primary : C.secondary;
-              const ini = initials(tx);
-              const avatarBg = isPending ? 'rgba(192,132,252,0.15)' : isAdminPending ? 'rgba(251,191,36,0.15)' : isSuccess ? 'rgba(0,218,243,0.1)' : 'rgba(253,111,133,0.15)';
-              const avatarColor = isPending ? '#c084fc' : isAdminPending ? '#fbbf24' : isSuccess ? C.secondary : C.error;
+                  return (
+                    <View key={tx.id} style={styles.mobileCard}>
+                      {/* Top: Avatar, Name & ID on left, Status Badge on right */}
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+                          <View style={styles.txAvatar}>
+                            <Text style={styles.txAvatarText}>{ini}</Text>
+                          </View>
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <Text style={styles.txName} numberOfLines={1}>{tx.username || 'Unknown'}</Text>
+                            <Text style={styles.txId}>ID: {tx.user_id ? tx.user_id.slice(0, 8) : '-'}</Text>
+                          </View>
+                        </View>
+                        {renderStatusBadge(tx.status)}
+                      </View>
 
-              return (
-                <View key={tx.id} style={[styles.txRow, { borderBottomWidth: 0, marginBottom: 0 }]}>
-                  {/* User */}
-                  <View style={[styles.txUser, { flex: 2 }]}>
-                    <View style={[styles.txAvatar, { backgroundColor: avatarBg }]}>
-                      <Text style={[styles.txAvatarText, { color: avatarColor }]}>{ini}</Text>
-                    </View>
-                    <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text style={styles.txName} numberOfLines={1}>{tx.username || 'Unknown'}</Text>
-                      <Text style={styles.txId}>ID: {tx.user_id?.slice(0,7)}</Text>
-                    </View>
-                  </View>
-                  {/* Amount */}
-                  <View style={{ flex: 1.1 }}>
-                    <Text style={[styles.txAmount, { color: tab === 1 ? '#f87171' : '#34d399' }]} numberOfLines={1}>
-                      {tab === 1 ? '- ' : '+ '}ETB {etb(tx.amount)}
-                    </Text>
-                  </View>
-                  {/* Method */}
-                  <View style={{ flex: 0.9 }}>
-                    <View style={[styles.methodPill, { borderColor: `${providerColor}33`, backgroundColor: `${providerColor}0a`, alignSelf: 'flex-start' }]}>
-                      <Text style={[styles.methodText, { color: providerColor }]}>{tx.provider || 'N/A'}</Text>
-                    </View>
-                  </View>
-                  {/* Timestamp */}
-                  <View style={[styles.txTimestamp, { flex: 1.2 }]}>
-                    <Text style={styles.txDate}>{d.date}</Text>
-                    <Text style={styles.txTime}>{d.time}</Text>
-                  </View>
-                  {/* Status */}
-                  <View style={{ flex: 0.9 }}>
-                    {isPending ? (
-                      <View style={[styles.statusPending, { backgroundColor: 'rgba(192,132,252,0.1)', borderColor: 'rgba(192,132,252,0.3)' }]}>
-                        <View style={[styles.statusDot, { backgroundColor: '#c084fc' }]} />
-                        <Text style={[styles.statusText, { color: '#c084fc' }]}>SYS PEND</Text>
+                      {/* Middle: Amount & Timestamp */}
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
+                        <Text style={[styles.txAmount, { color: tab === 1 ? '#f87171' : '#10b981' }]}>
+                          {tab === 1 ? '- ' : '+ '}ETB {etb(tx.amount)}
+                        </Text>
+                        <View style={{ alignItems: 'flex-end' }}>
+                          <Text style={styles.txDate}>{d.date}</Text>
+                          <Text style={styles.txTime}>{d.time}</Text>
+                        </View>
                       </View>
-                    ) : isAdminPending ? (
-                      <View style={styles.statusPending}>
-                        <View style={[styles.statusDot, { backgroundColor: '#fbbf24' }]} />
-                        <Text style={[styles.statusText, { color: '#fbbf24' }]}>ADMIN REV</Text>
-                      </View>
-                    ) : isSuccess ? (
-                      <View style={styles.statusSuccess}>
-                        <Ionicons name="checkmark-circle" size={13} color={C.secondary} />
-                        <Text style={[styles.statusText, { color: C.secondary }]}>Success</Text>
-                      </View>
-                    ) : (
-                      <View style={styles.statusFailed}>
-                        <Ionicons name="close-circle" size={13} color={C.error} />
-                        <Text style={[styles.statusText, { color: C.error }]}>{status || 'Failed'}</Text>
-                      </View>
-                    )}
-                  </View>
-                  {/* Actions */}
-                  <View style={{ flex: 1.3, alignItems: 'flex-end' }}>
-                     <TouchableOpacity 
-                       onPress={() => openReviewModal(tx.id)}
-                       style={styles.reviewBtn}
-                     >
-                        <Text style={styles.reviewBtnTxt}>See More</Text>
-                     </TouchableOpacity>
-                  </View>
-                </View>
-              );
-            }}
-            showGradients={false}
-            enableArrowNavigation={true}
-          />
 
-          {loading && <ActivityIndicator color={C.primary} style={{ marginVertical: 40 }} />}
-          {!loading && filtered.length === 0 && <Text style={styles.empty}>No transactions found.</Text>}
+                      {/* Bottom: Red Outlined "See More" Button */}
+                      <TouchableOpacity
+                        onPress={() => openReviewModal(tx.id)}
+                        style={styles.mobileSeeMoreBtn}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.mobileSeeMoreTxt}>See More</Text>
+                      </TouchableOpacity>
+                    </View>
+                  );
+                }}
+                showGradients={false}
+                enableArrowNavigation={true}
+              />
+              {loading && <ActivityIndicator color="#FF2D55" style={{ marginVertical: 40 }} />}
+              {!loading && filtered.length === 0 && <Text style={styles.empty}>No transactions found.</Text>}
             </View>
-          </ScrollView>
+          ) : (
+            /* ── DESKTOP TABLE (Image 2 Left Side) ── */
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={{ minWidth: 920, flex: 1 }}>
+                {/* Column Headers */}
+                <View style={styles.colRow}>
+                  <View style={{ flex: 2 }}><Text style={styles.colHead}>USER ACCOUNT</Text></View>
+                  <View style={{ flex: 1.2 }}><Text style={styles.colHead}>AMOUNT (ETB)</Text></View>
+                  <View style={{ flex: 1 }}><Text style={styles.colHead}>METHOD</Text></View>
+                  <View style={{ flex: 1.4 }}><Text style={styles.colHead}>TIMESTAMP</Text></View>
+                  <View style={{ flex: 1.1 }}><Text style={styles.colHead}>STATUS</Text></View>
+                  <View style={{ flex: 1.1, alignItems: 'flex-end' }}><Text style={styles.colHead}>RECEIPT</Text></View>
+                </View>
 
-          {/* Pagination */}
+                {/* Table Rows */}
+                <AnimatedList
+                  items={loading ? [] : filtered}
+                  renderItem={(tx: Tx) => {
+                    const d = fmtDate(tx.created_at);
+                    const ini = initials(tx);
+
+                    return (
+                      <View key={tx.id} style={styles.txRow}>
+                        {/* User Account */}
+                        <View style={[styles.txUser, { flex: 2 }]}>
+                          <View style={styles.txAvatar}>
+                            <Text style={styles.txAvatarText}>{ini}</Text>
+                          </View>
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <Text style={styles.txName} numberOfLines={1}>{tx.username || 'Unknown'}</Text>
+                            <Text style={styles.txId}>ID: {tx.user_id ? tx.user_id.slice(0, 8) : '-'}</Text>
+                          </View>
+                        </View>
+
+                        {/* Amount */}
+                        <View style={{ flex: 1.2 }}>
+                          <Text style={[styles.txAmount, { color: tab === 1 ? '#f87171' : '#10b981' }]} numberOfLines={1}>
+                            {tab === 1 ? '- ' : '+ '}ETB {etb(tx.amount)}
+                          </Text>
+                        </View>
+
+                        {/* Method */}
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.methodText}>{tx.provider || 'N/A'}</Text>
+                        </View>
+
+                        {/* Timestamp */}
+                        <View style={[styles.txTimestamp, { flex: 1.4 }]}>
+                          <Text style={styles.txDate}>{d.date}</Text>
+                          <Text style={styles.txTime}>{d.time}</Text>
+                        </View>
+
+                        {/* Status */}
+                        <View style={{ flex: 1.1 }}>
+                          {renderStatusBadge(tx.status)}
+                        </View>
+
+                        {/* Action Receipt: Red Outlined "See More" */}
+                        <View style={{ flex: 1.1, alignItems: 'flex-end' }}>
+                          <TouchableOpacity
+                            onPress={() => openReviewModal(tx.id)}
+                            style={styles.seeMoreBtn}
+                            activeOpacity={0.8}
+                          >
+                            <Text style={styles.seeMoreBtnTxt}>See More</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    );
+                  }}
+                  showGradients={false}
+                  enableArrowNavigation={true}
+                />
+
+                {loading && <ActivityIndicator color="#FF2D55" style={{ marginVertical: 40 }} />}
+                {!loading && filtered.length === 0 && <Text style={styles.empty}>No transactions found.</Text>}
+              </View>
+            </ScrollView>
+          )}
+
+          {/* ════════════════════════════════════════════════════════════════
+              ██  PAGINATION FOOTER (Image 2 Bottom)
+              ════════════════════════════════════════════════════════════════ */}
           <View style={styles.paginationRow}>
             <Text style={styles.paginationInfo}>
-              Showing <Text style={{ color: '#e5e3ff', fontWeight: '800' }}>{Math.min(total, page * limit + 1)}-{Math.min(total, (page + 1) * limit)}</Text> of <Text style={{ color: '#e5e3ff', fontWeight: '800' }}>{total}</Text> transactions
+              Showing <Text style={{ color: isDark ? '#f1f5f9' : '#0f172a', fontWeight: '800' }}>
+                {Math.min(total, page * limit + 1)}-{Math.min(total, (page + 1) * limit)}
+              </Text> of <Text style={{ color: isDark ? '#f1f5f9' : '#0f172a', fontWeight: '800' }}>{total}</Text> transactions
             </Text>
-            <View style={{ flexDirection: 'row', gap: 12 }}>
-              <TouchableOpacity 
-                style={[styles.pageBtn, page === 0 && { opacity: 0.3 }]} 
-                onPress={() => setPage(p => Math.max(0, p - 1))}
+
+            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+              <TouchableOpacity
+                style={[styles.pageBtn, page === 0 && { opacity: 0.35 }]}
+                onPress={() => setPage((p) => Math.max(0, p - 1))}
                 disabled={page === 0}
+                activeOpacity={0.8}
               >
-                <Ionicons name="chevron-back" size={14} color="#fff" />
-                <Text style={styles.pageBtnText}>Back</Text>
+                <Ionicons name="chevron-back" size={14} color={isDark ? '#94a3b8' : '#64748b'} />
+                {!isMobile && <Text style={styles.pageBtnText}>Back</Text>}
               </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.pageBtn, (page + 1) * limit >= total && { opacity: 0.3 }, { backgroundColor: (page+1)*limit < total ? C.primary : 'rgba(166,140,255,0.1)' }]}
-                onPress={() => setPage(p => (p + 1) * limit < total ? p + 1 : p)}
+
+              {isMobile && (
+                <View style={styles.pageNumberPill}>
+                  <Text style={styles.pageNumberText}>{page + 1}</Text>
+                </View>
+              )}
+
+              <TouchableOpacity
+                style={[styles.pageBtn, (page + 1) * limit >= total && { opacity: 0.35 }]}
+                onPress={() => setPage((p) => ((p + 1) * limit < total ? p + 1 : p))}
                 disabled={(page + 1) * limit >= total}
+                activeOpacity={0.8}
               >
-                <Text style={[styles.pageBtnText, (page+1)*limit < total && { color: '#000' }]}>Next</Text>
-                <Ionicons name="chevron-forward" size={14} color={ (page+1)*limit < total ? "#000" : "#fff" } />
+                {!isMobile && <Text style={styles.pageBtnText}>Next</Text>}
+                <Ionicons name="chevron-forward" size={14} color={isDark ? '#94a3b8' : '#64748b'} />
               </TouchableOpacity>
             </View>
           </View>
         </View>
-
-        <View style={{ height: 40 }} />
       </ScrollView>
 
-      {/* Manual Approval Modal */}
+      {/* ════════════════════════════════════════════════════════════════
+          ██  TRANSACTION REVIEW / DETAILS MODAL
+          ════════════════════════════════════════════════════════════════ */}
       {reviewModalVisible && (
         <Modal transparent animationType="fade" visible={reviewModalVisible}>
           <View style={styles.modalOverlay}>
-            <Pressable style={StyleSheet.absoluteFill} onPress={() => { setReviewModalVisible(false); setConfirmAction(null); }} />
-            <View style={[styles.receiptModal, { maxWidth: 500 }]}>
-              <View style={styles.receiptHeader}>
+            <Pressable
+              style={StyleSheet.absoluteFill}
+              onPress={() => {
+                setReviewModalVisible(false);
+                setConfirmAction(null);
+              }}
+            />
+            <View style={styles.reviewModalCard}>
+              <View style={styles.modalHeader}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(251,191,36,0.1)', alignItems: 'center', justifyContent: 'center' }}>
-                    <Ionicons name="document-text" size={20} color="#fbbf24" />
+                  <View style={styles.modalHeaderIconBadge}>
+                    <Ionicons name="receipt-outline" size={20} color="#FF2D55" />
                   </View>
-                  <Text style={styles.receiptTitle}>Manual Review</Text>
+                  <Text style={styles.modalHeaderTitle}>Transaction Details</Text>
                 </View>
-                <TouchableOpacity onPress={() => { setReviewModalVisible(false); setConfirmAction(null); }}>
-                  <Ionicons name="close" size={24} color="rgba(255,255,255,0.5)" />
+                <TouchableOpacity
+                  onPress={() => {
+                    setReviewModalVisible(false);
+                    setConfirmAction(null);
+                  }}
+                >
+                  <Ionicons name="close" size={22} color={isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'} />
                 </TouchableOpacity>
               </View>
 
               {reviewLoading || !reviewData ? (
                 <View style={{ padding: 60, alignItems: 'center' }}>
-                  <ActivityIndicator color={C.primary} />
+                  <ActivityIndicator color="#FF2D55" />
                 </View>
               ) : (
-                <View style={{ padding: 24 }}>
-                  <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '800', textTransform: 'uppercase', marginBottom: 12 }}>Transaction Context</Text>
-                  <View style={{ flexDirection: 'row', gap: 12, marginBottom: 24 }}>
-                    <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.03)', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: C.outlineVariant }}>
-                      <Text style={{ color: C.onSurfaceVariant, fontSize: 10, textTransform: 'uppercase' }}>Status</Text>
-                      <Text style={{ color: reviewData.transaction.status?.toUpperCase() === 'PENDING_MANUAL' ? '#fbbf24' : reviewData.transaction.status?.toUpperCase() === 'PENDING' ? '#c084fc' : C.primary, fontSize: 16, fontWeight: '900', marginTop: 4 }}>
-                        {reviewData.transaction.status?.toUpperCase() === 'PENDING_MANUAL' ? 'ADMIN REVIEW' : reviewData.transaction.status?.toUpperCase() === 'PENDING' ? 'SYS PENDING' : (reviewData.transaction.status || 'UNKNOWN').toUpperCase()}
+                <ScrollView style={{ maxHeight: 600 }} contentContainerStyle={{ padding: 20 }} showsVerticalScrollIndicator={true}>
+                  <Text style={styles.sectionHeading}>Transaction Context</Text>
+                  <View style={{ flexDirection: 'row', gap: 12, marginBottom: 20 }}>
+                    <View style={styles.contextBox}>
+                      <Text style={styles.contextLabel}>STATUS</Text>
+                      <Text style={[styles.contextValue, { color: '#FF2D55' }]}>
+                        {(reviewData.transaction?.status || 'UNKNOWN').toUpperCase()}
                       </Text>
                     </View>
-                    <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.03)', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: C.outlineVariant }}>
-                      <Text style={{ color: C.onSurfaceVariant, fontSize: 10, textTransform: 'uppercase' }}>Amount</Text>
-                      <Text style={{ color: '#fff', fontSize: 16, fontWeight: '900', marginTop: 4 }}>ETB {etb(reviewData.transaction.amount)}</Text>
+                    <View style={styles.contextBox}>
+                      <Text style={styles.contextLabel}>AMOUNT</Text>
+                      <Text style={[styles.contextValue, { color: '#10b981' }]}>
+                        ETB {etb(reviewData.transaction?.amount)}
+                      </Text>
                     </View>
                   </View>
 
-                  <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '800', textTransform: 'uppercase', marginBottom: 12 }}>User Metrics & Risk</Text>
-                  <View style={{ backgroundColor: 'rgba(253,111,133,0.05)', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(253,111,133,0.2)', marginBottom: 24 }}>
-                    <Text style={{ color: C.error, fontSize: 13, fontWeight: '600' }}>Anomaly Score: <Text style={{ fontWeight: '900' }}>{reviewData.user.anomaly_score} Flags</Text></Text>
-                    {Number(reviewData.user.anomaly_score) > 3 && <Text style={{ color: 'rgba(253,111,133,0.7)', fontSize: 11, marginTop: 4 }}>High risk of abuse. Proceed with extreme caution.</Text>}
+                  <Text style={styles.sectionHeading}>User Details & Risk Profile</Text>
+                  <View style={styles.riskBox}>
+                    <Text style={{ color: '#FF2D55', fontSize: 13, fontWeight: '700' }}>
+                      Anomaly Score: <Text style={{ fontWeight: '900' }}>{reviewData.user?.anomaly_score || 0} Flags</Text>
+                    </Text>
+                    {Number(reviewData.user?.anomaly_score) > 3 && (
+                      <Text style={{ color: '#f87171', fontSize: 11, marginTop: 4 }}>
+                        High risk of abuse. Verify bank transaction before manual action.
+                      </Text>
+                    )}
                   </View>
 
                   <View style={{ flexDirection: 'row', gap: 16, marginBottom: 16 }}>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ color: C.onSurfaceVariant, fontSize: 10, marginBottom: 4 }}>USERNAME</Text>
-                      <Text style={{ color: '#fff', fontSize: 14 }}>{reviewData.user.username}</Text>
+                      <Text style={styles.contextLabel}>USERNAME</Text>
+                      <Text style={styles.userInfoText}>{reviewData.user?.username || 'N/A'}</Text>
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ color: C.onSurfaceVariant, fontSize: 10, marginBottom: 4 }}>PHONE IP</Text>
-                      <Text style={{ color: '#fff', fontSize: 14 }}>{reviewData.user.number}</Text>
+                      <Text style={styles.contextLabel}>PHONE</Text>
+                      <Text style={styles.userInfoText}>{reviewData.user?.number || 'N/A'}</Text>
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ color: C.onSurfaceVariant, fontSize: 10, marginBottom: 4 }}>SECURITY LEVEL</Text>
-                      <Text style={{ color: C.primary, fontSize: 14, fontWeight: '800' }}>{String(reviewData.user.role || 'user').toUpperCase()}</Text>
+                      <Text style={styles.contextLabel}>ROLE</Text>
+                      <Text style={[styles.userInfoText, { color: '#FF2D55', fontWeight: '800' }]}>
+                        {String(reviewData.user?.role || 'user').toUpperCase()}
+                      </Text>
                     </View>
                   </View>
 
-                  <View style={{ flexDirection: 'row', gap: 16, marginBottom: 32 }}>
-                    <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.02)', padding: 12, borderRadius: 8 }}>
-                      <Text style={{ color: 'rgba(166,140,255,0.7)', fontSize: 10, marginBottom: 4 }}>GAMES RECORD</Text>
-                      <Text style={{ color: '#fff', fontSize: 14, fontWeight: '800' }}>{reviewData.user.total_games || 0} <Text style={{ color: '#34d399', fontSize: 12 }}>({reviewData.user.total_wins || 0} W)</Text></Text>
-                    </View>
-                    <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.02)', padding: 12, borderRadius: 8 }}>
-                      <Text style={{ color: 'rgba(52,211,153,0.7)', fontSize: 10, marginBottom: 4 }}>TOTAL DEPOSIT</Text>
-                      <Text style={{ color: '#fff', fontSize: 14, fontWeight: '800' }}>ETB {etb(reviewData.user.total_deposit || 0)}</Text>
-                    </View>
-                    <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.02)', padding: 12, borderRadius: 8 }}>
-                      <Text style={{ color: 'rgba(253,111,133,0.7)', fontSize: 10, marginBottom: 4 }}>TOTAL WITHDRAW</Text>
-                      <Text style={{ color: '#fff', fontSize: 14, fontWeight: '800' }}>ETB {etb(reviewData.user.total_withdraw || 0)}</Text>
-                    </View>
-                  </View>
-
-                  <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '800', textTransform: 'uppercase', marginBottom: 16 }}>Execution Commands</Text>
-                  
-                  {reviewData.transaction.status?.toUpperCase() === 'PENDING' || reviewData.transaction.status?.toUpperCase() === 'PENDING_MANUAL' ? (
+                  {/* Actions for Pending Requests */}
+                  {(reviewData.transaction?.status?.toUpperCase() === 'PENDING' ||
+                    reviewData.transaction?.status?.toUpperCase() === 'PENDING_MANUAL') && (
                     <>
-                      {/* Step 1: Show action buttons */}
+                      <Text style={styles.sectionHeading}>Manual Action</Text>
                       {!confirmAction && (
                         <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
-                          <TouchableOpacity onPress={() => setConfirmAction('approve')} style={{ flex: 1, backgroundColor: 'rgba(52,211,153,0.1)', paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: '#34d399', alignItems: 'center' }}>
-                            <Text style={{ color: '#34d399', fontSize: 13, fontWeight: '900' }}>Approve Payout</Text>
+                          <TouchableOpacity
+                            disabled={actionLoading}
+                            onPress={() => setConfirmAction('approve')}
+                            style={styles.approveActionBtn}
+                          >
+                            <Text style={styles.approveActionTxt}>Approve Payout</Text>
                           </TouchableOpacity>
-                          <TouchableOpacity onPress={() => setConfirmAction('reject')} style={{ flex: 1, backgroundColor: 'rgba(251,191,36,0.1)', paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: '#fbbf24', alignItems: 'center' }}>
-                            <Text style={{ color: '#fbbf24', fontSize: 13, fontWeight: '900' }}>Reject & Refund</Text>
+                          <TouchableOpacity
+                            disabled={actionLoading}
+                            onPress={() => setConfirmAction('reject')}
+                            style={styles.rejectActionBtn}
+                          >
+                            <Text style={styles.rejectActionTxt}>Reject & Refund</Text>
                           </TouchableOpacity>
                         </View>
                       )}
 
-                      {/* Step 2: APPROVE confirmation */}
                       {confirmAction === 'approve' && (
-                        <View style={{ backgroundColor: 'rgba(52,211,153,0.06)', borderRadius: 16, padding: 20, borderWidth: 1, borderColor: 'rgba(52,211,153,0.2)', marginBottom: 12 }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                            <Ionicons name="warning" size={20} color="#fbbf24" />
-                            <Text style={{ color: '#fbbf24', fontSize: 14, fontWeight: '900' }}>IMPORTANT: This does NOT send money automatically.</Text>
-                          </View>
-                          <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, lineHeight: 18, marginBottom: 12 }}>
-                            Clicking "Confirm" will mark this withdrawal as COMPLETED in the system. The user will see "Success" on their screen.
+                        <View style={styles.confirmBox}>
+                          <Text style={{ color: '#10b981', fontSize: 14, fontWeight: '900', marginBottom: 8 }}>
+                            Confirm Approval
                           </Text>
-                          <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800', marginBottom: 8 }}>You MUST manually transfer the money FIRST:</Text>
-                          <View style={{ backgroundColor: 'rgba(0,0,0,0.3)', padding: 12, borderRadius: 10, marginBottom: 12, gap: 4 }}>
-                            <Text style={{ color: '#34d399', fontSize: 14, fontWeight: '800' }}>Amount: ETB {etb(reviewData.transaction.amount)}</Text>
-                            <Text style={{ color: '#fff', fontSize: 13 }}>Phone: {reviewData.user.number || 'N/A'}</Text>
-                            <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>Method: {reviewData.transaction.provider || 'Chapa'}</Text>
-                          </View>
-                          <Text style={{ color: 'rgba(253,111,133,0.8)', fontSize: 11, marginBottom: 16 }}>
-                            ⚠️ Only click "Confirm" AFTER you have already sent the money from your banking app.
+                          <Text style={styles.confirmSub}>
+                            Mark withdrawal as COMPLETED. User will see success. Make sure money has been transferred manually.
                           </Text>
-                          <View style={{ flexDirection: 'row', gap: 12 }}>
-                            <TouchableOpacity onPress={() => execTxAction('approve', reviewData.transaction.id, reviewData.user.id)} style={{ flex: 1, backgroundColor: '#34d399', paddingVertical: 14, borderRadius: 12, alignItems: 'center' }}>
-                              <Text style={{ color: '#000', fontSize: 13, fontWeight: '900' }}>✅ I Already Sent The Money</Text>
+                          <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
+                            <TouchableOpacity
+                              disabled={actionLoading}
+                              onPress={() => execTxAction('approve', reviewData.transaction.id, reviewData.user.id)}
+                              style={styles.confirmBtn}
+                            >
+                              <Text style={styles.confirmBtnTxt}>
+                                {actionLoading ? 'Processing...' : 'Confirm Approval'}
+                              </Text>
                             </TouchableOpacity>
-                            <TouchableOpacity onPress={() => setConfirmAction(null)} style={{ flex: 0.5, backgroundColor: 'rgba(255,255,255,0.05)', paddingVertical: 14, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
-                              <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: '800' }}>Cancel</Text>
+                            <TouchableOpacity
+                              onPress={() => setConfirmAction(null)}
+                              style={styles.cancelBtn}
+                            >
+                              <Text style={styles.cancelBtnTxt}>Cancel</Text>
                             </TouchableOpacity>
                           </View>
                         </View>
                       )}
 
-                      {/* Step 2: REJECT confirmation */}
                       {confirmAction === 'reject' && (
-                        <View style={{ backgroundColor: 'rgba(253,111,133,0.06)', borderRadius: 16, padding: 20, borderWidth: 1, borderColor: 'rgba(253,111,133,0.2)', marginBottom: 12 }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                            <Ionicons name="return-down-back" size={20} color="#fbbf24" />
-                            <Text style={{ color: '#fbbf24', fontSize: 14, fontWeight: '900' }}>Reject & Refund User</Text>
-                          </View>
-                          <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, lineHeight: 18, marginBottom: 12 }}>
-                            This will mark the withdrawal as REJECTED and automatically refund <Text style={{ color: '#34d399', fontWeight: '900' }}>ETB {etb(reviewData.transaction.amount)}</Text> back to the user's wallet.
+                        <View style={styles.confirmBox}>
+                          <Text style={{ color: '#FF2D55', fontSize: 14, fontWeight: '900', marginBottom: 8 }}>
+                            Reject & Refund
                           </Text>
-                          <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, marginBottom: 16 }}>
-                            The user will see their balance restored. No money needs to be sent manually.
+                          <Text style={styles.confirmSub}>
+                            This marks the withdrawal as REJECTED and refunds ETB {etb(reviewData.transaction.amount)} to user.
                           </Text>
-                          <View style={{ flexDirection: 'row', gap: 12 }}>
-                            <TouchableOpacity onPress={() => execTxAction('reject', reviewData.transaction.id, reviewData.user.id)} style={{ flex: 1, backgroundColor: C.error, paddingVertical: 14, borderRadius: 12, alignItems: 'center' }}>
-                              <Text style={{ color: '#fff', fontSize: 13, fontWeight: '900' }}>🔴 Reject & Refund User</Text>
+                          <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
+                            <TouchableOpacity
+                              disabled={actionLoading}
+                              onPress={() => execTxAction('reject', reviewData.transaction.id, reviewData.user.id)}
+                              style={[styles.confirmBtn, { backgroundColor: '#FF2D55' }]}
+                            >
+                              <Text style={styles.confirmBtnTxt}>
+                                {actionLoading ? 'Refunding...' : 'Confirm Reject & Refund'}
+                              </Text>
                             </TouchableOpacity>
-                            <TouchableOpacity onPress={() => setConfirmAction(null)} style={{ flex: 0.5, backgroundColor: 'rgba(255,255,255,0.05)', paddingVertical: 14, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
-                              <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: '800' }}>Cancel</Text>
+                            <TouchableOpacity
+                              onPress={() => setConfirmAction(null)}
+                              style={styles.cancelBtn}
+                            >
+                              <Text style={styles.cancelBtnTxt}>Cancel</Text>
                             </TouchableOpacity>
                           </View>
                         </View>
                       )}
                     </>
-                  ) : null}
-
-                  <View style={{ flexDirection: 'row', gap: 12 }}>
-                    <TouchableOpacity onPress={() => execTxAction('ban', reviewData.transaction.id, reviewData.user.id)} style={{ flex: 1, backgroundColor: 'rgba(253,111,133,0.1)', paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: C.error, alignItems: 'center' }}>
-                      <Text style={{ color: C.error, fontSize: 13, fontWeight: '900' }}>Ban User</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => execTxAction('delete', reviewData.transaction.id, reviewData.user.id)} style={{ flex: 1, backgroundColor: 'rgba(253,111,133,0.3)', paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: C.error, alignItems: 'center' }}>
-                      <Text style={{ color: '#fff', fontSize: 13, fontWeight: '900' }}>Delete Account</Text>
-                    </TouchableOpacity>
-                  </View>
-
-                </View>
+                  )}
+                </ScrollView>
               )}
             </View>
           </View>
@@ -568,97 +807,599 @@ export default function AdminLedger() {
   );
 }
 
-const styles = StyleSheet.create({
-  glow: { position: 'absolute', width: 500, height: 500, borderRadius: 250 },
-  pageHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 32 },
-  pageTitle: { color: '#e5e3ff', fontSize: 36, fontWeight: '900', letterSpacing: -1 },
-  pageSub: { color: '#a8a7d4', fontSize: 14, marginTop: 8 },
-  tabContainer: { 
-    backgroundColor: '#0f0f11', borderRadius: 16, padding: 4, borderWidth: 1, borderColor: 'rgba(39, 39, 42, 0.2)' 
-  },
-  tabBar: { flexDirection: 'row', gap: 4 },
-  tabBtn: { paddingHorizontal: 28, paddingVertical: 12, borderRadius: 12 },
-  tabBtnActive: { backgroundColor: C.primary, shadowColor: C.primary, shadowRadius: 12, shadowOpacity: 0.2 },
-  tabText: { color: '#a8a7d4', fontSize: 14, fontWeight: '800' },
-  tabTextActive: { color: '#0c0c1f' },
+// ════════════════════════════════════════════════════════════════
+// ██  STYLES (Full Dark/Light Theme Inversion)
+// ════════════════════════════════════════════════════════════════
+const getStyles = (C: any, isDark: boolean) => {
+  const bgSurface = isDark ? '#0c1424' : '#ffffff';
+  const bgCard = isDark ? '#080e1b' : '#f8fafc';
+  const borderColor = isDark ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0';
+  const textPrimary = isDark ? '#ffffff' : '#0f172a';
+  const textSecondary = isDark ? '#94a3b8' : '#64748b';
 
-  statsRow: { flexDirection: 'row', gap: 24, marginBottom: 40 },
-  statCard: { flex: 1, borderRadius: 20, padding: 24 },
-  statTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  statLabel: { color: '#a8a7d4', fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 2, flex: 1, paddingRight: 4 },
-  statValue: { color: '#e5e3ff', fontSize: 28, fontWeight: '900' },
-  statUnit: { color: 'rgba(168,167,212,0.5)', fontSize: 13, fontWeight: '600' },
-  statSub: { color: 'rgba(168,167,212,0.5)', fontSize: 10, marginTop: 4, letterSpacing: 1 },
+  return StyleSheet.create({
+    root: {
+      flex: 1,
+      backgroundColor: 'transparent',
+    },
+    pageHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 24,
+    },
+    headerIconBadge: {
+      width: 44,
+      height: 44,
+      borderRadius: 12,
+      backgroundColor: isDark ? 'rgba(255, 45, 85, 0.15)' : 'rgba(255, 45, 85, 0.08)',
+      borderWidth: 1,
+      borderColor: 'rgba(255, 45, 85, 0.3)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    pageTitle: {
+      color: textPrimary,
+      fontSize: 22,
+      fontWeight: '800',
+      letterSpacing: -0.3,
+    },
+    pageSub: {
+      color: textSecondary,
+      fontSize: 12,
+      marginTop: 2,
+      fontWeight: '500',
+    },
+    tabContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    tabBtn: {
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderRadius: 8,
+      borderWidth: 1,
+    },
+    tabBtnActive: {
+      backgroundColor: '#FF2D55',
+      borderColor: '#FF2D55',
+    },
+    tabBtnInactive: {
+      backgroundColor: isDark ? 'rgba(15, 24, 42, 0.6)' : '#ffffff',
+      borderColor: borderColor,
+    },
+    tabText: {
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    tabTextActive: {
+      color: '#ffffff',
+    },
+    tabTextInactive: {
+      color: textSecondary,
+    },
 
-  tableCard: { flex: 1, marginBottom: 0, backgroundColor: 'transparent' },
-  tableHead: { 
-    paddingHorizontal: 24, paddingVertical: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(24, 24, 27, 0.65)', borderTopLeftRadius: 20, borderTopRightRadius: 20, borderWidth: 1, borderBottomWidth: 0, borderColor: 'rgba(39, 39, 42, 0.6)'
-  },
-  tableTitle: { color: '#fff', fontSize: 20, fontWeight: '900', letterSpacing: 0.5 },
-  searchBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(0,0,0,0.3)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(0, 218, 243, 0.3)', width: 220, shadowColor: C.primary, shadowOpacity: 0.2, shadowRadius: 10 },
-  searchInput: { flex: 1, color: '#fff', fontSize: 13, height: 20 },
-  filterChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 16, backgroundColor: 'rgba(166,140,255,0.1)', borderRadius: 20, borderWidth: 1, borderColor: 'rgba(0, 218, 243, 0.3)' },
-  filterChipText: { color: C.primary, fontSize: 13, fontWeight: '800' },
-  colRow: { 
-    flexDirection: 'row', paddingHorizontal: 24, paddingVertical: 14, alignItems: 'center',
-    backgroundColor: 'transparent'
-  },
-  colHead: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1.5, flex: 1 },
-  txRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, backgroundColor: 'rgba(24, 24, 27, 0.5)', borderRadius: 16, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(39, 39, 42, 0.4)' },
-  txUser: { flex: 2, flexDirection: 'row', alignItems: 'center', gap: 10, minWidth: 0, overflow: 'hidden' },
-  txAvatar: { width: 34, height: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center', flexShrink: 0, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-  txAvatarText: { fontSize: 12, fontWeight: '900' },
-  txName: { color: '#fff', fontSize: 13, fontWeight: '800', letterSpacing: 0.5 },
-  txId: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '600' },
-  txAmount: { color: '#34d399', fontSize: 16, fontWeight: '900' },
-  methodPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  methodText: { fontSize: 10, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1 },
-  txTimestamp: { flex: 1.2 },
-  txDate: { color: '#fff', fontSize: 12, fontWeight: '700' },
-  txTime: { color: C.onSurfaceVariant, fontSize: 11, marginTop: 2, fontWeight: '600' },
-  statusPending: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(251,191,36,0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(251,191,36,0.3)', shadowColor: '#fbbf24', shadowOpacity: 0.5, shadowRadius: 10 },
-  statusDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#fbbf24', flexShrink: 0 },
-  statusSuccess: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(52,211,153,0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(52,211,153,0.3)', shadowColor: '#34d399', shadowOpacity: 0.5, shadowRadius: 10 },
-  statusFailed: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(248,113,113,0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(248,113,113,0.3)', shadowColor: '#f87171', shadowOpacity: 0.5, shadowRadius: 10 },
-  statusText: { fontSize: 10, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.5 },
-  txActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 6, alignItems: 'center' },
-  approveBtn: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(0,218,243,0.4)' },
-  approveTxt: { color: C.secondary, fontSize: 12, fontWeight: '800' },
-  rejectBtn: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(253,111,133,0.4)' },
-  rejectTxt: { color: C.error, fontSize: 12, fontWeight: '800' },
-  receiptBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(166,140,255,0.4)' },
-  receiptTxt: { color: C.primary, fontSize: 12, fontWeight: '800' },
-  empty: { color: '#a8a7d4', textAlign: 'center', marginVertical: 40, fontSize: 14 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  receiptModal: { width: '100%', maxWidth: 450, backgroundColor: '#09090b', borderRadius: 28, borderWidth: 1, borderColor: 'rgba(39, 39, 42, 0.6)', overflow: 'hidden' },
-  receiptHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 24, borderBottomWidth: 1, borderBottomColor: 'rgba(39, 39, 42, 0.4)' },
-  receiptTitle: { color: '#fff', fontSize: 18, fontWeight: '900', flex: 1, marginLeft: 12 },
-  
-  receiptAmountRow: { alignItems: 'center', marginVertical: 32 },
-  receiptAmount: { fontSize: 48, fontWeight: '900', letterSpacing: -2 },
-  receiptCurrency: { color: 'rgba(168,167,212,0.6)', fontSize: 14, fontWeight: '800', marginTop: 4 },
-  
-  statusBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 10, borderRadius: 12, marginBottom: 32 },
-  statusBannerTxt: { fontSize: 12, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1 },
-  
-  receiptGrid: { gap: 20, marginBottom: 40 },
-  receiptInfoItem: { gap: 4 },
-  receiptInfoLabel: { color: 'rgba(168,167,212,0.5)', fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1 },
-  receiptInfoVal: { color: '#fff', fontSize: 15, fontWeight: '600' },
-  
-  printBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: 'rgba(166,140,255,0.1)', height: 56, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(0, 218, 243, 0.3)' },
-  printBtnTxt: { color: '#fff', fontSize: 14, fontWeight: '800' },
-  paginationRow: { 
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', 
-    padding: 20, marginTop: 8, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(39, 39, 42, 0.6)',
-    backgroundColor: 'rgba(24, 24, 27, 0.65)'
-  },
-  paginationInfo: { color: C.onSurfaceVariant, fontSize: 12, fontWeight: '700' },
-  pageBtn: { 
-    flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(166,140,255,0.1)', 
-    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(0, 218, 243, 0.3)' 
-  },
-  pageBtnText: { color: '#fff', fontSize: 13, fontWeight: '800' },
-  reviewBtn: { paddingHorizontal: 16, paddingVertical: 8, backgroundColor: 'rgba(166,140,255,0.1)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(0, 218, 243, 0.3)' },
-  reviewBtnTxt: { color: '#fff', fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
-});
+    // ── 4 Bento Metric Cards ──
+    statsRow: {
+      flexDirection: 'row',
+      gap: 16,
+      marginBottom: 24,
+      flexWrap: 'wrap',
+    },
+    statCard: {
+      flex: 1,
+      minWidth: 180,
+      backgroundColor: bgSurface,
+      borderWidth: 1,
+      borderColor: borderColor,
+      borderRadius: 12,
+      padding: 18,
+    },
+    statTop: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginBottom: 12,
+    },
+    statIconBadgeGreen: {
+      width: 26,
+      height: 26,
+      borderRadius: 13,
+      backgroundColor: isDark ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    statIconBadgeRed: {
+      width: 26,
+      height: 26,
+      borderRadius: 13,
+      backgroundColor: isDark ? 'rgba(255, 45, 85, 0.15)' : 'rgba(255, 45, 85, 0.1)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    statIconBadgeAmber: {
+      width: 26,
+      height: 26,
+      borderRadius: 13,
+      backgroundColor: isDark ? 'rgba(245, 158, 11, 0.15)' : 'rgba(245, 158, 11, 0.1)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    statLabel: {
+      color: textSecondary,
+      fontSize: 10,
+      fontWeight: '700',
+      letterSpacing: 0.6,
+      flex: 1,
+    },
+    statValue: {
+      color: textPrimary,
+      fontSize: 22,
+      fontWeight: '900',
+      letterSpacing: -0.5,
+    },
+
+    // ── Table Card ──
+    tableCard: {
+      backgroundColor: bgSurface,
+      borderWidth: 1,
+      borderColor: borderColor,
+      borderRadius: 14,
+      overflow: 'hidden',
+    },
+    tableHead: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: borderColor,
+      backgroundColor: bgSurface,
+    },
+    tableTitle: {
+      color: textPrimary,
+      fontSize: 16,
+      fontWeight: '800',
+      letterSpacing: -0.2,
+    },
+    filterBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    searchBox: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      backgroundColor: bgCard,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: borderColor,
+      width: 200,
+    },
+    searchInput: {
+      flex: 1,
+      color: textPrimary,
+      fontSize: 12,
+      fontWeight: '500',
+      height: 20,
+      padding: 0,
+    },
+    filterChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      backgroundColor: isDark ? 'rgba(255, 45, 85, 0.08)' : 'rgba(255, 45, 85, 0.06)',
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: 'rgba(255, 45, 85, 0.35)',
+    },
+    filterChipActive: {
+      backgroundColor: '#FF2D55',
+      borderColor: '#FF2D55',
+    },
+    filterChipText: {
+      color: '#FF2D55',
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    dropdownChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingVertical: 7,
+      paddingHorizontal: 10,
+      backgroundColor: bgCard,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: borderColor,
+    },
+    dropdownChipText: {
+      color: textPrimary,
+      fontSize: 11,
+      fontWeight: '700',
+    },
+
+    // ── Table Columns Header ──
+    colRow: {
+      flexDirection: 'row',
+      paddingHorizontal: 20,
+      paddingVertical: 12,
+      alignItems: 'center',
+      backgroundColor: bgCard,
+      borderBottomWidth: 1,
+      borderBottomColor: borderColor,
+    },
+    colHead: {
+      color: textSecondary,
+      fontSize: 10,
+      fontWeight: '800',
+      letterSpacing: 0.8,
+    },
+
+    // ── Table Row ──
+    txRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      paddingVertical: 14,
+      borderBottomWidth: 1,
+      borderBottomColor: borderColor,
+    },
+    txUser: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      minWidth: 0,
+    },
+    txAvatar: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: isDark ? 'rgba(255, 45, 85, 0.15)' : 'rgba(255, 45, 85, 0.1)',
+      borderWidth: 1,
+      borderColor: 'rgba(255, 45, 85, 0.3)',
+    },
+    txAvatarText: {
+      color: '#FF2D55',
+      fontSize: 12,
+      fontWeight: '800',
+    },
+    txName: {
+      color: textPrimary,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    txId: {
+      color: textSecondary,
+      fontSize: 11,
+      fontWeight: '500',
+      marginTop: 2,
+    },
+    txAmount: {
+      fontSize: 14,
+      fontWeight: '800',
+    },
+    methodText: {
+      color: textSecondary,
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    txTimestamp: {
+      gap: 2,
+    },
+    txDate: {
+      color: textPrimary,
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    txTime: {
+      color: textSecondary,
+      fontSize: 10,
+      fontWeight: '500',
+    },
+
+    // ── Status Badges ──
+    statusFailed: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 6,
+      borderWidth: 1,
+      borderColor: 'rgba(255, 45, 85, 0.4)',
+      backgroundColor: isDark ? 'rgba(255, 45, 85, 0.1)' : 'rgba(255, 45, 85, 0.06)',
+      alignSelf: 'flex-start',
+    },
+    statusSuccess: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 6,
+      borderWidth: 1,
+      borderColor: 'rgba(16, 185, 129, 0.4)',
+      backgroundColor: isDark ? 'rgba(16, 185, 129, 0.1)' : 'rgba(16, 185, 129, 0.06)',
+      alignSelf: 'flex-start',
+    },
+    statusPending: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 6,
+      borderWidth: 1,
+      borderColor: 'rgba(192, 132, 252, 0.4)',
+      backgroundColor: isDark ? 'rgba(192, 132, 252, 0.1)' : 'rgba(192, 132, 252, 0.06)',
+      alignSelf: 'flex-start',
+    },
+    statusPendingManual: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 6,
+      borderWidth: 1,
+      borderColor: 'rgba(245, 158, 11, 0.4)',
+      backgroundColor: isDark ? 'rgba(245, 158, 11, 0.1)' : 'rgba(245, 158, 11, 0.06)',
+      alignSelf: 'flex-start',
+    },
+    statusText: {
+      fontSize: 10,
+      fontWeight: '800',
+      letterSpacing: 0.5,
+    },
+
+    // ── See More Buttons ──
+    seeMoreBtn: {
+      paddingHorizontal: 16,
+      paddingVertical: 6,
+      borderRadius: 6,
+      borderWidth: 1,
+      borderColor: '#FF2D55',
+      backgroundColor: 'transparent',
+    },
+    seeMoreBtnTxt: {
+      color: '#FF2D55',
+      fontSize: 11,
+      fontWeight: '800',
+    },
+
+    // ── Mobile Card ──
+    mobileCard: {
+      backgroundColor: bgCard,
+      borderWidth: 1,
+      borderColor: borderColor,
+      borderRadius: 12,
+      padding: 14,
+      marginBottom: 12,
+    },
+    mobileSeeMoreBtn: {
+      marginTop: 12,
+      borderWidth: 1,
+      borderColor: '#FF2D55',
+      borderRadius: 8,
+      paddingVertical: 9,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: 'transparent',
+    },
+    mobileSeeMoreTxt: {
+      color: '#FF2D55',
+      fontSize: 12,
+      fontWeight: '800',
+    },
+
+    // ── Pagination ──
+    paginationRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      paddingVertical: 14,
+      borderTopWidth: 1,
+      borderTopColor: borderColor,
+      backgroundColor: bgSurface,
+    },
+    paginationInfo: {
+      color: textSecondary,
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    pageBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      backgroundColor: bgCard,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 6,
+      borderWidth: 1,
+      borderColor: borderColor,
+    },
+    pageBtnText: {
+      color: textPrimary,
+      fontSize: 11,
+      fontWeight: '700',
+    },
+    pageNumberPill: {
+      width: 28,
+      height: 28,
+      borderRadius: 6,
+      backgroundColor: '#FF2D55',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    pageNumberText: {
+      color: '#ffffff',
+      fontSize: 12,
+      fontWeight: '800',
+    },
+
+    empty: {
+      color: textSecondary,
+      textAlign: 'center',
+      marginVertical: 40,
+      fontSize: 13,
+    },
+
+    // ── Modal ──
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.75)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 20,
+    },
+    reviewModalCard: {
+      width: '100%',
+      maxWidth: 520,
+      backgroundColor: bgSurface,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: borderColor,
+      overflow: 'hidden',
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: 20,
+      borderBottomWidth: 1,
+      borderBottomColor: borderColor,
+    },
+    modalHeaderIconBadge: {
+      width: 36,
+      height: 36,
+      borderRadius: 10,
+      backgroundColor: isDark ? 'rgba(255, 45, 85, 0.15)' : 'rgba(255, 45, 85, 0.08)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    modalHeaderTitle: {
+      color: textPrimary,
+      fontSize: 16,
+      fontWeight: '800',
+    },
+    sectionHeading: {
+      color: textSecondary,
+      fontSize: 11,
+      fontWeight: '800',
+      textTransform: 'uppercase',
+      letterSpacing: 0.6,
+      marginBottom: 10,
+    },
+    contextBox: {
+      flex: 1,
+      backgroundColor: bgCard,
+      padding: 14,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: borderColor,
+    },
+    contextLabel: {
+      color: textSecondary,
+      fontSize: 10,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+    },
+    contextValue: {
+      fontSize: 16,
+      fontWeight: '900',
+      marginTop: 4,
+    },
+    riskBox: {
+      backgroundColor: isDark ? 'rgba(255, 45, 85, 0.08)' : 'rgba(255, 45, 85, 0.05)',
+      padding: 14,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: 'rgba(255, 45, 85, 0.25)',
+      marginBottom: 20,
+    },
+    userInfoText: {
+      color: textPrimary,
+      fontSize: 13,
+      fontWeight: '600',
+      marginTop: 2,
+    },
+    approveActionBtn: {
+      flex: 1,
+      backgroundColor: 'rgba(16, 185, 129, 0.15)',
+      paddingVertical: 14,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: '#10b981',
+      alignItems: 'center',
+    },
+    approveActionTxt: {
+      color: '#10b981',
+      fontSize: 13,
+      fontWeight: '800',
+    },
+    rejectActionBtn: {
+      flex: 1,
+      backgroundColor: 'rgba(255, 45, 85, 0.15)',
+      paddingVertical: 14,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: '#FF2D55',
+      alignItems: 'center',
+    },
+    rejectActionTxt: {
+      color: '#FF2D55',
+      fontSize: 13,
+      fontWeight: '800',
+    },
+    confirmBox: {
+      backgroundColor: bgCard,
+      borderRadius: 12,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: borderColor,
+      marginBottom: 14,
+    },
+    confirmSub: {
+      color: textSecondary,
+      fontSize: 12,
+      lineHeight: 18,
+    },
+    confirmBtn: {
+      flex: 1,
+      backgroundColor: '#10b981',
+      paddingVertical: 12,
+      borderRadius: 8,
+      alignItems: 'center',
+    },
+    confirmBtnTxt: {
+      color: '#ffffff',
+      fontSize: 12,
+      fontWeight: '800',
+    },
+    cancelBtn: {
+      flex: 0.4,
+      backgroundColor: bgSurface,
+      paddingVertical: 12,
+      borderRadius: 8,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: borderColor,
+    },
+    cancelBtnTxt: {
+      color: textSecondary,
+      fontSize: 12,
+      fontWeight: '700',
+    },
+  });
+};

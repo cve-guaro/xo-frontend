@@ -1,25 +1,16 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, ScrollView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useAuth } from '../context/authContext';
 import { API_URL } from '../config';
+import User360View from './User360View';
 
-const C = {
-  primary: '#00daf3',
-  primaryContainer: '#00a3ff',
-  secondary: '#00daf3',
-  background: '#0c0c1f',
-  surface: '#0B0B1E',
-  surfaceContainerLow: '#111128',
-  surfaceContainer: '#171732',
-  onSurface: '#e5e3ff',
-  onSurfaceVariant: '#a8a7d4',
-  outlineVariant: 'rgba(68,68,107,0.3)',
-  error: '#fd6f85',
-  success: '#4CAF50',
-};
+import { useAdminTheme } from '../app/(authed)/admin/_layout';
 
 export default function AdminGlobalSearch() {
+  const { theme: C, isDark } = useAdminTheme();
+  const s = useMemo(() => getStyles(C, isDark), [C, isDark]);
   const { token, language } = useAuth();
   const isEN = language === 'en';
   const [modalVisible, setModalVisible] = useState(false);
@@ -112,9 +103,11 @@ export default function AdminGlobalSearch() {
     }
   };
 
+  const router = useRouter();
+
   const handleSelectUser = (user: any) => {
-    setSelectedUser(user);
-    fetchUser360(user.id);
+    setModalVisible(false);
+    router.push(`/admin/user-detail?id=${user.id}` as any);
   };
 
   return (
@@ -125,14 +118,13 @@ export default function AdminGlobalSearch() {
         onPress={() => setModalVisible(true)}
       >
         <Ionicons name="search" size={16} color={C.onSurfaceVariant} />
-        <Text style={s.searchText}>{isEN ? 'Search users...' : 'ተጠቃሚዎችን ፈልግ...'}</Text>
-        <View style={s.searchCmd}><Text style={{ color: C.onSurfaceVariant, fontSize: 8 }}>/</Text></View>
+        <Text style={s.searchText}>{isEN ? 'Search users, transactions, rooms...' : 'ተጠቃሚዎችን፣ ዝውውሮችን፣ ክፍሎችን ፈልግ...'}</Text>
+        <View style={s.searchCmd}><Text style={{ color: C.onSurfaceVariant, fontSize: 10, fontWeight: '700' }}>⌘K</Text></View>
       </TouchableOpacity>
 
       <Modal visible={modalVisible} transparent animationType="fade">
         <View style={s.modalOverlay}>
           <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setModalVisible(false)} />
-          
           <View style={s.modalContent}>
             {selectedUser && user360 ? (
               // --- 360 User Details View ---
@@ -147,29 +139,9 @@ export default function AdminGlobalSearch() {
                   </TouchableOpacity>
                 </View>
                 
-                <ScrollView contentContainerStyle={s.detailsScroll}>
-                  <View style={s.detailSection}>
-                    <Text style={s.sectionTitle}>Profile</Text>
-                    <Text style={s.detailText}>Name: <Text style={{color: '#fff'}}>{user360.user.username}</Text></Text>
-                    <Text style={s.detailText}>Phone: <Text style={{color: '#fff'}}>{user360.user.number}</Text></Text>
-                    <Text style={s.detailText}>Joined: <Text style={{color: '#fff'}}>{new Date(user360.user.created_at).toLocaleDateString()}</Text></Text>
-                    <Text style={s.detailText}>Status: <Text style={{color: user360.user.banned ? C.error : C.success}}>{user360.user.banned ? 'Banned' : 'Active'}</Text></Text>
-                  </View>
-                  
-                  <View style={s.detailSection}>
-                    <Text style={s.sectionTitle}>Wallet</Text>
-                    <Text style={s.detailText}>Available: <Text style={{color: C.secondary}}>ETB {user360.wallet.available}</Text></Text>
-                    <Text style={s.detailText}>Withdrawable: <Text style={{color: C.success}}>ETB {user360.wallet.withdrawable}</Text></Text>
-                    <Text style={s.detailText}>Bonus: <Text style={{color: C.primary}}>ETB {user360.wallet.bonus}</Text></Text>
-                  </View>
-                  
-                  <View style={s.detailSection}>
-                    <Text style={s.sectionTitle}>Game Stats</Text>
-                    <Text style={s.detailText}>Total Games: <Text style={{color: '#fff'}}>{user360.stats.totalGames}</Text></Text>
-                    <Text style={s.detailText}>Wins: <Text style={{color: C.success}}>{user360.stats.wins}</Text></Text>
-                    <Text style={s.detailText}>Losses: <Text style={{color: C.error}}>{user360.stats.losses}</Text></Text>
-                  </View>
-                </ScrollView>
+                <View style={{ flex: 1, padding: 16 }}>
+                  <User360View data={user360} hideActions={true} />
+                </View>
               </View>
             ) : selectedUser && detailsLoading ? (
                <View style={s.detailsContainer}>
@@ -238,20 +210,26 @@ export default function AdminGlobalSearch() {
   );
 }
 
-const s = StyleSheet.create({
+const getStyles = (C: any, isDark: boolean) => StyleSheet.create({
   searchWrap: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: 'rgba(23,23,50,0.4)',
-    paddingHorizontal: 12, paddingVertical: 8,
-    borderRadius: 8, borderWidth: 1, borderColor: 'rgba(68,68,107,0.15)',
-    width: 240,
+    backgroundColor: isDark ? 'rgba(12,20,36,0.7)' : '#F1F5F9',
+    paddingHorizontal: 14, paddingVertical: 8,
+    borderRadius: 10, borderWidth: 1, 
+    borderColor: isDark ? '#19273E' : '#E2E8F0',
+    width: 320,
   },
   searchText: { color: C.onSurfaceVariant, fontSize: 13, flex: 1 },
-  searchCmd: { backgroundColor: 'rgba(255,255,255,0.05)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  searchCmd: { 
+    backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : '#E2E8F0', 
+    paddingHorizontal: 6, paddingVertical: 2, 
+    borderRadius: 4, borderWidth: 1, 
+    borderColor: isDark ? 'rgba(255,255,255,0.1)' : '#CBD5E1' 
+  },
   
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: isDark ? 'rgba(0,0,0,0.75)' : 'rgba(15,23,42,0.4)',
     alignItems: 'center',
     paddingTop: Platform.OS === 'web' ? 80 : 100,
   },
@@ -261,10 +239,10 @@ const s = StyleSheet.create({
     backgroundColor: C.surface,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: C.outlineVariant,
+    borderColor: C.border || C.outlineVariant,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOpacity: 0.5,
+    shadowOpacity: isDark ? 0.5 : 0.15,
     shadowRadius: 20,
     elevation: 10,
     maxHeight: '80%',
@@ -277,18 +255,19 @@ const s = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: C.outlineVariant,
-    backgroundColor: C.surfaceContainer,
+    borderBottomColor: C.border || C.outlineVariant,
+    backgroundColor: isDark ? C.surfaceContainerLowest || '#060A13' : '#F8FAFC',
   },
   input: {
     flex: 1,
-    color: '#fff',
-    fontSize: 16,
+    color: C.onSurface,
+    fontSize: 15,
     outlineStyle: 'none' as any,
   },
   resultsContainer: {
     minHeight: 100,
     maxHeight: 400,
+    backgroundColor: C.surface,
   },
   resultItem: {
     flexDirection: 'row',
@@ -297,19 +276,20 @@ const s = StyleSheet.create({
   },
   resultAvatar: {
     width: 40, height: 40, borderRadius: 10,
-    backgroundColor: 'rgba(0,218,243,0.1)',
+    backgroundColor: isDark ? 'rgba(255,45,85,0.12)' : '#FFE4E6',
     alignItems: 'center', justifyContent: 'center',
     marginRight: 12,
   },
   resultAvatarText: { color: C.primary, fontWeight: 'bold', fontSize: 16 },
-  resultName: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  resultName: { color: C.onSurface, fontSize: 14, fontWeight: '700' },
   resultPhone: { color: C.onSurfaceVariant, fontSize: 12, marginTop: 4 },
   noResults: { padding: 32, alignItems: 'center' },
   noResultsText: { color: C.onSurfaceVariant, fontSize: 14 },
   
   // Details state
   detailsContainer: {
-    height: 400,
+    flex: 1,
+    minHeight: 520,
   },
   detailsHeader: {
     flexDirection: 'row',
@@ -317,17 +297,17 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: C.outlineVariant,
-    backgroundColor: C.surfaceContainer,
+    borderBottomColor: C.border || C.outlineVariant,
+    backgroundColor: isDark ? C.surfaceContainerLowest || '#060A13' : '#F8FAFC',
   },
-  detailsTitle: { color: '#fff', fontSize: 16, fontWeight: '800' },
+  detailsTitle: { color: C.onSurface, fontSize: 16, fontWeight: '800' },
   detailsScroll: { padding: 16, gap: 16 },
   detailSection: {
-    backgroundColor: 'rgba(23,23,50,0.4)',
+    backgroundColor: isDark ? '#0C1424' : '#F8FAFC',
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: C.outlineVariant,
+    borderColor: C.border || C.outlineVariant,
   },
   sectionTitle: { color: C.onSurfaceVariant, fontSize: 12, fontWeight: '800', textTransform: 'uppercase', marginBottom: 12 },
   detailText: { color: C.onSurfaceVariant, fontSize: 14, marginBottom: 8 },

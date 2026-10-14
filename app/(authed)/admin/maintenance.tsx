@@ -1,14 +1,18 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Switch, TouchableOpacity, TextInput, ActivityIndicator, Platform } from 'react-native';
+import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { AdminTheme as C } from './_layout';
+import { useAdminTheme } from './_layout';
 import { useAuth } from '../../../context/authContext';
 import { useToast } from '../../../context/ToastContext';
 import { API_URL } from '../../../config';
 import ActionConfirmModal from '../../../components/ActionConfirmModal';
 
 export default function Maintenance() {
+  const { theme: C, isDark } = useAdminTheme();
+  const s = useMemo(() => getStyles(C, isDark), [C, isDark]);
+  const router = useRouter();
   const { token, user, isSuperAdmin } = useAuth();
   const toast = useToast();
   
@@ -183,18 +187,51 @@ export default function Maintenance() {
       <View style={s.header}>
         <View>
           <Text style={s.pageTitle}>System Maintenance</Text>
-          <Text style={s.pageSubtitle}>Manage feature toggles and emergency lockdowns</Text>
+          <Text style={s.pageSubtitle}>System operational toggles, maintenance mode, and emergency access</Text>
         </View>
       </View>
 
+      {/* API & Mini-App Infrastructure Gateway Card */}
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={() => router.push('/admin/miniapps' as any)}
+        style={[s.card, { borderColor: 'rgba(124,58,237,0.4)', backgroundColor: 'rgba(19, 24, 44, 0.85)' }]}
+      >
+        <LinearGradient
+          colors={['rgba(124,58,237,0.18)', 'rgba(34,211,238,0.08)']}
+          style={{ ...StyleSheet.absoluteFillObject, borderRadius: 24 }}
+        />
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, flex: 1, paddingRight: 12 }}>
+            <View style={[s.iconBg, { backgroundColor: 'rgba(124,58,237,0.25)', width: 46, height: 46, borderRadius: 14 }]}>
+              <Ionicons name="apps" size={24} color={C.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={[s.cardTitle, { marginBottom: 2 }]}>API & Mini-App Controller</Text>
+                <View style={{ backgroundColor: 'rgba(34,211,238,0.15)', borderColor: 'rgba(34,211,238,0.3)', borderWidth: 1, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 }}>
+                  <Text style={{ color: C.secondary, fontSize: 10, fontWeight: '800', letterSpacing: 0.5 }}>LOCKED GATE</Text>
+                </View>
+              </View>
+              <Text style={[s.cardDesc, { marginBottom: 0 }]}>
+                Manage registered developer mini-apps, API credentials, permission scopes, rate limits, and audit logs.
+              </Text>
+            </View>
+          </View>
+          <View style={{ backgroundColor: C.primary, width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="chevron-forward" size={20} color="#ffffff" />
+          </View>
+        </View>
+      </TouchableOpacity>
+
       {/* Emergency Lockout Card */}
-      <LinearGradient colors={isEmergencyLocked ? ['rgba(253,111,133,0.15)', 'rgba(138,22,50,0.1)'] : ['rgba(167,139,250,0.1)', 'rgba(0,218,243,0.05)']} style={[s.card, isEmergencyLocked && { borderColor: 'rgba(253,111,133,0.3)' }]}>
+      <View style={[s.card, isEmergencyLocked && { borderColor: C.error, backgroundColor: 'rgba(251,84,84,0.04)' }]}>
         <View style={s.lockdownHeader}>
           <View style={s.lockdownTitleWrap}>
-            <View style={[s.iconBg, { backgroundColor: isEmergencyLocked ? 'rgba(253,111,133,0.2)' : 'rgba(166,140,255,0.2)' }]}>
+            <View style={[s.iconBg, { backgroundColor: isEmergencyLocked ? 'rgba(251,84,84,0.15)' : '#313D4A' }]}>
               <Ionicons name="warning" size={20} color={isEmergencyLocked ? C.error : C.primary} />
             </View>
-            <Text style={[s.cardTitle, isEmergencyLocked && { color: C.error, textShadowColor: 'rgba(253,111,133,0.5)', textShadowRadius: 10 }]}>Emergency Lockdown</Text>
+            <Text style={[s.cardTitle, isEmergencyLocked && { color: C.error }]}>Emergency Maintenance Lockout</Text>
           </View>
           <Switch
             value={isEmergencyLocked}
@@ -245,7 +282,7 @@ export default function Maintenance() {
             </View>
           </View>
         )}
-      </LinearGradient>
+      </View>
 
       {/* Feature Toggles */}
       <View style={s.card}>
@@ -263,9 +300,10 @@ export default function Maintenance() {
       </View>
 
       <View style={s.card}>
-        <Text style={s.cardTitle}>Social Features</Text>
-        <Text style={s.cardDesc}>Manage leaderboards and social elements.</Text>
-        <FeatureRow title="Leaderboard" desc="Show the global leaderboard to users." featureKey="feature_leaderboard" />
+        <Text style={s.cardTitle}>Social & Competition Features</Text>
+        <Text style={s.cardDesc}>Manage leaderboards, rewards, and social elements.</Text>
+        <FeatureRow title="Master Leaderboard Active" desc="Master switch. When OFF, leaderboard is disabled, UI shows maintenance state, and auto-payout cron is paused." featureKey="leaderboard_enabled" warning={true} />
+        <FeatureRow title="Leaderboard Feature" desc="Show the global leaderboard tab to users." featureKey="feature_leaderboard" />
       </View>
 
     </ScrollView>
@@ -284,81 +322,81 @@ export default function Maintenance() {
   );
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1 },
-  content: { paddingBottom: 60, maxWidth: 800, marginHorizontal: Platform.OS === 'web' ? 'auto' : 0, width: '100%' },
-  header: { marginBottom: 30 },
-  pageTitle: { fontSize: 28, fontWeight: '900', color: C.onSurface, marginBottom: 8 },
-  pageSubtitle: { fontSize: 14, color: C.onSurfaceVariant },
-  
-  card: {
-    backgroundColor: 'rgba(24, 24, 27, 0.65)',
-    borderRadius: 24,
-    padding: 24,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(39, 39, 42, 0.6)',
-    shadowColor: C.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 24,
-    elevation: 10,
-  },
-  cardTitle: { fontSize: 18, fontWeight: '900', color: '#fff', marginBottom: 6, letterSpacing: 0.5 },
-  cardDesc: { fontSize: 13, color: C.onSurfaceVariant, marginBottom: 20, lineHeight: 20 },
-  
-  iconBg: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  lockdownHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  lockdownTitleWrap: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  
-  featureRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 16,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.05)',
-  },
-  featureTitle: { fontSize: 15, fontWeight: '700', color: '#fff', marginBottom: 4 },
-  featureDesc: { fontSize: 12, color: 'rgba(255,255,255,0.5)' },
-  
-  whitelistContainer: { marginTop: 20, borderTopWidth: 1, borderTopColor: 'rgba(253,111,133,0.2)', paddingTop: 20 },
-  sectionTitle: { fontSize: 14, fontWeight: '700', color: C.onSurface, marginBottom: 12 },
-  whitelistInputRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
-  input: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    color: '#fff',
-    fontSize: 14,
-  },
-  addBtn: {
-    backgroundColor: C.primaryContainer,
-    borderRadius: 12,
-    paddingHorizontal: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  addBtnText: { color: '#fff', fontWeight: 'bold' },
-  whitelistList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  whitelistChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,218,243,0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(0,218,243,0.3)',
-    borderRadius: 10,
-    paddingLeft: 12,
-    paddingRight: 4,
-    paddingVertical: 6,
-    gap: 8,
-    shadowColor: C.secondary,
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  whitelistText: { color: C.secondary, fontSize: 13, fontWeight: '800' }
-});
+const getStyles = (C: any, isDark: boolean) => {
+  const bgSurface = isDark ? '#0c1424' : '#ffffff';
+  const bgCard = isDark ? '#080e1b' : '#f8fafc';
+  const borderColor = isDark ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0';
+  const textPrimary = isDark ? '#ffffff' : '#0f172a';
+  const textSecondary = isDark ? '#94a3b8' : '#64748b';
+
+  return StyleSheet.create({
+    container: { flex: 1 },
+    content: { paddingBottom: 60, maxWidth: 800, marginHorizontal: Platform.OS === 'web' ? 'auto' : 0, width: '100%' },
+    header: { marginBottom: 30 },
+    pageTitle: { fontSize: 28, fontWeight: '900', color: textPrimary, marginBottom: 8 },
+    pageSubtitle: { fontSize: 14, color: textSecondary },
+
+    card: {
+      backgroundColor: bgSurface,
+      borderRadius: 12,
+      padding: 24,
+      marginBottom: 20,
+      borderWidth: 1,
+      borderColor,
+    },
+    cardTitle: { fontSize: 18, fontWeight: '700', color: textPrimary, marginBottom: 6, letterSpacing: 0.5 },
+    cardDesc: { fontSize: 13, color: textSecondary, marginBottom: 20, lineHeight: 20 },
+
+    iconBg: { width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+    lockdownHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+    lockdownTitleWrap: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+
+    featureRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 16,
+      borderTopWidth: 1,
+      borderTopColor: borderColor,
+    },
+    featureTitle: { fontSize: 15, fontWeight: '700', color: textPrimary, marginBottom: 4 },
+    featureDesc: { fontSize: 12, color: textSecondary },
+
+    whitelistContainer: { marginTop: 20, borderTopWidth: 1, borderTopColor: borderColor, paddingTop: 20 },
+    sectionTitle: { fontSize: 14, fontWeight: '700', color: textPrimary, marginBottom: 12 },
+    whitelistInputRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
+    input: {
+      flex: 1,
+      backgroundColor: bgCard,
+      borderWidth: 1,
+      borderColor,
+      borderRadius: 8,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      color: textPrimary,
+      fontSize: 14,
+    },
+    addBtn: {
+      backgroundColor: '#FF2D55',
+      borderRadius: 8,
+      paddingHorizontal: 18,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    addBtnText: { color: '#ffffff', fontWeight: '700' },
+    whitelistList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    whitelistChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: isDark ? 'rgba(255,45,85,0.1)' : 'rgba(255,45,85,0.06)',
+      borderWidth: 1,
+      borderColor: 'rgba(255,45,85,0.25)',
+      borderRadius: 6,
+      paddingLeft: 12,
+      paddingRight: 4,
+      paddingVertical: 6,
+      gap: 8,
+    },
+    whitelistText: { color: textPrimary, fontSize: 13, fontWeight: '600' },
+  });
+};

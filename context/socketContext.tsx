@@ -15,26 +15,36 @@ import { Platform, AppState, AppStateStatus } from "react-native";
 type Msg = { type: string; payload?: any };
 type Unsub = () => void;
 
-type SocketApi = {
+export type SocketState = {
+  isSearching: boolean;
+  isGameActive: boolean;
+  lastError: string | null;
+};
+
+export type SocketActions = {
   ensureConnected: (token?: string) => Promise<boolean>;
   send: (event: string, payload?: any) => void;
   emitAck: (event: string, payload: any, timeoutMs?: number) => Promise<{ ok: boolean; data?: any; error?: string }>;
   onMessage: (cb: (msg: Msg) => void) => Unsub;
   findMatch: (betMin: number, betMax?: number) => Promise<{ ok: boolean; data?: any; error?: string }>;
   cancelFind: () => Promise<{ ok: boolean }>;
-  isSearching: boolean;
-  isGameActive: boolean;
   setIsGameActive: (active: boolean) => void;
-  lastError: string | null;
 };
 
-const Ctx = createContext<SocketApi>(null as any);
-export const useSocket = () => useContext(Ctx);
+export type SocketApi = SocketState & SocketActions;
+
+const StateCtx = createContext<SocketState>(null as any);
+const ActionCtx = createContext<SocketActions>(null as any);
+const CombinedCtx = createContext<SocketApi>(null as any);
+
+export const useSocketState = () => useContext(StateCtx);
+export const useSocketActions = () => useContext(ActionCtx);
+export const useSocket = () => useContext(CombinedCtx);
 
 // ---- CONFIG ----
 const URL = API_URL;
-const ACK_TIMEOUT_MS = 6000;
-const CONNECT_TIMEOUT_MS = 6000;
+const ACK_TIMEOUT_MS = 15000;
+const CONNECT_TIMEOUT_MS = 15000;
 
 const SERVER_EVENTS = [
   "queue_status",
@@ -62,6 +72,19 @@ const SERVER_EVENTS = [
   "friend_invite_result",
   "friend_invite_declined",
   "global_win",
+  // Spin game events
+  "spin:room_state",
+  "spin:player_joined",
+  "spin:player_left",
+  "spin:countdown",
+  "spin:locked",
+  "spin:start",
+  "spin:result",
+  "spin:cancelled",
+  "spin:stake_updated",
+  "spin:error",
+  "spin:voice_chunk",
+  "spin:player_muted",
 ] as const;
 
 type ServerEvent = (typeof SERVER_EVENTS)[number];
@@ -111,7 +134,7 @@ export function SocketProvider({
 
     s = io(URL, {
       autoConnect: false,
-      transports: ["websocket", "polling"], // Force both for stability across Railway proxies
+      transports: ["polling", "websocket"], // Start with polling and upgrade to websocket for robust connection upgrade without console warnings
       secure: !URL.includes('localhost'),
       // IMPORTANT: do NOT forceNew (it can churn engines on remount)
       forceNew: false,
@@ -247,19 +270,22 @@ export function SocketProvider({
         }, timeoutMs);
 
         try {
-          s.timeout(timeoutMs).emit(event, payload, (resp: any) => {
+          s.emit(event, payload, (resp: any) => {
             if (done) return;
             done = true;
             clearTimeout(timer);
 
-            if (resp && resp.ok) resolve({ ok: true, data: resp.data });
-            else resolve({ ok: false, error: resp?.error || "NACK" });
+            if (resp && typeof resp === "object" && resp.ok) {
+              resolve({ ok: true, data: resp.data });
+            } else {
+              resolve({ ok: false, error: resp?.error || "NACK" });
+            }
           });
-        } catch {
+        } catch (err: any) {
           if (done) return;
           done = true;
           clearTimeout(timer);
-          resolve({ ok: false, error: "EMIT_ERROR" });
+          resolve({ ok: false, error: err?.message || "EMIT_ERROR" });
         }
       });
     },
@@ -289,16 +315,17 @@ export function SocketProvider({
   );
 
   const cancelFind = useCallback(async () => {
+    setIsSearching(false);
     const s = sockRef.current;
     if (!s || !s.connected) {
-      setIsSearching((prev) => (prev === false ? prev : false));
       return { ok: true };
     }
 
     const tk = tokenRef.current;
-    const res = await emitAck("cancel_find_match", { token: tk });
+    try {
+      await emitAck("cancel_find_match", { token: tk });
+    } catch {}
 
-    if (res.ok) setIsSearching((prev) => (prev === false ? prev : false));
     return { ok: true };
   }, [emitAck]);
 
@@ -361,7 +388,16 @@ export function SocketProvider({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const value: SocketApi = useMemo(
+  const state: SocketState = useMemo(
+    () => ({
+      isSearching,
+      isGameActive,
+      lastError,
+    }),
+    [isSearching, isGameActive, lastError]
+  );
+
+  const actions: SocketActions = useMemo(
     () => ({
       ensureConnected,
       send,
@@ -369,13 +405,26 @@ export function SocketProvider({
       onMessage,
       findMatch,
       cancelFind,
-      isSearching,
-      isGameActive,
       setIsGameActive,
-      lastError,
     }),
-    [ensureConnected, send, emitAck, onMessage, findMatch, cancelFind, isSearching, isGameActive, lastError]
+    [ensureConnected, send, emitAck, onMessage, findMatch, cancelFind, setIsGameActive]
   );
 
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+  const combinedValue: SocketApi = useMemo(
+    () => ({
+      ...state,
+      ...actions,
+    }),
+    [state, actions]
+  );
+
+  return (
+    <ActionCtx.Provider value={actions}>
+      <StateCtx.Provider value={state}>
+        <CombinedCtx.Provider value={combinedValue}>
+          {children}
+        </CombinedCtx.Provider>
+      </StateCtx.Provider>
+    </ActionCtx.Provider>
+  );
 }

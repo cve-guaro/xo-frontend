@@ -78,34 +78,49 @@ export default function WelcomeBonusModal({ visible, onClose }: WelcomeBonusModa
 
             <View style={styles.header}>
               <LinearGradient
-                colors={['#00daf3', '#00a3ff']}
+                colors={['#f5b642', '#d97706']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.iconWrap}
               >
-                <Ionicons name="game-controller" size={32} color="#0B0B0F" />
+                <Ionicons name="gift" size={34} color="#0B0B0F" />
               </LinearGradient>
-              <Text style={styles.title}>Welcome to XO Ethiopia!</Text>
-              <Text style={styles.subtitle}>Step into the ultimate arena of Tic-Tac-Toe gameplay.</Text>
+              <Text style={styles.title}>🎉 10 ETB Welcome Bonus!</Text>
+              <Text style={styles.subtitle}>Congratulations! You've received a 10 ETB playable giveaway balance.</Text>
+            </View>
+
+            <View style={{
+              backgroundColor: "rgba(245, 182, 66, 0.12)",
+              borderWidth: 1.5,
+              borderColor: "#f5b642",
+              borderRadius: 20,
+              paddingVertical: 14,
+              paddingHorizontal: 20,
+              alignItems: "center",
+              marginVertical: 14,
+              width: "100%",
+            }}>
+              <Text style={{ color: "#fef08a", fontSize: 11, fontWeight: "900", letterSpacing: 1 }}>PLAYABLE GIVEAWAY GIFT</Text>
+              <Text style={{ color: "#ffffff", fontSize: 26, fontWeight: "900", marginTop: 2 }}>+10.00 ETB</Text>
             </View>
 
             <View style={styles.detailsContainer}>
               <View style={styles.detailRow}>
-                <Ionicons name="trophy" size={16} color="#00daf3" />
-                <Text style={styles.detailText}>Compete with real players in real-time</Text>
+                <Ionicons name="checkmark-circle" size={18} color="#34d399" />
+                <Text style={styles.detailText}>Instant 10 ETB balance credited to your account</Text>
               </View>
               <View style={styles.detailRow}>
-                <Ionicons name="ribbon" size={16} color="#34d399" />
-                <Text style={styles.detailText}>Climb the leaderboard for weekly prizes</Text>
+                <Ionicons name="game-controller" size={18} color="#00daf3" />
+                <Text style={styles.detailText}>Use it to play Tic-Tac-Toe or Spin Wheel games</Text>
               </View>
             </View>
 
             <TouchableOpacity style={styles.button} onPress={onClose} activeOpacity={0.8}>
               <LinearGradient
-                colors={['#00daf3', '#00a3ff']}
+                colors={['#f5b642', '#00daf3']}
                 style={styles.buttonGradient}
               >
-                <Text style={[styles.buttonText, { color: '#0B0B0F' }]}>Let's Play</Text>
+                <Text style={[styles.buttonText, { color: '#0B0B0F' }]}>CLAIM & START PLAYING</Text>
                 <Ionicons name="arrow-forward" size={18} color="#0B0B0F" style={{ marginLeft: 8 }} />
               </LinearGradient>
             </TouchableOpacity>

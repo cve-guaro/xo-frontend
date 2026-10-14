@@ -4,7 +4,7 @@ import React from "react";
 
 export default function HTML({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
@@ -30,23 +30,9 @@ export default function HTML({ children }: { children: React.ReactNode }) {
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
-          rel="preload"
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
-          as="style"
-        />
-        <link
           rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
-          media="print"
-          // @ts-ignore
-          onLoad="this.media='all'"
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800;900&display=swap"
         />
-        <noscript>
-          <link
-            rel="stylesheet"
-            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
-          />
-        </noscript>
 
         {/* Scroll View Style Reset for proper React Native Web behavior */}
         <ScrollViewStyleReset />
@@ -59,6 +45,7 @@ export default function HTML({ children }: { children: React.ReactNode }) {
                 background-color: #060614;
                 margin: 0;
                 padding: 0;
+                font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
               }
               
               /* Reset input focus borders dynamically without JS layout shifts */
@@ -87,8 +74,32 @@ export default function HTML({ children }: { children: React.ReactNode }) {
             `,
           }}
         />
+
+        {/* Guard against aria-hidden retained focus warning in Chromium */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if (typeof MutationObserver !== 'undefined') {
+                const observer = new MutationObserver(function(mutations) {
+                  for (let i = 0; i < mutations.length; i++) {
+                    const m = mutations[i];
+                    if (m.type === 'attributes' && m.attributeName === 'aria-hidden') {
+                      const target = m.target;
+                      if (target && target.getAttribute('aria-hidden') === 'true') {
+                        if (target.contains(document.activeElement)) {
+                          document.activeElement.blur();
+                        }
+                      }
+                    }
+                  }
+                });
+                observer.observe(document.documentElement, { attributes: true, subtree: true, attributeFilter: ['aria-hidden'] });
+              }
+            `,
+          }}
+        />
       </head>
-      <body>{children}</body>
+      <body suppressHydrationWarning>{children}</body>
     </html>
   );
 }

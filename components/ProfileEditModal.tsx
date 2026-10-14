@@ -121,8 +121,10 @@ export default function ProfileEditModal({
   const translateY = slide.interpolate({ inputRange: [0, 1], outputRange: [50, 0] });
   const opacity = slide.interpolate({ inputRange: [0, 1], outputRange: [0, 1] });
 
+  const isForced = !initialUsername || isNewUser;
+
   return (
-    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
+    <Modal visible={visible} animationType="fade" transparent onRequestClose={isForced ? () => {} : onClose}>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={[styles.overlay, isDesktop && { justifyContent: 'center' }]}>
         <Animated.View style={[styles.backdrop, { opacity }]} />
 
@@ -131,11 +133,18 @@ export default function ProfileEditModal({
             {/* Header */}
             <View style={styles.header}>
               <View style={styles.iconBtn} />
-              <Text style={styles.title}>{isEN ? "Edit Profile" : "መለያዎን ያስተካክሉ"}</Text>
-              <TouchableOpacity onPress={onClose} style={styles.iconBtn}>
-
-                <Ionicons name="close" size={18} color="#fff" />
-              </TouchableOpacity>
+              <Text style={styles.title}>
+                {isForced 
+                  ? (isEN ? "Set Your Username" : "ስምዎን ያስገቡ") 
+                  : (isEN ? "Edit Profile" : "መለያዎን ያስተካክሉ")}
+              </Text>
+              {!isForced ? (
+                <TouchableOpacity onPress={onClose} style={styles.iconBtn}>
+                  <Ionicons name="close" size={18} color="#fff" />
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.iconBtn} />
+              )}
             </View>
 
             {/* Banner */}
