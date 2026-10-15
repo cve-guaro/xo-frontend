@@ -823,9 +823,10 @@ export default function SpinGameScreen() {
           setRound(prev => {
             if (prev && prev.roundId !== payload.roundId) return prev;
             return {
-              ...(prev || { roundId: payload.roundId, configId: 0, betAmount: 10, maxPlayers: 5, roomName: "Spin Room", countdown: 0, mode: "RAIL", players: payload.players || [] }),
+              ...(prev || { roundId: payload.roundId, configId: 0, betAmount: 10, maxPlayers: 5, roomName: "Spin Room", countdown: 0, mode: "RAIL" }),
               status: "locked",
               pot: payload.pot,
+              players: payload.players || (prev ? prev.players : []),
             } as RoundState;
           });
           // Start 3-2-1 pre-spin countdown
@@ -862,8 +863,9 @@ export default function SpinGameScreen() {
             if (r && r.roundId !== payload.roundId) return r;
             playSpinLoop();
             return {
-              ...(r || { roundId: payload.roundId, configId: 0, betAmount: 10, maxPlayers: 5, roomName: "Spin Room", countdown: 0, mode: "RAIL", players: [] }),
+              ...(r || { roundId: payload.roundId, configId: 0, betAmount: 10, maxPlayers: 5, roomName: "Spin Room", countdown: 0, mode: "RAIL" }),
               status: "spinning",
+              players: payload.players || (r ? r.players : []),
             } as RoundState;
           });
           break;
@@ -1793,7 +1795,7 @@ export default function SpinGameScreen() {
                     <SpinWheel
                       size={Math.min(screenW * 0.32, 420)}
                       players={round ? round.players : previewPlayers}
-                      isSpinning={screenState === "spinning"}
+                      isSpinning={Boolean(screenState === "spinning" || round?.status === "spinning" || isSpinning)}
                       winningSlice={winningSlice}
                       winnerId={pendingWinnerId}
                       spinDuration={spinDuration}
@@ -1895,6 +1897,9 @@ export default function SpinGameScreen() {
                       {Array.from({ length: 5 }, (_, idx) => {
                         const player = round?.players && round.players[idx] ? round.players[idx] : null;
                         const isSelf = player?.userId === user?.id;
+                        const isMuted = player ? mutedPlayers.has(player.userId) : false;
+                        const isSelfHost = round?.players[0]?.userId === user?.id;
+                        const isSpeaking = Boolean(player && Array.isArray(speakingUserIds) && speakingUserIds.some(id => String(id) === String(player.userId)));
                         return (
                           <View
                             key={player?.userId || idx}
@@ -1940,6 +1945,23 @@ export default function SpinGameScreen() {
                                 </Text>
                               </View>
                             </View>
+
+                            {player && (
+                              <AnimatedUserMicButton
+                                isSelf={isSelf}
+                                isMuted={isSelf ? micMuted : (remoteMicMuted[player.userId] !== undefined ? remoteMicMuted[player.userId] : isMuted)}
+                                isSpeaking={speakingUserIds.includes(String(player.userId))}
+                                onPress={() => {
+                                  if (isSelf) {
+                                    handleToggleMic();
+                                  } else if (isSelfHost) {
+                                    handleHostMuteUser(player.userId, isMuted);
+                                  } else {
+                                    toggleMutePlayer(player.userId);
+                                  }
+                                }}
+                              />
+                            )}
                           </View>
                         );
                       })}
@@ -2225,7 +2247,7 @@ export default function SpinGameScreen() {
                   <SpinWheel
                     size={Math.min(screenW * 0.32, 420)}
                     players={round ? round.players : previewPlayers}
-                    isSpinning={screenState === "spinning"}
+                    isSpinning={Boolean(screenState === "spinning" || round?.status === "spinning" || isSpinning)}
                     winningSlice={winningSlice}
                     winnerId={pendingWinnerId}
                     spinDuration={spinDuration}
@@ -2339,6 +2361,9 @@ export default function SpinGameScreen() {
                       {(round ? round.players : []).map((p: any, idx: number) => {
                         const isSelf = p.userId === user?.id;
                         const isHost = idx === 0;
+                        const isMuted = mutedPlayers.has(p.userId);
+                        const isSelfHost = round?.players[0]?.userId === user?.id;
+                        const isSpeaking = Boolean(Array.isArray(speakingUserIds) && speakingUserIds.some(id => String(id) === String(p.userId)));
                         return (
                           <View
                             key={p.userId || idx}
@@ -2378,11 +2403,27 @@ export default function SpinGameScreen() {
                               </View>
                             </View>
 
-                            {isHost && (
-                              <View style={{ backgroundColor: "#7c3aed", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
-                                <Text style={{ color: "#ffffff", fontSize: 10, fontWeight: "900", letterSpacing: 0.5 }}>HOST</Text>
-                              </View>
-                            )}
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                              {isHost && (
+                                <View style={{ backgroundColor: "#7c3aed", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
+                                  <Text style={{ color: "#ffffff", fontSize: 10, fontWeight: "900", letterSpacing: 0.5 }}>HOST</Text>
+                                </View>
+                              )}
+                              <AnimatedUserMicButton
+                                isSelf={isSelf}
+                                isMuted={isSelf ? micMuted : (remoteMicMuted[p.userId] !== undefined ? remoteMicMuted[p.userId] : isMuted)}
+                                isSpeaking={speakingUserIds.includes(String(p.userId))}
+                                onPress={() => {
+                                  if (isSelf) {
+                                    handleToggleMic();
+                                  } else if (isSelfHost) {
+                                    handleHostMuteUser(p.userId, isMuted);
+                                  } else {
+                                    toggleMutePlayer(p.userId);
+                                  }
+                                }}
+                              />
+                            </View>
                           </View>
                         );
                       })}
@@ -2561,7 +2602,7 @@ export default function SpinGameScreen() {
             <SpinWheel
               size={mobileWheelSize}
               players={round ? round.players : previewPlayers}
-              isSpinning={screenState === "spinning"}
+              isSpinning={Boolean(screenState === "spinning" || round?.status === "spinning" || isSpinning)}
               winningSlice={winningSlice}
               winnerId={pendingWinnerId}
               spinDuration={spinDuration}

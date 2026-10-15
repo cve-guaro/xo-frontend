@@ -109,22 +109,24 @@ export default function SpinWheel({
       (typeof winningSlice === "number" && winningSlice >= 0);
 
     if ((isSpinning || status === "spinning") && !hasSpun && players.length > 0 && hasValidWinner) {
-      // Resolve target slice. Prefer winnerId lookup (immune to array reordering).
-      // In 5-player mode, slices are ordered by seatIndex; in Rail mode, by players array position.
+      // Resolve target slice. Prefer server winningSlice, fallback to winnerId lookup
       let resolvedSliceIdx = -1;
-      const winnerPlayer = winnerId ? players.find(p => String(p.userId) === String(winnerId)) : undefined;
-      if (winnerPlayer) {
-        resolvedSliceIdx = (is5Player && typeof winnerPlayer.seatIndex === "number" && winnerPlayer.seatIndex >= 0)
-          ? winnerPlayer.seatIndex
-          : players.indexOf(winnerPlayer);
-      } else if (typeof winningSlice === "number" && winningSlice >= 0) {
+      if (typeof winningSlice === "number" && winningSlice >= 0 && winningSlice < slices.length) {
         resolvedSliceIdx = winningSlice;
+      } else if (winnerId) {
+        const winnerPlayer = players.find(p => String(p.userId) === String(winnerId));
+        if (winnerPlayer) {
+          const sIdx = (is5Player && typeof winnerPlayer.seatIndex === "number" && winnerPlayer.seatIndex >= 0)
+            ? winnerPlayer.seatIndex
+            : players.indexOf(winnerPlayer);
+          if (sIdx >= 0 && sIdx < slices.length) {
+            resolvedSliceIdx = sIdx;
+          }
+        }
       }
-
-      // Never default to slice 0 if the winner cannot be resolved
+      // Guaranteed safe fallback to slice 0 so the wheel never freezes
       if (resolvedSliceIdx < 0 || resolvedSliceIdx >= slices.length) {
-        console.warn("[SPIN_WHEEL] Unable to resolve slice for winnerId:", winnerId, "winningSlice:", winningSlice);
-        return;
+        resolvedSliceIdx = 0;
       }
 
       setHasSpun(true);
@@ -162,9 +164,11 @@ export default function SpinWheel({
       });
     }
 
-    // Reset when a new round starts
-    if ((status === "waiting" || status === "idle") && !isSpinning) {
-      rotation.setValue(0);
+    // Reset when a new round starts or round is locked awaiting spin
+    if ((status === "waiting" || status === "idle" || status === "locked") && !isSpinning) {
+      if (status !== "locked") {
+        rotation.setValue(0);
+      }
       setHasSpun(false);
     }
   }, [isSpinning, winningSlice, winnerId, status, players, hasStakes, totalStake, angleStep, is5Player, spinDuration, onSpinComplete]);
