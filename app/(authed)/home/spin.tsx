@@ -139,12 +139,12 @@ function AnimatedUserMicButton({
     };
   }, [isSpeaking, pulseAnim]);
 
-  // For remote users: all users start muted (gray circle with mic-off). Only switch to green & pulse when actively speaking!
-  const isGreen = isSelf ? !isMuted : isSpeaking;
-  const activeColor = isGreen ? "#22c55e" : "#64748b";
-  const activeBg = isGreen ? "rgba(34, 197, 94, 0.22)" : "rgba(100, 116, 139, 0.15)";
-  const activeBorder = isGreen ? "#22c55e" : "rgba(100, 116, 139, 0.35)";
-  const iconName = isGreen ? "mic" : "mic-off";
+  // For self or remote: when mic is unmuted or speaking, switch to active green mic icon!
+  const isMicOn = isSelf ? !isMuted : (!isMuted || isSpeaking);
+  const activeColor = isMicOn ? "#22c55e" : "#64748b";
+  const activeBg = isMicOn ? "rgba(34, 197, 94, 0.22)" : "rgba(100, 116, 139, 0.15)";
+  const activeBorder = isMicOn ? "#22c55e" : "rgba(100, 116, 139, 0.35)";
+  const iconName = isMicOn ? "mic" : "mic-off";
 
   return (
     <TouchableOpacity
@@ -482,22 +482,12 @@ export default function SpinGameScreen() {
   }, [loseSound]);
 
   const playSpinLoop = useCallback(() => {
-    try {
-      // Restart cleanly from the beginning each spin — a previously-finished
-      // player will not resume without seekTo(0), which made the spin silent.
-      spinLoopSound.seekTo(0);
-      spinLoopSound.loop = true;
-      spinLoopSound.volume = 0.35; // Lowered volume per requirement so countdown/spin is not deafening
-      spinLoopSound.play();
-    } catch (e) { console.warn("spinLoopSound error:", e); }
-  }, [spinLoopSound]);
+    // Replaced by realistic 20-pin physical ticker in SpinWheel using spin-sound-1.wav
+  }, []);
 
   const stopSpinLoop = useCallback(() => {
-    try {
-      spinLoopSound.pause();
-      spinLoopSound.seekTo(0);
-    } catch (e) { console.warn("stopSpinLoop error:", e); }
-  }, [spinLoopSound]);
+    // Wheel ticker terminates cleanly when rotation completes
+  }, []);
 
   const isSpinningRef = useRef(false);
   const pendingResultDataRef = useRef<{ winnerId: string; winnerName: string; prizeAmount: number } | null>(null);
@@ -617,6 +607,7 @@ export default function SpinGameScreen() {
   const [mutedPlayers, setMutedPlayers] = useState<Set<string>>(new Set());
   const [masterSpeakerMuted, setMasterSpeakerMuted] = useState(false);
   const [speakingUserIds, setSpeakingUserIds] = useState<string[]>([]);
+  const [remoteMicMuted, setRemoteMicMuted] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const unsub = voiceService.onSpeaking((speakers) => {
@@ -760,6 +751,12 @@ export default function SpinGameScreen() {
       const { type, payload } = msg;
 
       switch (type) {
+        case "spin:player_mic_state":
+          if (payload?.userId) {
+            setRemoteMicMuted(prev => ({ ...prev, [payload.userId]: !!payload.muted }));
+          }
+          break;
+
         case "spin:player_joined":
           setRound(prev => {
             if (!prev || prev.roundId !== payload.roundId) return prev;
@@ -1160,9 +1157,14 @@ export default function SpinGameScreen() {
   }, [rematchAvailable, token, emitAck]);
 
   // ── Leave room handler — shows confirmation popup ──────────────────
-  // Block leaving when countdown <= 60s and round is active in Rail mode
-  const leaveBlocked = countdown > 0 && countdown <= 60 && !is5Player;
+  // Block leaving when countdown <= 60s and user has joined in Rail mode
+  const isUserInRound = Boolean(round && Array.isArray(round.players) && round.players.some((p: any) => String(p.userId) === String(user?.id)));
+  const leaveBlocked = isUserInRound && countdown > 0 && countdown <= 60 && !is5Player;
   const handleLeaveRoom = useCallback(() => {
+    if (!isUserInRound) {
+      router.replace("/(authed)/home/gameplay");
+      return;
+    }
     if (leaveBlocked) {
       const msg = language === "am"
         ? "ስፒኑ ከመጀመሩ 60 ሴኮንድ በፊት ከክፍሉ መውጣት አይቻልም።"
@@ -1171,7 +1173,7 @@ export default function SpinGameScreen() {
       return;
     }
     setShowLeaveConfirm(true);
-  }, [leaveBlocked, language, showTopBanner]);
+  }, [isUserInRound, leaveBlocked, language, showTopBanner, router]);
 
   // ── Play again handler ───────────────────────────────────────────────
   const handlePlayAgain = useCallback(() => {
@@ -1333,7 +1335,10 @@ export default function SpinGameScreen() {
     const nextMuted = !micMuted;
     setMicMuted(nextMuted);
     await voiceService.setMute(nextMuted);
-  }, [micMuted]);
+    if (round?.roundId) {
+      send("spin:mic_toggle", { roundId: round.roundId, muted: nextMuted });
+    }
+  }, [micMuted, round?.roundId, send]);
 
   const handleToggleSpeaker = useCallback(async () => {
     const nextMuted = !masterSpeakerMuted;
@@ -1841,25 +1846,6 @@ export default function SpinGameScreen() {
                         )}
                       </TouchableOpacity>
                     )}
-
-                    <TouchableOpacity
-                      onPress={() => router.replace("/(authed)/home/gameplay")}
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        gap: 6,
-                        paddingVertical: 12,
-                        paddingHorizontal: 20,
-                        borderRadius: 24,
-                        borderWidth: 1,
-                        borderColor: "rgba(255, 255, 255, 0.15)",
-                        backgroundColor: "rgba(15, 23, 42, 0.6)",
-                      }}
-                      activeOpacity={0.8}
-                    >
-                      <Ionicons name="arrow-back" size={16} color="#94a3b8" />
-                      <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "800" }}>Back</Text>
-                    </TouchableOpacity>
                   </View>
                 </View>
 
@@ -2033,7 +2019,7 @@ export default function SpinGameScreen() {
                 {/* Left: Back button + Title + Badges + Info */}
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
                   <TouchableOpacity
-                    onPress={() => router.replace("/(authed)/home/gameplay")}
+                    onPress={handleLeaveRoom}
                     style={{
                       width: 42,
                       height: 42,
@@ -3124,7 +3110,7 @@ export default function SpinGameScreen() {
                     {/* Microphone Icon Button on right (Pulsing green when speaking/on, grey when muted, click to mute) */}
                     <AnimatedUserMicButton
                       isSelf={isSelf}
-                      isMuted={isSelf ? micMuted : isMuted}
+                      isMuted={isSelf ? micMuted : (remoteMicMuted[p.userId] !== undefined ? remoteMicMuted[p.userId] : isMuted)}
                       isSpeaking={isSpeaking}
                       onPress={() => {
                         if (isSelf) {

@@ -22,7 +22,7 @@ interface ToastContextType {
 
 const ToastContext = createContext<ToastContextType | null>(null);
 
-const MAX_TOASTS = 3;
+const MAX_TOASTS = 2;
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<ToastItem[]>([]);
@@ -31,8 +31,12 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const push = useCallback((variant: ToastVariant, title: string, message?: string, duration?: number) => {
     const id = ++idRef.current;
     setItems((prev) => {
-      const next = [...prev, { id, variant, title, message, duration: duration ?? 3000 }];
-      // Keep max 3 visible — remove oldest if exceeding
+      // Deduplicate: if an identical toast is already active, don't stack duplicates
+      const exists = prev.some((t) => t.title === title && t.message === message);
+      if (exists) return prev;
+
+      const next = [...prev, { id, variant, title, message, duration: duration ?? 3200 }];
+      // Keep max 2 visible — remove oldest if exceeding
       return next.length > MAX_TOASTS ? next.slice(next.length - MAX_TOASTS) : next;
     });
     return id;

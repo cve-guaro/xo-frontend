@@ -6,6 +6,7 @@
 import React, { useRef, useEffect, useState } from "react";
 import { View, Animated, Easing, StyleSheet, Text, Platform } from "react-native";
 import Svg, { Circle, Path, G, Text as SvgText, Defs, RadialGradient, Stop, LinearGradient } from "react-native-svg";
+import { initPinTickAudio, playPinTick } from "../../lib/pinTickAudio";
 
 type Player = {
   userId: string;
@@ -74,6 +75,10 @@ export default function SpinWheel({
   const rotation = useRef(new Animated.Value(0)).current;
   const [hasSpun, setHasSpun] = useState(false);
 
+  useEffect(() => {
+    initPinTickAudio();
+  }, []);
+
   const cx = size / 2;
   const cy = size / 2;
   const r = size * 0.44;
@@ -123,6 +128,20 @@ export default function SpinWheel({
       }
 
       setHasSpun(true);
+      initPinTickAudio();
+
+      // Track each of the 20 rim pins passing the top needle (every 18 degrees)
+      const PIN_COUNT = 20;
+      const pinAngle = 360 / PIN_COUNT; // 18 degrees
+      let lastPinHit = -1;
+
+      const listenerId = rotation.addListener(({ value }) => {
+        const pinHit = Math.floor(value / pinAngle);
+        if (pinHit > lastPinHit) {
+          lastPinHit = pinHit;
+          playPinTick(0.85);
+        }
+      });
 
       // Calculate exact center angle of winning slice from precomputed slices
       const targetSlice = slices[resolvedSliceIdx];
@@ -138,6 +157,7 @@ export default function SpinWheel({
         easing: Easing.bezier(0.12, 0.9, 0.2, 1), // punchy start, long smooth deceleration
         useNativeDriver: Platform.OS !== "web",
       }).start(() => {
+        rotation.removeListener(listenerId);
         onSpinComplete?.();
       });
     }
