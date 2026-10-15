@@ -6,7 +6,7 @@
 import React, { useRef, useEffect, useState } from "react";
 import { View, Animated, Easing, StyleSheet, Text, Platform } from "react-native";
 import Svg, { Circle, Path, G, Text as SvgText, Defs, RadialGradient, Stop, LinearGradient } from "react-native-svg";
-import { initPinTickAudio, playPinTick } from "../../lib/pinTickAudio";
+import { initPinTickAudio, playPinTick, playWhooshSound } from "../../lib/pinTickAudio";
 
 type Player = {
   userId: string;
@@ -73,11 +73,19 @@ export default function SpinWheel({
   speakingUserIds = [],
 }: SpinWheelProps) {
   const rotation = useRef(new Animated.Value(0)).current;
+  const currentAngleRef = useRef(0);
+  const idleAnimRef = useRef<Animated.CompositeAnimation | null>(null);
   const [hasSpun, setHasSpun] = useState(false);
 
   useEffect(() => {
     initPinTickAudio();
-  }, []);
+    const id = rotation.addListener(({ value }) => {
+      currentAngleRef.current = value;
+    });
+    return () => {
+      rotation.removeListener(id);
+    };
+  }, [rotation]);
 
   const cx = size / 2;
   const cy = size / 2;
@@ -103,12 +111,58 @@ export default function SpinWheel({
     });
   }, [playerCount, hasStakes, totalStake, players, angleStep]);
 
+  // Gentle continuous idle rotation when waiting/idle
+  useEffect(() => {
+    const isWaitingState = (status === "waiting" || status === "idle") && !isSpinning && !hasSpun;
+    if (isWaitingState) {
+      if (idleAnimRef.current) {
+        idleAnimRef.current.stop();
+        idleAnimRef.current = null;
+      }
+      let cancelled = false;
+      const runDrift = () => {
+        if (cancelled) return;
+        const cur = currentAngleRef.current;
+        idleAnimRef.current = Animated.timing(rotation, {
+          toValue: cur + 360,
+          duration: 72000, // 72 seconds per full revolution (smooth ~5 deg/s)
+          easing: Easing.linear,
+          useNativeDriver: Platform.OS !== "web",
+        });
+        idleAnimRef.current.start(({ finished }) => {
+          if (finished && !cancelled) {
+            runDrift();
+          }
+        });
+      };
+      runDrift();
+      return () => {
+        cancelled = true;
+        if (idleAnimRef.current) {
+          idleAnimRef.current.stop();
+          idleAnimRef.current = null;
+        }
+      };
+    } else {
+      if (idleAnimRef.current) {
+        idleAnimRef.current.stop();
+        idleAnimRef.current = null;
+      }
+    }
+  }, [isSpinning, status, hasSpun, rotation]);
+
   // Trigger spin animation — ONLY when server has declared a confirmed winner
   useEffect(() => {
     const hasValidWinner = (winnerId !== null && winnerId !== undefined && String(winnerId).length > 0) ||
       (typeof winningSlice === "number" && winningSlice >= 0);
 
     if ((isSpinning || status === "spinning") && !hasSpun && players.length > 0 && hasValidWinner) {
+      // Stop idle animation immediately
+      if (idleAnimRef.current) {
+        idleAnimRef.current.stop();
+        idleAnimRef.current = null;
+      }
+
       // Resolve target slice. Prefer server winningSlice, fallback to winnerId lookup
       let resolvedSliceIdx = -1;
       if (typeof winningSlice === "number" && winningSlice >= 0 && winningSlice < slices.length) {
@@ -131,11 +185,12 @@ export default function SpinWheel({
 
       setHasSpun(true);
       initPinTickAudio();
+      playWhooshSound();
 
       // Track each of the 20 rim pins passing the top needle (every 18 degrees)
       const PIN_COUNT = 20;
       const pinAngle = 360 / PIN_COUNT; // 18 degrees
-      let lastPinHit = -1;
+      let lastPinHit = Math.floor(currentAngleRef.current / pinAngle);
 
       const listenerId = rotation.addListener(({ value }) => {
         const pinHit = Math.floor(value / pinAngle);
@@ -149,9 +204,12 @@ export default function SpinWheel({
       const targetSlice = slices[resolvedSliceIdx];
       const sliceCenterAngle = (targetSlice.startAngle + targetSlice.endAngle) / 2;
 
-      const fullRotations = 9; // fast, satisfying spin
+      // Start seamlessly from current idle drift position
+      const curAngle = currentAngleRef.current;
+      const baseRevs = Math.ceil(curAngle / 360) * 360;
+      const fullRotations = 8; // fast, satisfying spin
       const finalStopAngle = ((360 - sliceCenterAngle) % 360 + 360) % 360;
-      const targetAngle = fullRotations * 360 + finalStopAngle;
+      const targetAngle = baseRevs + fullRotations * 360 + finalStopAngle;
 
       Animated.timing(rotation, {
         toValue: targetAngle,
@@ -164,14 +222,11 @@ export default function SpinWheel({
       });
     }
 
-    // Reset when a new round starts or round is locked awaiting spin
-    if ((status === "waiting" || status === "idle" || status === "locked") && !isSpinning) {
-      if (status !== "locked") {
-        rotation.setValue(0);
-      }
+    // Reset when a new round starts
+    if ((status === "waiting" || status === "idle") && !isSpinning && hasSpun) {
       setHasSpun(false);
     }
-  }, [isSpinning, winningSlice, winnerId, status, players, hasStakes, totalStake, angleStep, is5Player, spinDuration, onSpinComplete]);
+  }, [isSpinning, winningSlice, winnerId, status, players, hasStakes, totalStake, angleStep, is5Player, spinDuration, onSpinComplete, hasSpun]);
 
   const activeRotateStyle = rotation.interpolate({
     inputRange: [0, 360],
@@ -185,6 +240,30 @@ export default function SpinWheel({
 
   return (
     <View style={[styles.container, { width: size, height: size }]} pointerEvents="none">
+      {/* Dynamic Ambient Background Glow */}
+      <View
+        pointerEvents="none"
+        style={{
+          position: "absolute",
+          width: size * 1.25,
+          height: size * 1.25,
+          left: -size * 0.125,
+          top: -size * 0.125,
+          borderRadius: (size * 1.25) / 2,
+          backgroundColor: status === "locked"
+            ? "rgba(244, 63, 94, 0.16)"
+            : (isSpinning || status === "spinning")
+            ? "rgba(242, 193, 78, 0.18)"
+            : "rgba(59, 130, 246, 0.10)",
+          shadowColor: status === "locked" ? "#f43f5e" : (isSpinning ? "#f2c14e" : "#3b82f6"),
+          shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: 0.85,
+          shadowRadius: 36,
+          zIndex: 0,
+          ...(Platform.OS === "web" ? ({ filter: "blur(32px)" } as any) : {}),
+        }}
+      />
+
       {/* Animated wheel */}
       <Animated.View
         style={{

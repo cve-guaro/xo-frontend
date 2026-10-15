@@ -36,6 +36,14 @@ import { WebDepositModal, WebWithdrawModal } from "../../../components/WebModals
 import { voiceService } from "../../../lib/voiceService";
 import { useAudioPlayer } from "expo-audio";
 import { useBackgroundMusic } from "../../../context/BackgroundMusicProvider";
+import {
+  playWinSound,
+  playLossSound,
+  playLockoutSound,
+  playCountdownBeep,
+  playWhooshSound,
+  playCoinSound,
+} from "../../../lib/pinTickAudio";
 
 // ── Coin Stack Icon Component ─────────────────────────────────────────────
 function CoinStackIcon({ size = 16, color = "#facc15" }: { size?: number; color?: string }) {
@@ -109,18 +117,22 @@ function SpeakingWaveAnimation() {
 // ── Animated User Mic Button with Pulsing Green Wave (when speaking/unmuted) ──
 function AnimatedUserMicButton({
   isSelf,
-  isMuted,
+  isBot,
+  isMutedLocally,
+  isRemoteMuted,
   isSpeaking,
   onPress,
 }: {
   isSelf?: boolean;
-  isMuted: boolean;
-  isSpeaking: boolean;
+  isBot?: boolean;
+  isMutedLocally?: boolean;
+  isRemoteMuted?: boolean;
+  isSpeaking?: boolean;
   onPress: () => void;
 }) {
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  // Pulse only when active speaking
+  // Pulse only when actively speaking
   useEffect(() => {
     let loop: Animated.CompositeAnimation | null = null;
     if (isSpeaking) {
@@ -139,12 +151,54 @@ function AnimatedUserMicButton({
     };
   }, [isSpeaking, pulseAnim]);
 
-  // For self or remote: when mic is unmuted or speaking, switch to active green mic icon!
-  const isMicOn = isSelf ? !isMuted : (!isMuted || isSpeaking);
-  const activeColor = isMicOn ? "#22c55e" : "#64748b";
-  const activeBg = isMicOn ? "rgba(34, 197, 94, 0.22)" : "rgba(100, 116, 139, 0.15)";
-  const activeBorder = isMicOn ? "#22c55e" : "rgba(100, 116, 139, 0.35)";
-  const iconName = isMicOn ? "mic" : "mic-off";
+  // Determine appearance based on voice state
+  let iconName: "mic" | "mic-off" | "volume-mute" = "mic";
+  let activeColor = "#22c55e";
+  let activeBg = "rgba(34, 197, 94, 0.22)";
+  let activeBorder = "#22c55e";
+
+  if (isBot) {
+    iconName = "mic-off";
+    activeColor = "#475569";
+    activeBg = "rgba(15, 23, 42, 0.4)";
+    activeBorder = "rgba(255, 255, 255, 0.05)";
+  } else if (isSelf) {
+    if (isMutedLocally) {
+      iconName = "mic-off";
+      activeColor = "#64748b";
+      activeBg = "rgba(100, 116, 139, 0.15)";
+      activeBorder = "rgba(100, 116, 139, 0.35)";
+    } else {
+      iconName = "mic";
+      activeColor = isSpeaking ? "#22c55e" : "#3ddc78";
+      activeBg = isSpeaking ? "rgba(34, 197, 94, 0.3)" : "rgba(34, 197, 94, 0.18)";
+      activeBorder = "#22c55e";
+    }
+  } else if (isMutedLocally) {
+    // Local user muted this player for themselves ("volume-mute" icon!)
+    iconName = "volume-mute";
+    activeColor = "#f43f5e";
+    activeBg = "rgba(244, 63, 94, 0.18)";
+    activeBorder = "#f43f5e";
+  } else if (isRemoteMuted) {
+    // Remote player has their mic off
+    iconName = "mic-off";
+    activeColor = "#64748b";
+    activeBg = "rgba(100, 116, 139, 0.12)";
+    activeBorder = "rgba(100, 116, 139, 0.25)";
+  } else if (isSpeaking) {
+    // Actively speaking
+    iconName = "mic";
+    activeColor = "#22c55e";
+    activeBg = "rgba(34, 197, 94, 0.3)";
+    activeBorder = "#22c55e";
+  } else {
+    // In voice channel, unmuted & idle
+    iconName = "mic";
+    activeColor = "#00f0ff";
+    activeBg = "rgba(0, 240, 255, 0.12)";
+    activeBorder = "rgba(0, 240, 255, 0.35)";
+  }
 
   return (
     <TouchableOpacity
@@ -155,6 +209,7 @@ function AnimatedUserMicButton({
         height: 44,
         alignItems: "center",
         justifyContent: "center",
+        opacity: isBot ? 0.35 : 1,
       }}
       activeOpacity={0.8}
     >
@@ -452,33 +507,21 @@ export default function SpinGameScreen() {
   }, [clickSound]);
 
   const playWin = useCallback(() => {
+    playWinSound();
     try {
       winSound.seekTo(0);
       winSound.volume = 1;
       winSound.play();
     } catch (e) { console.warn("winSound error:", e); }
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      try {
-        const audio = new Audio(require("../../../assets/sounds/win.mp3"));
-        audio.volume = 1;
-        audio.play().catch(() => {});
-      } catch {}
-    }
   }, [winSound]);
 
   const playLose = useCallback(() => {
+    playLossSound();
     try {
       loseSound.seekTo(0);
       loseSound.volume = 1;
       loseSound.play();
     } catch (e) { console.warn("loseSound error:", e); }
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      try {
-        const audio = new Audio(require("../../../assets/sounds/lose.wav"));
-        audio.volume = 1;
-        audio.play().catch(() => {});
-      } catch {}
-    }
   }, [loseSound]);
 
   const playSpinLoop = useCallback(() => {
@@ -645,13 +688,15 @@ export default function SpinGameScreen() {
       const nextMuted = !isCurrentlyMuted;
       if (isCurrentlyMuted) {
         next.delete(targetUserId);
+        showTopBanner("info", language === "am" ? "ተጫዋቹ ድምፅ ተከፍቷል" : "Player unmuted");
       } else {
         next.add(targetUserId);
+        showTopBanner("info", language === "am" ? "ተጫዋቹን አጥፍተዋል (ለእርስዎ ብቻ ድምፅ አይሰማም)" : "Player muted for you");
       }
       voiceService.muteRemoteUser(targetUserId, nextMuted);
       return next;
     });
-  }, []);
+  }, [language, showTopBanner]);
 
   const startRecording = useCallback(async () => {
     if (Platform.OS !== "web") return;
@@ -1159,18 +1204,44 @@ export default function SpinGameScreen() {
   }, [rematchAvailable, token, emitAck]);
 
   // ── Leave room handler — shows confirmation popup ──────────────────
-  // Block leaving when countdown <= 60s and user has joined in Rail mode
+  // Block leaving when countdown <= 60s, or round is locked/spinning in Rail mode
   const isUserInRound = Boolean(round && Array.isArray(round.players) && round.players.some((p: any) => String(p.userId) === String(user?.id)));
-  const leaveBlocked = isUserInRound && countdown > 0 && countdown <= 60 && !is5Player;
+  const leaveBlocked = Boolean(isUserInRound && ((countdown > 0 && countdown <= 60) || round?.status === "locked" || round?.status === "spinning") && !is5Player);
+
+  // Trigger lockout notification & sound as soon as room locks
+  const prevLeaveBlockedRef = useRef(false);
+  useEffect(() => {
+    if (leaveBlocked && !prevLeaveBlockedRef.current) {
+      playLockoutSound();
+      const msg = language === "am"
+        ? "🔒 ውርርድ ተዘግቷል፡ ስፒኑ ከመጀመሩ በፊት ከክፍሉ መውጣት አይቻልም።"
+        : "🔒 Room Locked: Stakes are in play. Exit is disabled until the round completes!";
+      showTopBanner("warning", msg);
+    }
+    prevLeaveBlockedRef.current = leaveBlocked;
+  }, [leaveBlocked, language, showTopBanner]);
+
+  // Urgent countdown beeps (3, 2, 1)
+  const lastBeepRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (countdown > 0 && countdown <= 3 && countdown !== lastBeepRef.current) {
+      lastBeepRef.current = countdown;
+      playCountdownBeep();
+    } else if (countdown === 0) {
+      lastBeepRef.current = null;
+    }
+  }, [countdown]);
+
   const handleLeaveRoom = useCallback(() => {
     if (!isUserInRound) {
       router.replace("/(authed)/home/gameplay");
       return;
     }
     if (leaveBlocked) {
+      playLockoutSound();
       const msg = language === "am"
-        ? "ስፒኑ ከመጀመሩ 60 ሴኮንድ በፊት ከክፍሉ መውጣት አይቻልም።"
-        : "Room Locked: Exit is restricted in the final 60 seconds before spin.";
+        ? "🔒 ስፒኑ እስኪያልቅ ድረስ ከክፍሉ መውጣት አይቻልም! አሸናፊው ሲታወቅ መውጣት ይችላሉ።"
+        : "🔒 Exit Locked: Stakes are locked for this round. You can leave once the winner is determined!";
       showTopBanner("warning", msg);
       return;
     }
@@ -1949,13 +2020,15 @@ export default function SpinGameScreen() {
                             {player && (
                               <AnimatedUserMicButton
                                 isSelf={isSelf}
-                                isMuted={isSelf ? micMuted : (remoteMicMuted[player.userId] !== undefined ? remoteMicMuted[player.userId] : isMuted)}
+                                isBot={Boolean(player.isBot)}
+                                isMutedLocally={isSelf ? micMuted : mutedPlayers.has(player.userId)}
+                                isRemoteMuted={isSelf ? micMuted : (Boolean(player.isBot) || remoteMicMuted[player.userId] === true)}
                                 isSpeaking={speakingUserIds.includes(String(player.userId))}
                                 onPress={() => {
                                   if (isSelf) {
                                     handleToggleMic();
                                   } else if (isSelfHost) {
-                                    handleHostMuteUser(player.userId, isMuted);
+                                    handleHostMuteUser(player.userId, mutedPlayers.has(player.userId));
                                   } else {
                                     toggleMutePlayer(player.userId);
                                   }
@@ -2121,16 +2194,36 @@ export default function SpinGameScreen() {
                     borderWidth: 1,
                     borderColor: "rgba(59, 130, 246, 0.25)",
                   }}>
-                    <Text style={{ color: "#64748b", fontSize: 11, fontWeight: "800", letterSpacing: 0.5 }}>
-                      YOUR TOTAL STAKE
-                    </Text>
-                    <Text style={{ color: "#00f0ff", fontSize: 28, fontWeight: "900", fontFamily: "Inter, sans-serif", marginTop: 4 }}>
-                      {(() => {
-                        const p = round?.players.find(x => x.userId === user?.id);
-                        return p ? p.stake : (round ? 0 : betAmount);
-                      })()} ETB
-                    </Text>
-                    <Text style={{ color: "#64748b", fontSize: 12, fontWeight: "500", marginTop: 4, marginBottom: 18 }}>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                      <View>
+                        <Text style={{ color: "#64748b", fontSize: 11, fontWeight: "800", letterSpacing: 0.5 }}>
+                          YOUR TOTAL STAKE
+                        </Text>
+                        <Text style={{ color: "#00f0ff", fontSize: 28, fontWeight: "900", fontFamily: "Inter, sans-serif", marginTop: 2 }}>
+                          {(() => {
+                            const p = round?.players.find(x => x.userId === user?.id);
+                            return p ? p.stake : (round ? 0 : betAmount);
+                          })()} ETB
+                        </Text>
+                      </View>
+                      <View style={{
+                        alignItems: "flex-end",
+                        backgroundColor: "rgba(242, 193, 78, 0.12)",
+                        borderWidth: 1,
+                        borderColor: "rgba(242, 193, 78, 0.28)",
+                        borderRadius: 10,
+                        paddingHorizontal: 12,
+                        paddingVertical: 6,
+                      }}>
+                        <Text style={{ color: "#94a3b8", fontSize: 9, fontWeight: "800", letterSpacing: 0.5 }}>
+                          WALLET
+                        </Text>
+                        <Text style={{ color: "#facc15", fontSize: 15, fontWeight: "900", fontFamily: "Inter, sans-serif", marginTop: 1 }}>
+                          {balance.toLocaleString()} ETB
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={{ color: "#64748b", fontSize: 12, fontWeight: "500", marginBottom: 16 }}>
                       Add more money to increase your odds!
                     </Text>
 
@@ -2144,6 +2237,7 @@ export default function SpinGameScreen() {
                             key={val}
                             disabled={Boolean(isLocking)}
                             onPress={() => {
+                              playCoinSound();
                               if (round) setAddAmount(val);
                               else setBetAmount(val);
                             }}
@@ -2177,10 +2271,11 @@ export default function SpinGameScreen() {
                       borderColor: "rgba(255, 255, 255, 0.1)",
                       height: 48,
                       paddingHorizontal: 8,
-                      marginBottom: 18,
+                      marginBottom: 16,
                     }}>
                       <TouchableOpacity
                         onPress={() => {
+                          playCoinSound();
                           if (round) setAddAmount(prev => Math.max(10, prev - 10));
                           else setBetAmount(prev => Math.max(10, prev - 10));
                         }}
@@ -2197,6 +2292,7 @@ export default function SpinGameScreen() {
 
                       <TouchableOpacity
                         onPress={() => {
+                          playCoinSound();
                           if (round) setAddAmount(prev => Math.min(10000, prev + 10));
                           else setBetAmount(prev => Math.min(10000, prev + 10));
                         }}
@@ -2210,6 +2306,7 @@ export default function SpinGameScreen() {
                     <TouchableOpacity
                       disabled={Boolean(addLoading || joinLoading || (round && (round.status !== "waiting" || countdown <= 5)))}
                       onPress={() => {
+                        playCoinSound();
                         if (round) handleAddStake(addAmount);
                         else handleJoinRoom("RAIL", betAmount);
                       }}
@@ -2239,6 +2336,19 @@ export default function SpinGameScreen() {
                         </>
                       )}
                     </TouchableOpacity>
+
+                    {/* Subrow: Stake vs Balance (matches HTML specification) */}
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 12, paddingHorizontal: 4 }}>
+                      <Text style={{ color: "#94a3b8", fontSize: 11, fontWeight: "700" }}>
+                        STAKE: <Text style={{ color: "#ffffff", fontWeight: "900" }}>{(() => {
+                          const p = round?.players.find(x => x.userId === user?.id);
+                          return p ? p.stake : (round ? 0 : betAmount);
+                        })()} ETB</Text>
+                      </Text>
+                      <Text style={{ color: "#94a3b8", fontSize: 11, fontWeight: "700" }}>
+                        AVAILABLE: <Text style={{ color: "#22c55e", fontWeight: "900" }}>{balance.toLocaleString()} ETB</Text>
+                      </Text>
+                    </View>
                   </View>
                 </View>
 
@@ -2325,15 +2435,18 @@ export default function SpinGameScreen() {
                       paddingHorizontal: 28,
                       paddingVertical: 10,
                       borderWidth: 1,
-                      borderColor: leaveBlocked ? "rgba(255, 255, 255, 0.15)" : "#f43f5e",
-                      backgroundColor: leaveBlocked ? "rgba(100, 116, 139, 0.1)" : "rgba(244, 63, 94, 0.08)",
-                      opacity: leaveBlocked ? 0.45 : 1,
+                      borderColor: "#f43f5e",
+                      backgroundColor: leaveBlocked ? "rgba(244, 63, 94, 0.16)" : "rgba(244, 63, 94, 0.08)",
+                      shadowColor: leaveBlocked ? "#f43f5e" : "transparent",
+                      shadowOffset: { width: 0, height: 0 },
+                      shadowOpacity: leaveBlocked ? 0.75 : 0,
+                      shadowRadius: 10,
                     }}
                     activeOpacity={0.85}
                   >
-                    <Ionicons name="exit-outline" size={16} color={leaveBlocked ? "#94a3b8" : "#f43f5e"} />
-                    <Text style={{ color: leaveBlocked ? "#94a3b8" : "#f43f5e", fontSize: 12, fontWeight: "900", letterSpacing: 0.5 }}>
-                      LEAVE ROOM
+                    <Ionicons name={leaveBlocked ? "lock-closed" : "exit-outline"} size={16} color="#f43f5e" />
+                    <Text style={{ color: "#f43f5e", fontSize: 12, fontWeight: "900", letterSpacing: 0.5 }}>
+                      {leaveBlocked ? (language === "am" ? "ተቆልፏል" : "LEAVE LOCKED") : (language === "am" ? "ከክፍሉ ውጣ" : "LEAVE ROOM")}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -2411,13 +2524,15 @@ export default function SpinGameScreen() {
                               )}
                               <AnimatedUserMicButton
                                 isSelf={isSelf}
-                                isMuted={isSelf ? micMuted : (remoteMicMuted[p.userId] !== undefined ? remoteMicMuted[p.userId] : isMuted)}
+                                isBot={Boolean(p.isBot)}
+                                isMutedLocally={isSelf ? micMuted : mutedPlayers.has(p.userId)}
+                                isRemoteMuted={isSelf ? micMuted : (Boolean(p.isBot) || remoteMicMuted[p.userId] === true)}
                                 isSpeaking={speakingUserIds.includes(String(p.userId))}
                                 onPress={() => {
                                   if (isSelf) {
                                     handleToggleMic();
                                   } else if (isSelfHost) {
-                                    handleHostMuteUser(p.userId, isMuted);
+                                    handleHostMuteUser(p.userId, mutedPlayers.has(p.userId));
                                   } else {
                                     toggleMutePlayer(p.userId);
                                   }
@@ -3151,13 +3266,15 @@ export default function SpinGameScreen() {
                     {/* Microphone Icon Button on right (Pulsing green when speaking/on, grey when muted, click to mute) */}
                     <AnimatedUserMicButton
                       isSelf={isSelf}
-                      isMuted={isSelf ? micMuted : (remoteMicMuted[p.userId] !== undefined ? remoteMicMuted[p.userId] : isMuted)}
+                      isBot={Boolean(p.isBot)}
+                      isMutedLocally={isSelf ? micMuted : mutedPlayers.has(p.userId)}
+                      isRemoteMuted={isSelf ? micMuted : (Boolean(p.isBot) || remoteMicMuted[p.userId] === true)}
                       isSpeaking={isSpeaking}
                       onPress={() => {
                         if (isSelf) {
                           handleToggleMic();
                         } else if (isSelfHost) {
-                          handleHostMuteUser(p.userId, isMuted);
+                          handleHostMuteUser(p.userId, mutedPlayers.has(p.userId));
                         } else {
                           toggleMutePlayer(p.userId);
                         }
