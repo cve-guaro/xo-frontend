@@ -569,6 +569,29 @@ export default function SpinGameScreen() {
   const pendingSpinDataRef = useRef<{ winningSlice: number; spinDuration: number; roundId: string; winnerId?: string } | null>(null);
   const [pendingWinnerId, setPendingWinnerId] = useState<string | null>(null);
   const targetEndTimeRef = useRef<number | null>(null);
+  // Web Accessibility: Blur active element when modals open to avoid "Blocked aria-hidden" console warning
+  useEffect(() => {
+    if (Platform.OS === "web" && (languageMenuVisible || showLeaveConfirm || mobilePlayersSheetVisible || depositVisible || withdrawVisible)) {
+      if (typeof document !== "undefined" && document.activeElement && "blur" in document.activeElement) {
+        (document.activeElement as HTMLElement).blur();
+      }
+    }
+  }, [languageMenuVisible, showLeaveConfirm, mobilePlayersSheetVisible, depositVisible, withdrawVisible]);
+
+  // Top floating pill notification (Exact Image 2)
+  const [topBanner, setTopBanner] = useState<{
+    type: "info" | "warning" | "error" | "success";
+    message: string;
+  } | null>(null);
+  const bannerTimerRef = useRef<any>(null);
+
+  const showTopBanner = useCallback((type: "info" | "warning" | "error" | "success", message: string) => {
+    if (bannerTimerRef.current) clearTimeout(bannerTimerRef.current);
+    setTopBanner({ type, message });
+    bannerTimerRef.current = setTimeout(() => {
+      setTopBanner(null);
+    }, 4500);
+  }, []);
 
   // Active 1-second countdown ticker: ensures countdown visibly ticks down in real-time
   useEffect(() => {
@@ -943,7 +966,9 @@ export default function SpinGameScreen() {
           break;
 
         case "spin:error":
-          setError(payload.message || "Something went wrong");
+          const errMsg = payload.message || "Something went wrong";
+          setError(errMsg);
+          showTopBanner("error", errMsg);
           break;
 
         case "spin:voice_chunk":
@@ -1139,19 +1164,14 @@ export default function SpinGameScreen() {
   const leaveBlocked = countdown > 0 && countdown <= 60 && !is5Player;
   const handleLeaveRoom = useCallback(() => {
     if (leaveBlocked) {
-      const title = language === "am" ? "መውጣት አይቻልም" : "Cannot Leave Room";
       const msg = language === "am"
-        ? "ጨዋታው ሊጀመር የመጨረሻ 1 ደቂቃ ስለሆነ ከክፍሉ መውጣት አይቻልም!"
-        : "You cannot leave the room during the final 1 minute before the spin!";
-      if (showAlert) {
-        showAlert(title, msg);
-      } else {
-        setError(msg);
-      }
+        ? "ስፒኑ ከመጀመሩ 60 ሴኮንድ በፊት ከክፍሉ መውጣት አይቻልም።"
+        : "Room Locked: Exit is restricted in the final 60 seconds before spin.";
+      showTopBanner("warning", msg);
       return;
     }
     setShowLeaveConfirm(true);
-  }, [leaveBlocked, language, showAlert]);
+  }, [leaveBlocked, language, showTopBanner]);
 
   // ── Play again handler ───────────────────────────────────────────────
   const handlePlayAgain = useCallback(() => {
@@ -1286,17 +1306,28 @@ export default function SpinGameScreen() {
       const currentRoundId = roundRef.current?.roundId;
       const result = await emitAck("spin:add_stake", { amount, roundId: currentRoundId, token });
       if (result.ok) {
-        // Handled via spin:stake_updated event
         playAddMoney();
+        const successMsg = language === "am"
+          ? `+${amount} ብር ወደ ውርርድዎ ተጨምሯል!`
+          : `+${amount} ETB added to your stake!`;
+        showTopBanner("success", successMsg);
       } else {
-        setError(result.error === "INSUFFICIENT_BALANCE" ? "Not enough balance. Deposit first!" : (result.error || "Failed to add stake"));
+        const errorMsg = result.error === "INSUFFICIENT_BALANCE"
+          ? (language === "am" ? "በቂ ሂሳብ የለዎትም። እባክዎ መጀመሪያ ተቀማጭ ያድርጉ!" : "Insufficient balance. Please deposit first!")
+          : result.error === "ROUND_LOCKED"
+          ? (language === "am" ? "የዚህ ዙር ውርርድ ተዘግቷል።" : "Betting is closed for this round.")
+          : (result.error || "Failed to add stake");
+        showTopBanner("error", errorMsg);
+        setError(errorMsg);
       }
     } catch (e: any) {
-      setError(e.message || "Failed to add stake");
+      const errMsg = e.message || "Failed to add stake";
+      showTopBanner("error", errMsg);
+      setError(errMsg);
     } finally {
       setAddLoading(false);
     }
-  }, [emitAck, token, playAddMoney]);
+  }, [emitAck, token, playAddMoney, language, showTopBanner]);
 
   const handleToggleMic = useCallback(async () => {
     const nextMuted = !micMuted;
@@ -1402,6 +1433,107 @@ export default function SpinGameScreen() {
       {/* Modals */}
       <WebDepositModal visible={depositVisible} onClose={() => setDepositVisible(false)} user={user} token={token || undefined} onSuccess={refreshProfile} />
       <WebWithdrawModal visible={withdrawVisible} onClose={() => setWithdrawVisible(false)} user={user} token={token || undefined} onSuccess={refreshProfile} />
+
+      {/* ── TOP FLOATING NOTIFICATION PILL (EXACT MATCH IMAGE 2) ── */}
+      {topBanner && (
+        <View
+          style={{
+            position: "absolute",
+            top: Platform.OS === "web" ? 22 : 52,
+            left: 16,
+            right: 16,
+            zIndex: 99999,
+            alignItems: "center",
+          }}
+          pointerEvents="box-none"
+        >
+          <View
+            style={{
+              width: "100%",
+              maxWidth: 480,
+              backgroundColor: "#ffffff",
+              borderRadius: 30,
+              paddingVertical: 12,
+              paddingHorizontal: 16,
+              flexDirection: "row",
+              alignItems: "center",
+              shadowColor: "#000000",
+              shadowOffset: { width: 0, height: 8 },
+              shadowOpacity: 0.35,
+              shadowRadius: 18,
+              elevation: 14,
+              borderWidth: 1,
+              borderColor: "rgba(0, 0, 0, 0.06)",
+            }}
+          >
+            {/* Left Icon (Image 2 style) */}
+            <View
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 16,
+                backgroundColor:
+                  topBanner.type === "warning" ? "rgba(245, 158, 11, 0.15)" :
+                  topBanner.type === "error" ? "rgba(239, 68, 68, 0.15)" :
+                  topBanner.type === "success" ? "rgba(16, 185, 129, 0.15)" :
+                  "rgba(15, 23, 42, 0.08)",
+                alignItems: "center",
+                justifyContent: "center",
+                marginRight: 10,
+              }}
+            >
+              <Ionicons
+                name={
+                  topBanner.type === "warning" ? "lock-closed" :
+                  topBanner.type === "error" ? "alert-circle" :
+                  topBanner.type === "success" ? "checkmark-circle" :
+                  "information-circle"
+                }
+                size={18}
+                color={
+                  topBanner.type === "warning" ? "#d97706" :
+                  topBanner.type === "error" ? "#dc2626" :
+                  topBanner.type === "success" ? "#059669" :
+                  "#0f172a"
+                }
+              />
+            </View>
+
+            {/* Content text */}
+            <Text
+              style={{
+                flex: 1,
+                color: "#0f172a",
+                fontSize: 13,
+                fontWeight: "600",
+                lineHeight: 18,
+                fontFamily: "Inter, sans-serif",
+              }}
+              numberOfLines={2}
+            >
+              {topBanner.message}
+            </Text>
+
+            {/* Right Dismiss X Button (Image 2) */}
+            <TouchableOpacity
+              onPress={() => setTopBanner(null)}
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 14,
+                backgroundColor: "rgba(15, 23, 42, 0.06)",
+                alignItems: "center",
+                justifyContent: "center",
+                marginLeft: 8,
+              }}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="close" size={16} color="#475569" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
 
       {/* Leave Confirmation Modal */}
       <Modal visible={showLeaveConfirm} transparent animationType="fade" onRequestClose={() => setShowLeaveConfirm(false)}>
@@ -2279,7 +2411,7 @@ export default function SpinGameScreen() {
         /* ════════════════════════════════════════════════════════════════
            ██  MOBILE SPIN ROOM LAYOUT
            ════════════════════════════════════════════════════════════════ */
-        <View style={{ flex: 1, backgroundColor: "#060814", paddingHorizontal: 16, paddingTop: 10, paddingBottom: 84, justifyContent: "space-between", position: "relative" }}>
+        <View style={{ flex: 1, backgroundColor: "#060814", paddingHorizontal: 16, paddingTop: 10, paddingBottom: 16, justifyContent: "space-between", position: "relative" }}>
           {/* Top Header Row (Matching Image 2: Circular Back, Center Timer, Speaker + Mic) */}
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", width: "100%", marginBottom: 6, position: "relative", zIndex: 10 }}>
             {/* Back Button (Left) */}
@@ -2336,28 +2468,22 @@ export default function SpinGameScreen() {
 
             {/* Top Right Action Icons: Language Changer & Mic */}
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10, zIndex: 2 }}>
-              {/* Language Changer Button — Compact with Dropdown Modal Trigger */}
+              {/* Language Changer Button — Circular 44x44 matching back & mic buttons */}
               <TouchableOpacity
                 onPress={() => setLanguageMenuVisible(true)}
                 style={{
-                  height: 34,
-                  paddingHorizontal: 10,
-                  borderRadius: 17,
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
                   backgroundColor: "rgba(15, 23, 42, 0.75)",
                   borderWidth: 1,
-                  borderColor: "rgba(99, 102, 241, 0.4)",
+                  borderColor: "rgba(255, 255, 255, 0.15)",
                   alignItems: "center",
                   justifyContent: "center",
-                  flexDirection: "row",
-                  gap: 4,
                 }}
                 activeOpacity={0.8}
               >
-                <Ionicons name="language" size={14} color="#a78bfa" />
-                <Text style={{ color: "#a78bfa", fontSize: 12, fontWeight: "900", letterSpacing: 0.5 }}>
-                  {language === "am" ? "አማ" : "EN"}
-                </Text>
-                <Ionicons name="chevron-down" size={11} color="#a78bfa" />
+                <Ionicons name="language" size={20} color="#ffffff" />
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -2646,7 +2772,7 @@ export default function SpinGameScreen() {
                 justifyContent: "center",
                 gap: 8,
                 width: "100%",
-                marginTop: isCompactScreen ? 8 : 14,
+                marginTop: isCompactScreen ? 6 : 8,
               }}
               activeOpacity={0.8}
             >

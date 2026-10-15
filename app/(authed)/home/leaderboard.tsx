@@ -167,6 +167,7 @@ export default function LeaderboardScreen() {
   const [withdrawVisible, setWithdrawVisible] = useState(false);
   const [pwaModalVisible, setPwaModalVisible] = useState(false);
   const [showReferralModal, setShowReferralModal] = useState(false);
+  const [isScrolledPastTop, setIsScrolledPastTop] = useState(false);
 
   // Fetch weekly metadata for reset countdown and prizes pool
   const fetchWeeklyMetadata = useCallback(async () => {
@@ -362,14 +363,17 @@ export default function LeaderboardScreen() {
           </View>
         </View>
 
-        {/* ── CORE BODY CONTAINER ── */}
-        <ScrollView style={s.mainScrollView} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
-          <View style={s.pageContentWrapper}>
-            <View style={s.threeColumnRow}>
-              {/* 1. LEFT SIDEBAR (fixed width 280px) */}
-              <View style={s.leftSidebar}>
-                <View style={s.card}>
-                  <View style={s.userCardHeader}>
+        {/* ── CORE BODY CONTAINER (Sticky sidebars, Center-only scrolling) ── */}
+        <View style={s.desktopLayoutContainer}>
+          {/* 1. LEFT SIDEBAR (fixed width 280px - sticky) */}
+          <ScrollView
+            style={s.stickySidebarScrollLeft}
+            contentContainerStyle={{ gap: 20, paddingBottom: 20 }}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={s.leftSidebar}>
+              <View style={s.card}>
+                <View style={s.userCardHeader}>
                     <View style={s.userCardAvatar}>
                       <Text style={s.userCardAvatarText}>{user?.username ? user.username.slice(0, 1).toUpperCase() : "A"}</Text>
                     </View>
@@ -461,8 +465,14 @@ export default function LeaderboardScreen() {
 
                 {/* Redundant Profile card removed */}
               </View>
+            </ScrollView>
 
-              {/* 2. CENTER COLUMN */}
+            {/* 2. CENTER COLUMN (Scrolls independently while sidebars remain sticky) */}
+            <ScrollView
+              style={s.centerScrollContainer}
+              contentContainerStyle={s.centerScrollContent}
+              showsVerticalScrollIndicator={true}
+            >
               <View style={s.centerColumn}>
                 {isLeaderboardDisabled ? (
                   <View style={{
@@ -598,9 +608,8 @@ export default function LeaderboardScreen() {
                     </View>
                   </View>
 
-                  {/* Scrollable List Rows */}
-                  <ScrollView style={{ maxHeight: 380, marginTop: 14 }} nestedScrollEnabled showsVerticalScrollIndicator>
-                    <View style={{ gap: 10 }}>
+                  {/* Leaderboard List Rows (Full listing without nested ScrollView trap) */}
+                  <View style={{ gap: 10, marginTop: 14 }}>
                     {loading && (
                       <View style={{ gap: 8 }}>
                         <SkeletonRow />
@@ -653,14 +662,19 @@ export default function LeaderboardScreen() {
                         </View>
                       );
                     })}
-                    </View>
-                  </ScrollView>
+                  </View>
                 </View>
                 </>
                 )}
               </View>
+            </ScrollView>
 
-              {/* 3. RIGHT SIDEBAR — GIVEAWAY resetting details */}
+            {/* 3. RIGHT SIDEBAR — GIVEAWAY resetting details (sticky) */}
+            <ScrollView
+              style={s.stickySidebarScrollRight}
+              contentContainerStyle={{ gap: 20, paddingBottom: 20 }}
+              showsVerticalScrollIndicator={false}
+            >
               <View style={s.rightSidebar}>
                 {/* 1. Reset Countdown Timer Card */}
                 <CountdownTimer secondsRemaining={secondsRemaining} isEN={isEN} />
@@ -692,14 +706,11 @@ export default function LeaderboardScreen() {
                   </View>
                 </View>
               </View>
-            </View>
-          </View>
-        </ScrollView>
+            </ScrollView>
+        </View>
       </View>
     );
   }
-
-  const [isScrolledPastTop, setIsScrolledPastTop] = useState(false);
 
   // ─── MOBILE VIEW LAYOUT ───
   return (
@@ -969,6 +980,42 @@ const s = StyleSheet.create({
   profileChipVip: { color: "#f5b642", fontSize: 9, fontWeight: "700", fontFamily: "Inter, sans-serif" },
 
   // Scroll View & Layout blueprints
+  desktopLayoutContainer: {
+    flex: 1,
+    width: "100%",
+    height: Platform.OS === "web" ? ("calc(100vh - 72px)" as any) : undefined,
+    maxHeight: Platform.OS === "web" ? ("calc(100vh - 72px)" as any) : undefined,
+    paddingHorizontal: 40,
+    paddingTop: 20,
+    paddingBottom: 20,
+    flexDirection: "row",
+    gap: 28,
+    alignItems: "stretch",
+    overflow: "hidden",
+  },
+  stickySidebarScrollLeft: {
+    width: 280,
+    height: "100%",
+    maxHeight: "100%",
+    flexGrow: 0,
+    flexShrink: 0,
+  },
+  stickySidebarScrollRight: {
+    width: 320,
+    height: "100%",
+    maxHeight: "100%",
+    flexGrow: 0,
+    flexShrink: 0,
+  },
+  centerScrollContainer: {
+    flex: 1,
+    height: "100%",
+    maxHeight: "100%",
+  },
+  centerScrollContent: {
+    paddingBottom: 48,
+    gap: 20,
+  },
   mainScrollView: { flex: 1 },
   scrollContent: { paddingHorizontal: 40, paddingVertical: 24, gap: 24 },
   pageContentWrapper: {

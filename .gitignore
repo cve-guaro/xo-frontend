@@ -46,3 +46,6 @@ fix_*.js
 patch_*.js
 *.tmp
 *.log
+.vscode/
+graphify-out/
+OneDrive/

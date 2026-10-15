@@ -28,6 +28,7 @@ import { useBackgroundMusic } from "../../../context/BackgroundMusicProvider";
 import ReferralModal from "../../../components/ReferralModal";
 import PwaInstallModal from "../../../components/game/PwaInstallModal";
 import NotificationsPopover from "../../../components/NotificationsPopover";
+import { downloadProfessionalReceipt } from "../../../lib/receiptGenerator";
 
 type Transaction = {
   id: string;
@@ -504,13 +505,28 @@ Status          : ${status.toUpperCase()}
 `.trim();
 
     if (Platform.OS === 'web') {
-      const element = document.createElement("a");
-      const file = new Blob([receiptContent], { type: 'text/plain' });
-      element.href = URL.createObjectURL(file);
-      element.download = `xoet_receipt_${tx.id}.txt`;
-      document.body.appendChild(element);
-      element.click();
-      document.body.removeChild(element);
+      try {
+        downloadProfessionalReceipt({
+          id: String(tx.id || ''),
+          ref: tx.ref || undefined,
+          type: type,
+          amount: Number(tx.amount || 0),
+          status: status,
+          method: tx.method,
+          createdAt: tx.createdAt || (tx as any).created_at || new Date().toISOString(),
+          userName: user?.username || (user as any)?.display_name,
+          userPhone: user?.number || (user as any)?.phone,
+        });
+      } catch (e) {
+        console.error("Canvas receipt download error:", e);
+        const element = document.createElement("a");
+        const file = new Blob([receiptContent], { type: 'text/plain' });
+        element.href = URL.createObjectURL(file);
+        element.download = `xoet_receipt_${tx.id}.txt`;
+        document.body.appendChild(element);
+        element.click();
+        document.body.removeChild(element);
+      }
     } else {
       showAlert(isEN ? "Receipt Details" : "የደረሰኝ ዝርዝር", receiptContent);
     }
