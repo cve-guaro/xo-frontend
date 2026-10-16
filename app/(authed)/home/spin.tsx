@@ -443,6 +443,321 @@ function CelebrationBoom() {
   );
 }
 
+// ── Disney Animation Principles: Result Modal with Spring Overshoot & Staggered Pop ──
+function SpinResultModal({
+  isMyWin,
+  resultData,
+  doLeaveRoom,
+  handlePlayAgain,
+  onLeave,
+}: {
+  isMyWin: boolean;
+  resultData: { winnerName: string; prizeAmount: number };
+  doLeaveRoom: () => void;
+  handlePlayAgain: () => void;
+  onLeave: () => void;
+}) {
+  const enterAnim = useRef(new Animated.Value(0)).current;
+  const crownAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    // Disney Principle 10 (Exaggeration & Overshoot): Modal enters with elastic spring
+    Animated.spring(enterAnim, {
+      toValue: 1,
+      friction: 6,
+      tension: 100,
+      useNativeDriver: Platform.OS !== "web",
+    }).start();
+
+    // Disney Principle 5 & 8 (Follow Through & Secondary Action): Crown/Avatar pops in with staggered bounce
+    Animated.sequence([
+      Animated.delay(120),
+      Animated.spring(crownAnim, {
+        toValue: 1,
+        friction: 4.5,
+        tension: 160,
+        useNativeDriver: Platform.OS !== "web",
+      }),
+    ]).start();
+  }, [enterAnim, crownAnim]);
+
+  const modalScale = enterAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.85, 1],
+  });
+
+  const modalTranslateY = enterAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [24, 0],
+  });
+
+  const crownScale = crownAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.25, 1],
+  });
+
+  return (
+    <Animated.View
+      style={{
+        backgroundColor: "#0d1326",
+        borderWidth: 1,
+        borderColor: "rgba(255, 255, 255, 0.12)",
+        borderRadius: 24,
+        padding: 24,
+        alignItems: "center",
+        width: "90%",
+        maxWidth: 360,
+        zIndex: 20,
+        opacity: enterAnim,
+        transform: [{ translateY: modalTranslateY }, { scale: modalScale }],
+      }}
+    >
+      {isMyWin ? (
+        /* ── YOU WON! ── */
+        <>
+          {/* Crown with Ambient Glow */}
+          <Animated.View
+            style={{
+              alignItems: "center",
+              justifyContent: "center",
+              width: 84,
+              height: 84,
+              marginBottom: 12,
+              transform: [{ scale: crownScale }],
+            }}
+          >
+            <LinearGradient
+              colors={["#facc15", "#f59e0b", "#d97706"]}
+              style={{
+                width: 72,
+                height: 72,
+                borderRadius: 20,
+                alignItems: "center",
+                justifyContent: "center",
+                shadowColor: "#facc15",
+                shadowOpacity: 0.6,
+                shadowRadius: 16,
+              }}
+            >
+              <CrownIcon size={38} />
+            </LinearGradient>
+          </Animated.View>
+
+          {/* Title & Subtitle */}
+          <Text
+            style={{
+              color: "#ffffff",
+              fontSize: 24,
+              fontWeight: "900",
+              letterSpacing: 0.5,
+              fontFamily: "Inter, sans-serif",
+            }}
+          >
+            YOU WON!
+          </Text>
+          <Text style={{ color: "#94a3b8", fontSize: 13, fontWeight: "600", marginTop: 4 }}>
+            Congratulations
+          </Text>
+
+          {/* Prize Box */}
+          <View
+            style={{
+              backgroundColor: "rgba(15, 23, 42, 0.95)",
+              borderRadius: 16,
+              borderWidth: 1,
+              borderColor: "rgba(168, 85, 247, 0.35)",
+              width: "100%",
+              paddingVertical: 14,
+              paddingHorizontal: 16,
+              marginTop: 16,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 12,
+            }}
+          >
+            <CoinStackIcon size={28} />
+            <View>
+              <Text style={{ color: "#a855f7", fontSize: 10, fontWeight: "800", letterSpacing: 1 }}>YOUR PRIZE</Text>
+              <Text
+                style={{
+                  color: "#facc15",
+                  fontSize: 24,
+                  fontWeight: "900",
+                  marginTop: 2,
+                  fontFamily: "Inter, sans-serif",
+                }}
+              >
+                {resultData.prizeAmount.toLocaleString()} ETB
+              </Text>
+            </View>
+          </View>
+
+          <Text style={{ color: "#64748b", fontSize: 12, fontWeight: "600", marginTop: 14, marginBottom: 18 }}>
+            Keep playing and win more!
+          </Text>
+
+          {/* Pink OK Button */}
+          <TouchableOpacity
+            onPress={doLeaveRoom}
+            style={{
+              backgroundColor: "#f43f5e",
+              borderRadius: 24,
+              height: 48,
+              width: "100%",
+              alignItems: "center",
+              justifyContent: "center",
+              borderWidth: 1,
+              borderColor: "rgba(255, 255, 255, 0.15)",
+            }}
+            activeOpacity={0.75}
+          >
+            <Text style={{ color: "#ffffff", fontSize: 15, fontWeight: "900", letterSpacing: 1 }}>
+              OK
+            </Text>
+          </TouchableOpacity>
+        </>
+      ) : (
+        /* ── ROUND OVER ── */
+        <>
+          {/* Purple Person Avatar with spring pop */}
+          <Animated.View
+            style={{
+              alignItems: "center",
+              justifyContent: "center",
+              width: 80,
+              height: 80,
+              marginBottom: 12,
+              transform: [{ scale: crownScale }],
+            }}
+          >
+            <View
+              style={{
+                width: 68,
+                height: 68,
+                borderRadius: 34,
+                backgroundColor: "#7c3aed",
+                alignItems: "center",
+                justifyContent: "center",
+                borderWidth: 2,
+                borderColor: "rgba(168, 85, 247, 0.4)",
+              }}
+            >
+              <Ionicons name="person" size={34} color="#ffffff" />
+            </View>
+          </Animated.View>
+
+          {/* Title & Subtitle */}
+          <Text
+            style={{
+              color: "#ffffff",
+              fontSize: 22,
+              fontWeight: "900",
+              letterSpacing: 0.5,
+              fontFamily: "Inter, sans-serif",
+            }}
+          >
+            ROUND OVER
+          </Text>
+          <Text style={{ color: "#94a3b8", fontSize: 13, fontWeight: "600", marginTop: 4 }}>
+            Better luck next time
+          </Text>
+
+          {/* Winner Card */}
+          <View
+            style={{
+              backgroundColor: "rgba(15, 23, 42, 0.95)",
+              borderRadius: 16,
+              borderWidth: 1,
+              borderColor: "rgba(255, 255, 255, 0.08)",
+              width: "100%",
+              paddingVertical: 12,
+              paddingHorizontal: 14,
+              marginTop: 16,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            {/* Winner avatar and name */}
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <View
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 19,
+                  backgroundColor: "#7c3aed",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Ionicons name="person" size={20} color="#ffffff" />
+              </View>
+              <View>
+                <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "700" }}>{resultData.winnerName}</Text>
+                <Text style={{ color: "#94a3b8", fontSize: 11, fontWeight: "600" }}>Won this round</Text>
+              </View>
+            </View>
+
+            {/* Prize */}
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <CoinStackIcon size={22} />
+              <View>
+                <Text style={{ color: "#94a3b8", fontSize: 10, fontWeight: "800" }}>PRIZE</Text>
+                <Text style={{ color: "#facc15", fontSize: 15, fontWeight: "900" }}>
+                  {resultData.prizeAmount.toLocaleString()} ETB
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* PLAY AGAIN Purple Button */}
+          <TouchableOpacity
+            onPress={handlePlayAgain}
+            style={{
+              backgroundColor: "#7c3aed",
+              borderRadius: 24,
+              height: 48,
+              width: "100%",
+              alignItems: "center",
+              justifyContent: "center",
+              marginTop: 18,
+              borderWidth: 1,
+              borderColor: "rgba(255, 255, 255, 0.15)",
+            }}
+            activeOpacity={0.75}
+          >
+            <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "900", letterSpacing: 0.5 }}>
+              PLAY AGAIN
+            </Text>
+          </TouchableOpacity>
+
+          {/* LEAVE Outline Button */}
+          <TouchableOpacity
+            onPress={onLeave}
+            style={{
+              backgroundColor: "transparent",
+              borderWidth: 1,
+              borderColor: "rgba(255, 255, 255, 0.2)",
+              borderRadius: 24,
+              height: 48,
+              width: "100%",
+              alignItems: "center",
+              justifyContent: "center",
+              marginTop: 10,
+            }}
+            activeOpacity={0.75}
+          >
+            <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "900", letterSpacing: 0.5 }}>
+              LEAVE
+            </Text>
+          </TouchableOpacity>
+        </>
+      )}
+    </Animated.View>
+  );
+}
+
 // ── Types ──────────────────────────────────────────────────────────────────
 type SpinPlayer = {
   userId: string;
@@ -2950,197 +3265,25 @@ export default function SpinGameScreen() {
       {screenState === "result" && resultData && (
         <View style={ds.overlayBackdrop}>
           {isMyWin && <CelebrationBoom />}
-          <View style={{
-            backgroundColor: "#0d1326",
-            borderWidth: 1,
-            borderColor: "rgba(255, 255, 255, 0.12)",
-            borderRadius: 24,
-            padding: 24,
-            alignItems: "center",
-            width: "90%",
-            maxWidth: 360,
-            zIndex: 20,
-          }}>
-            {isMyWin ? (
-              /* ── YOU WON! (Image 4 Left) ── */
-              <>
-                {/* Crown with Ambient Glow */}
-                <View style={{ alignItems: "center", justifyContent: "center", width: 84, height: 84, marginBottom: 12 }}>
-                  <LinearGradient
-                    colors={["#facc15", "#f59e0b", "#d97706"]}
-                    style={{ width: 72, height: 72, borderRadius: 20, alignItems: "center", justifyContent: "center", shadowColor: "#facc15", shadowOpacity: 0.6, shadowRadius: 16 }}
-                  >
-                    <CrownIcon size={38} />
-                  </LinearGradient>
-                </View>
-
-                {/* Title & Subtitle */}
-                <Text style={{ color: "#ffffff", fontSize: 24, fontWeight: "900", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" }}>
-                  YOU WON!
-                </Text>
-                <Text style={{ color: "#94a3b8", fontSize: 13, fontWeight: "600", marginTop: 4 }}>
-                  Congratulations
-                </Text>
-
-                {/* Prize Box */}
-                <View style={{
-                  backgroundColor: "rgba(15, 23, 42, 0.95)",
-                  borderRadius: 16,
-                  borderWidth: 1,
-                  borderColor: "rgba(168, 85, 247, 0.35)",
-                  width: "100%",
-                  paddingVertical: 14,
-                  paddingHorizontal: 16,
-                  marginTop: 16,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 12,
-                }}>
-                  <CoinStackIcon size={28} />
-                  <View>
-                    <Text style={{ color: "#a855f7", fontSize: 10, fontWeight: "800", letterSpacing: 1 }}>YOUR PRIZE</Text>
-                    <Text style={{ color: "#facc15", fontSize: 24, fontWeight: "900", marginTop: 2, fontFamily: "Inter, sans-serif" }}>
-                      {resultData.prizeAmount.toLocaleString()} ETB
-                    </Text>
-                  </View>
-                </View>
-
-                <Text style={{ color: "#64748b", fontSize: 12, fontWeight: "600", marginTop: 14, marginBottom: 18 }}>
-                  Keep playing and win more!
-                </Text>
-
-                {/* Pink OK Button */}
-                <TouchableOpacity
-                  onPress={doLeaveRoom}
-                  style={{
-                    backgroundColor: "#f43f5e",
-                    borderRadius: 24,
-                    height: 48,
-                    width: "100%",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    borderWidth: 1,
-                    borderColor: "rgba(255, 255, 255, 0.15)",
-                  }}
-                  activeOpacity={0.85}
-                >
-                  <Text style={{ color: "#ffffff", fontSize: 15, fontWeight: "900", letterSpacing: 1 }}>
-                    OK
-                  </Text>
-                </TouchableOpacity>
-              </>
-            ) : (
-              /* ── ROUND OVER (Image 4 Right) ── */
-              <>
-                {/* Purple Person Avatar */}
-                <View style={{ alignItems: "center", justifyContent: "center", width: 80, height: 80, marginBottom: 12 }}>
-                  <View style={{ width: 68, height: 68, borderRadius: 34, backgroundColor: "#7c3aed", alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "rgba(168, 85, 247, 0.4)" }}>
-                    <Ionicons name="person" size={34} color="#ffffff" />
-                  </View>
-                </View>
-
-                {/* Title & Subtitle */}
-                <Text style={{ color: "#ffffff", fontSize: 22, fontWeight: "900", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" }}>
-                  ROUND OVER
-                </Text>
-                <Text style={{ color: "#94a3b8", fontSize: 13, fontWeight: "600", marginTop: 4 }}>
-                  Better luck next time
-                </Text>
-
-                {/* Winner Card */}
-                <View style={{
-                  backgroundColor: "rgba(15, 23, 42, 0.95)",
-                  borderRadius: 16,
-                  borderWidth: 1,
-                  borderColor: "rgba(255, 255, 255, 0.08)",
-                  width: "100%",
-                  paddingVertical: 12,
-                  paddingHorizontal: 14,
-                  marginTop: 16,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}>
-                  {/* Winner avatar and name */}
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                    <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: "#7c3aed", alignItems: "center", justifyContent: "center" }}>
-                      <Ionicons name="person" size={20} color="#ffffff" />
-                    </View>
-                    <View>
-                      <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "700" }}>{resultData.winnerName}</Text>
-                      <Text style={{ color: "#94a3b8", fontSize: 11, fontWeight: "600" }}>Won this round</Text>
-                    </View>
-                  </View>
-
-                  {/* Prize */}
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                    <CoinStackIcon size={22} />
-                    <View>
-                      <Text style={{ color: "#94a3b8", fontSize: 10, fontWeight: "800" }}>PRIZE</Text>
-                      <Text style={{ color: "#facc15", fontSize: 15, fontWeight: "900" }}>
-                        {resultData.prizeAmount.toLocaleString()} ETB
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-
-                {/* PLAY AGAIN Purple Button */}
-                <TouchableOpacity
-                  onPress={handlePlayAgain}
-                  style={{
-                    backgroundColor: "#7c3aed",
-                    borderRadius: 24,
-                    height: 48,
-                    width: "100%",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    marginTop: 18,
-                    borderWidth: 1,
-                    borderColor: "rgba(255, 255, 255, 0.15)",
-                  }}
-                  activeOpacity={0.85}
-                >
-                  <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "900", letterSpacing: 0.5 }}>
-                    PLAY AGAIN
-                  </Text>
-                </TouchableOpacity>
-
-                {/* LEAVE Outline Button */}
-                <TouchableOpacity
-                  onPress={() => {
-                    voiceService.leaveChannel();
-                    setScreenState("browse");
-                    setRound(null);
-                    setIsSpinning(false);
-                    setWinningSlice(null);
-                    setPendingWinnerId(null);
-                    pendingSpinDataRef.current = null;
-                    setResultData(null);
-                    setCountdown(0);
-                    refreshProfile();
-                    router.replace("/(authed)/home/gameplay");
-                  }}
-                  style={{
-                    backgroundColor: "transparent",
-                    borderWidth: 1,
-                    borderColor: "rgba(255, 255, 255, 0.2)",
-                    borderRadius: 24,
-                    height: 48,
-                    width: "100%",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    marginTop: 10,
-                  }}
-                  activeOpacity={0.85}
-                >
-                  <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "900", letterSpacing: 0.5 }}>
-                    LEAVE
-                  </Text>
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
+          <SpinResultModal
+            isMyWin={isMyWin}
+            resultData={resultData}
+            doLeaveRoom={doLeaveRoom}
+            handlePlayAgain={handlePlayAgain}
+            onLeave={() => {
+              voiceService.leaveChannel();
+              setScreenState("browse");
+              setRound(null);
+              setIsSpinning(false);
+              setWinningSlice(null);
+              setPendingWinnerId(null);
+              pendingSpinDataRef.current = null;
+              setResultData(null);
+              setCountdown(0);
+              refreshProfile();
+              router.replace("/(authed)/home/gameplay");
+            }}
+          />
         </View>
       )}
 

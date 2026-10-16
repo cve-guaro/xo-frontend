@@ -73,6 +73,7 @@ export default function SpinWheel({
   speakingUserIds = [],
 }: SpinWheelProps) {
   const rotation = useRef(new Animated.Value(0)).current;
+  const needleAnim = useRef(new Animated.Value(0)).current;
   const currentAngleRef = useRef(0);
   const idleAnimRef = useRef<Animated.CompositeAnimation | null>(null);
   const [hasSpun, setHasSpun] = useState(false);
@@ -197,6 +198,16 @@ export default function SpinWheel({
         if (pinHit > lastPinHit) {
           lastPinHit = pinHit;
           playPinTick(0.85);
+
+          // Disney Principles 1 & 8: Squash & Stretch / Secondary Action
+          // Needle dynamically flicks back when colliding with pins and snaps back with spring elasticity
+          needleAnim.setValue(1);
+          Animated.spring(needleAnim, {
+            toValue: 0,
+            friction: 3.5,
+            tension: 260,
+            useNativeDriver: Platform.OS !== "web",
+          }).start();
         }
       });
 
@@ -211,12 +222,23 @@ export default function SpinWheel({
       const finalStopAngle = ((360 - sliceCenterAngle) % 360 + 360) % 360;
       const targetAngle = baseRevs + fullRotations * 360 + finalStopAngle;
 
-      Animated.timing(rotation, {
-        toValue: targetAngle,
-        duration: spinDuration,
-        easing: Easing.bezier(0.12, 0.9, 0.2, 1), // punchy start, long smooth deceleration
-        useNativeDriver: Platform.OS !== "web",
-      }).start(() => {
+      // Disney Principles 2 & 6: Anticipation wind-up + Smooth Casino Deceleration
+      Animated.sequence([
+        // Principle 2 (Anticipation): slight backward wind-up before launching forward
+        Animated.timing(rotation, {
+          toValue: curAngle - 6,
+          duration: 200,
+          easing: Easing.bezier(0.4, 0, 0.2, 1),
+          useNativeDriver: Platform.OS !== "web",
+        }),
+        // Principle 6 (Slow In / Slow Out): high velocity launch with long, buttery deceleration
+        Animated.timing(rotation, {
+          toValue: targetAngle,
+          duration: Math.max(spinDuration - 200, 2000),
+          easing: Easing.bezier(0.12, 0.9, 0.2, 1), // punchy start, long smooth deceleration
+          useNativeDriver: Platform.OS !== "web",
+        }),
+      ]).start(() => {
         rotation.removeListener(listenerId);
         onSpinComplete?.();
       });
@@ -232,6 +254,12 @@ export default function SpinWheel({
     inputRange: [0, 360],
     outputRange: ["0deg", "360deg"],
   });
+
+  const needleRotate = needleAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "-13deg"],
+  });
+  const needlePivotY = cy - r * 1.16;
 
   // Collapsed/hidden layouts can briefly report a negative size (window tab-switch
   // on web reports width ≈ 1). Rendering the SVG with a negative size spams
@@ -508,7 +536,27 @@ export default function SpinWheel({
       </View>
 
       {/* Red Pointer with Inner White Triangle pointing down at top rim */}
-      <View style={[StyleSheet.absoluteFillObject, { pointerEvents: "none", zIndex: 10 }]} pointerEvents="none">
+      {/* Disney Principle 1 & 8: Animated Needle with Physical Ticker Flick */}
+      <Animated.View
+        style={[
+          StyleSheet.absoluteFillObject,
+          {
+            pointerEvents: "none",
+            zIndex: 10,
+            transform: Platform.OS === "web"
+              ? [{ rotate: needleRotate }]
+              : [
+                  { translateX: cx },
+                  { translateY: needlePivotY },
+                  { rotate: needleRotate },
+                  { translateX: -cx },
+                  { translateY: -needlePivotY },
+                ],
+            ...(Platform.OS === "web" ? ({ transformOrigin: `${cx}px ${needlePivotY}px` } as any) : {}),
+          },
+        ]}
+        pointerEvents="none"
+      >
         <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
           <Defs>
             <LinearGradient id="redPointerGrad" x1="0%" y1="0%" x2="0%" y2="100%">
@@ -541,7 +589,7 @@ export default function SpinWheel({
             />
           </G>
         </Svg>
-      </View>
+      </Animated.View>
     </View>
   );
 }

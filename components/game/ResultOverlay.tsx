@@ -71,6 +71,7 @@ function ResultOverlay({ visible, outcome, amount, onHome, onPlayAgain, onSendEm
 
   const isWin = outcome === "win";
   const appear = useRef(new Animated.Value(0)).current;
+  const badgePop = useRef(new Animated.Value(0)).current;
   const [canContinue, setCanContinue] = useState(false);
   const [countdown, setCountdown] = useState(3);
 
@@ -81,6 +82,7 @@ function ResultOverlay({ visible, outcome, amount, onHome, onPlayAgain, onSendEm
     if (!visible) {
       appear.stopAnimation();
       appear.setValue(0);
+      badgePop.setValue(0);
       setCanContinue(false);
       setCountdown(3);
       return;
@@ -91,15 +93,28 @@ function ResultOverlay({ visible, outcome, amount, onHome, onPlayAgain, onSendEm
 
     appear.stopAnimation();
     appear.setValue(0);
+    badgePop.setValue(0);
     setCanContinue(false);
     setCountdown(3);
 
-    Animated.timing(appear, {
+    // Disney Principle 10 (Exaggeration & Overshoot): Spring entrance for dialogs
+    Animated.spring(appear, {
       toValue: 1,
-      duration: 180,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
+      friction: 6,
+      tension: 110,
+      useNativeDriver: Platform.OS !== "web",
     }).start();
+
+    // Disney Principle 5 & 8 (Follow Through & Secondary Action): Badge pops with energetic bounce
+    Animated.sequence([
+      Animated.delay(100),
+      Animated.spring(badgePop, {
+        toValue: 1,
+        friction: 4.5,
+        tension: 160,
+        useNativeDriver: Platform.OS !== "web",
+      }),
+    ]).start();
 
     // Enable buttons after 3 seconds with live countdown
     const interval = setInterval(() => {
@@ -114,17 +129,26 @@ function ResultOverlay({ visible, outcome, amount, onHome, onPlayAgain, onSendEm
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [visible, appear]);
+  }, [visible, appear, badgePop]);
 
   const cardAnimStyle = useMemo(
     () => ({
       opacity: appear,
       transform: [
-        { translateY: appear.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) },
-        { scale: appear.interpolate({ inputRange: [0, 1], outputRange: [0.975, 1] }) },
+        { translateY: appear.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) },
+        { scale: appear.interpolate({ inputRange: [0, 1], outputRange: [0.88, 1] }) },
       ],
     }),
     [appear]
+  );
+
+  const badgeAnimStyle = useMemo(
+    () => ({
+      transform: [
+        { scale: badgePop.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) },
+      ],
+    }),
+    [badgePop]
   );
 
   if (!visible) return null;
@@ -140,7 +164,7 @@ function ResultOverlay({ visible, outcome, amount, onHome, onPlayAgain, onSendEm
             style={[styles.borderGradient, { shadowColor: ui.glow }]}
           >
             {/* Badge */}
-            <View style={styles.badgeWrap}>
+            <Animated.View style={[styles.badgeWrap, badgeAnimStyle]}>
               {/* Removed extra glass gradient (draw cost) – keep same look */}
               <View style={styles.badgeGlass}>
                 <LinearGradient
@@ -158,7 +182,7 @@ function ResultOverlay({ visible, outcome, amount, onHome, onPlayAgain, onSendEm
                   <Text style={styles.badgeTagText}>{ui.badgeLabel}</Text>
                 </View>
               </View>
-            </View>
+            </Animated.View>
 
             {/* Inner content */}
             <View style={styles.innerCard}>
