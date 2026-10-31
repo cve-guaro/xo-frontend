@@ -1,9 +1,12 @@
+import { motion } from '../theme/tokens';
+// components/GlobalToast.tsx — Sleek Toast Component (Matching Image 5 & XOET Brand Theme)
 import React, { useEffect, useRef, memo } from 'react';
 import { View, Text, StyleSheet, Animated, Easing, TouchableOpacity, Platform } from 'react-native';
 import { CheckmarkCircleIcon, AlertCircleIcon, InfoIcon, WarningIcon, CloseIcon } from './SvgIcons';
 import { useToast, ToastItem, ToastVariant } from '../context/ToastContext';
+import { playNotificationChime, playTickSound } from '../lib/pinTickAudio';
 
-// ─── Variant Configs ──────────────────────────────────────────
+// ─── Variant Configs (XOET Dark Gaming Palette) ──────────────
 const VARIANT_CONFIG: Record<ToastVariant, {
   icon: React.ComponentType<{ size?: number; color?: string }>;
   color: string;
@@ -13,31 +16,31 @@ const VARIANT_CONFIG: Record<ToastVariant, {
 }> = {
   success: {
     icon: CheckmarkCircleIcon,
-    color: '#34d399',
-    bgColor: '#10162a',
-    borderColor: 'rgba(52, 211, 153, 0.45)',
-    glowColor: 'rgba(52, 211, 153, 0.2)',
+    color: '#10b981', // Emerald
+    bgColor: '#111625',
+    borderColor: 'rgba(16, 185, 129, 0.35)',
+    glowColor: 'rgba(16, 185, 129, 0.15)',
   },
   error: {
     icon: AlertCircleIcon,
-    color: '#fb7185',
-    bgColor: '#151326',
-    borderColor: 'rgba(244, 63, 94, 0.45)',
-    glowColor: 'rgba(244, 63, 94, 0.2)',
+    color: '#ff2a5f', // Coral Red
+    bgColor: '#111625',
+    borderColor: 'rgba(255, 42, 95, 0.35)',
+    glowColor: 'rgba(255, 42, 95, 0.15)',
   },
   info: {
     icon: InfoIcon,
-    color: '#60a5fa',
-    bgColor: '#10162a',
-    borderColor: 'rgba(96, 165, 250, 0.45)',
-    glowColor: 'rgba(96, 165, 250, 0.2)',
+    color: '#00daf3', // Cyan
+    bgColor: '#111625',
+    borderColor: 'rgba(0, 218, 243, 0.35)',
+    glowColor: 'rgba(0, 218, 243, 0.15)',
   },
   warning: {
     icon: WarningIcon,
-    color: '#fbbf24',
-    bgColor: '#18161d',
-    borderColor: 'rgba(251, 191, 36, 0.45)',
-    glowColor: 'rgba(251, 191, 36, 0.2)',
+    color: '#f59e0b', // Amber
+    bgColor: '#111625',
+    borderColor: 'rgba(245, 158, 11, 0.35)',
+    glowColor: 'rgba(245, 158, 11, 0.15)',
   },
 };
 
@@ -51,50 +54,56 @@ const SingleToast = memo(function SingleToast({
   index: number;
   onDismiss: (id: number) => void;
 }) {
-  const translateY = useRef(new Animated.Value(-80)).current;
+  const translateY = useRef(new Animated.Value(-60)).current;
   const opacity = useRef(new Animated.Value(0)).current;
-  const scale = useRef(new Animated.Value(0.95)).current;
-  const cfg = VARIANT_CONFIG[item.variant];
+  const scale = useRef(new Animated.Value(0.92)).current;
+  const cfg = VARIANT_CONFIG[item.variant] || VARIANT_CONFIG.info;
 
   useEffect(() => {
-    // Slide in
+    // Notification chime on toast appearance
+    try {
+      playNotificationChime();
+    } catch {}
+
+    // Slide in with motion tokens (200ms ease-out, transform & opacity only)
     Animated.parallel([
-      Animated.spring(translateY, {
+      Animated.timing(translateY, {
         toValue: 0,
-        speed: 14,
-        bounciness: 4,
+        duration: motion.duration.enter,
+        easing: motion.easing.enter,
         useNativeDriver: Platform.OS !== 'web',
       }),
       Animated.timing(opacity, {
         toValue: 1,
-        duration: 200,
-        easing: Easing.out(Easing.cubic),
+        duration: motion.duration.enter,
+        easing: motion.easing.enter,
         useNativeDriver: Platform.OS !== 'web',
       }),
-      Animated.spring(scale, {
+      Animated.timing(scale, {
         toValue: 1,
-        speed: 14,
-        bounciness: 4,
+        duration: motion.duration.enter,
+        easing: motion.easing.enter,
         useNativeDriver: Platform.OS !== 'web',
       }),
     ]).start();
 
-    // Auto dismiss
+    // Auto dismiss with motion tokens (150ms ease-in, fast exit)
     const timer = setTimeout(() => {
       Animated.parallel([
         Animated.timing(translateY, {
-          toValue: -80,
-          duration: 250,
-          easing: Easing.in(Easing.cubic),
+          toValue: -60,
+          duration: motion.duration.exit,
+          easing: motion.easing.exit,
           useNativeDriver: Platform.OS !== 'web',
         }),
         Animated.timing(opacity, {
           toValue: 0,
-          duration: 200,
+          duration: motion.duration.exit,
+          easing: motion.easing.exit,
           useNativeDriver: Platform.OS !== 'web',
         }),
       ]).start(() => onDismiss(item.id));
-    }, item.duration || 3000);
+    }, item.duration || 3200);
 
     return () => clearTimeout(timer);
   }, [item.id, item.duration]);
@@ -112,19 +121,19 @@ const SingleToast = memo(function SingleToast({
         },
       ]}
     >
-      {/* Glow accent */}
-      <View style={[styles.glowStrip, { backgroundColor: cfg.color }]} />
-
       <TouchableOpacity
         style={styles.toastContent}
-        activeOpacity={0.8}
+        activeOpacity={0.85}
         onPress={() => onDismiss(item.id)}
       >
+        {/* Left circular badge matching Image 5 */}
         <View style={[styles.iconWrap, { backgroundColor: cfg.glowColor }]}>
-          <cfg.icon size={20} color={cfg.color} />
+          <cfg.icon size={18} color={cfg.color} />
         </View>
+
+        {/* Text Container */}
         <View style={styles.textWrap}>
-          <Text style={[styles.toastTitle, { color: cfg.color }]} numberOfLines={1}>
+          <Text style={styles.toastTitle} numberOfLines={1}>
             {item.title}
           </Text>
           {!!item.message && (
@@ -133,7 +142,11 @@ const SingleToast = memo(function SingleToast({
             </Text>
           )}
         </View>
-        <CloseIcon size={16} color="rgba(255,255,255,0.3)" />
+
+        {/* Dismiss '✕' button */}
+        <View style={styles.closeWrap}>
+          <CloseIcon size={14} color="#8b93a7" />
+        </View>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -154,11 +167,11 @@ export default function GlobalToastContainer() {
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────
+// ─── Styles (Matching Image 5) ────────────────────────────────
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    top: Platform.OS === 'web' ? 16 : 54,
+    top: Platform.OS === 'web' ? 16 : 48,
     left: 16,
     right: 16,
     zIndex: 999999,
@@ -166,37 +179,27 @@ const styles = StyleSheet.create({
   } as any,
   toastCard: {
     width: '100%',
-    maxWidth: 420,
-    borderRadius: 16,
-    borderWidth: 1.5,
+    maxWidth: 390,
+    borderRadius: 20,
+    borderWidth: 1.2,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.65,
-    shadowRadius: 20,
-    elevation: 20,
-  },
-  glowStrip: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 4,
-    borderTopLeftRadius: 16,
-    borderBottomLeftRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.45,
+    shadowRadius: 18,
+    elevation: 16,
   },
   toastContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    paddingLeft: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     gap: 12,
   },
   iconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -205,15 +208,25 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   toastTitle: {
-    fontSize: 14,
-    fontWeight: '900',
-    letterSpacing: 0.2,
+    color: '#ffffff',
+    fontSize: 13.5,
+    fontWeight: '800',
+    fontFamily: 'Inter, sans-serif',
+    letterSpacing: -0.2,
   },
   toastMessage: {
-    color: '#cbd5e1',
-    fontSize: 13,
+    color: '#8b93a7',
+    fontSize: 12,
     fontWeight: '600',
     marginTop: 2,
-    lineHeight: 18,
+    lineHeight: 16,
+  },
+  closeWrap: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

@@ -3,21 +3,21 @@
 // Production:  Set via Vercel environment variables (never hardcode production URLs here)
 import { Platform } from 'react-native';
 
+const LIVE_BACKEND_URL = 'https://xo-backend-production-286e.up.railway.app';
+
 const getApiUrl = () => {
+  if (process.env.EXPO_PUBLIC_USE_LOCAL_BACKEND === 'true') {
+    return 'http://localhost:2000';
+  }
   const envUrl = process.env.EXPO_PUBLIC_API_URL;
-  if (envUrl && !envUrl.includes('onrender.com') && !envUrl.includes('render.com')) {
+  if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1') && !envUrl.includes('onrender.com') && !envUrl.includes('render.com')) {
     return envUrl;
   }
-  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location) {
-    const hostname = window.location.hostname;
-    if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1' && !hostname.startsWith('192.168.')) {
-      return 'https://xo-backend-production-286e.up.railway.app';
-    }
-  }
-  return 'http://localhost:2000';
+  return LIVE_BACKEND_URL;
 };
 
 export const API_URL = getApiUrl();
+console.log('[Config] Active API_URL:', API_URL);
 export const MIN_PAYOUT = Number(process.env.MIN_PAYOUT || 10);
 export const MIN_DEPOSIT = Number(process.env.MIN_DEPOSIT || 10);
 

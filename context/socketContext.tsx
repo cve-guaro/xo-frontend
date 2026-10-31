@@ -85,6 +85,7 @@ const SERVER_EVENTS = [
   "spin:error",
   "spin:voice_chunk",
   "spin:player_muted",
+  "spin:invite_received",
 ] as const;
 
 type ServerEvent = (typeof SERVER_EVENTS)[number];
@@ -122,6 +123,9 @@ export function SocketProvider({
         token,
         platform: Platform.OS === "web" ? "web" : "mobile"
       };
+      if (s.connected && token) {
+        s.emit("authenticate", { token });
+      }
     }
   }, [token]);
 
@@ -157,6 +161,9 @@ export function SocketProvider({
     const onConnect = () => {
       // avoid redundant setState
       setLastError((prev) => (prev === null ? prev : null));
+      if (tokenRef.current) {
+        s.emit("authenticate", { token: tokenRef.current });
+      }
     };
 
     const onDisconnect = () => {

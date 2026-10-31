@@ -1,3 +1,4 @@
+import { motion } from '../theme/tokens';
 import React, { useEffect, useRef } from 'react';
 import { View, Animated, StyleSheet, Text, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';

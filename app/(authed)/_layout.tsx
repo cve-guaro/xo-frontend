@@ -3,11 +3,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { Redirect, Slot, useRouter, usePathname } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View, Platform, useWindowDimensions, Text, TouchableOpacity, Animated, Easing, StyleSheet, Image, Linking, Modal } from "react-native";
-import { useAudioPlayer } from "expo-audio";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "../../context/authContext";
 import { WebPressable } from "../../components/WebPressable";
 import { haptics } from "../../lib/haptcs";
+import { playTickSound } from "../../lib/pinTickAudio";
 import { useBackgroundMusic } from "../../context/BackgroundMusicProvider";
 import { API_URL } from "../../config";
 import { useToast } from "../../context/ToastContext";
@@ -44,6 +44,10 @@ const RematchTopPopup = Platform.OS === 'web'
 const IncomingInviteModal = Platform.OS === 'web'
   ? React.lazy(() => import("../../components/game/IncomingInviteModal"))
   : require("../../components/game/IncomingInviteModal").default;
+
+const IncomingSpinInviteModal = Platform.OS === 'web'
+  ? React.lazy(() => import("../../components/game/IncomingSpinInviteModal"))
+  : require("../../components/game/IncomingSpinInviteModal").default;
 
 
 const SidebarItem = ({ icon, label, isActive, onPress, badge, collapsed, isDesktop }: { icon: any; label: string; isActive: boolean; onPress: () => void; badge?: string; collapsed?: boolean; isDesktop?: boolean }) => {
@@ -185,15 +189,16 @@ function GlobalInvitesGate() {
   const { isGameActive } = useSocketState();
   const { token } = useAuth();
   const pathname = usePathname();
+  const router = useRouter();
   const [rematchOffer, setRematchOffer] = useState<{ visible: boolean; fromName?: string; amount?: number; fromUserId?: string } | null>(null);
   const [incomingInvite, setIncomingInvite] = useState<any>(null);
+  const [incomingSpinInvite, setIncomingSpinInvite] = useState<any>(null);
 
   useEffect(() => {
     if (!onMessage) return;
     const unsub = onMessage((msg) => {
       // Ignore invites if the user is actually inside the game room (room.tsx handles it)
       if (pathname.includes('/game/room')) return;
-
 
       if (msg.type === 'rematch_offer') {
         setRematchOffer({
@@ -212,6 +217,8 @@ function GlobalInvitesGate() {
         });
       } else if (msg.type === 'friend_invite_declined') {
         setIncomingInvite(null);
+      } else if (msg.type === 'spin:invite_received') {
+        setIncomingSpinInvite(msg.payload);
       }
     });
     return unsub;
@@ -241,6 +248,20 @@ function GlobalInvitesGate() {
     setIncomingInvite(null);
   }, [incomingInvite, token, send]);
 
+  const handleSpinAccept = useCallback(() => {
+    if (!incomingSpinInvite) return;
+    const mode = incomingSpinInvite.mode || '5_PLAYER';
+    router.push({
+      pathname: '/home/spin',
+      params: { mode, autoJoin: '1' }
+    } as any);
+    setIncomingSpinInvite(null);
+  }, [incomingSpinInvite, router]);
+
+  const handleSpinDecline = useCallback(() => {
+    setIncomingSpinInvite(null);
+  }, []);
+
   // Auto-expire incoming friend invite after 45 seconds
   useEffect(() => {
     if (!incomingInvite) return;
@@ -254,13 +275,31 @@ function GlobalInvitesGate() {
     return () => clearTimeout(timer);
   }, [incomingInvite, token, send]);
 
-  // If they are on an active game page (room or gameplay), let the game view handle the popups.
-  if (pathname.includes('/game/room') || pathname.includes('/home/gameplay') || pathname.includes('/home/spin')) return null;
+  // Auto-expire incoming spin invite after 30 seconds
+  useEffect(() => {
+    if (!incomingSpinInvite) return;
+    const timer = setTimeout(() => {
+      setIncomingSpinInvite(null);
+    }, 30000);
+    return () => clearTimeout(timer);
+  }, [incomingSpinInvite]);
+
+  // If they are on an active game match room, let the match view handle popups
+  if (pathname.includes('/game/room')) return null;
 
   return (
     <>
       <RematchTopPopup visible={!!rematchOffer?.visible} fromName={rematchOffer?.fromName} amount={rematchOffer?.amount} onAccept={handleRematchAccept} onDecline={handleRematchDecline} />
       <IncomingInviteModal invite={incomingInvite} onAccept={handleFriendAccept} onDecline={handleFriendDecline} />
+      {/* Render incoming spin invite modal anywhere outside of spin routes */}
+      {!pathname.includes('spin') && (
+        <IncomingSpinInviteModal
+          visible={!!incomingSpinInvite}
+          invite={incomingSpinInvite}
+          onAccept={handleSpinAccept}
+          onDecline={handleSpinDecline}
+        />
+      )}
     </>
   );
 }
@@ -279,7 +318,7 @@ export default function AuthedLayout() {
   const isHistoryRoute = pathname.includes("/home/history") || pathname === "/games";
   const isLeaderboardRoute = pathname.includes("/home/leaderboard");
   const isAccountRoute = pathname.includes("/home/account");
-  const isSpinRoute = pathname.includes("/home/spin");
+  const isSpinRoute = pathname.includes("spin");
   const isTransactionsRoute = pathname.includes("/home/transactions");
   const isAdminRoute = pathname.includes("/admin");
   const isGameRoute = pathname.includes("/game/");
@@ -446,7 +485,6 @@ export default function AuthedLayout() {
     }
   }, [deferredPrompt]);
 
-  const tabSound = useAudioPlayer(require("../../assets/sounds/click.wav"));
   const [appConfig, setAppConfig] = React.useState<{ current_giveaway_version?: number; welcome_bonus_active?: boolean }>({});
 
   // Load Global App Config (Giveaway version, etc)
@@ -516,8 +554,10 @@ export default function AuthedLayout() {
 
   const playTabSound = useCallback(() => {
     if (!isPlaying) return;
-    tabSound.play();
-  }, [isPlaying, tabSound]);
+    try {
+      playTickSound();
+    } catch {}
+  }, [isPlaying]);
 
   const handleToggleSound = useCallback(() => {
     haptics.selection("soft");

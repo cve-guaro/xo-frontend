@@ -1,7 +1,7 @@
-
 // components/game/DesktopLayout.tsx
-// Full desktop/tablet layout for the gameplay landing screen (Lucky Spin & XO Game).
-import React, { useState, useRef, useEffect } from "react";
+// Full desktop/tablet layout for the XOET gaming platform.
+// Redesigned strictly per Image 1 & 2 carousel wireframe and Image 4 Brand Identity.
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -9,39 +9,27 @@ import {
   TouchableOpacity,
   StyleSheet,
   Platform,
-  ActivityIndicator,
   Image,
   Animated,
-  Linking,
-  FlatList,
-  Modal,
-  TextInput,
-  ImageBackground,
-  Easing,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import Svg, { Circle, Path, G, Text as SvgText, Defs, RadialGradient, Stop, LinearGradient as SvgLinearGradient } from "react-native-svg";
 
-import { WebPressable } from "../../components/WebPressable";
 import { WebDepositModal, WebWithdrawModal } from "../../components/WebModals";
 import ProfileEditModal from "../../components/ProfileEditModal";
 import ReferralModal from "../../components/ReferralModal";
-import FriendMatchModal from "../../components/game/FriendMatchModal";
-import PromotionPopup from "../../components/PromotionPopup";
-import PwaInstallModal from "./PwaInstallModal";
-import BoardDemo from "./BoardDemo";
 import RoomSheet from "./RoomSheet";
+import DesktopHeader, { DesktopTabType } from "./DesktopHeader";
+import DesktopSidebar from "./DesktopSidebar";
+import SpinBetSelectModal from "./SpinBetSelectModal";
 import type { RoomConfig, SheetStep } from "./gameplayConstants";
-import { SlidingNumber } from "./SlidingNumber";
-import { API_URL } from "../../config";
+import { haptics } from "../../lib/haptcs";
+import { playTickSound } from "../../lib/pinTickAudio";
 
-// Helper to resolve avatar URLs
-function fixUrl(url: string | null | undefined): string | null {
-  if (!url) return null;
-  if (url.startsWith("http")) return url;
-  return url;
-}
+const spinBgRedImg = require("../../assets/images/spin-background-red-desktop.png");
+const xoBgBlueImg = require("../../assets/images/xo-background-blue.png");
+const spinCardBordImg = require("../../assets/images/spin-card bord.png");
+const xoCardBordImg = require("../../assets/images/xo-card bord.png");
 
 type LeaderboardEntry = {
   id?: string;
@@ -89,133 +77,479 @@ type DesktopLayoutProps = {
   setShowReferralModal: (v: boolean) => void;
   setShowPromo: (v: boolean) => void;
   setInviteResult: (v: any) => void;
-  openRoomSheet: () => void;
+  openRoomSheet: (initialMode?: "STAKES" | "FRIENDS") => void;
   closeRoomSheet: () => void;
   goBackToRooms: () => void;
   onSelectRoom: (id: RoomConfig["id"]) => void;
   selectAmount: (room: RoomConfig, min: number, max: number) => void;
   handleSendInvite: (username: string, betAmount: number) => void;
-  refreshProfile: () => void;
+  refreshProfile: (force?: boolean) => void;
   handleLanguageToggle: () => void;
-  // Router
   router: any;
-  // App config
-  appConfig: any;
-  selectedTab: "XO_GAME" | "SPIN";
-  setSelectedTab: (v: "XO_GAME" | "SPIN") => void;
+  appConfig?: any;
+  selectedTab: DesktopTabType;
+  setSelectedTab: (tab: DesktopTabType) => void;
   bgMusicPlaying?: boolean;
   onToggleSound?: () => void;
   unreadCount?: number;
   setNotificationsVisible?: (v: boolean) => void;
 };
 
-
 export default function DesktopLayout(props: DesktopLayoutProps) {
   const {
-    user, token, balance, language, isDesktop, isTablet, isBanned, isSearching, isEN,
-    weeklyLeaderboard, weeklyPrizes, loadingWeekly, secondsRemaining,
-    winRate, rankMeta, rawTickerList,
+    user, token, balance, language, isDesktop, isTablet, isEN,
+    weeklyLeaderboard = [],
     roomSheetVisible, sheetStep, selectedRoom, backdropOpacity, sheetTranslateY, userCaps,
-    depositVisible, withdrawVisible, friendModalVisible, pwaModalVisible, showReferralModal, showPromo,
-    inviteResult, promoConfig,
-    setDepositVisible, setWithdrawVisible, setFriendModalVisible, setPwaModalVisible,
-    setShowReferralModal, setShowPromo, setInviteResult,
+    depositVisible, withdrawVisible, pwaModalVisible, showReferralModal,
+    friendModalVisible, setFriendModalVisible,
+    setDepositVisible, setWithdrawVisible, setPwaModalVisible,
+    setShowReferralModal,
     openRoomSheet, closeRoomSheet, goBackToRooms, onSelectRoom, selectAmount,
-    refreshProfile, handleLanguageToggle, handleSendInvite,
-    router, appConfig,
-    selectedTab, setSelectedTab,
+    handleSendInvite, inviteResult,
+    refreshProfile, handleLanguageToggle,
+    router,
+    selectedTab = "SPIN", setSelectedTab,
     bgMusicPlaying = true,
     onToggleSound = () => {},
     unreadCount = 0,
     setNotificationsVisible = () => {},
   } = props;
 
-  const isDesktopRow = isDesktop && !isTablet;
+  // Carousel order
+  const tabs: DesktopTabType[] = ["XO_GAME", "SPIN", "COMING_SOON"];
+  const [spinBetModalVisible, setSpinBetModalVisible] = useState(false);
+  const [sheetInitialView, setSheetInitialView] = useState<"STAKES" | "FRIENDS">("STAKES");
+  const slideAnim = useRef(new Animated.Value(0)).current;
 
-  // Continuous idle rotation animation for the featured spin wheel
-  const idleSpinAnim = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    Animated.loop(
-      Animated.timing(idleSpinAnim, {
-        toValue: 1,
-        duration: 30000, // 30 seconds per rotation for a smooth widescreen look
-        easing: Easing.linear,
-        useNativeDriver: Platform.OS !== 'web',
-      })
-    ).start();
-  }, []);
-
-  const idleSpinRotate = idleSpinAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0deg", "360deg"],
-  });
-
-  const [spinLoading, setSpinLoading] = useState(false);
-  const [spinError, setSpinError] = useState<string | null>(null);
-  const [showStakeModal, setShowStakeModal] = useState(false);
-  const [stakeAmount, setStakeAmount] = useState("100");
-
-  const chips = ["50", "100", "250", "500", "1000"];
-
-  const handleNavClick = (screen: string) => {
-    if (screen === "home") router.push("/(authed)/home/gameplay");
-    else if (screen === "history") router.push("/(authed)/home/history");
-    else if (screen === "leaderboard") router.push("/(authed)/home/leaderboard");
-    else if (screen === "transactions") router.push("/(authed)/home/transactions");
-    else if (screen === "profile") router.push("/(authed)/home/account");
-    else if (screen === "admin") router.push("/admin" as any);
+  const triggerSlide = (direction: "left" | "right") => {
+    slideAnim.setValue(direction === "left" ? 50 : -50);
+    Animated.spring(slideAnim, {
+      toValue: 0,
+      tension: 75,
+      friction: 8,
+      useNativeDriver: Platform.OS !== "web",
+    }).start();
   };
 
-  const handleSpinNow = () => {
-    setSpinError(null);
-    setShowStakeModal(true);
+  const handlePrevCard = () => {
+    try { playTickSound(); } catch {}
+    haptics.tap();
+    triggerSlide("right");
+    const currIdx = tabs.indexOf(selectedTab);
+    const prevIdx = (currIdx - 1 + tabs.length) % tabs.length;
+    setSelectedTab(tabs[prevIdx]);
   };
 
-  const handleConfirmSpin = () => {
-    const stakeVal = Number(stakeAmount);
-    if (isNaN(stakeVal) || stakeVal <= 0) {
-      setSpinError(isEN ? "Invalid stake amount" : "ትክክለኛ ያልሆነ መጠን");
-      return;
+  const handleNextCard = () => {
+    try { playTickSound(); } catch {}
+    haptics.tap();
+    triggerSlide("left");
+    const currIdx = tabs.indexOf(selectedTab);
+    const nextIdx = (currIdx + 1) % tabs.length;
+    setSelectedTab(tabs[nextIdx]);
+  };
+
+  // 3-Card 3D Coverflow Cycling: Left (small) - Center (BIG Active) - Right (small)
+  const visibleCards = useMemo(() => {
+    const centerIdx = tabs.indexOf(selectedTab);
+    const safeCenterIdx = centerIdx >= 0 ? centerIdx : 1;
+    const prevIdx = (safeCenterIdx - 1 + tabs.length) % tabs.length;
+    const nextIdx = (safeCenterIdx + 1) % tabs.length;
+
+    return [
+      { tab: tabs[prevIdx], position: "left" as const },
+      { tab: tabs[safeCenterIdx], position: "center" as const },
+      { tab: tabs[nextIdx], position: "right" as const },
+    ];
+  }, [selectedTab]);
+
+  // Render single card according to its Coverflow position
+  const renderCoverflowCard = (tab: DesktopTabType, position: "left" | "center" | "right") => {
+    const isCenter = position === "center";
+    const isLeft = position === "left";
+    const isRight = position === "right";
+
+    const handleCardPress = () => {
+      try { playTickSound(); } catch {}
+      haptics.tap();
+      if (isLeft) {
+        handlePrevCard();
+      } else if (isRight) {
+        handleNextCard();
+      }
+    };
+
+    if (tab === "XO_GAME") {
+      return (
+        <TouchableOpacity
+          key="XO_GAME"
+          activeOpacity={isCenter ? 0.95 : 0.75}
+          onPress={handleCardPress}
+          style={[
+            s.gameCard,
+            isCenter ? s.gameCardCenter : s.gameCardSide,
+            isCenter ? s.gameCardFocusedXo : s.gameCardUnfocused,
+          ]}
+        >
+          <Image
+            source={xoBgBlueImg}
+            style={[StyleSheet.absoluteFillObject, { width: "100%", height: "100%", opacity: isCenter ? 0.95 : 0.45 }]}
+            resizeMode="cover"
+          />
+
+          {/* Badges */}
+          <View style={s.cardBadgeRow}>
+            <View style={[s.badgePill, { backgroundColor: "rgba(0, 191, 255, 0.2)", borderColor: "rgba(0, 191, 255, 0.5)" }]}>
+              <Ionicons name="grid" size={isCenter ? 11 : 9} color="#00BFFF" />
+              <Text style={[s.badgeText, { color: "#FFFFFF" }, !isCenter && { fontSize: 8.5 }]}>XO</Text>
+            </View>
+            <View style={[s.badgePill, { backgroundColor: "rgba(0, 191, 255, 0.2)", borderColor: "rgba(0, 191, 255, 0.5)" }]}>
+              <Ionicons name="star" size={isCenter ? 11 : 9} color="#00BFFF" />
+              <Text style={[s.badgeText, { color: "#00BFFF" }, !isCenter && { fontSize: 8.5 }]}>CLASSIC</Text>
+            </View>
+          </View>
+
+          {/* Artwork */}
+          <View style={[s.cardArtWrapper, isCenter ? s.cardArtWrapperCenter : s.cardArtWrapperSide]}>
+            <Image source={xoCardBordImg} style={{ width: "95%", height: "95%" }} resizeMode="contain" />
+          </View>
+
+          {/* Title & Subtitle */}
+          <View style={{ alignItems: "center", marginVertical: isCenter ? 6 : 2 }}>
+            <Text style={[s.cardTitle, !isCenter && s.cardTitleSide]}>XO BATTLE</Text>
+            <Text style={[s.cardSubtitle, !isCenter && { fontSize: 10 }]}>{isEN ? "Think. Move. Win." : "አስብ። ተንቀሳቀስ። አሸንፍ።"}</Text>
+          </View>
+
+          {/* Primary Button */}
+          {isCenter ? (
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => {
+                haptics.impact();
+                setSheetInitialView("STAKES");
+                openRoomSheet("STAKES");
+              }}
+              style={s.cardActionBtn}
+            >
+              <LinearGradient colors={["#00BFFF", "#0091EA"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.cardBtnGrad}>
+                <Ionicons name="game-controller" size={16} color="#FFFFFF" />
+                <Text style={s.cardBtnText}>PLAY NOW</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          ) : (
+            <View style={s.cardSideHint}>
+              <Text style={s.cardSideHintText}>CLICK TO EXPAND</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      );
     }
-    if (balance < stakeVal) {
-      setSpinError(isEN ? "Insufficient balance" : "በቂ ሂሳብ የሎትም");
-      return;
+
+    if (tab === "SPIN") {
+      return (
+        <TouchableOpacity
+          key="SPIN"
+          activeOpacity={isCenter ? 0.95 : 0.75}
+          onPress={handleCardPress}
+          style={[
+            s.gameCard,
+            isCenter ? s.gameCardCenter : s.gameCardSide,
+            isCenter ? s.gameCardFocusedSpin : s.gameCardUnfocused,
+          ]}
+        >
+          <Image
+            source={spinBgRedImg}
+            style={[StyleSheet.absoluteFillObject, { width: "100%", height: "100%", opacity: isCenter ? 0.95 : 0.45 }]}
+            resizeMode="cover"
+          />
+
+          {/* Badges */}
+          <View style={s.cardBadgeRow}>
+            <View style={[s.badgePill, { backgroundColor: "rgba(255, 23, 68, 0.2)", borderColor: "rgba(255, 23, 68, 0.5)" }]}>
+              <Ionicons name="aperture" size={isCenter ? 11 : 9} color="#FF1744" />
+              <Text style={[s.badgeText, { color: "#FFFFFF" }, !isCenter && { fontSize: 8.5 }]}>SPIN</Text>
+            </View>
+            <View style={[s.badgePill, { backgroundColor: "rgba(255, 23, 68, 0.2)", borderColor: "rgba(255, 23, 68, 0.5)" }]}>
+              <Ionicons name="flame" size={isCenter ? 11 : 9} color="#FF1744" />
+              <Text style={[s.badgeText, { color: "#FF1744" }, !isCenter && { fontSize: 8.5 }]}>POPULAR</Text>
+            </View>
+          </View>
+
+          {/* Artwork */}
+          <View style={[s.cardArtWrapper, isCenter ? s.cardArtWrapperCenter : s.cardArtWrapperSide]}>
+            <Image source={spinCardBordImg} style={{ width: "95%", height: "95%" }} resizeMode="contain" />
+          </View>
+
+          {/* Title & Subtitle */}
+          <View style={{ alignItems: "center", marginVertical: isCenter ? 6 : 2 }}>
+            <Text style={[s.cardTitle, !isCenter && s.cardTitleSide]}>SPIN <Text style={{ color: "#FF1744" }}>&</Text> WIN</Text>
+            <Text style={[s.cardSubtitle, !isCenter && { fontSize: 10 }]}>{isEN ? "Big prizes are waiting!" : "ትላልቅ ሽልማቶች ይጠብቁዎታል!"}</Text>
+          </View>
+
+          {/* Primary Button */}
+          {isCenter ? (
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => {
+                haptics.impact();
+                setSpinBetModalVisible(true);
+              }}
+              style={s.cardActionBtn}
+            >
+              <LinearGradient colors={["#FF1744", "#D50000"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.cardBtnGrad}>
+                <Ionicons name="play" size={15} color="#FFFFFF" />
+                <Text style={s.cardBtnText}>REAL SPIN</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          ) : (
+            <View style={s.cardSideHint}>
+              <Text style={s.cardSideHintText}>CLICK TO EXPAND</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      );
     }
-    setShowStakeModal(false);
-    router.push({
-      pathname: '/(authed)/home/spin',
-      params: { mode: "RAIL", stake: String(stakeVal) }
-    } as any);
+
+    // COMING_SOON
+    return (
+      <TouchableOpacity
+        key="COMING_SOON"
+        activeOpacity={isCenter ? 0.95 : 0.75}
+        onPress={handleCardPress}
+        style={[
+          s.gameCard,
+          isCenter ? s.gameCardCenter : s.gameCardSide,
+          isCenter ? s.gameCardFocusedSoon : s.gameCardUnfocused,
+        ]}
+      >
+        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: "#111827", opacity: isCenter ? 1.0 : 0.7 }]} />
+
+        {/* Badges */}
+        <View style={s.cardBadgeRow}>
+          <View style={[s.badgePill, { backgroundColor: "rgba(136, 147, 167, 0.18)", borderColor: "rgba(136, 147, 167, 0.4)" }]}>
+            <Ionicons name="help-circle" size={isCenter ? 11 : 9} color="#8893A7" />
+            <Text style={[s.badgeText, { color: "#FFFFFF" }, !isCenter && { fontSize: 8.5 }]}>NEW ARENA</Text>
+          </View>
+          <View style={[s.badgePill, { backgroundColor: "rgba(245, 182, 66, 0.15)", borderColor: "rgba(245, 182, 66, 0.4)" }]}>
+            <Ionicons name="flask" size={isCenter ? 11 : 9} color="#F5B642" />
+            <Text style={[s.badgeText, { color: "#F5B642" }, !isCenter && { fontSize: 8.5 }]}>IN LAB</Text>
+          </View>
+        </View>
+
+        {/* Artwork */}
+        <View style={[s.cardArtWrapper, isCenter ? s.cardArtWrapperCenter : s.cardArtWrapperSide]}>
+          <View style={{
+            width: isCenter ? 120 : 80,
+            height: isCenter ? 120 : 80,
+            borderRadius: isCenter ? 60 : 40,
+            backgroundColor: "rgba(35, 48, 65, 0.6)",
+            borderWidth: 2,
+            borderColor: "#233041",
+            alignItems: "center",
+            justifyContent: "center",
+          }}>
+            <Ionicons name="time" size={isCenter ? 54 : 36} color="#8893A7" />
+          </View>
+        </View>
+
+        {/* Title & Subtitle */}
+        <View style={{ alignItems: "center", marginVertical: isCenter ? 6 : 2 }}>
+          <Text style={[s.cardTitle, { color: "#8893A7" }, !isCenter && s.cardTitleSide]}>COMING SOON</Text>
+          <Text style={[s.cardSubtitle, !isCenter && { fontSize: 10 }]}>{isEN ? "Next generation multiplayer mode" : "አዲስ የጨዋታ ሁነታ በቅርቡ"}</Text>
+        </View>
+
+        {/* Action Button */}
+        {isCenter ? (
+          <View style={s.cardActionBtn}>
+            <View style={[s.cardBtnGrad, { backgroundColor: "rgba(35, 48, 65, 0.7)", borderWidth: 1.2, borderColor: "rgba(136, 147, 167, 0.3)" }]}>
+              <Ionicons name="time-outline" size={15} color="#8893A7" />
+              <Text style={[s.cardBtnText, { color: "#8893A7" }]}>COMING SOON</Text>
+            </View>
+          </View>
+        ) : (
+          <View style={s.cardSideHint}>
+            <Text style={s.cardSideHintText}>CLICK TO EXPAND</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    );
   };
+
+  // Outer Secondary Shelf (Per User Request: Placed OUTSIDE and directly underneath each card)
+  const renderOuterShelf = (tab: "SPIN" | "XO_GAME" | "COMING_SOON", isCenter: boolean) => {
+    if (tab === "SPIN") {
+      return (
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => {
+            if (!isCenter) {
+              setSelectedTab("SPIN");
+              return;
+            }
+            haptics.impact();
+            router.push('/(authed)/home/spin');
+          }}
+          style={s.extraShelfBtn}
+        >
+          <View style={s.extraShelfHeader}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Ionicons name="people" size={13} color="#FF1744" />
+              <Text style={s.extraShelfLabel}>5 PLAYERS</Text>
+            </View>
+            <View style={s.liveDotRow}>
+              <View style={[s.liveDot, { backgroundColor: '#10B981' }]} />
+              <Text style={s.liveDotText}>REAL TIME</Text>
+            </View>
+          </View>
+          <View style={s.extraShelfCard}>
+            <View style={s.avatarGroup}>
+              <View style={[s.shelfAvatar, { backgroundColor: '#DC2626', alignItems: 'center', justifyContent: 'center' }]}>
+                <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>1</Text>
+              </View>
+              <View style={[s.shelfAvatar, { marginLeft: -8, backgroundColor: '#2563EB', alignItems: 'center', justifyContent: 'center' }]}>
+                <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>2</Text>
+              </View>
+              <View style={[s.shelfAvatar, { marginLeft: -8, backgroundColor: '#059669', alignItems: 'center', justifyContent: 'center' }]}>
+                <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>3</Text>
+              </View>
+              <View style={[s.shelfAvatarPlus, { marginLeft: -8 }]}>
+                <Text style={s.shelfAvatarPlusText}>+2</Text>
+              </View>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Text style={s.shelfActionText}>5 Players Room</Text>
+              <Ionicons name="chevron-forward" size={14} color="#FF1744" />
+            </View>
+          </View>
+        </TouchableOpacity>
+      );
+    }
+
+    if (tab === "XO_GAME") {
+      return (
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => {
+            if (!isCenter) {
+              setSelectedTab("XO_GAME");
+              return;
+            }
+            haptics.impact();
+            setSheetInitialView("FRIENDS");
+            openRoomSheet("FRIENDS");
+          }}
+          style={s.extraShelfBtn}
+        >
+          <View style={s.extraShelfHeader}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Ionicons name="people" size={13} color="#00BFFF" />
+              <Text style={s.extraShelfLabel}>FRIEND PLAY</Text>
+            </View>
+            <View style={s.liveDotRow}>
+              <View style={[s.liveDot, { backgroundColor: '#00BFFF' }]} />
+              <Text style={[s.liveDotText, { color: '#00BFFF' }]}>1V1 DUEL</Text>
+            </View>
+          </View>
+          <View style={s.extraShelfCard}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <View style={s.shelfIconCircle}>
+                <Ionicons name="person-add" size={13} color="#00BFFF" />
+              </View>
+              <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '700' }}>Play with Friends</Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Text style={[s.shelfActionText, { color: '#00BFFF' }]}>Invite</Text>
+              <Ionicons name="chevron-forward" size={14} color="#00BFFF" />
+            </View>
+          </View>
+        </TouchableOpacity>
+      );
+    }
+
+    // COMING_SOON
+    return (
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={() => {
+          if (!isCenter) {
+            setSelectedTab("COMING_SOON");
+            return;
+          }
+          try { playTickSound(); } catch {}
+          haptics.tap();
+          router.push('/(authed)/home/leaderboard');
+        }}
+        style={s.extraShelfBtn}
+      >
+        <View style={s.extraShelfHeader}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Ionicons name="trophy" size={13} color="#F5B642" />
+            <Text style={s.extraShelfLabel}>TOURNAMENTS</Text>
+          </View>
+          <View style={s.liveDotRow}>
+            <View style={[s.liveDot, { backgroundColor: '#F5B642' }]} />
+            <Text style={[s.liveDotText, { color: '#F5B642' }]}>IN LAB</Text>
+          </View>
+        </View>
+        <View style={s.extraShelfCard}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <View style={[s.shelfIconCircle, { backgroundColor: 'rgba(245, 182, 66, 0.15)', borderColor: 'rgba(245, 182, 66, 0.35)' }]}>
+              <Ionicons name="flash" size={13} color="#F5B642" />
+            </View>
+            <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '700' }}>Next-Gen Battles</Text>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <Text style={[s.shelfActionText, { color: '#F5B642' }]}>View Rules</Text>
+            <Ionicons name="chevron-forward" size={14} color="#F5B642" />
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  // Top 8 players from real server data
+  const top8Players = useMemo(() => {
+    if (weeklyLeaderboard && weeklyLeaderboard.length > 0) {
+      return weeklyLeaderboard.slice(0, 8).map((p, idx) => ({
+        id: p.id || String(idx + 1),
+        rank: idx + 1,
+        username: p.username || `Player_${idx + 1}`,
+        wins: p.wins || 0,
+        prize: idx === 0 ? 500 : idx === 1 ? 300 : idx === 2 ? 200 : 100,
+        avatar: p.avatar || '',
+      }));
+    }
+    return [];
+  }, [weeklyLeaderboard]);
 
   return (
     <View style={s.rootContainer}>
-      {/* Background Glowing Blobs matching img 1 corner aura */}
-      <View style={{
-        position: 'absolute',
-        bottom: -200,
-        left: -200,
-        width: 600,
-        height: 600,
-        borderRadius: 300,
-        backgroundColor: 'rgba(124, 58, 237, 0.15)',
-        ...(Platform.OS === 'web' ? { filter: 'blur(150px)' } as any : {}),
-      }} />
+      {/* Background Ambience: Subtle Signal Red & Electric Blue auras (No purple) */}
       <View style={{
         position: 'absolute',
         top: -100,
-        right: -100,
+        left: -100,
         width: 500,
         height: 500,
         borderRadius: 250,
-        backgroundColor: 'rgba(168, 85, 247, 0.12)',
-        ...(Platform.OS === 'web' ? { filter: 'blur(120px)' } as any : {}),
+        backgroundColor: 'rgba(255, 23, 68, 0.04)',
+        ...(Platform.OS === 'web' ? { filter: 'blur(140px)' } as any : {}),
+      }} />
+      <View style={{
+        position: 'absolute',
+        bottom: -150,
+        right: -100,
+        width: 600,
+        height: 600,
+        borderRadius: 300,
+        backgroundColor: 'rgba(0, 191, 255, 0.04)',
+        ...(Platform.OS === 'web' ? { filter: 'blur(160px)' } as any : {}),
       }} />
 
       {/* Modals & Profile */}
-      <WebDepositModal visible={depositVisible} onClose={() => setDepositVisible(false)} user={user} token={token || undefined} onSuccess={refreshProfile} />
-      <WebWithdrawModal visible={withdrawVisible} onClose={() => setWithdrawVisible(false)} user={user} token={token || undefined} onSuccess={refreshProfile} />
-      <ProfileEditModal visible={!user?.username} onClose={() => { }} initialUsername={user?.username} initialDisplayName={(user as any)?.display_name} initialAvatar={(user as any)?.avatar} onSaved={refreshProfile} />
+      <WebDepositModal visible={depositVisible} onClose={() => setDepositVisible(false)} user={user} token={token || undefined} onSuccess={() => { try { refreshProfile?.(true); } catch {} }} />
+      <WebWithdrawModal visible={withdrawVisible} onClose={() => setWithdrawVisible(false)} user={user} token={token || undefined} onSuccess={() => { try { refreshProfile?.(true); } catch {} }} />
+      <ProfileEditModal visible={!!user && !user?.username} onClose={() => { }} initialUsername={user?.username} initialDisplayName={(user as any)?.display_name} initialAvatar={(user as any)?.avatar} onSaved={() => { try { refreshProfile?.(true); } catch {} }} />
       <ReferralModal visible={showReferralModal} onClose={() => setShowReferralModal(false)} token={token || null} isEN={isEN} toast={undefined} />
 
       {roomSheetVisible && (
@@ -223,6 +557,7 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
           language={language}
           balance={balance}
           visible={roomSheetVisible}
+          initialView={sheetInitialView}
           step={sheetStep}
           selectedRoom={selectedRoom}
           backdropOpacity={backdropOpacity}
@@ -233,2017 +568,787 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
           onSelectAmount={selectAmount}
           isDesktop={isDesktop}
           userCaps={userCaps}
+          onSendFriendInvite={handleSendInvite}
+          inviteResult={inviteResult}
         />
       )}
 
-      {/* Header bar */}
-      <View style={s.header}>
-        <View style={s.headerContentWrapper}>
-          <View style={s.logoContainer}>
-            <Image source={require("../../assets/images/icon.jpg")} style={s.logoImage} resizeMode="cover" />
-            <Text style={s.logoText}>XO ETHIOPIA</Text>
-          </View>
-
-          {/* Center: SPIN / XO GAME toggle */}
-          <View style={s.toggleContainer}>
-            <TouchableOpacity
-              onPress={() => setSelectedTab("SPIN")}
-              style={[s.toggleBtn, selectedTab === "SPIN" && s.toggleBtnActive]}
-              activeOpacity={0.85}
-            >
-              <Text style={[s.toggleBtnText, selectedTab === "SPIN" && s.toggleBtnTextActive]}>SPIN</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setSelectedTab("XO_GAME")}
-              style={[s.toggleBtn, selectedTab === "XO_GAME" && s.toggleBtnActive]}
-              activeOpacity={0.85}
-            >
-              <Text style={[s.toggleBtnText, selectedTab === "XO_GAME" && s.toggleBtnTextActive]}>XO GAME</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Right: Widescreen Utility Cluster matching img 4 layout */}
-          <View style={s.utilityCluster}>
-            <TouchableOpacity onPress={() => setPwaModalVisible(true)} style={s.utilityBtn} activeOpacity={0.8}>
-              <Ionicons name="cloud-download-outline" size={16} color="#8b93a7" />
-              <Text style={s.utilityBtnText}>APP</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={handleLanguageToggle} style={s.utilityBtn} activeOpacity={0.8}>
-              <Ionicons name="globe-outline" size={15} color="#8b93a7" />
-              <Text style={s.utilityBtnText}>{language.toUpperCase()}</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={onToggleSound} style={s.utilityBtn} activeOpacity={0.8}>
-              <Ionicons name={bgMusicPlaying ? "volume-medium-outline" : "volume-mute-outline"} size={16} color="#8b93a7" />
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={() => setNotificationsVisible(true)} style={s.bellBtn} activeOpacity={0.8}>
-              <Ionicons name="notifications-outline" size={16} color="#8b93a7" />
-              {unreadCount > 0 && (
-                <View style={s.bellBadge}>
-                  <Text style={s.bellBadgeText}>{unreadCount}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-
-            {/* Profile Chip */}
-            <TouchableOpacity onPress={() => handleNavClick('profile')} style={s.profileChip} activeOpacity={0.8}>
-              <View style={s.profileChipAvatar}>
-                <Text style={s.profileChipAvatarText}>
-                  {user?.username ? user.username.slice(0, 2).toUpperCase() : "ME"}
-                </Text>
-              </View>
-              <View>
-                <Text style={s.profileChipName}>{user?.username || "Player"}</Text>
-                <Text style={s.profileChipVip}>VIP 24</Text>
-              </View>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-
-      {/* Main tab wrapper content */}
-      {selectedTab === "SPIN" ? (
-        /* ================= LUCKY SPIN TAB VIEW ================= */
-        <ScrollView style={s.mainScrollView} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
-          <View style={s.pageContentWrapper}>
-            <View style={s.threeColumnRow}>
-              {/* 1. LEFT SIDEBAR */}
-              <View style={s.leftSidebar}>
-                <View style={{ gap: 16 }}>
-                  {/* Card 1: User Profile & Balance */}
-                  <View style={s.card}>
-                    <View style={s.userCardHeader}>
-                      <View style={s.userCardAvatar}>
-                        <Text style={s.userCardAvatarText}>
-                          {user?.username ? user.username.slice(0, 1).toUpperCase() : "A"}
-                        </Text>
-                      </View>
-                      <View>
-                        <Text style={s.userCardName} numberOfLines={1}>{user?.username || (user?.number ? `User ${user.number.slice(-4)}` : "Set Your Name")}</Text>
-                        <View style={s.onlineRow}>
-                          <View style={s.onlineDot} />
-                          <Text style={s.onlineText}>Online</Text>
-                        </View>
-                      </View>
-                    </View>
-
-                    {/* Available Balance card */}
-                    <View style={s.tokensRow}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={s.tokenLabel}>AVAILABLE BALANCE</Text>
-                        <Text style={[s.tokenVal, { color: "#22d3ee" }]}>ETB {balance.toLocaleString()}</Text>
-                      </View>
-                      <TouchableOpacity onPress={refreshProfile} style={[s.tokenPlusBtn, { backgroundColor: "#22d3ee" }]} activeOpacity={0.8}>
-                        <Ionicons name="refresh" size={12} color="#0a0e1a" />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-
-                  {/* Card 2: Navigation Links (Height limits based on items) */}
-                  <View style={s.card}>
-                    <View style={{ justifyContent: "center" }}>
-                      <TouchableOpacity onPress={() => handleNavClick('home')} style={[s.navItem, s.navItemActive]} activeOpacity={0.8}>
-                        <View style={s.navItemActiveBar} />
-                        <Ionicons name="home" size={18} color="#8b5cf6" />
-                        <Text style={[s.navText, s.navTextActive]}>Home</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity onPress={() => handleNavClick('history')} style={s.navItem} activeOpacity={0.8}>
-                        <Ionicons name="time-outline" size={18} color="#8b93a7" />
-                        <Text style={s.navText}>History</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity onPress={() => handleNavClick('leaderboard')} style={s.navItem} activeOpacity={0.8}>
-                        <Ionicons name="trophy-outline" size={18} color="#8b93a7" />
-                        <Text style={s.navText}>Leaderboard</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity onPress={() => handleNavClick('transactions')} style={s.navItem} activeOpacity={0.8}>
-                        <Ionicons name="receipt-outline" size={18} color="#8b93a7" />
-                        <Text style={s.navText}>Transactions</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity onPress={() => handleNavClick('profile')} style={s.navItem} activeOpacity={0.8}>
-                        <Ionicons name="person-outline" size={18} color="#8b93a7" />
-                        <Text style={s.navText}>Profile</Text>
-                      </TouchableOpacity>
-
-                      {(user?.role === 'admin' || user?.role === 'superadmin' || user?.role === 'maintenance') && (
-                        <TouchableOpacity onPress={() => handleNavClick('admin')} style={s.navItem} activeOpacity={0.8}>
-                          <Ionicons name="shield-checkmark-outline" size={18} color="#8b93a7" />
-                          <Text style={s.navText}>Admin</Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  </View>
-                </View>
-
-                {/* Card 3: Separate Wallet Information Box */}
-                <View style={s.card}>
-                  <Text style={s.sectionTitleSmall}>WALLET</Text>
-
-                  <View style={s.walletRow}>
-                    <Text style={s.walletLabel}>Deposit</Text>
-                    <Text style={[s.walletValSmall, { color: "#22c55e" }]}>+ 3,420 ETB</Text>
-                  </View>
-
-                  <View style={s.walletRow}>
-                    <Text style={s.walletLabel}>Withdraw</Text>
-                    <Text style={[s.walletValSmall, { color: "#ef4444" }]}>- 420 ETB</Text>
-                  </View>
-
-                  <View style={s.walletRow}>
-                    <Text style={s.walletLabel}>Transactions</Text>
-                    <Text style={s.walletValSecond}>12 today</Text>
-                  </View>
-
-                  {/* Direct wallet buttons */}
-                  <View style={s.walletButtons}>
-                    <TouchableOpacity onPress={() => setDepositVisible(true)} style={[s.walletBtnSmall, { borderColor: "#22d3ee" }]} activeOpacity={0.8}>
-                      <Text style={[s.walletBtnTextSmall, { color: "#22d3ee" }]}>DEPOSIT</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => setWithdrawVisible(true)} style={[s.walletBtnSmall, { borderColor: "#7c3aed" }]} activeOpacity={0.8}>
-                      <Text style={[s.walletBtnTextSmall, { color: "#7c3aed" }]}>WITHDRAW</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
-
-              {/* 2. CENTER COLUMN (flexible, largest) */}
-              <View style={s.centerColumn}>
-                {/* Three action buttons row */}
-                <View style={s.quickActionsRow}>
-                  {/* Card 1: Deposit */}
-                  <TouchableOpacity onPress={() => setDepositVisible(true)} style={s.quickActionCard} activeOpacity={0.85}>
-                    <View style={[s.quickActionIconCircle, { backgroundColor: "rgba(124, 58, 237, 0.1)" }]}>
-                      <Ionicons name="arrow-down" size={18} color="#7c3aed" />
-                    </View>
-                    <View>
-                      <Text style={s.quickActionLabel}>ADD FUNDS</Text>
-                      <Text style={s.quickActionVal}>DEPOSIT</Text>
-                    </View>
-                  </TouchableOpacity>
-
-                  {/* Card 2: Withdraw */}
-                  <TouchableOpacity onPress={() => setWithdrawVisible(true)} style={s.quickActionCard} activeOpacity={0.85}>
-                    <View style={[s.quickActionIconCircle, { backgroundColor: "rgba(239, 68, 68, 0.1)" }]}>
-                      <Ionicons name="arrow-up" size={18} color="#ef4444" />
-                    </View>
-                    <View>
-                      <Text style={s.quickActionLabel}>CASH OUT</Text>
-                      <Text style={s.quickActionVal}>WITHDRAW</Text>
-                    </View>
-                  </TouchableOpacity>
-
-                  {/* Card 3: Transaction */}
-                  <TouchableOpacity onPress={() => router.push('/(authed)/home/transactions' as any)} style={[s.quickActionCard, s.quickActionCardGlow]} activeOpacity={0.85}>
-                    <View style={[s.quickActionIconCircle, { backgroundColor: "rgba(34, 211, 238, 0.1)" }]}>
-                      <Ionicons name="swap-horizontal" size={18} color="#22d3ee" />
-                    </View>
-                    <View>
-                      <Text style={s.quickActionLabel}>VIEW ALL</Text>
-                      <Text style={[s.quickActionVal, { color: "#22d3ee" }]}>TRANSACTIONS</Text>
-                    </View>
-                  </TouchableOpacity>
-                </View>
-
-                {/* Hero Spin Wheel Board Section - banknotes visible only in this center card */}
-                <ImageBackground
-                  source={require("../../assets/images/spin-bg.jpg")}
-                  style={s.heroSpinCard}
-                  imageStyle={{ borderRadius: 28, opacity: 0.85, width: "100%", height: "100%" }}
-                  resizeMode="cover"
-                >
-                  {/* Semi-transparent dark purple overlay with lower opacity so banknotes are visible */}
-                  <View style={[StyleSheet.absoluteFillObject, { backgroundColor: "rgba(15, 10, 35, 0.45)", borderRadius: 28 }]} />
-
-                  {/* Content */}
-                  <Text style={s.heroSubLabel}>✦ FEATURED GAME ✦</Text>
-
-                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", marginTop: 6, marginBottom: 14 }}>
-                    <Svg width={360} height={54} viewBox="0 0 360 54">
-                      <Defs>
-                        <SvgLinearGradient id="titleGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                          <Stop offset="0%" stopColor="#ec4899" />
-                          <Stop offset="100%" stopColor="#c4b5fd" />
-                        </SvgLinearGradient>
-                      </Defs>
-                      <SvgText
-                        x="180"
-                        y="42"
-                        fill="url(#titleGrad)"
-                        fontSize="46"
-                        fontWeight="900"
-                        textAnchor="middle"
-                        fontFamily="Inter, sans-serif"
-                        letterSpacing="-1.5"
-                      >
-                        XO SPIN
-                      </SvgText>
-                    </Svg>
-                  </View>
-
-                  {/* Simple Centered Wheel - with continuous rotation */}
-                  <View style={{ width: 395, height: 395, alignItems: "center", justifyContent: "center", marginVertical: 8, alignSelf: "center" }}>
-                    <Animated.View style={{ transform: [{ rotate: idleSpinRotate }], width: 395, height: 395 }}>
-                      <SpinWheelSvg size={395} mode="RAIL" showPointer={false} />
-                    </Animated.View>
-                    <View style={StyleSheet.absoluteFill} pointerEvents="none">
-                      <SpinWheelSvg size={395} onlyPointer={true} />
-                    </View>
-                  </View>
-
-                  {spinError && (
-                    <Text style={{ color: "#ef4444", fontSize: 13, fontWeight: "700", textAlign: "center", marginBottom: 12 }}>
-                      {spinError}
-                    </Text>
-                  )}
-
-                  {/* Spin button */}
-                  <TouchableOpacity
-                    style={[s.spinBtn, spinLoading && { opacity: 0.7 }]}
-                    activeOpacity={0.9}
-                    onPress={handleSpinNow}
-                    disabled={spinLoading}
-                  >
-                    {spinLoading ? (
-                      <ActivityIndicator size="small" color="#ffffff" />
-                    ) : (
-                      <Text style={s.spinBtnText}>SPIN NOW!</Text>
-                    )}
-                  </TouchableOpacity>
-                </ImageBackground>
-              </View>
-
-              {/* 3. RIGHT SIDEBAR */}
-              <View style={[s.rightSidebar, { gap: 12 }]}>
-                {/* 5-Player Pot Spin Game Card — Reference Redesign */}
-                <View style={{
-                  backgroundColor: '#0B1225',
-                  borderRadius: 30,
-                  borderWidth: 1.5,
-                  borderColor: 'rgba(59, 130, 246, 0.2)',
-                  paddingHorizontal: 22,
-                  paddingVertical: 24,
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 14 },
-                  shadowOpacity: 0.45,
-                  shadowRadius: 26,
-                  elevation: 12,
-                  position: 'relative',
-                  overflow: 'hidden',
-                }}>
-                  {/* Subtle ambient corner gradients matching reference */}
-                  <View pointerEvents="none" style={{ position: 'absolute', top: -30, right: -30, width: 150, height: 150, borderRadius: 75, backgroundColor: 'rgba(59, 130, 246, 0.14)' }} />
-                  <View pointerEvents="none" style={{ position: 'absolute', bottom: -40, left: -40, width: 160, height: 160, borderRadius: 80, backgroundColor: 'rgba(118, 87, 246, 0.14)' }} />
-
-                  {/* 1. Header: MULTIPLAYER label on left, LIVE 5-SLOT pill on right */}
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Text style={{
-                      color: '#9AA9C5',
-                      fontSize: 11,
-                      fontWeight: '800',
-                      letterSpacing: 1.5,
-                      fontFamily: 'Inter, sans-serif',
-                    }}>
-                      MULTIPLAYER
-                    </Text>
-
-                    <View style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 6,
-                      backgroundColor: 'rgba(239, 68, 68, 0.12)',
-                      borderWidth: 1,
-                      borderColor: 'rgba(239, 68, 68, 0.25)',
-                      paddingHorizontal: 10,
-                      paddingVertical: 5,
-                      borderRadius: 14,
-                    }}>
-                      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#ef4444' }} />
-                      <Text style={{
-                        color: '#ef4444',
-                        fontSize: 10,
-                        fontWeight: '800',
-                        letterSpacing: 0.8,
-                        fontFamily: 'Inter, sans-serif',
-                      }}>
-                        LIVE 5-SLOT
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* 2. Title: 5-PLAYER (white) & POT SPIN (blue-to-purple gradient) */}
-                  <View style={{ marginTop: 14 }}>
-                    <Text style={{
-                      color: '#F8FAFC',
-                      fontSize: 28,
-                      fontWeight: '900',
-                      letterSpacing: 0.5,
-                      fontFamily: 'Inter, sans-serif',
-                      lineHeight: 34,
-                    }}>
-                      5-PLAYER
-                    </Text>
-                    <Text style={{
-                      fontSize: 28,
-                      fontWeight: '900',
-                      letterSpacing: 0.5,
-                      fontFamily: 'Inter, sans-serif',
-                      lineHeight: 34,
-                      color: '#60a5fa',
-                      ...(Platform.OS === 'web' ? {
-                        backgroundImage: 'linear-gradient(90deg, #3B82F6 0%, #7657F6 100%)',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                      } as any : {}),
-                    }}>
-                      POT SPIN
-                    </Text>
-                  </View>
-
-                  {/* 3. Center Graphic: 3D Roulette Wheel */}
-                  <View style={{ alignItems: 'center', justifyContent: 'center', marginVertical: 14 }}>
-                    <Image
-                      source={require("../../assets/images/3d-5p-spin.png")}
-                      style={{ width: 230, height: 165, resizeMode: "contain" }}
-                    />
-                  </View>
-
-                  {/* 4. Player Slots Row (YM, BK, TL, SO, + YOU) */}
-                  <View style={{
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                    alignItems: 'flex-start',
-                    marginVertical: 10,
-                    paddingHorizontal: 4,
-                  }}>
-                    {[
-                      { initials: 'YM', borderColor: '#3B82F6' },
-                      { initials: 'BK', borderColor: '#7657F6' },
-                      { initials: 'TL', borderColor: '#2dd4bf' },
-                      { initials: 'SO', borderColor: '#F5BD62' },
-                    ].map((slot, i) => (
-                      <View key={i} style={{ alignItems: 'center' }}>
-                        <View style={{
-                          width: 44,
-                          height: 44,
-                          borderRadius: 22,
-                          backgroundColor: '#0F172A',
-                          borderWidth: 1.5,
-                          borderColor: slot.borderColor,
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}>
-                          <Text style={{
-                            color: '#F8FAFC',
-                            fontSize: 12,
-                            fontWeight: '800',
-                            fontFamily: 'Inter, sans-serif',
-                          }}>
-                            {slot.initials}
-                          </Text>
-                        </View>
-                        <View style={{ height: 14, marginTop: 4 }} />
-                      </View>
-                    ))}
-
-                    {/* 5th slot: Open seat (+ YOU) */}
-                    <View style={{ alignItems: 'center' }}>
-                      <TouchableOpacity
-                        onPress={() => router.push({ pathname: '/(authed)/home/spin', params: { mode: "5_PLAYER" } } as any)}
-                        activeOpacity={0.8}
-                        style={{
-                          width: 44,
-                          height: 44,
-                          borderRadius: 22,
-                          backgroundColor: 'rgba(59, 130, 246, 0.08)',
-                          borderWidth: 1.5,
-                          borderStyle: 'dashed',
-                          borderColor: '#3B82F6',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        <Ionicons name="add" size={20} color="#3B82F6" />
-                      </TouchableOpacity>
-                      <Text style={{
-                        color: '#3B82F6',
-                        fontSize: 10,
-                        fontWeight: '800',
-                        letterSpacing: 0.5,
-                        marginTop: 4,
-                        fontFamily: 'Inter, sans-serif',
-                      }}>
-                        YOU
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* 5. Entry Fee and Prize (with subtle divider line) */}
-                  <View style={{
-                    borderTopWidth: 1,
-                    borderTopColor: 'rgba(154, 169, 197, 0.15)',
-                    paddingTop: 16,
-                    paddingBottom: 16,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                  }}>
-                    {/* ENTRY */}
-                    <View style={{ flex: 1, paddingLeft: 4 }}>
-                      <Text style={{
-                        color: '#9AA9C5',
-                        fontSize: 10,
-                        fontWeight: '800',
-                        letterSpacing: 1,
-                        fontFamily: 'Inter, sans-serif',
-                      }}>
-                        ENTRY
-                      </Text>
-                      <Text style={{
-                        color: '#F8FAFC',
-                        fontSize: 20,
-                        fontWeight: '900',
-                        fontFamily: 'Inter, sans-serif',
-                        marginTop: 4,
-                      }}>
-                        100 ETB
-                      </Text>
-                    </View>
-
-                    {/* Thin vertical separator */}
-                    <View style={{
-                      width: 1,
-                      height: 32,
-                      backgroundColor: 'rgba(154, 169, 197, 0.15)',
-                      marginHorizontal: 12,
-                    }} />
-
-                    {/* POT */}
-                    <View style={{ flex: 1, paddingLeft: 4 }}>
-                      <Text style={{
-                        color: '#9AA9C5',
-                        fontSize: 10,
-                        fontWeight: '800',
-                        letterSpacing: 1,
-                        fontFamily: 'Inter, sans-serif',
-                      }}>
-                        POT
-                      </Text>
-                      <Text style={{
-                        color: '#F5BD62',
-                        fontSize: 20,
-                        fontWeight: '900',
-                        fontFamily: 'Inter, sans-serif',
-                        marginTop: 4,
-                      }}>
-                        450 ETB
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* 6. Primary Action: Pill-shaped white button */}
-                  <TouchableOpacity
-                    onPress={() => router.push({ pathname: '/(authed)/home/spin', params: { mode: "5_PLAYER" } } as any)}
-                    activeOpacity={0.9}
-                    style={{
-                      backgroundColor: '#FFFFFF',
-                      borderRadius: 28,
-                      height: 52,
-                      width: '100%',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      marginTop: 4,
-                      shadowColor: '#000',
-                      shadowOffset: { width: 0, height: 4 },
-                      shadowOpacity: 0.15,
-                      shadowRadius: 8,
-                    }}
-                  >
-                    <Text style={{
-                      color: '#0B1225',
-                      fontSize: 15,
-                      fontWeight: '800',
-                      letterSpacing: 1,
-                      fontFamily: 'Inter, sans-serif',
-                    }}>
-                      JOIN ROOM
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* Support & Channel group pinned to bottom */}
-                <View style={{ gap: 12 }}>
-                  {/* XO Support Card */}
-                  <TouchableOpacity
-                    onPress={() => Linking.openURL('https://t.me/xoet_support').catch(() => { })}
-                    activeOpacity={0.85}
-                    style={[s.card, { paddingVertical: 14 }]}
-                  >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                      <View style={[s.quickActionIconCircle, { backgroundColor: "rgba(34, 211, 238, 0.1)", width: 36, height: 36, borderRadius: 18 }]}><Ionicons name="chatbubbles-outline" size={18} color="#22d3ee" /></View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800', fontFamily: 'Inter, sans-serif' }}>XO SUPPORT</Text>
-                        <Text style={{ color: '#8b93a7', fontSize: 10, fontWeight: '600', fontFamily: 'Inter, sans-serif', marginTop: 1 }}>Online 24/7 Support Channel</Text>
-                      </View>
-                      <Ionicons name="chevron-forward" size={16} color="#4b5563" />
-                    </View>
-                  </TouchableOpacity>
-
-                  {/* XO Channel Card */}
-                  <TouchableOpacity
-                    onPress={() => Linking.openURL('https://t.me/xoethiopia1').catch(() => { })}
-                    activeOpacity={0.85}
-                    style={[s.card, { paddingVertical: 14 }]}
-                  >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                      <View style={[s.quickActionIconCircle, { backgroundColor: "rgba(139, 92, 246, 0.1)", width: 36, height: 36, borderRadius: 18 }]}><Ionicons name="paper-plane-outline" size={18} color="#8b5cf6" /></View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800', fontFamily: 'Inter, sans-serif' }}>XO CHANNEL</Text>
-                        <Text style={{ color: '#8b93a7', fontSize: 10, fontWeight: '600', fontFamily: 'Inter, sans-serif', marginTop: 1 }}>Join our Telegram channel</Text>
-                      </View>
-                      <Ionicons name="chevron-forward" size={16} color="#4b5563" />
-                    </View>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-          </View>
-        </ScrollView>
-      ) : (
-        /* ================= ORIGINAL XO GAME TAB VIEW ================= */
-        <ScrollView style={s.mainScrollView} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
-          <View style={s.pageContentWrapper}>
-            <View style={s.threeColumnRow}>
-              {/* 1. LEFT SIDEBAR */}
-              <View style={s.leftSidebar}>
-                <View style={{ gap: 16 }}>
-                  {/* Card 1: User Profile & Balance */}
-                  <View style={s.card}>
-                    <View style={s.userCardHeader}>
-                      <View style={s.userCardAvatar}>
-                        <Text style={s.userCardAvatarText}>
-                          {user?.username ? user.username.slice(0, 1).toUpperCase() : "A"}
-                        </Text>
-                      </View>
-                      <View>
-                        <Text style={s.userCardName} numberOfLines={1}>{user?.username || (user?.number ? `User ${user.number.slice(-4)}` : "Set Your Name")}</Text>
-                        <View style={s.onlineRow}>
-                          <View style={s.onlineDot} />
-                          <Text style={s.onlineText}>Online</Text>
-                        </View>
-                      </View>
-                    </View>
-
-                    {/* Available Balance card */}
-                    <View style={s.tokensRow}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={s.tokenLabel}>AVAILABLE BALANCE</Text>
-                        <Text style={[s.tokenVal, { color: "#22d3ee" }]}>ETB {balance.toLocaleString()}</Text>
-                      </View>
-                      <TouchableOpacity onPress={refreshProfile} style={[s.tokenPlusBtn, { backgroundColor: "#22d3ee" }]} activeOpacity={0.8}>
-                        <Ionicons name="refresh" size={12} color="#0a0e1a" />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-
-                  {/* Card 2: Navigation Links (Height limits based on items) */}
-                  <View style={s.card}>
-                    <View style={{ justifyContent: "center" }}>
-                      <TouchableOpacity onPress={() => handleNavClick('home')} style={[s.navItem, s.navItemActive]} activeOpacity={0.8}>
-                        <View style={s.navItemActiveBar} />
-                        <Ionicons name="home" size={18} color="#8b5cf6" />
-                        <Text style={[s.navText, s.navTextActive]}>Home</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity onPress={() => handleNavClick('history')} style={s.navItem} activeOpacity={0.8}>
-                        <Ionicons name="time-outline" size={18} color="#8b93a7" />
-                        <Text style={s.navText}>History</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity onPress={() => handleNavClick('leaderboard')} style={s.navItem} activeOpacity={0.8}>
-                        <Ionicons name="trophy-outline" size={18} color="#8b93a7" />
-                        <Text style={s.navText}>Leaderboard</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity onPress={() => handleNavClick('transactions')} style={s.navItem} activeOpacity={0.8}>
-                        <Ionicons name="receipt-outline" size={18} color="#8b93a7" />
-                        <Text style={s.navText}>Transactions</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity onPress={() => handleNavClick('profile')} style={s.navItem} activeOpacity={0.8}>
-                        <Ionicons name="person-outline" size={18} color="#8b93a7" />
-                        <Text style={s.navText}>Profile</Text>
-                      </TouchableOpacity>
-
-                      {(user?.role === 'admin' || user?.role === 'superadmin' || user?.role === 'maintenance') && (
-                        <TouchableOpacity onPress={() => handleNavClick('admin')} style={s.navItem} activeOpacity={0.8}>
-                          <Ionicons name="shield-checkmark-outline" size={18} color="#8b93a7" />
-                          <Text style={s.navText}>Admin</Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  </View>
-                </View>
-
-                {/* Card 3: Separate Wallet Information Box */}
-                <View style={s.card}>
-                  <Text style={s.sectionTitleSmall}>WALLET</Text>
-
-                  <View style={s.walletRow}>
-                    <Text style={s.walletLabel}>Deposit</Text>
-                    <Text style={[s.walletValSmall, { color: "#22c55e" }]}>+ 3,420 ETB</Text>
-                  </View>
-
-                  <View style={s.walletRow}>
-                    <Text style={s.walletLabel}>Withdraw</Text>
-                    <Text style={[s.walletValSmall, { color: "#ef4444" }]}>- 420 ETB</Text>
-                  </View>
-
-                  <View style={s.walletRow}>
-                    <Text style={s.walletLabel}>Transactions</Text>
-                    <Text style={s.walletValSecond}>12 today</Text>
-                  </View>
-
-                  {/* Direct wallet buttons */}
-                  <View style={s.walletButtons}>
-                    <TouchableOpacity onPress={() => setDepositVisible(true)} style={[s.walletBtnSmall, { borderColor: "#22d3ee" }]} activeOpacity={0.8}>
-                      <Text style={[s.walletBtnTextSmall, { color: "#22d3ee" }]}>DEPOSIT</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => setWithdrawVisible(true)} style={[s.walletBtnSmall, { borderColor: "#7c3aed" }]} activeOpacity={0.8}>
-                      <Text style={[s.walletBtnTextSmall, { color: "#7c3aed" }]}>WITHDRAW</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
-
-              {/* 2. CENTER COLUMN */}
-              <View style={[s.centerColumn, { flex: 1 }]}>
-                {/* Unified Quick Actions Row matching Spin tab */}
-                <View style={s.quickActionsRow}>
-                  {/* Card 1: Deposit */}
-                  <TouchableOpacity onPress={() => setDepositVisible(true)} style={s.quickActionCard} activeOpacity={0.85}>
-                    <View style={[s.quickActionIconCircle, { backgroundColor: "rgba(124, 58, 237, 0.1)" }]}>
-                      <Ionicons name="arrow-down" size={18} color="#7c3aed" />
-                    </View>
-                    <View>
-                      <Text style={s.quickActionLabel}>ADD FUNDS</Text>
-                      <Text style={s.quickActionVal}>DEPOSIT</Text>
-                    </View>
-                  </TouchableOpacity>
-
-                  {/* Card 2: Withdraw */}
-                  <TouchableOpacity onPress={() => setWithdrawVisible(true)} style={s.quickActionCard} activeOpacity={0.85}>
-                    <View style={[s.quickActionIconCircle, { backgroundColor: "rgba(239, 68, 68, 0.1)" }]}>
-                      <Ionicons name="arrow-up" size={18} color="#ef4444" />
-                    </View>
-                    <View>
-                      <Text style={s.quickActionLabel}>CASH OUT</Text>
-                      <Text style={s.quickActionVal}>WITHDRAW</Text>
-                    </View>
-                  </TouchableOpacity>
-
-                  {/* Card 3: Transaction */}
-                  <TouchableOpacity onPress={() => router.push('/(authed)/home/transactions' as any)} style={[s.quickActionCard, s.quickActionCardGlow]} activeOpacity={0.85}>
-                    <View style={[s.quickActionIconCircle, { backgroundColor: "rgba(34, 211, 238, 0.1)" }]}>
-                      <Ionicons name="swap-horizontal" size={18} color="#22d3ee" />
-                    </View>
-                    <View>
-                      <Text style={s.quickActionLabel}>VIEW ALL</Text>
-                      <Text style={[s.quickActionVal, { color: "#22d3ee" }]}>TRANSACTIONS</Text>
-                    </View>
-                  </TouchableOpacity>
-                </View>
-
-                {/* Main Game Card */}
-                <View style={[s.card, { padding: 32, alignItems: 'center' }]}>
-                  <View style={{ flexDirection: isDesktopRow ? 'row' : 'column', alignItems: 'center', justifyContent: 'center', gap: 40, width: '100%' }}>
-                    <View style={{ flex: 1.2, alignItems: 'center', justifyContent: 'center' }}>
-                      <BoardDemo isDesktop={true} />
-                    </View>
-                    <View style={{ flex: 1, alignSelf: 'stretch', justifyContent: 'center', alignItems: 'center' }}>
-                      <WebPressable
-                        onPress={isBanned || isSearching ? undefined : openRoomSheet}
-                        disabled={isBanned || isSearching}
-                        style={({ hovered }: { pressed: boolean; hovered: boolean }) => [{
-                          borderRadius: 30, overflow: 'hidden', shadowColor: '#22d3ee',
-                          shadowOffset: { width: 0, height: 8 },
-                          shadowOpacity: hovered && !isBanned && !isSearching ? 0.8 : 0.5,
-                          shadowRadius: 24, alignSelf: 'stretch',
-                        }, (isBanned || isSearching) && { opacity: 0.45 }]}
-                      >
-                        <LinearGradient
-                          colors={isBanned ? ['#203a3a', '#152a2a'] : ['#8b5cf6', '#7c3aed']}
-                          start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                          style={{ paddingVertical: 18, alignItems: 'center', justifyContent: 'center' }}
-                        >
-                          <Text style={{ color: '#fff', fontSize: 18, fontWeight: '900', letterSpacing: 1, fontFamily: 'Inter, sans-serif' }}>
-                            {isBanned ? (isEN ? 'SUSPENDED' : 'ታግዷል') : isSearching ? (isEN ? 'SEARCHING...' : 'እየፈለገ ነው...') : (isEN ? 'START MATCH' : 'ግጥሚያ ጀምር')}
-                          </Text>
-                        </LinearGradient>
-                      </WebPressable>
-
-                      <Text style={{ color: '#8b93a7', fontSize: 10, fontWeight: '800', letterSpacing: 1, marginTop: 12, fontFamily: 'Inter, sans-serif' }}>
-                        {isEN ? "ENTRY: ETB 10.00" : "መግቢያ፡ 10.00 ብር"}
-                      </Text>
-
-                      <WebPressable
-                        onPress={() => setFriendModalVisible(true)}
-                        style={({ hovered }: { pressed: boolean; hovered: boolean }) => [{
-                          marginTop: 16, alignSelf: 'stretch', backgroundColor: 'transparent',
-                          borderWidth: 1.5, borderColor: '#7c3aed', borderRadius: 30,
-                        }]}
-                      >
-                        <View style={{ paddingVertical: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-                          <Ionicons name="people-outline" size={16} color="#fff" style={{ marginRight: 8 }} />
-                          <Text style={{ color: '#fff', fontSize: 13, fontWeight: '900', letterSpacing: 1, fontFamily: 'Inter, sans-serif' }}>
-                            {isEN ? 'PLAY WITH FRIEND' : 'ከጓደኛ ጋር ይጫወቱ'}
-                          </Text>
-                        </View>
-                      </WebPressable>
-                    </View>
-                  </View>
-                </View>
-
-                {/* Rooms 1-3 moved inside the center column */}
-                <View style={{ flexDirection: 'row', gap: 16, marginTop: 12 }}>
-                  {/* Card 1: Room 1 */}
-                  <View style={[s.bottomRoomCard, { minHeight: 180, padding: 16 }]}>
-                    <View style={s.roomHeaderRow}>
-                      <View>
-                        <Text style={[s.roomLabel, { color: "#8b5cf6" }]}>LOW STAKES</Text>
-                        <Text style={[s.roomTitleWhite, { fontSize: 20 }]}>ROOM 1</Text>
-                      </View>
-                    </View>
-                    <View style={[s.roomCenterSection, { marginVertical: 6 }]}>
-                      <Text style={[s.playersCountText, { color: "#8b5cf6", fontSize: 28 }]}>10-100</Text>
-                      <Text style={s.playersCountLabel}>ETB STAKES</Text>
-                    </View>
-                    <View style={s.roomBottomSection}>
-                      <View>
-                        <Text style={s.roomBetLabel}>COMMISSION</Text>
-                        <Text style={s.roomBetVal}>10%</Text>
-                      </View>
-                      <TouchableOpacity onPress={() => { openRoomSheet(); onSelectRoom("R1"); }} style={[s.roomJoinBtn, { backgroundColor: "#8b5cf6", paddingHorizontal: 16, paddingVertical: 8 }]} activeOpacity={0.8}>
-                        <Text style={s.roomJoinBtnText}>JOIN</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-
-                  {/* Card 2: Room 2 */}
-                  <View style={[s.bottomRoomCard, s.recommendedRoomCard, { flex: 1.2, minHeight: 180, padding: 16 }]}>
-                    <View style={s.roomHeaderRow}>
-                      <View style={s.recommendedBadge}>
-                        <Text style={s.recommendedBadgeText}>RECOMMENDED</Text>
-                      </View>
-                    </View>
-                    <View style={[s.roomCenterSection, { marginVertical: 6 }]}>
-                      <Text style={[s.playersCountText, { color: "#22d3ee", fontSize: 28 }]}>100-1,000</Text>
-                      <Text style={s.playersCountLabel}>ETB STAKES</Text>
-                    </View>
-                    <View style={s.roomBottomSection}>
-                      <View>
-                        <Text style={s.roomBetLabel}>COMMISSION</Text>
-                        <Text style={[s.roomBetVal, { color: "#22d3ee" }]}>10%</Text>
-                      </View>
-                      <TouchableOpacity onPress={() => { openRoomSheet(); onSelectRoom("R2"); }} style={[s.roomJoinBtn, { backgroundColor: "#22d3ee", paddingHorizontal: 16, paddingVertical: 8 }]} activeOpacity={0.8}>
-                        <Text style={[s.roomJoinBtnText, { color: "#0a0e1a" }]}>JOIN</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-
-                  {/* Card 3: Room 3 */}
-                  <View style={[s.bottomRoomCard, { minHeight: 180, padding: 16 }]}>
-                    <View style={s.roomHeaderRow}>
-                      <View>
-                        <Text style={[s.roomLabel, { color: "#06b6d4" }]}>HIGH STAKES</Text>
-                        <Text style={[s.roomTitleWhite, { fontSize: 20 }]}>ROOM 3</Text>
-                      </View>
-                    </View>
-                    <View style={[s.roomCenterSection, { marginVertical: 6 }]}>
-                      <Text style={[s.playersCountText, { color: "#06b6d4", fontSize: 28 }]}>1,000-10,000</Text>
-                      <Text style={s.playersCountLabel}>ETB STAKES</Text>
-                    </View>
-                    <View style={s.roomBottomSection}>
-                      <View>
-                        <Text style={s.roomBetLabel}>COMMISSION</Text>
-                        <Text style={s.roomBetVal}>10%</Text>
-                      </View>
-                      <TouchableOpacity onPress={() => { openRoomSheet(); onSelectRoom("R3"); }} style={[s.roomJoinBtn, { backgroundColor: "#06b6d4", paddingHorizontal: 16, paddingVertical: 8 }]} activeOpacity={0.8}>
-                        <Text style={s.roomJoinBtnText}>JOIN</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </View>
-              </View>
-
-              {/* 3. RIGHT SIDEBAR (fixed width 320px) */}
-              <View style={[s.rightSidebar, { gap: 12 }]}>
-                {/* Top leaders card */}
-                <View style={s.card}>
-                  <View style={s.leaderboardHeader}>
-                    <Text style={s.leaderboardTitle}>TOP LEADERS</Text>
-                    <Ionicons name="trophy" size={18} color="#f5b642" />
-                  </View>
-                  <Text style={s.leaderboardStats}>248 online  •  56 friends  •  48 playing</Text>
-
-                  {/* Standings entries */}
-                  <View style={s.leadersList}>
-                    {weeklyLeaderboard && weeklyLeaderboard.length > 0 ? (
-                      weeklyLeaderboard.slice(0, 5).map((lead, idx) => {
-                        const rank = idx + 1;
-                        const hasCrown = rank === 1;
-                        const circleBg = rank === 1 ? "#f5b642" : (rank === 2 ? "#b9cacb" : (rank === 3 ? "#f97316" : (rank === 4 ? "#a855f7" : "#22c55e")));
-                        return (
-                          <View key={lead.id || idx} style={s.leaderRow}>
-                            <View style={[s.leaderBadge, { backgroundColor: circleBg }]}>
-                              <Text style={s.leaderBadgeText}>{rank}</Text>
-                            </View>
-                            <View style={s.leaderDetails}>
-                              <Text style={s.leaderName} numberOfLines={1}>@{lead.username || "user"}</Text>
-                              <Text style={s.leaderVal}>{lead.wins} Wins</Text>
-                            </View>
-                            {hasCrown && <Ionicons name="trophy" size={16} color="#f5b642" />}
-                          </View>
-                        );
-                      })
-                    ) : (
-                      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 200 }}>
-                        <Ionicons name="trophy-outline" size={28} color="rgba(255,255,255,0.1)" style={{ marginBottom: 8 }} />
-                        <Text style={{ color: "rgba(255, 255, 255, 0.4)", fontSize: 13, fontWeight: "600", fontFamily: "Inter, sans-serif" }}>None</Text>
-                      </View>
-                    )}
-                  </View>
-
-                  {/* View Standings */}
-                  <TouchableOpacity onPress={() => handleNavClick('leaderboard')} style={s.standingsBtn} activeOpacity={0.8}>
-                    <Text style={s.standingsBtnText}>VIEW ALL LEADERS</Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* Support & Channel group pinned to bottom */}
-                <View style={{ gap: 12 }}>
-                  {/* XO Support Card */}
-                  <TouchableOpacity
-                    onPress={() => Linking.openURL('https://t.me/xoet_support').catch(() => { })}
-                    activeOpacity={0.85}
-                    style={[s.card, { paddingVertical: 14 }]}
-                  >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                      <View style={[s.quickActionIconCircle, { backgroundColor: "rgba(34, 211, 238, 0.1)", width: 36, height: 36, borderRadius: 18 }]}><Ionicons name="chatbubbles-outline" size={18} color="#22d3ee" /></View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800', fontFamily: 'Inter, sans-serif' }}>XO SUPPORT</Text>
-                        <Text style={{ color: '#8b93a7', fontSize: 10, fontWeight: '600', fontFamily: 'Inter, sans-serif', marginTop: 1 }}>Online 24/7 Support Channel</Text>
-                      </View>
-                      <Ionicons name="chevron-forward" size={16} color="#4b5563" />
-                    </View>
-                  </TouchableOpacity>
-
-                  {/* XO Channel Card */}
-                  <TouchableOpacity
-                    onPress={() => Linking.openURL('https://t.me/xoethiopia1').catch(() => { })}
-                    activeOpacity={0.85}
-                    style={[s.card, { paddingVertical: 14 }]}
-                  >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                      <View style={[s.quickActionIconCircle, { backgroundColor: "rgba(139, 92, 246, 0.1)", width: 36, height: 36, borderRadius: 18 }]}><Ionicons name="paper-plane-outline" size={18} color="#8b5cf6" /></View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800', fontFamily: 'Inter, sans-serif' }}>XO CHANNEL</Text>
-                        <Text style={{ color: '#8b93a7', fontSize: 10, fontWeight: '600', fontFamily: 'Inter, sans-serif', marginTop: 1 }}>Join our Telegram channel</Text>
-                      </View>
-                      <Ionicons name="chevron-forward" size={16} color="#4b5563" />
-                    </View>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-
-          </View>
-        </ScrollView>
-      )}
-
-      {/* Notifications & Invite Modals */}
-      <FriendMatchModal
-        visible={friendModalVisible}
-        onClose={() => { setFriendModalVisible(false); setInviteResult(null); }}
-        onSendInvite={handleSendInvite}
-        inviteResult={inviteResult}
+      {/* Real Spin Stake Selector Modal */}
+      <SpinBetSelectModal
+        visible={spinBetModalVisible}
+        onClose={() => setSpinBetModalVisible(false)}
+        userBalance={balance}
+        language={language}
+        onConfirm={(amount) => {
+          router.push({
+            pathname: "/(authed)/home/spin",
+            params: { mode: "RAIL", stake: String(amount) },
+          } as any);
+        }}
       />
-      <PromotionPopup config={promoConfig} visible={showPromo} onClose={() => setShowPromo(false)} />
-      <PwaInstallModal visible={pwaModalVisible} onClose={() => setPwaModalVisible(false)} />
 
-      {/* Stake Modal */}
-      <Modal visible={showStakeModal} transparent animationType="slide">
-        <View style={s.modalOverlay}>
-          <View style={s.stakeModalContent}>
-            <View style={s.stakeModalHeader}>
-              <Text style={s.stakeModalTitle}>
-                {isEN ? "CHOOSE YOUR WAGER" : "የእንጨት መጠን ይምረጡ"}
-              </Text>
-              <TouchableOpacity onPress={() => setShowStakeModal(false)}>
-                <Ionicons name="close" size={24} color="#8b93a7" />
-              </TouchableOpacity>
-            </View>
+      {/* ── UNIFIED DESKTOP HEADER (Brand Compliant, No Purple) ── */}
+      <DesktopHeader
+        user={user}
+        language={language}
+        handleLanguageToggle={handleLanguageToggle}
+        selectedTab={selectedTab}
+        onSelectTab={setSelectedTab}
+        setPwaModalVisible={setPwaModalVisible}
+        bgMusicPlaying={bgMusicPlaying}
+        onToggleSound={onToggleSound}
+        unreadCount={unreadCount}
+        setNotificationsVisible={setNotificationsVisible}
+        router={router}
+      />
 
-            <Text style={s.stakeModalDesc}>
-              {isEN
-                ? "Select a preset chip or enter a custom stake amount to enter the multi-odds XO Spin room."
-                : "ቀድሞ የተቀመጠ ቺፕ ይምረጡ ወይም ብጁ የእንጨት መጠን ያስገቡ ወደ XO Spin ክፍል ለመግባት።"}
-            </Text>
+      {/* ── MAIN THREE-COLUMN WORKSPACE ── */}
+      <ScrollView style={s.mainScrollView} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={s.pageContentWrapper}>
+          <View style={s.threeColumnRow}>
+            
+            {/* ── 1. UNIFIED LEFT SIDEBAR (Brand Compliant, Consistent Across ALL Pages) ── */}
+            <DesktopSidebar
+              user={user}
+              balance={balance}
+              currentScreen="home"
+              refreshProfile={(force?: boolean) => { try { refreshProfile?.(force ?? true); } catch (_) {} }}
+              setDepositVisible={setDepositVisible}
+              setWithdrawVisible={setWithdrawVisible}
+              router={router}
+            />
 
-            {spinError && (
-              <Text style={{ color: "#ef4444", fontSize: 13, fontWeight: "700", textAlign: "center", marginBottom: 12 }}>
-                {spinError}
-              </Text>
-            )}
+            {/* ── 2. CENTER COLUMN: COVERFLOW 3-CARD CAROUSEL + WELCOME BONUS ── */}
+            <View style={s.centerColumn}>
+              {/* Carousel Container with Overlaid Arrows */}
+              <View style={s.carouselWrapper}>
+                
+                {/* Left Navigation Arrow */}
+                <TouchableOpacity
+                  onPress={handlePrevCard}
+                  style={s.carouselArrowLeft}
+                  activeOpacity={0.85}
+                  accessibilityLabel="Previous Card"
+                >
+                  <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+                </TouchableOpacity>
 
-            {/* Chips selector */}
-            <View style={s.chipContainer}>
-              {chips.map((chip) => {
-                const isActive = stakeAmount === chip;
-                return (
+                {/* Right Navigation Arrow */}
+                <TouchableOpacity
+                  onPress={handleNextCard}
+                  style={s.carouselArrowRight}
+                  activeOpacity={0.85}
+                  accessibilityLabel="Next Card"
+                >
+                  <Ionicons name="chevron-forward" size={24} color="#FFFFFF" />
+                </TouchableOpacity>
+
+                {/* 3 Game Columns: Left (scale 0.8) - Center (BIG active scale 1.0) - Right (scale 0.8) with horizontal spring slide */}
+                <Animated.View style={[s.threeCardsRow, { transform: [{ translateX: slideAnim }] }]}>
+                  {visibleCards.map(({ tab, position }) => {
+                    const isCenter = position === "center";
+                    return (
+                      <View
+                        key={tab}
+                        style={[
+                          s.coverflowColumn,
+                          isCenter ? s.coverflowColumnCenter : s.coverflowColumnSide,
+                        ]}
+                      >
+                        {/* 1. Main Game Card (1 primary button inside) */}
+                        {renderCoverflowCard(tab, position)}
+
+                        {/* 2. Outside Feature Shelf directly underneath */}
+                        <View style={[s.outerShelfWrapper, !isCenter && { opacity: 0.55 }]}>
+                          {renderOuterShelf(tab, isCenter)}
+                        </View>
+                      </View>
+                    );
+                  })}
+                </Animated.View>
+
+                {/* Bottom Indicators */}
+                <View style={s.indicatorsRow}>
                   <TouchableOpacity
-                    key={chip}
-                    onPress={() => {
-                      setStakeAmount(chip);
-                      setSpinError(null);
-                    }}
-                    style={[s.chipButton, isActive && s.chipButtonActive]}
-                  >
-                    <Text style={[s.chipText, isActive && s.chipTextActive]}>
-                      {chip} ETB
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+                    onPress={() => setSelectedTab("XO_GAME")}
+                    style={[
+                      s.indicatorPill,
+                      {
+                        backgroundColor: selectedTab === "XO_GAME" ? "#00BFFF" : "#233041",
+                        width: selectedTab === "XO_GAME" ? 28 : 10,
+                      }
+                    ]}
+                  />
+                  <TouchableOpacity
+                    onPress={() => setSelectedTab("SPIN")}
+                    style={[
+                      s.indicatorPill,
+                      {
+                        backgroundColor: selectedTab === "SPIN" ? "#FF1744" : "#233041",
+                        width: selectedTab === "SPIN" ? 28 : 10,
+                      }
+                    ]}
+                  />
+                  <TouchableOpacity
+                    onPress={() => setSelectedTab("COMING_SOON")}
+                    style={[
+                      s.indicatorPill,
+                      {
+                        backgroundColor: selectedTab === "COMING_SOON" ? "#8893A7" : "#233041",
+                        width: selectedTab === "COMING_SOON" ? 28 : 10,
+                      }
+                    ]}
+                  />
+                </View>
+              </View>
+
+              {/* ── FULL-WIDTH WELCOME BONUS CLAIMED CARD (Per User Request) ── */}
+              <View style={s.desktopWelcomeBonusCard}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+                  <View style={s.bonusIconBox}>
+                    <Ionicons name="gift" size={24} color="#F5B642" />
+                  </View>
+                  <View>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                      <Text style={s.bonusTitle}>WELCOME BONUS</Text>
+                      <View style={s.bonusClaimedPill}>
+                        <Text style={s.bonusClaimedText}>CLAIMED</Text>
+                      </View>
+                    </View>
+                    <Text style={s.bonusDesc}>{isEN ? "You have received your welcome reward" : "የእንኳን ደህና መጡ ሽልማትዎን ወስደዋል"}</Text>
+                  </View>
+                </View>
+
+                <View style={s.bonusActionBtn}>
+                  <Ionicons name="checkmark-circle" size={16} color="#10B981" />
+                  <Text style={s.bonusActionText}>CLAIMED</Text>
+                </View>
+              </View>
             </View>
 
-            {/* Custom Input */}
-            <View style={s.customInputWrapper}>
-              <Text style={s.customInputLabel}>
-                {isEN ? "CUSTOM AMOUNT (ETB)" : "ብጁ መጠን (ETB)"}
-              </Text>
-              <TextInput
-                style={s.customInput}
-                value={stakeAmount}
-                onChangeText={(val) => {
-                  setStakeAmount(val);
-                  setSpinError(null);
-                }}
-                keyboardType="numeric"
-                placeholder="100"
-                placeholderTextColor="rgba(255,255,255,0.2)"
-              />
-            </View>
+            {/* ── 3. RIGHT SIDEBAR: LEADERBOARD + 2 LINKS (TELEGRAM & SUPPORT) ── */}
+            <View style={s.rightSidebar}>
+              <View style={s.leaderboardCard}>
+                {/* Header */}
+                <View style={s.leaderboardHeader}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <View style={{ width: 4, height: 16, borderRadius: 2, backgroundColor: "#00BFFF" }} />
+                    <Text style={s.leaderboardTitle}>WEEKLY LEADERBOARD</Text>
+                  </View>
+                  <Text style={s.leaderboardSubtitle}>Top 8 Ranks</Text>
+                </View>
 
-            {/* Current Balance */}
-            <View style={s.balanceStatusRow}>
-              <Text style={s.balanceStatusLabel}>
-                {isEN ? "AVAILABLE BALANCE:" : "ያለዎት ቀሪ ሂሳብ:"}
-              </Text>
-              <Text style={s.balanceStatusValue}>
-                ETB {balance.toLocaleString()}
-              </Text>
-            </View>
+                {/* Player List (8 rows) */}
+                <View style={{ gap: 8 }}>
+                  {top8Players.length === 0 ? (
+                    <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 32, gap: 8 }}>
+                      <Ionicons name="trophy-outline" size={28} color="rgba(255,255,255,0.2)" />
+                      <Text style={{ color: '#8893A7', fontSize: 12, fontStyle: 'italic', textAlign: 'center' }}>
+                        Weekly leaderboard active!{'\n'}Play matches to claim rank #1.
+                      </Text>
+                    </View>
+                  ) : (
+                    top8Players.map((champ) => {
+                    const rankColor = champ.rank === 1 ? "#F5B642" : champ.rank === 2 ? "#00BFFF" : champ.rank === 3 ? "#FF1744" : "#8893A7";
+                    return (
+                      <View key={champ.rank} style={s.leaderboardRow}>
+                        {/* Rank Badge */}
+                        <View style={[s.rankNumberBadge, { borderColor: rankColor === '#8893A7' ? '#233041' : rankColor }]}>
+                          <Text style={[s.rankNumberText, { color: rankColor }]}>#{champ.rank}</Text>
+                        </View>
 
-            {/* Actions */}
-            <View style={s.modalActionRow}>
-              <TouchableOpacity onPress={() => setShowStakeModal(false)} style={s.modalCancelBtn}>
-                <Text style={s.modalCancelBtnText}>
-                  {isEN ? "CANCEL" : "ሰርዝ"}
+                        {/* Avatar & Username */}
+                        <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 8 }}>
+                          {champ.avatar ? (
+                            <Image source={{ uri: champ.avatar }} style={s.playerAvatarImg} resizeMode="cover" />
+                          ) : (
+                            <View style={[s.playerAvatarImg, { backgroundColor: "#1F2937", alignItems: "center", justifyContent: "center" }]}>
+                              <Text style={{ color: "#8893A7", fontSize: 10, fontWeight: "800" }}>{champ.username.slice(0, 1)}</Text>
+                            </View>
+                          )}
+                          <View>
+                            <Text numberOfLines={1} style={s.playerUsername}>{champ.username}</Text>
+                            <Text style={s.playerWins}>{champ.wins} wins this week</Text>
+                          </View>
+                        </View>
+
+                        {/* Prize Amount */}
+                        <View style={s.playerPrizeBadge}>
+                          <Text style={[s.playerPrizeText, { color: rankColor }]}>
+                            {champ.prize} ETB
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  }))}
+                </View>
+
+                {/* View All / See More Button */}
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    try { playTickSound(); } catch {}
+                    haptics.tap();
+                    router.push('/(authed)/home/leaderboard');
+                  }}
+                  style={s.seeMoreBtn}
+                >
+                  <Text style={s.seeMoreBtnText}>VIEW ALL LEADERBOARD</Text>
+                  <Ionicons name="arrow-forward" size={14} color="#00BFFF" />
+                </TouchableOpacity>
+              </View>
+
+              {/* 2 LINKS: TELEGRAM COMMUNITY & 24/7 SUPPORT (Per User Request) */}
+              <View style={[s.leaderboardCard, { marginTop: 16 }]}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                  <Ionicons name="globe-outline" size={17} color="#00BFFF" />
+                  <Text style={s.leaderboardTitle}>COMMUNITY & SUPPORT</Text>
+                </View>
+
+                <Text style={{ color: "#8893A7", fontSize: 11.5, lineHeight: 16, marginBottom: 14 }}>
+                  Connect with fellow players or reach out for instant deposit & withdrawal assistance.
                 </Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleConfirmSpin} style={s.modalConfirmBtn}>
-                <Text style={s.modalConfirmBtnText}>
-                  {isEN ? "CONFIRM" : "አረጋግጥ"}
-                </Text>
-              </TouchableOpacity>
+
+                {/* Link 1: Telegram Channel */}
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={() => router.push('https://t.me/xoethiopia' as any)}
+                  style={[s.supportLinkBtn, { backgroundColor: "rgba(0, 191, 255, 0.12)", borderColor: "rgba(0, 191, 255, 0.4)" }]}
+                >
+                  <Ionicons name="paper-plane" size={15} color="#00BFFF" />
+                  <Text style={[s.supportLinkBtnText, { color: "#00BFFF" }]}>JOIN TELEGRAM CHANNEL</Text>
+                </TouchableOpacity>
+
+                {/* Link 2: 24/7 Live Support */}
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={() => router.push('https://t.me/xoetsupport' as any)}
+                  style={[s.supportLinkBtn, { backgroundColor: "rgba(16, 185, 129, 0.12)", borderColor: "rgba(16, 185, 129, 0.4)", marginTop: 8 }]}
+                >
+                  <Ionicons name="headset" size={15} color="#10B981" />
+                  <Text style={[s.supportLinkBtnText, { color: "#10B981" }]}>24/7 LIVE SUPPORT</Text>
+                </TouchableOpacity>
+              </View>
             </View>
+
           </View>
         </View>
-      </Modal>
+      </ScrollView>
     </View>
-  );
-}
-
-const polarToCartesian = (cx: number, cy: number, r: number, angleInDegrees: number) => {
-  const angleInRadians = (angleInDegrees - 90) * Math.PI / 180.0;
-  return {
-    x: cx + r * Math.cos(angleInRadians),
-    y: cy + r * Math.sin(angleInRadians),
-  };
-};
-
-const getArcPath = (cx: number, cy: number, r: number, startAngle: number, endAngle: number) => {
-  const start = polarToCartesian(cx, cy, r, endAngle);
-  const end = polarToCartesian(cx, cy, r, startAngle);
-  const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
-  return [
-    "M", cx, cy,
-    "L", start.x, start.y,
-    "A", r, r, 0, largeArcFlag, 0, end.x, end.y,
-    "Z"
-  ].join(" ");
-};
-
-function SpinWheelSvg({
-  size,
-  faded,
-  mode,
-  showPointer = true,
-  onlyPointer = false,
-}: {
-  size: number;
-  faded?: boolean;
-  mode?: "5_PLAYER" | "RAIL";
-  showPointer?: boolean;
-  onlyPointer?: boolean;
-}) {
-  const cx = size / 2;
-  const cy = size / 2;
-  const r = size * 0.40;
-
-  if (onlyPointer) {
-    return (
-      <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-        <Defs>
-          <RadialGradient id="centerHubGrad" cx="50%" cy="50%" r="50%" fx="30%" fy="30%">
-            <Stop offset="0%" stopColor="#ffffff" />
-            <Stop offset="35%" stopColor="#fde047" />
-            <Stop offset="75%" stopColor="#ca8a04" />
-            <Stop offset="100%" stopColor="#854d0e" />
-          </RadialGradient>
-          <SvgLinearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <Stop offset="0%" stopColor="#fde047" />
-            <Stop offset="50%" stopColor="#ca8a04" />
-            <Stop offset="100%" stopColor="#854d0e" />
-          </SvgLinearGradient>
-        </Defs>
-        <G>
-          {/* Outer shadow of pointer */}
-          <Path
-            d={`M ${cx - size * 0.04} ${cy - r * 1.15} L ${cx + size * 0.04} ${cy - r * 1.15} L ${cx} ${cy - r * 0.95} Z`}
-            fill="rgba(0,0,0,0.4)"
-          />
-          {/* Main pointer body */}
-          <Path
-            d={`M ${cx - size * 0.035} ${cy - r * 1.18} L ${cx + size * 0.035} ${cy - r * 1.18} L ${cx} ${cy - r * 0.98} Z`}
-            fill="url(#goldGrad)"
-            stroke="#78350f"
-            strokeWidth={1.5}
-          />
-          {/* Inner highlights */}
-          <Path
-            d={`M ${cx - size * 0.015} ${cy - r * 1.16} L ${cx + size * 0.015} ${cy - r * 1.16} L ${cx} ${cy - r * 1.02} Z`}
-            fill="#fef08a"
-            opacity={0.7}
-          />
-        </G>
-      </Svg>
-    );
-  }
-
-  let sectors = [];
-  if (mode === "RAIL") {
-    sectors = [
-      { value: "15%", color: "#a855f7", angle: 54 },
-      { value: "25%", color: "#22c55e", angle: 90 },
-      { value: "10%", color: "#22d3ee", angle: 36 },
-      { value: "35%", color: "#f97316", angle: 126 },
-      { value: "15%", color: "#ef4444", angle: 54 },
-    ];
-  } else {
-    sectors = [
-      { value: "20%", color: "#a855f7", angle: 72 },
-      { value: "20%", color: "#22c55e", angle: 72 },
-      { value: "20%", color: "#22d3ee", angle: 72 },
-      { value: "20%", color: "#f97316", angle: 72 },
-      { value: "20%", color: "#ef4444", angle: 72 },
-    ];
-  }
-
-  let accumulatedAngle = 0;
-
-  return (
-    <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ opacity: faded ? 0.35 : 1 }}>
-      <Defs>
-        <RadialGradient id="wheelGlow" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
-          <Stop offset="0%" stopColor="#a855f7" stopOpacity={0.5} />
-          <Stop offset="70%" stopColor="#a855f7" stopOpacity={0.15} />
-          <Stop offset="100%" stopColor="#a855f7" stopOpacity={0} />
-        </RadialGradient>
-        <RadialGradient id="centerHubGrad" cx="50%" cy="50%" r="50%" fx="30%" fy="30%">
-          <Stop offset="0%" stopColor="#ffffff" />
-          <Stop offset="35%" stopColor="#fde047" />
-          <Stop offset="75%" stopColor="#ca8a04" />
-          <Stop offset="100%" stopColor="#854d0e" />
-        </RadialGradient>
-        <SvgLinearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <Stop offset="0%" stopColor="#fde047" />
-          <Stop offset="50%" stopColor="#ca8a04" />
-          <Stop offset="100%" stopColor="#854d0e" />
-        </SvgLinearGradient>
-      </Defs>
-
-      {/* Wheel shadow/glow background */}
-      {!faded && <Circle cx={cx} cy={cy} r={r * 1.4} fill="url(#wheelGlow)" />}
-
-      {/* Outer Dark Rim Background */}
-      <Circle cx={cx} cy={cy} r={r * 1.09} fill="#0d0e1b" stroke="url(#goldGrad)" strokeWidth={3} />
-
-      {/* Slices */}
-      <G>
-        {sectors.map((sec, idx) => {
-          const startAngle = accumulatedAngle;
-          const endAngle = accumulatedAngle + sec.angle;
-          accumulatedAngle = endAngle;
-          const textAngle = startAngle + sec.angle / 2;
-          const textPos = polarToCartesian(cx, cy, r * 0.65, textAngle);
-          return (
-            <G key={idx}>
-              <Path d={getArcPath(cx, cy, r, startAngle, endAngle)} fill={sec.color} stroke="#0d0e1b" strokeWidth={2} />
-              {!faded && (
-                <SvgText
-                  x={textPos.x}
-                  y={textPos.y}
-                  fill="#ffffff"
-                  fontSize={size * 0.05}
-                  fontWeight="900"
-                  textAnchor="middle"
-                  alignmentBaseline="middle"
-                >
-                  {sec.value}
-                </SvgText>
-              )}
-            </G>
-          );
-        })}
-      </G>
-
-      {/* Inner gold divider ring */}
-      <Circle cx={cx} cy={cy} r={r} stroke="url(#goldGrad)" strokeWidth={4} fill="none" />
-
-      {/* Outer gold rim ring with lights */}
-      <Circle cx={cx} cy={cy} r={r * 1.04} stroke="url(#goldGrad)" strokeWidth={size * 0.06} fill="none" />
-
-      {/* Glowing Bulbs / Lights on the rim */}
-      {!faded && (
-        <G>
-          {Array.from({ length: 18 }).map((_, i) => {
-            const angle = i * (360 / 18);
-            const pos = polarToCartesian(cx, cy, r * 1.04, angle);
-            // Alternate colors for standard arcade flashing effect
-            const isYellow = i % 2 === 0;
-            return (
-              <G key={i}>
-                {/* Glow ring */}
-                <Circle cx={pos.x} cy={pos.y} r={size * 0.018} fill={isYellow ? "#ca8a04" : "#ec4899"} opacity={0.4} />
-                <Circle cx={pos.x} cy={pos.y} r={size * 0.010} fill={isYellow ? "#fef08a" : "#fbcfe8"} />
-              </G>
-            );
-          })}
-        </G>
-      )}
-
-      {/* Center 3D gold hub */}
-      <Circle cx={cx} cy={cy} r={r * 0.19} fill="url(#goldGrad)" />
-      <Circle cx={cx} cy={cy} r={r * 0.15} fill="url(#centerHubGrad)" stroke="#78350f" strokeWidth={1} />
-      <Circle cx={cx} cy={cy} r={r * 0.06} fill="#ffffff" opacity={0.3} />
-
-      {/* Pointer at the top pointing down */}
-      {!faded && showPointer && (
-        <G>
-          {/* Outer shadow of pointer */}
-          <Path
-            d={`M ${cx - size * 0.04} ${cy - r * 1.15} L ${cx + size * 0.04} ${cy - r * 1.15} L ${cx} ${cy - r * 0.95} Z`}
-            fill="rgba(0,0,0,0.4)"
-          />
-          {/* Main pointer body */}
-          <Path
-            d={`M ${cx - size * 0.035} ${cy - r * 1.18} L ${cx + size * 0.035} ${cy - r * 1.18} L ${cx} ${cy - r * 0.98} Z`}
-            fill="url(#goldGrad)"
-            stroke="#78350f"
-            strokeWidth={1.5}
-          />
-          {/* Inner highlights */}
-          <Path
-            d={`M ${cx - size * 0.015} ${cy - r * 1.16} L ${cx + size * 0.015} ${cy - r * 1.16} L ${cx} ${cy - r * 1.02} Z`}
-            fill="#fef08a"
-            opacity={0.7}
-          />
-        </G>
-      )}
-    </Svg>
   );
 }
 
 const s = StyleSheet.create({
   rootContainer: {
     flex: 1,
-    backgroundColor: "#060713",
-    ...(Platform.OS === 'web' ? { height: "100vh", overflow: "hidden", width: "100%" } as any : {}),
+    backgroundColor: "#080F17", // Brand Deep Navy (Image 4)
   },
-
-  // Header Style (Larger scale)
-  header: {
-    height: 88,
-    borderBottomWidth: 1,
-    borderBottomColor: "#1f2540",
-    backgroundColor: "transparent",
-    justifyContent: "center",
-    paddingHorizontal: 40,
-  },
-  headerContentWrapper: {
-    width: "100%",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  logoContainer: { flexDirection: "row", alignItems: "center", gap: 12 },
-  logoImage: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 1.5,
-    borderColor: "#7c3aed",
-  },
-  logoText: { color: "#fff", fontSize: 18, fontWeight: "900", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" },
-
-  // Center toggle tabs
-  toggleContainer: {
-    flexDirection: "row",
-    backgroundColor: "#12172a",
-    borderRadius: 24,
-    padding: 4,
-    borderWidth: 1,
-    borderColor: "#1f2540",
-  },
-  toggleBtn: {
-    paddingHorizontal: 22,
-    paddingVertical: 9,
-    borderRadius: 20,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  toggleBtnActive: { backgroundColor: "#7c3aed" },
-  toggleBtnText: { color: "#8b93a7", fontSize: 12, fontWeight: "800", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" },
-  toggleBtnTextActive: { color: "#ffffff" },
-
-  // Right Cluster
-  utilityCluster: { flexDirection: "row", alignItems: "center", gap: 14 },
-  balancePill: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#12172a",
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: "#1f2540",
-    paddingLeft: 18,
-    paddingRight: 10,
-    paddingVertical: 8,
-  },
-  balanceLabel: { color: "#8b93a7", fontSize: 10, fontWeight: "700", letterSpacing: 0.5, marginRight: 10, fontFamily: "Inter, sans-serif" },
-  balanceVal: { color: "#22d3ee", fontSize: 15, fontWeight: "800", fontFamily: "Inter, sans-serif" },
-  refreshBtn: { marginLeft: 10, padding: 4 },
-
-  utilityBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: "#12172a",
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "#1f2540",
-    paddingHorizontal: 16,
-    paddingVertical: 9,
-  },
-  utilityBtnText: { color: "#8b93a7", fontSize: 11, fontWeight: "700", fontFamily: "Inter, sans-serif" },
-
-  bellBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#12172a",
-    borderWidth: 1,
-    borderColor: "#1f2540",
-    alignItems: "center",
-    justifyContent: "center",
-    position: "relative",
-  },
-  bellBadge: {
-    position: "absolute",
-    top: -2,
-    right: -2,
-    backgroundColor: "#ef4444",
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  bellBadgeText: { color: "#fff", fontSize: 8, fontWeight: "900", fontFamily: "Inter, sans-serif" },
-
-  profileChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    backgroundColor: "#12172a",
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: "#1f2540",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  profileChipAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#7c3aed",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  profileChipAvatarText: { color: "#fff", fontSize: 11, fontWeight: "900", fontFamily: "Inter, sans-serif" },
-  profileChipName: { color: "#fff", fontSize: 12, fontWeight: "700", fontFamily: "Inter, sans-serif" },
-  profileChipVip: { color: "#f5b642", fontSize: 9, fontWeight: "700", fontFamily: "Inter, sans-serif" },
-
-  // Desktop tab bar
-  desktopTabBar: {
-    flexDirection: "row",
-    backgroundColor: "#12172a",
-    borderRadius: 20,
-    padding: 4,
-    borderWidth: 1,
-    borderColor: "#1f2540",
-  },
-  desktopTabBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 22,
-    paddingVertical: 8,
-    borderRadius: 16,
-  },
-  desktopTabBtnActive: {
-    backgroundColor: "#7c3aed",
-    ...(Platform.OS === 'web' ? {
-      backgroundImage: "linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)",
-      boxShadow: "0 4px 12px rgba(124, 58, 237, 0.4)"
-    } as any : {}),
-  },
-  desktopTabBtnText: {
-    color: "#8b93a7",
-    fontSize: 12,
-    fontWeight: "800",
-    fontFamily: "Inter, sans-serif",
-  },
-  desktopTabBtnTextActive: {
-    color: "#ffffff",
-  },
-
-  headerActionsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  walletIndicator: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: "#12172a",
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#1f2540",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  walletIndicatorBadge: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "#22d3ee",
-  },
-  walletBalanceText: {
-    color: "#fff",
-    fontSize: 13,
-    fontWeight: "800",
-    fontFamily: "Inter, sans-serif",
-  },
-  langSelectBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: "#12172a",
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "#1f2540",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  langSelectBtnText: {
-    color: "#8b93a7",
-    fontSize: 11,
-    fontWeight: "800",
-    fontFamily: "Inter, sans-serif",
-  },
-
-  pageContentWrapper: {
-    maxWidth: "100%",
-    alignSelf: "stretch",
-    width: "100%",
-    paddingHorizontal: 24,
-    paddingVertical: 20,
-  },
-  threeColumnRow: {
-    flexDirection: Platform.OS === "web" ? "row" : "column",
-    alignItems: Platform.OS === "web" ? "stretch" : "flex-start",
-    gap: 24,
-    width: "100%",
-  },
-  leftSidebar: {
-    width: 290,
-    gap: 16,
-    justifyContent: "space-between",
-  },
-  card: {
-    backgroundColor: "#12172a",
-    borderRadius: 20,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: "#1f2540",
-  },
-  userCardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    marginBottom: 16,
-  },
-  userCardAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#7c3aed",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  userCardAvatarText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "900",
-  },
-  userCardName: {
-    color: "#fff",
-    fontSize: 15,
-    fontWeight: "800",
-    fontFamily: "Inter, sans-serif",
-  },
-  onlineRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginTop: 2,
-  },
-  onlineDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "#22c55e",
-  },
-  onlineText: {
-    color: "#22c55e",
-    fontSize: 11,
-    fontWeight: "700",
-    fontFamily: "Inter, sans-serif",
-  },
-  tokensRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    backgroundColor: "rgba(34, 211, 238, 0.04)",
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: "rgba(34, 211, 238, 0.08)",
-  },
-  tokenLabel: {
-    color: "#8b93a7",
-    fontSize: 9,
-    fontWeight: "800",
-    letterSpacing: 0.5,
-    fontFamily: "Inter, sans-serif",
-  },
-  tokenVal: {
-    fontSize: 16,
-    fontWeight: "900",
-    fontFamily: "Inter, sans-serif",
-  },
-  tokenPlusBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  navItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    position: "relative",
-    marginBottom: 4,
-  },
-  navItemActive: {
-    backgroundColor: "rgba(124, 58, 237, 0.08)",
-  },
-  navItemActiveBar: {
-    position: "absolute",
-    left: 0,
-    top: 8,
-    bottom: 8,
-    width: 4,
-    borderRadius: 2,
-    backgroundColor: "#7c3aed",
-  },
-  navText: {
-    color: "#8b93a7",
-    fontSize: 13,
-    fontWeight: "700",
-    fontFamily: "Inter, sans-serif",
-  },
-  navTextActive: {
-    color: "#fff",
-  },
-
-  sectionTitleSmall: {
-    color: "#8b93a7",
-    fontSize: 10,
-    fontWeight: "800",
-    letterSpacing: 1,
-    marginBottom: 12,
-    fontFamily: "Inter, sans-serif",
-  },
-  walletRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  walletLabel: {
-    color: "#8b93a7",
-    fontSize: 12,
-    fontWeight: "600",
-    fontFamily: "Inter, sans-serif",
-  },
-  walletValSmall: {
-    fontSize: 12,
-    fontWeight: "800",
-    fontFamily: "Inter, sans-serif",
-  },
-  walletValSecond: {
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: "700",
-    fontFamily: "Inter, sans-serif",
-  },
-  walletButtons: {
-    flexDirection: "row",
-    gap: 8,
-    marginTop: 14,
-  },
-  walletBtnSmall: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: 14,
-    paddingVertical: 8,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  walletBtnTextSmall: {
-    fontSize: 10,
-    fontWeight: "800",
-    letterSpacing: 0.5,
-    fontFamily: "Inter, sans-serif",
-  },
-
-  // Center column
-  centerColumn: { flex: 1, gap: 20 },
-  quickActionsRow: { flexDirection: "row", gap: 20 },
-  quickActionCard: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-    backgroundColor: "#12172a",
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "#1f2540",
-    paddingHorizontal: 20,
-    paddingVertical: 18,
-  },
-  quickActionCardGlow: {
-    borderColor: "rgba(34, 211, 238, 0.4)",
-    ...Platform.select({ web: { boxShadow: "0 0 20px rgba(34, 211, 238, 0.08)" } as any }),
-  },
-  quickActionIconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  quickActionLabel: { color: "#8b93a7", fontSize: 9, fontWeight: "700", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" },
-  quickActionVal: { color: "#fff", fontSize: 15, fontWeight: "800", marginTop: 2, fontFamily: "Inter, sans-serif" },
-
-  // Hero Lucky Spin Card
-  heroSpinCard: {
-    backgroundColor: "#0d0d21",
-    borderRadius: 28,
-    borderWidth: 1,
-    borderColor: "rgba(139, 92, 246, 0.4)",
-    padding: 24,
-    alignItems: "center",
-    position: "relative",
-    overflow: "hidden",
-    ...Platform.select({ web: { boxShadow: "0 15px 35px rgba(139, 92, 246, 0.25)" } as any }),
-  },
-  heroSubLabel: { color: "#8b93a7", fontSize: 12, fontWeight: "800", letterSpacing: 2, textTransform: "uppercase", fontFamily: "Inter, sans-serif" },
-  heroTitle: { color: "#fff", fontSize: 54, fontWeight: "900", letterSpacing: -1.5, marginTop: 6, marginBottom: 14, fontFamily: "Inter, sans-serif" },
-  carouselRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 30, width: "100%", marginVertical: 14 },
-
-  // Spin button
-  spinBtn: {
-    marginTop: 20,
-    backgroundColor: "#7c3aed",
-    borderRadius: 24,
-    paddingVertical: 18,
-    paddingHorizontal: 40,
-    alignItems: "center",
-    justifyContent: "center",
-    width: "100%",
-    maxWidth: 320,
-    shadowColor: "#7c3aed",
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.6,
-    shadowRadius: 18,
-    elevation: 10,
-    ...(Platform.OS === 'web' ? {
-      backgroundImage: "linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)",
-      boxShadow: "0 8px 25px rgba(124, 58, 237, 0.5)"
-    } as any : {}),
-  },
-  spinBtnText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "900",
-    letterSpacing: 1.5,
-    fontFamily: "Inter, sans-serif",
-    textTransform: "uppercase",
-  },
-
-  // Right sidebar
-  rightSidebar: {
-    width: 325,
-    gap: 12,
-    justifyContent: "space-between",
-  },
-  leaderboardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  leaderboardTitle: {
-    color: "#fff",
-    fontSize: 13,
-    fontWeight: "800",
-    letterSpacing: 0.5,
-  },
-  leaderboardStats: {
-    color: "#8b93a7",
-    fontSize: 11,
-    fontWeight: "600",
-    marginBottom: 12,
-  },
-  leadersList: {
-    flex: 1,
-  },
-  leaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#1f2540",
-  },
-  leaderBadge: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 10,
-  },
-  leaderBadgeText: {
-    color: "#fff",
-    fontSize: 10,
-    fontWeight: "800",
-  },
-  leaderDetails: {
-    flex: 1,
-  },
-  leaderName: {
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  leaderVal: {
-    color: "#8b93a7",
-    fontSize: 10,
-    marginTop: 1,
-  },
-  standingsBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#0d1220",
-    borderRadius: 10,
-    paddingVertical: 10,
-    marginTop: 16,
-    borderWidth: 1,
-    borderColor: "#1f2540",
-  },
-  standingsBtnText: {
-    color: "#8b93a7",
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 0.5,
-  },
-
   mainScrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 40,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+  },
+  pageContentWrapper: {
+    width: "100%",
+    maxWidth: 1620,
+    alignSelf: "center",
+  },
+  threeColumnRow: {
+    flexDirection: "row",
+    gap: 18,
+    alignItems: "flex-start",
   },
 
-  // Bottom row room cards
-  bottomRow: { flexDirection: "row", gap: 20 },
-  bottomRoomCard: {
+  // Center Column Carousel
+  centerColumn: {
     flex: 1,
-    backgroundColor: "#12172a",
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: "#1f2540",
-    padding: 20,
-    justifyContent: "space-between",
-    minHeight: 200,
+    gap: 14,
   },
-  recommendedRoomCard: {
-    borderColor: "rgba(34, 211, 238, 0.4)",
-    ...Platform.select({ web: { boxShadow: "0 0 25px rgba(34, 211, 238, 0.1)" } as any }),
+  carouselWrapper: {
+    position: "relative",
+    width: "100%",
   },
-  roomHeaderRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
-  roomLabel: { color: "#22c55e", fontSize: 10, fontWeight: "800", letterSpacing: 1.5, marginBottom: 6, fontFamily: "Inter, sans-serif" },
-  roomTitleWhite: { color: "#ffffff", fontSize: 24, fontWeight: "900", letterSpacing: -0.2, textTransform: "uppercase", fontFamily: "Inter, sans-serif" },
-  roomTitleGray: { color: "#8b93a7", fontSize: 24, fontWeight: "900", letterSpacing: -0.2, textTransform: "uppercase", fontFamily: "Inter, sans-serif" },
-  roomNavRow: { flexDirection: "row", gap: 6 },
-  roomNavArrowBtn: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: "#0d1220",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "#1f2540",
-  },
-  roomCenterSection: { alignItems: "center", marginVertical: 10, position: "relative" },
-  playersCountText: { color: "#22d3ee", fontSize: 54, fontWeight: "900", fontFamily: "Inter, sans-serif" },
-  playersCountLabel: { color: "#8b93a7", fontSize: 11, fontWeight: "800", marginTop: 2, letterSpacing: 0.5, fontFamily: "Inter, sans-serif" },
-  playersIconWrap: {
+  carouselArrowLeft: {
     position: "absolute",
-    right: 12,
-    bottom: 4,
+    left: 8,
+    top: "34%",
+    marginTop: -24,
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: "rgba(34, 211, 238, 0.1)",
+    backgroundColor: "rgba(0, 191, 255, 0.95)",
+    borderWidth: 1.5,
+    borderColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
-  },
-  recommendedBadge: {
-    backgroundColor: "rgba(34, 211, 238, 0.1)",
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderWidth: 0.5,
-    borderColor: "rgba(34, 211, 238, 0.2)",
-  },
-  recommendedBadgeText: { color: "#22d3ee", fontSize: 9, fontWeight: "800", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" },
-  liveRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  liveTextSmall: { color: "#8b93a7", fontSize: 10, fontWeight: "800", textTransform: "uppercase", fontFamily: "Inter, sans-serif" },
-  roomBottomSection: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  roomBetLabel: { color: "#8b93a7", fontSize: 10, fontWeight: "700", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" },
-  roomBetVal: { color: "#fff", fontSize: 15, fontWeight: "800", marginTop: 2, fontFamily: "Inter, sans-serif" },
-  roomJoinBtn: {
-    backgroundColor: "#7c3aed",
-    borderRadius: 18,
-    paddingHorizontal: 26,
-    paddingVertical: 10,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  roomJoinBtnText: { color: "#fff", fontSize: 12, fontWeight: "800", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" },
-
-  // Stake Modal styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(5, 7, 16, 0.85)",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 20,
-  },
-  stakeModalContent: {
-    width: "100%",
-    maxWidth: 480,
-    backgroundColor: "#0d1220",
+    zIndex: 35,
+    boxShadow: "0 6px 20px rgba(0, 191, 255, 0.6)",
+    cursor: "pointer",
+  } as any,
+  carouselArrowRight: {
+    position: "absolute",
+    right: 8,
+    top: "34%",
+    marginTop: -24,
+    width: 48,
+    height: 48,
     borderRadius: 24,
-    borderWidth: 1,
-    borderColor: "#1f2540",
-    padding: 24,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
+    backgroundColor: "rgba(0, 191, 255, 0.95)",
+    borderWidth: 1.5,
+    borderColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 35,
+    boxShadow: "0 6px 20px rgba(0, 191, 255, 0.6)",
+    cursor: "pointer",
+  } as any,
+  threeCardsRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "center",
+    gap: 14,
+    width: "100%",
+    paddingHorizontal: 8,
   },
-  stakeModalHeader: {
+  coverflowColumn: {
+    alignItems: "center",
+    transition: "all 300ms cubic-bezier(0.16, 1, 0.3, 1)",
+  } as any,
+  coverflowColumnCenter: {
+    flex: 1.75,
+    zIndex: 10,
+  },
+  coverflowColumnSide: {
+    flex: 0.82,
+    zIndex: 2,
+    cursor: "pointer",
+  } as any,
+  outerShelfWrapper: {
+    width: "100%",
+    marginTop: 8,
+    transition: "all 300ms cubic-bezier(0.16, 1, 0.3, 1)",
+  } as any,
+  gameCard: {
+    backgroundColor: "#111827",
+    borderRadius: 24,
+    position: "relative",
+    overflow: "hidden",
+    justifyContent: "space-between",
+    borderWidth: 1.5,
+    borderColor: "#233041",
+    width: "100%",
+    transition: "all 300ms cubic-bezier(0.16, 1, 0.3, 1)",
+  } as any,
+  gameCardCenter: {
+    minHeight: 650,
+    padding: 26,
+    zIndex: 10,
+    transform: [{ scale: 1.0 }],
+    opacity: 1.0,
+  },
+  gameCardSide: {
+    minHeight: 560,
+    padding: 18,
+    zIndex: 2,
+    transform: [{ scale: 0.86 }],
+    opacity: 0.6,
+    cursor: "pointer",
+  } as any,
+  gameCardFocusedSpin: {
+    borderColor: "#FF1744",
+    borderWidth: 2,
+    boxShadow: "0 10px 35px rgba(255, 23, 68, 0.35)",
+  } as any,
+  gameCardFocusedXo: {
+    borderColor: "#00BFFF",
+    borderWidth: 2,
+    boxShadow: "0 10px 35px rgba(0, 191, 255, 0.35)",
+  } as any,
+  gameCardFocusedSoon: {
+    borderColor: "#8893A7",
+    borderWidth: 2,
+    boxShadow: "0 10px 30px rgba(136, 147, 167, 0.25)",
+  } as any,
+  gameCardUnfocused: {
+    borderWidth: 1.2,
+    borderColor: "#233041",
+  } as any,
+  cardBadgeRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 14,
+    zIndex: 2,
   },
-  stakeModalTitle: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "900",
-    letterSpacing: 0.5,
-    fontFamily: "Inter, sans-serif",
-  },
-  stakeModalDesc: {
-    color: "#8b93a7",
-    fontSize: 13,
-    lineHeight: 18,
-    marginBottom: 20,
-    fontFamily: "Inter, sans-serif",
-  },
-  chipContainer: {
+  badgePill: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginBottom: 20,
-  },
-  chipButton: {
-    backgroundColor: "#121829",
-    borderWidth: 1,
-    borderColor: "#1f2540",
+    alignItems: "center",
+    gap: 5,
     borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderWidth: 1,
+  },
+  badgeText: {
+    fontSize: 10.5,
+    fontWeight: "900",
+    letterSpacing: 0.6,
+    fontFamily: "Space Grotesk, sans-serif",
+  },
+  cardArtWrapper: {
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 2,
+  },
+  cardArtWrapperCenter: {
+    height: 360,
+    marginVertical: 8,
+  },
+  cardArtWrapperSide: {
+    height: 290,
+    marginVertical: 6,
+  },
+  cardTitle: {
+    color: "#FFFFFF",
+    fontSize: 32,
+    fontWeight: "900",
+    fontFamily: "Space Grotesk, sans-serif",
+    letterSpacing: 0.5,
+  },
+  cardTitleSide: {
+    fontSize: 21,
+    letterSpacing: 0.4,
+  },
+  cardSubtitle: {
+    color: "rgba(255, 255, 255, 0.7)",
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 4,
+    textAlign: "center",
+  },
+  cardActionBtn: {
+    width: "100%",
+    height: 52,
+    borderRadius: 16,
+    overflow: "hidden",
+    zIndex: 2,
+  },
+  extraShelfBtn: {
+    width: "100%",
+    marginTop: 12,
+    backgroundColor: "rgba(8, 15, 23, 0.8)",
+    borderRadius: 16,
+    borderWidth: 1.2,
+    borderColor: "#233041",
     paddingHorizontal: 14,
     paddingVertical: 10,
-  },
-  chipButtonActive: {
-    borderColor: "#22d3ee",
-    backgroundColor: "rgba(34, 211, 238, 0.08)",
-  },
-  chipText: {
-    color: "#8b93a7",
-    fontSize: 13,
-    fontWeight: "700",
-    fontFamily: "Inter, sans-serif",
-  },
-  chipTextActive: {
-    color: "#22d3ee",
-  },
-  customInputWrapper: {
-    marginBottom: 20,
-  },
-  customInputLabel: {
-    color: "#8b93a7",
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 0.5,
-    marginBottom: 8,
-    fontFamily: "Inter, sans-serif",
-  },
-  customInput: {
-    backgroundColor: "#121829",
-    borderWidth: 1,
-    borderColor: "#1f2540",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    color: "#fff",
-    fontSize: 15,
-    fontWeight: "700",
-    fontFamily: "Inter, sans-serif",
-  },
-  balanceStatusRow: {
+    zIndex: 2,
+    transition: "all 200ms ease",
+    cursor: "pointer",
+  } as any,
+  extraShelfHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "rgba(34, 211, 238, 0.04)",
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: "rgba(34, 211, 238, 0.1)",
+    marginBottom: 8,
   },
-  balanceStatusLabel: {
-    color: "#8b93a7",
-    fontSize: 13,
-    fontWeight: "600",
-    fontFamily: "Inter, sans-serif",
+  extraShelfLabel: {
+    color: "#FFFFFF",
+    fontSize: 10.5,
+    fontWeight: "900",
+    letterSpacing: 0.8,
+    fontFamily: "Space Grotesk, sans-serif",
   },
-  balanceStatusValue: {
-    color: "#22d3ee",
-    fontSize: 14,
-    fontWeight: "800",
-    fontFamily: "Inter, sans-serif",
-  },
-  modalActionRow: {
+  liveDotRow: {
     flexDirection: "row",
-    gap: 12,
-  },
-  modalCancelBtn: {
-    flex: 1,
-    backgroundColor: "transparent",
-    borderWidth: 1,
-    borderColor: "#1f2540",
-    borderRadius: 14,
-    paddingVertical: 14,
     alignItems: "center",
-    justifyContent: "center",
+    gap: 5,
   },
-  modalCancelBtnText: {
-    color: "#8b93a7",
-    fontSize: 13,
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  liveDotText: {
+    color: "#10B981",
+    fontSize: 9.5,
     fontWeight: "800",
-    fontFamily: "Inter, sans-serif",
+    letterSpacing: 0.5,
   },
-  modalConfirmBtn: {
-    flex: 1,
-    backgroundColor: "#22d3ee",
-    borderRadius: 14,
-    paddingVertical: 14,
+  extraShelfCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  avatarGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  shelfAvatar: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 1.5,
+    borderColor: "#111827",
+  },
+  shelfAvatarPlus: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "rgba(255, 23, 68, 0.25)",
+    borderWidth: 1.5,
+    borderColor: "#FF1744",
     alignItems: "center",
     justifyContent: "center",
   },
-  modalConfirmBtnText: {
-    color: "#0a0e1a",
+  shelfAvatarPlusText: {
+    color: "#FFFFFF",
+    fontSize: 9,
+    fontWeight: "900",
+  },
+  shelfActionText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "800",
+    fontFamily: "Space Grotesk, sans-serif",
+  },
+  shelfIconCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "rgba(0, 191, 255, 0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(0, 191, 255, 0.35)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cardBtnGrad: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  cardBtnText: {
+    color: "#FFFFFF",
+    fontSize: 14.5,
+    fontWeight: "900",
+    letterSpacing: 0.8,
+    fontFamily: "Space Grotesk, sans-serif",
+  },
+  cardSideHint: {
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: 10,
+    paddingVertical: 7,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    marginTop: 4,
+  },
+  cardSideHintText: {
+    color: "#8893A7",
+    fontSize: 9.5,
+    fontWeight: "800",
+    letterSpacing: 0.8,
+    fontFamily: "Space Grotesk, sans-serif",
+  },
+  indicatorsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 14,
+  },
+  indicatorPill: {
+    height: 6,
+    borderRadius: 3,
+    transition: "all 200ms ease",
+  } as any,
+
+  // Desktop Welcome Bonus Card
+  desktopWelcomeBonusCard: {
+    backgroundColor: "#111827",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#233041",
+    padding: 16,
+    paddingHorizontal: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  bonusIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: "rgba(245, 182, 66, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(245, 182, 66, 0.3)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bonusTitle: {
+    color: "#FFFFFF",
     fontSize: 13,
     fontWeight: "900",
-    fontFamily: "Inter, sans-serif",
+    fontFamily: "Space Grotesk, sans-serif",
+    letterSpacing: 0.8,
+  },
+  bonusClaimedPill: {
+    backgroundColor: "rgba(16, 185, 129, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(16, 185, 129, 0.3)",
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  bonusClaimedText: {
+    color: "#10B981",
+    fontSize: 9,
+    fontWeight: "900",
+  },
+  bonusDesc: {
+    color: "#8893A7",
+    fontSize: 11,
+    fontWeight: "600",
+    marginTop: 2,
+  },
+  bonusActionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(35, 48, 65, 0.4)",
+    borderWidth: 1,
+    borderColor: "#233041",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  bonusActionText: {
+    color: "#8893A7",
+    fontSize: 11,
+    fontWeight: "800",
+  },
+
+  // Right Sidebar: Weekly Leaderboard List
+  rightSidebar: {
+    width: 310,
+  },
+  leaderboardCard: {
+    backgroundColor: "#111827",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#233041",
+    padding: 18,
+  },
+  leaderboardHeader: {
+    marginBottom: 14,
+  },
+  leaderboardTitle: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "900",
+    fontFamily: "Space Grotesk, sans-serif",
+    letterSpacing: 0.8,
+  },
+  leaderboardSubtitle: {
+    color: "#8893A7",
+    fontSize: 11,
+    fontWeight: "600",
+    marginTop: 2,
+  },
+  leaderboardRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#080F17",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#233041",
+    padding: 8,
+    paddingHorizontal: 10,
+    gap: 10,
+  },
+  rankNumberBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1.2,
+    backgroundColor: "#111827",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  rankNumberText: {
+    fontSize: 11,
+    fontWeight: "900",
+    fontFamily: "Space Grotesk, sans-serif",
+  },
+  playerAvatarImg: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#1F2937",
+  },
+  playerUsername: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "800",
+    maxWidth: 105,
+  },
+  playerWins: {
+    color: "#8893A7",
+    fontSize: 10,
+    fontWeight: "600",
+  },
+  playerPrizeBadge: {
+    backgroundColor: "rgba(35, 48, 65, 0.4)",
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderWidth: 0.8,
+    borderColor: "#233041",
+  },
+  playerPrizeText: {
+    fontSize: 11,
+    fontWeight: "900",
+    fontFamily: "Space Grotesk, sans-serif",
+  },
+  seeMoreBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: "rgba(0, 191, 255, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(0, 191, 255, 0.35)",
+    borderRadius: 14,
+    paddingVertical: 10,
+    marginTop: 14,
+  },
+  seeMoreBtnText: {
+    color: "#00BFFF",
+    fontSize: 11,
+    fontWeight: "900",
+    letterSpacing: 0.8,
+    fontFamily: "Space Grotesk, sans-serif",
+  },
+
+  // 2 Links in Right Sidebar: Telegram & Support
+  supportLinkBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderRadius: 14,
+    paddingVertical: 12,
+    borderWidth: 1.2,
+  },
+  supportLinkBtnText: {
+    fontSize: 11.5,
+    fontWeight: "900",
+    letterSpacing: 0.6,
+    fontFamily: "Space Grotesk, sans-serif",
   },
 });

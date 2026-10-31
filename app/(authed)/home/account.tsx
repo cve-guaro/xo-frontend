@@ -20,6 +20,8 @@ import { useAuth } from "../../../context/authContext";
 import { useToast } from "../../../context/ToastContext";
 import { WebPressable } from "../../../components/WebPressable";
 import { WebDepositModal, WebWithdrawModal } from "../../../components/WebModals";
+import DesktopHeader from "../../../components/game/DesktopHeader";
+import DesktopSidebar from "../../../components/game/DesktopSidebar";
 import ReferralModal from "../../../components/ReferralModal";
 import PwaInstallModal from "../../../components/game/PwaInstallModal";
 import { useBackgroundMusic } from "../../../context/BackgroundMusicProvider";
@@ -27,6 +29,8 @@ import LogoutConfirmation from "../../../components/LogoutConfirmation";
 import { SlidingNumber } from "../../../components/game/SlidingNumber";
 import NotificationsPopover from "../../../components/NotificationsPopover";
 import { SkeletonBox, SkeletonRow } from "../../../components/SkeletonLoading";
+import { haptics } from "../../../lib/haptcs";
+import { playTickSound } from "../../../lib/pinTickAudio";
 
 // Formats membership date (e.g. "July 2026")
 function formatMemberSince(iso: string) {
@@ -159,10 +163,12 @@ export default function ProfileScreen() {
         },
         body: JSON.stringify({ username: u, display_name: d }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.message || "Failed to update profile");
 
-      await refreshProfile();
+      try {
+        await refreshProfile(true);
+      } catch (_) {}
       toast.success(isEN ? "Profile Saved" : "ተቀምጧል", isEN ? "Your profile has been updated successfully." : "መገለጫዎ በተሳካ ሁኔታ ተዘምኗል።");
       setEditModalVisible(false);
     } catch (e: any) {
@@ -269,171 +275,35 @@ export default function ProfileScreen() {
         )}
 
         {/* ── HEADER BAR ── */}
-        <View style={s.header}>
-          <View style={s.headerContentWrapper}>
-            {/* Left: Logo */}
-            <View style={s.logoContainer}>
-              <Image source={require("../../../assets/images/icon.jpg")} style={s.logoImage} />
-              <Text style={s.logoText}>XO ETHIOPIA</Text>
-            </View>
-
-            {/* Center: Toggle Pill */}
-            <View style={s.toggleContainer}>
-              <TouchableOpacity
-                style={s.toggleBtn}
-                onPress={() => router.push('/(authed)/home/gameplay')}
-                activeOpacity={0.85}
-              >
-                <Text style={s.toggleBtnText}>SPIN</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[s.toggleBtn, s.toggleBtnActive]}
-                onPress={() => router.push('/(authed)/home/gameplay')}
-                activeOpacity={0.85}
-              >
-                <Text style={[s.toggleBtnText, s.toggleBtnTextActive]}>XO GAME</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Right: Utility Cluster */}
-            <View style={s.utilityCluster}>
-
-              <TouchableOpacity onPress={() => setPwaModalVisible(true)} style={s.utilityBtn} activeOpacity={0.8}>
-                <Ionicons name="cloud-download-outline" size={16} color="#8b93a7" />
-                <Text style={s.utilityBtnText}>APP</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity onPress={handleLanguageToggle} style={s.utilityBtn} activeOpacity={0.8}>
-                <Ionicons name="globe-outline" size={15} color="#8b93a7" />
-                <Text style={s.utilityBtnText}>{language.toUpperCase()}</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity onPress={toggleMusic} style={s.utilityBtn} activeOpacity={0.8}>
-                <Ionicons name={isPlaying ? "volume-high-outline" : "volume-mute-outline"} size={16} color="#8b93a7" />
-                <Text style={s.utilityBtnText}>{isPlaying ? "SOUND" : "MUTED"}</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity onPress={() => setNotificationsVisible(true)} style={s.bellBtn} activeOpacity={0.8}>
-                <Ionicons name="notifications-outline" size={20} color="#fff" />
-                {unreadCount > 0 && (
-                  <View style={s.bellBadge}><Text style={s.bellBadgeText}>{unreadCount}</Text></View>
-                )}
-              </TouchableOpacity>
-
-              <TouchableOpacity onPress={() => handleNavClick('profile')} style={s.profileChip} activeOpacity={0.85}>
-                <View style={s.profileChipAvatar}>
-                  <Text style={s.profileChipAvatarText}>{user?.username ? user.username.slice(0, 2).toUpperCase() : "ME"}</Text>
-                </View>
-                <View style={{ marginRight: 6 }}>
-                  <Text style={s.profileChipName}>{user?.username || (user?.number ? `User ${user.number.slice(-4)}` : "Set Your Name")}</Text>
-                  <Text style={s.profileChipVip}>VIP 24</Text>
-                </View>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
+        <DesktopHeader
+          user={user}
+          language={language}
+          handleLanguageToggle={handleLanguageToggle}
+          selectedTab="XO_GAME"
+          setPwaModalVisible={setPwaModalVisible}
+          bgMusicPlaying={isPlaying}
+          onToggleSound={toggleMusic}
+          unreadCount={unreadCount}
+          setNotificationsVisible={setNotificationsVisible}
+          router={router}
+        />
 
         {/* ── CORE BODY CONTAINER ── */}
         <ScrollView style={s.mainScrollView} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={s.pageContentWrapper}>
             <View style={s.threeColumnRow}>
-              {/* 1. LEFT SIDEBAR (fixed width 280px) */}
-              <View style={s.leftSidebar}>
-                <View style={s.card}>
-                  <View style={s.userCardHeader}>
-                    <View style={s.userCardAvatar}>
-                      <Text style={s.userCardAvatarText}>{user?.username ? user.username.slice(0, 1).toUpperCase() : "A"}</Text>
-                    </View>
-                    <View>
-                      <Text style={s.userCardName} numberOfLines={1}>{user?.username || (user?.number ? `User ${user.number.slice(-4)}` : "Set Your Name")}</Text>
-                      <View style={s.onlineRow}>
-                        <View style={s.onlineDot} />
-                        <Text style={s.onlineText}>Online</Text>
-                      </View>
-                    </View>
-                  </View>
-                  
-                  {/* Available Balance card */}
-                  <View style={s.tokensRow}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={s.tokenLabel}>AVAILABLE BALANCE</Text>
-                      <Text style={[s.tokenVal, { color: "#22d3ee" }]}>ETB {user?.available_balance ? Number(user.available_balance).toLocaleString() : "0"}</Text>
-                    </View>
-                    <TouchableOpacity onPress={refreshProfile} style={[s.tokenPlusBtn, { backgroundColor: "rgba(34, 211, 238, 0.15)", borderColor: "rgba(34, 211, 238, 0.3)", borderWidth: 1 }]} activeOpacity={0.8}>
-                      <Ionicons name="refresh" size={12} color="#22d3ee" />
-                    </TouchableOpacity>
-                  </View>
-                </View>
+              {/* 1. LEFT SIDEBAR */}
+          <DesktopSidebar
+            user={user}
+            balance={Number(user?.available_balance || 0)}
+            currentScreen="profile"
+            refreshProfile={refreshProfile}
+            setDepositVisible={setDepositVisible}
+            setWithdrawVisible={setWithdrawVisible}
+            router={router}
+          />
 
-                {/* Vertical Navigation Links */}
-                <View style={s.card}>
-                  <TouchableOpacity onPress={() => handleNavClick('home')} style={s.navItem} activeOpacity={0.8}>
-                    <Ionicons name="home-outline" size={18} color="#8b93a7" />
-                    <Text style={s.navText}>Home</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity onPress={() => handleNavClick('history')} style={s.navItem} activeOpacity={0.8}>
-                    <Ionicons name="time-outline" size={18} color="#8b93a7" />
-                    <Text style={s.navText}>History</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity onPress={() => handleNavClick('leaderboard')} style={s.navItem} activeOpacity={0.8}>
-                    <Ionicons name="trophy-outline" size={18} color="#8b93a7" />
-                    <Text style={s.navText}>Leaderboard</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity onPress={() => handleNavClick('transactions')} style={s.navItem} activeOpacity={0.8}>
-                    <Ionicons name="receipt-outline" size={18} color="#8b93a7" />
-                    <Text style={s.navText}>Transactions</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity onPress={() => handleNavClick('profile')} style={[s.navItem, s.navItemActive]} activeOpacity={0.8}>
-                    <View style={s.navItemActiveBar} />
-                    <Ionicons name="person" size={18} color="#8b5cf6" />
-                    <Text style={[s.navText, s.navTextActive]}>Profile</Text>
-                  </TouchableOpacity>
-
-                  {(user?.role === 'admin' || user?.role === 'superadmin' || user?.role === 'maintenance') && (
-                    <TouchableOpacity onPress={() => handleNavClick('admin')} style={s.navItem} activeOpacity={0.8}>
-                      <Ionicons name="shield-checkmark-outline" size={18} color="#8b93a7" />
-                      <Text style={s.navText}>Admin</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-
-                {/* Wallet Summary Panel */}
-                <View style={s.card}>
-                  <Text style={s.sectionTitleSmall}>WALLET</Text>
-                  
-                  <View style={s.walletRow}>
-                    <Text style={s.walletLabel}>Deposit</Text>
-                    <Text style={[s.walletValSmall, { color: "#22c55e" }]}>+ 3,420 ETB</Text>
-                  </View>
-                  
-                  <View style={s.walletRow}>
-                    <Text style={s.walletLabel}>Withdraw</Text>
-                    <Text style={[s.walletValSmall, { color: "#ef4444" }]}>- 420 ETB</Text>
-                  </View>
-                  
-                  <View style={s.walletRow}>
-                    <Text style={s.walletLabel}>Transactions</Text>
-                    <Text style={s.walletValSecond}>12 today</Text>
-                  </View>
-
-                  <View style={s.walletButtons}>
-                    <TouchableOpacity onPress={() => setDepositVisible(true)} style={[s.walletBtnSmall, { borderColor: "#22d3ee" }]} activeOpacity={0.8}>
-                      <Text style={[s.walletBtnTextSmall, { color: "#22d3ee" }]}>DEPOSIT</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => setWithdrawVisible(true)} style={[s.walletBtnSmall, { borderColor: "#7c3aed" }]} activeOpacity={0.8}>
-                      <Text style={[s.walletBtnTextSmall, { color: "#7c3aed" }]}>WITHDRAW</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                {/* Redundant Profile card removed */}
-              </View>
-
-              {/* 2. CENTER COLUMN */}
+          {/* 2. CENTER COLUMN */}
               <View style={s.centerColumn}>
                 {/* 1. Large Profile Header Card */}
                 <View style={s.profileHeaderCard}>
@@ -449,9 +319,6 @@ export default function ProfileScreen() {
                     <View style={{ flex: 1 }}>
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
                         <Text style={s.profileUsernameText}>{user?.username || (user?.number ? `User ${user.number.slice(-4)}` : "Set Your Name")}</Text>
-                        <View style={s.vipLevelBadge}>
-                          <Text style={s.vipLevelBadgeText}>VIP 24</Text>
-                        </View>
                       </View>
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 6 }}>
                         <Ionicons name="checkmark-circle" size={14} color="#22d3ee" />
@@ -467,45 +334,45 @@ export default function ProfileScreen() {
                 <View style={s.statsGrid}>
                   {/* Games Played */}
                   <View style={s.statCard}>
-                    <View style={[s.statIconCircle, { backgroundColor: "rgba(34, 211, 238, 0.1)" }]}>
-                      <Ionicons name="layers" size={18} color="#22d3ee" />
+                    <View style={[s.statIconCircle, { backgroundColor: "rgba(0, 191, 255, 0.12)" }]}>
+                      <Ionicons name="layers" size={20} color="#00BFFF" />
                     </View>
-                    <View style={{ marginLeft: 12 }}>
+                    <View style={{ marginLeft: 14 }}>
                       <Text style={s.statCardLabel}>TOTAL GAMES</Text>
-                      <Text style={s.statCardVal}>{stats.total}</Text>
+                      <Text style={[s.statCardVal, { color: "#FFFFFF" }]}>{stats.total}</Text>
                     </View>
                   </View>
 
                   {/* Win Rate */}
                   <View style={s.statCard}>
-                    <View style={[s.statIconCircle, { backgroundColor: "rgba(168, 85, 247, 0.1)" }]}>
-                      <Ionicons name="trending-up" size={18} color="#a855f7" />
+                    <View style={[s.statIconCircle, { backgroundColor: "rgba(255, 23, 68, 0.12)" }]}>
+                      <Ionicons name="trending-up" size={20} color="#FF1744" />
                     </View>
-                    <View style={{ marginLeft: 12 }}>
+                    <View style={{ marginLeft: 14 }}>
                       <Text style={s.statCardLabel}>WIN RATE</Text>
-                      <Text style={s.statCardVal}>{stats.winRate}%</Text>
+                      <Text style={[s.statCardVal, { color: "#FF1744" }]}>{stats.winRate}%</Text>
                     </View>
                   </View>
 
                   {/* Total Winnings */}
                   <View style={s.statCard}>
-                    <View style={[s.statIconCircle, { backgroundColor: "rgba(34, 197, 94, 0.1)" }]}>
-                      <Ionicons name="trophy" size={18} color="#22c55e" />
+                    <View style={[s.statIconCircle, { backgroundColor: "rgba(16, 185, 129, 0.12)" }]}>
+                      <Ionicons name="trophy" size={20} color="#10B981" />
                     </View>
-                    <View style={{ marginLeft: 12 }}>
+                    <View style={{ marginLeft: 14 }}>
                       <Text style={s.statCardLabel}>TOTAL WINNINGS</Text>
-                      <Text style={[s.statCardVal, { color: "#22c55e", fontSize: 18 }]}>{stats.winnings}</Text>
+                      <Text style={[s.statCardVal, { color: "#10B981" }]}>{stats.winnings}</Text>
                     </View>
                   </View>
 
                   {/* Current Balance */}
                   <View style={s.statCard}>
-                    <View style={[s.statIconCircle, { backgroundColor: "rgba(245, 182, 66, 0.1)" }]}>
-                      <Ionicons name="wallet" size={18} color="#f5b642" />
+                    <View style={[s.statIconCircle, { backgroundColor: "rgba(245, 182, 66, 0.12)" }]}>
+                      <Ionicons name="wallet" size={20} color="#F5B642" />
                     </View>
-                    <View style={{ marginLeft: 12 }}>
+                    <View style={{ marginLeft: 14 }}>
                       <Text style={s.statCardLabel}>CURRENT BALANCE</Text>
-                      <Text style={[s.statCardVal, { color: "#f5b642", fontSize: 18 }]}>ETB {user?.available_balance ? Number(user.available_balance).toLocaleString() : "0"}</Text>
+                      <Text style={[s.statCardVal, { color: "#F5B642" }]}>ETB {user?.available_balance ? Number(user.available_balance).toLocaleString() : "0"}</Text>
                     </View>
                   </View>
                 </View>
@@ -518,7 +385,7 @@ export default function ProfileScreen() {
                     {/* Masked Phone */}
                     <View style={s.accountDetailRow}>
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                        <Ionicons name="call" size={15} color="#8b93a7" />
+                        <Ionicons name="call" size={16} color="#8b93a7" />
                         <Text style={s.accountDetailLabel}>Phone Number</Text>
                       </View>
                       <Text style={s.accountDetailVal}>{maskedPhone}</Text>
@@ -527,23 +394,23 @@ export default function ProfileScreen() {
                     {/* Verification Status */}
                     <View style={s.accountDetailRow}>
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                        <Ionicons name="shield-checkmark" size={15} color="#8b93a7" />
+                        <Ionicons name="shield-checkmark" size={16} color="#8b93a7" />
                         <Text style={s.accountDetailLabel}>Verification Status</Text>
                       </View>
-                      <Text style={[s.accountDetailVal, { color: "#22d3ee" }]}>Verified (Level 2)</Text>
+                      <Text style={[s.accountDetailVal, { color: "#00BFFF" }]}>Verified (Level 2)</Text>
                     </View>
 
                     {/* Referral Code */}
                     {referralEnabled && (
                       <View style={s.accountDetailRow}>
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                          <Ionicons name="gift" size={15} color="#8b93a7" />
+                          <Ionicons name="gift" size={16} color="#8b93a7" />
                           <Text style={s.accountDetailLabel}>Referral Code</Text>
                         </View>
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                          <Text style={[s.accountDetailVal, { color: "#f5b642" }]}>{referralCode || "XO-ETH"}</Text>
+                          <Text style={[s.accountDetailVal, { color: "#F5B642" }]}>{referralCode || "XO-ETH"}</Text>
                           <TouchableOpacity onPress={handleCopyReferral} style={s.copyCodeBtn} activeOpacity={0.8}>
-                            <Ionicons name="copy-outline" size={12} color="#f5b642" />
+                            <Ionicons name="copy-outline" size={13} color="#F5B642" />
                             <Text style={s.copyCodeBtnText}>COPY</Text>
                           </TouchableOpacity>
                         </View>
@@ -560,8 +427,8 @@ export default function ProfileScreen() {
                     {/* Row 1: Edit Profile */}
                     <TouchableOpacity onPress={() => setEditModalVisible(true)} style={s.settingsListRow} activeOpacity={0.8}>
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-                        <View style={[s.settingsIconWrap, { backgroundColor: "rgba(124, 58, 237, 0.1)" }]}>
-                          <Ionicons name="create-outline" size={16} color="#7c3aed" />
+                        <View style={[s.settingsIconWrap, { backgroundColor: "rgba(0, 191, 255, 0.12)" }]}>
+                          <Ionicons name="create-outline" size={17} color="#00BFFF" />
                         </View>
                         <Text style={s.settingsRowLabel}>Edit Profile details</Text>
                       </View>
@@ -571,24 +438,42 @@ export default function ProfileScreen() {
                     {/* Row 3: Notification Preference */}
                     <View style={s.settingsListRow}>
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-                        <View style={[s.settingsIconWrap, { backgroundColor: "rgba(245, 182, 66, 0.1)" }]}>
-                          <Ionicons name="notifications-outline" size={16} color="#f5b642" />
+                        <View style={[s.settingsIconWrap, { backgroundColor: "rgba(245, 182, 66, 0.12)" }]}>
+                          <Ionicons name="notifications-outline" size={17} color="#F5B642" />
                         </View>
                         <Text style={s.settingsRowLabel}>Mute Sound & Notifications</Text>
                       </View>
                       <Switch value={notisMuted} onValueChange={(val) => {
                         setNotisMuted(val);
                         toast.success(isEN ? "Preferences Saved" : "ቅንጅቶች ተቀምጠዋል");
-                      }} trackColor={{ false: "#1f2540", true: "#7c3aed" }} thumbColor={notisMuted ? "#ffffff" : "#8b93a7"} />
+                      }} trackColor={{ false: "#1f2540", true: "#00BFFF" }} thumbColor={notisMuted ? "#ffffff" : "#8b93a7"} />
                     </View>
                   </View>
                 </View>
 
                 {/* 5. Logout Button */}
                 <TouchableOpacity onPress={() => setExitModalVisible(true)} style={s.profileLogoutBtn} activeOpacity={0.85}>
-                  <Ionicons name="log-out-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
+                  <Ionicons name="log-out-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
                   <Text style={s.profileLogoutBtnText}>LOGOUT FROM ACCOUNT</Text>
                 </TouchableOpacity>
+
+                {/* 6. Fair Play & Security Banner (Per Image 1 Wireframe Bottom Box) */}
+                <View style={s.securityBottomBanner}>
+                  <View style={s.securityBannerItem}>
+                    <Ionicons name="lock-closed" size={16} color="#00BFFF" />
+                    <Text style={s.securityBannerText}>256-Bit SSL Encrypted</Text>
+                  </View>
+                  <View style={s.securityBannerDivider} />
+                  <View style={s.securityBannerItem}>
+                    <Ionicons name="shield-checkmark" size={16} color="#10B981" />
+                    <Text style={s.securityBannerText}>Provably Fair Random Seeds</Text>
+                  </View>
+                  <View style={s.securityBannerDivider} />
+                  <View style={s.securityBannerItem}>
+                    <Ionicons name="flash" size={16} color="#F5B642" />
+                    <Text style={s.securityBannerText}>Instant Telebirr Payouts</Text>
+                  </View>
+                </View>
               </View>
 
               {/* 3. RIGHT SIDEBAR — Placeholder or Leaderboard widget */}
@@ -604,15 +489,25 @@ export default function ProfileScreen() {
                 </View>
 
                 {referralEnabled && (
-                  <View style={[s.card, { marginTop: 20 }]}>
+                  <View style={[s.card, { marginTop: 18 }]}>
                     <Text style={s.sectionTitleSmall}>REFERRAL REWARDS</Text>
                     <Text style={s.supportCardDesc}>Invite your friends to XO Ethiopia and earn a percentage reward on their wins and deposit bonuses!</Text>
-                    <TouchableOpacity onPress={() => setShowReferralModal(true)} style={[s.supportChannelBtn, { backgroundColor: "#f5b642" }]} activeOpacity={0.85}>
-                      <Ionicons name="gift" size={15} color="#0a0e1a" />
-                      <Text style={[s.supportChannelBtnText, { color: "#0a0e1a" }]}>VIEW REFERRALS</Text>
+                    <TouchableOpacity onPress={() => setShowReferralModal(true)} style={[s.supportChannelBtn, { backgroundColor: "#F5B642" }]} activeOpacity={0.85}>
+                      <Ionicons name="gift" size={15} color="#080F17" />
+                      <Text style={[s.supportChannelBtnText, { color: "#080F17" }]}>VIEW REFERRALS</Text>
                     </TouchableOpacity>
                   </View>
                 )}
+
+                {/* Responsible Gaming (Per Image 1 Wireframe) */}
+                <View style={[s.card, { marginTop: 18 }]}>
+                  <Text style={s.sectionTitleSmall}>RESPONSIBLE GAMING</Text>
+                  <Text style={s.supportCardDesc}>Play responsibly. Need to set deposit limits or take a short break? Our 24/7 team is ready to assist.</Text>
+                  <TouchableOpacity onPress={() => router.push('https://t.me/xoetsupport' as any)} style={[s.supportChannelBtn, { backgroundColor: "rgba(255, 23, 68, 0.12)", borderWidth: 1, borderColor: "rgba(255, 23, 68, 0.4)" }]} activeOpacity={0.85}>
+                    <Ionicons name="shield" size={15} color="#FF1744" />
+                    <Text style={[s.supportChannelBtnText, { color: "#FF1744" }]}>PLAYER PROTECTION</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
           </View>
@@ -621,100 +516,693 @@ export default function ProfileScreen() {
     );
   }
 
-  // ─── MOBILE VIEW LAYOUT ───
+  // ─── MOBILE VIEW LAYOUT (XOET Brand Theme & Real Gaming Features) ───
   return (
-    <View style={s.rootContainer}>
-      <LinearGradient colors={["#0c0c1f", "#070714"]} style={StyleSheet.absoluteFill} />
+    <View style={{ flex: 1, backgroundColor: "#07090e" }}>
+      {/* Modals */}
+      <WebDepositModal visible={depositVisible} onClose={() => setDepositVisible(false)} user={user} token={token || undefined} onSuccess={refreshProfile} />
+      <WebWithdrawModal visible={withdrawVisible} onClose={() => setWithdrawVisible(false)} user={user} token={token || undefined} onSuccess={refreshProfile} />
+      <ReferralModal visible={showReferralModal} onClose={() => setShowReferralModal(false)} token={token || null} isEN={isEN} toast={undefined} />
+      <PwaInstallModal visible={pwaModalVisible} onClose={() => setPwaModalVisible(false)} />
+      <NotificationsPopover visible={notificationsVisible} onClose={() => setNotificationsVisible(false)} onUnreadCountChange={setUnreadCount} />
 
-      {/* Mobile Header */}
-      <View style={s.mobileHeader}>
-        <TouchableOpacity onPress={() => router.back()} style={s.mobileBackBtn}>
-          <Ionicons name="arrow-back" size={20} color="#00daf3" />
+      {/* Top Header: Back Arrow + Centered "My Profile" + Language Pill */}
+      <View style={{
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        paddingHorizontal: 16,
+        paddingTop: Platform.OS === "ios" ? 52 : 16,
+        paddingBottom: 14,
+        borderBottomWidth: 1,
+        borderBottomColor: "rgba(255, 255, 255, 0.06)",
+        backgroundColor: "rgba(7, 9, 14, 0.95)",
+      }}>
+        <TouchableOpacity
+          onPress={() => {
+            playTickSound();
+            haptics.tap();
+            router.back();
+          }}
+          activeOpacity={0.7}
+          style={{
+            width: 38,
+            height: 38,
+            borderRadius: 19,
+            backgroundColor: "#111625",
+            borderWidth: 1,
+            borderColor: "rgba(255, 255, 255, 0.08)",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Ionicons name="chevron-back" size={20} color="#ffffff" />
         </TouchableOpacity>
-        <Text style={s.mobileTitleText}>Profile Settings</Text>
-        <View style={{ width: 40 }} />
+
+        <Text style={{
+          color: "#ffffff",
+          fontSize: 18,
+          fontWeight: "800",
+          fontFamily: "Inter, sans-serif",
+          letterSpacing: -0.2,
+        }}>
+          {isEN ? "My Profile" : "የእኔ መገለጫ"}
+        </Text>
+
+        <TouchableOpacity
+          onPress={() => {
+            playTickSound();
+            haptics.tap();
+            handleLanguageToggle();
+          }}
+          activeOpacity={0.75}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 5,
+            height: 34,
+            paddingHorizontal: 10,
+            borderRadius: 17,
+            backgroundColor: "#111625",
+            borderWidth: 1,
+            borderColor: "rgba(255, 255, 255, 0.08)",
+          }}
+        >
+          <Ionicons name="globe-outline" size={14} color="#00daf3" />
+          <Text style={{ color: "#ffffff", fontSize: 11.5, fontWeight: "800" }}>
+            {language.toUpperCase()}
+          </Text>
+        </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40, gap: 18 }} showsVerticalScrollIndicator={false}>
-        {/* Mobile Header Card */}
-        <View style={[s.profileHeaderCard, { padding: 18 }]}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
-            <View style={[s.profileBigAvatarShell, { width: 48, height: 48 }]}>
-              <Text style={{ color: "#fff", fontSize: 13, fontWeight: "900" }}>ME</Text>
-            </View>
-            <View>
-              <Text style={{ color: "#fff", fontSize: 16, fontWeight: "bold" }}>{user?.username || (user?.number ? `User ${user.number.slice(-4)}` : "Set Your Name")}</Text>
-              <Text style={{ color: "#22d3ee", fontSize: 10, marginTop: 4 }}>Verified • VIP 24</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Mobile Stats Row */}
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
-          <View style={[s.mobileStatCard, { width: "47%" }]}>
-            <Text style={s.mobileStatLabel}>GAMES</Text>
-            <Text style={s.mobileStatVal}>{stats.total}</Text>
-          </View>
-          <View style={[s.mobileStatCard, { width: "47%" }]}>
-            <Text style={s.mobileStatLabel}>WIN RATE</Text>
-            <Text style={s.mobileStatVal}>{stats.winRate}%</Text>
-          </View>
-          <View style={[s.mobileStatCard, { width: "47%" }]}>
-            <Text style={s.mobileStatLabel}>WINNINGS</Text>
-            <Text style={[s.mobileStatVal, { color: "#22c55e" }]}>{stats.winnings}</Text>
-          </View>
-          <View style={[s.mobileStatCard, { width: "47%" }]}>
-            <Text style={s.mobileStatLabel}>BALANCE</Text>
-            <Text style={[s.mobileStatVal, { color: "#f5b642" }]}>ETB {user?.available_balance}</Text>
-          </View>
-        </View>
-
-        {/* Mobile Account Details */}
-        <View style={s.card}>
-          <Text style={s.cardHeaderTitle}>Account</Text>
-          <View style={s.detailRowsGroup}>
-            <View style={s.accountDetailRow}>
-              <Text style={s.accountDetailLabel}>Phone</Text>
-              <Text style={s.accountDetailVal}>{maskedPhone}</Text>
-            </View>
-            {referralEnabled && (
-              <View style={s.accountDetailRow}>
-                <Text style={s.accountDetailLabel}>Referral</Text>
-                <TouchableOpacity onPress={handleCopyReferral}>
-                  <Text style={[s.accountDetailVal, { color: "#f5b642" }]}>{referralCode || "Copy"}</Text>
-                </TouchableOpacity>
+      <ScrollView
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 120, gap: 16 }}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* 1. Profile User Card (Dark Gaming Surface) */}
+        <View style={{
+          backgroundColor: "#111625",
+          borderRadius: 22,
+          padding: 16,
+          borderWidth: 1,
+          borderColor: "rgba(255, 255, 255, 0.08)",
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.35,
+          shadowRadius: 14,
+          elevation: 6,
+        }}>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 14, flex: 1, minWidth: 0 }}>
+              {/* Circular Avatar with Cyan Accent */}
+              <View style={{
+                width: 54,
+                height: 54,
+                borderRadius: 27,
+                backgroundColor: "#161c2e",
+                borderWidth: 2,
+                borderColor: "#00daf3",
+                alignItems: "center",
+                justifyContent: "center",
+                overflow: "hidden",
+              }}>
+                {(user as any)?.avatar ? (
+                  <Image source={{ uri: (user as any).avatar }} style={{ width: 54, height: 54 }} />
+                ) : (
+                  <Text style={{ color: "#00daf3", fontSize: 20, fontWeight: "900" }}>
+                    {user?.username ? user.username.slice(0, 2).toUpperCase() : "XO"}
+                  </Text>
+                )}
               </View>
-            )}
+
+              {/* Name & Phone */}
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={{
+                  color: "#ffffff",
+                  fontSize: 17,
+                  fontWeight: "800",
+                  fontFamily: "Inter, sans-serif",
+                }} numberOfLines={1}>
+                  {user?.display_name || user?.username || "Player"}
+                </Text>
+                <Text style={{
+                  color: "#8b93a7",
+                  fontSize: 12.5,
+                  fontWeight: "600",
+                  marginTop: 2,
+                }}>
+                  {maskedPhone || user?.number || "XOET Player"}
+                </Text>
+              </View>
+            </View>
+
+            {/* Pencil Edit Icon Button */}
+            <TouchableOpacity
+              onPress={() => {
+                playTickSound();
+                haptics.tap();
+                setEditUsername(user?.username || "");
+                setEditDisplayName(user?.display_name || user?.username || "");
+                setEditModalVisible(true);
+              }}
+              activeOpacity={0.7}
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 19,
+                backgroundColor: "#161c2e",
+                borderWidth: 1,
+                borderColor: "rgba(0, 218, 243, 0.3)",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Ionicons name="pencil-outline" size={17} color="#00daf3" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Balance Row */}
+          <View style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginTop: 14,
+            paddingTop: 12,
+            borderTopWidth: 1,
+            borderTopColor: "rgba(255, 255, 255, 0.06)",
+          }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Ionicons name="wallet-outline" size={15} color="#10b981" />
+              <Text style={{ color: "#8b93a7", fontSize: 12, fontWeight: "600" }}>{isEN ? "Balance:" : "ሂሳብ:"}</Text>
+              <Text style={{ color: "#10b981", fontSize: 13.5, fontWeight: "900" }}>
+                ETB {Number(user?.available_balance ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </Text>
+            </View>
           </View>
         </View>
 
-        {/* Mobile Settings List */}
-        <View style={s.card}>
-          <Text style={s.cardHeaderTitle}>Settings</Text>
-          <TouchableOpacity onPress={() => setEditModalVisible(true)} style={s.settingsListRow}>
-            <Text style={s.settingsRowLabel}>Edit Name</Text>
-            <Ionicons name="chevron-forward" size={16} color="#8b93a7" />
-          </TouchableOpacity>
+        {/* 2. Gaming Performance Stats Bar */}
+        <View style={{
+          flexDirection: "row",
+          backgroundColor: "#111625",
+          borderRadius: 18,
+          paddingVertical: 12,
+          paddingHorizontal: 8,
+          borderWidth: 1,
+          borderColor: "rgba(255, 255, 255, 0.06)",
+          alignItems: "center",
+          justifyContent: "space-around",
+        }}>
+          <View style={{ alignItems: "center" }}>
+            <Text style={{ color: "#8b93a7", fontSize: 10.5, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 }}>
+              {isEN ? "Games" : "ጨዋታዎች"}
+            </Text>
+            <Text style={{ color: "#ffffff", fontSize: 17, fontWeight: "900", marginTop: 2 }}>
+              {stats.total}
+            </Text>
+          </View>
+
+          <View style={{ width: 1, height: 26, backgroundColor: "rgba(255, 255, 255, 0.08)" }} />
+
+          <View style={{ alignItems: "center" }}>
+            <Text style={{ color: "#8b93a7", fontSize: 10.5, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 }}>
+              {isEN ? "Victories" : "ድሎች"}
+            </Text>
+            <Text style={{ color: "#10b981", fontSize: 17, fontWeight: "900", marginTop: 2 }}>
+              {stats.wins}
+            </Text>
+          </View>
+
+          <View style={{ width: 1, height: 26, backgroundColor: "rgba(255, 255, 255, 0.08)" }} />
+
+          <View style={{ alignItems: "center" }}>
+            <Text style={{ color: "#8b93a7", fontSize: 10.5, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 }}>
+              {isEN ? "Win Rate" : "የማሸነፍ መጠን"}
+            </Text>
+            <Text style={{ color: "#00daf3", fontSize: 17, fontWeight: "900", marginTop: 2 }}>
+              {stats.winRate}%
+            </Text>
+          </View>
         </View>
 
-        {/* Mobile Admin Panel Button (visible to admins) */}
-        {(user?.role === 'admin' || user?.role === 'superadmin' || user?.role === 'maintenance' || user?.role === 'maintenance_admin' || (user as any)?.is_superadmin || isSuperAdmin) && (
-          <TouchableOpacity onPress={() => router.push('/(authed)/admin' as any)} style={[s.profileLogoutBtn, { backgroundColor: 'rgba(6, 182, 212, 0.15)', borderColor: 'rgba(6, 182, 212, 0.4)', marginBottom: 10 }]}>
-            <Ionicons name="shield-checkmark" size={18} color="#06b6d4" style={{ marginRight: 6 }} />
-            <Text style={[s.profileLogoutBtnText, { color: '#06b6d4' }]}>OPEN ADMIN PANEL</Text>
+        {/* 3. Section: "Gaming & Activities" */}
+        <View>
+          <Text style={{
+            color: "#8b93a7",
+            fontSize: 12,
+            fontWeight: "800",
+            textTransform: "uppercase",
+            letterSpacing: 0.8,
+            marginBottom: 8,
+            paddingHorizontal: 4,
+          }}>
+            {isEN ? "Gaming & Ledger" : "ጨዋታ እና ሂሳብ"}
+          </Text>
+
+          <View style={{
+            backgroundColor: "#111625",
+            borderRadius: 20,
+            borderWidth: 1,
+            borderColor: "rgba(255, 255, 255, 0.08)",
+            overflow: "hidden",
+          }}>
+            {/* Match & Game History */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => {
+                playTickSound();
+                haptics.tap();
+                router.push("/(authed)/home/history");
+              }}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingVertical: 14,
+                paddingHorizontal: 16,
+                borderBottomWidth: 1,
+                borderBottomColor: "rgba(255, 255, 255, 0.05)",
+              }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+                <View style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: "rgba(0, 218, 243, 0.12)",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}>
+                  <Ionicons name="game-controller-outline" size={19} color="#00daf3" />
+                </View>
+                <Text style={{ color: "#ffffff", fontSize: 14.5, fontWeight: "700" }}>
+                  {isEN ? "Match & Game History" : "የጨዋታ ታሪክ"}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={17} color="#64748b" />
+            </TouchableOpacity>
+
+            {/* Transactions & Financial Ledger */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => {
+                playTickSound();
+                haptics.tap();
+                router.push("/(authed)/home/transactions");
+              }}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingVertical: 14,
+                paddingHorizontal: 16,
+                borderBottomWidth: 1,
+                borderBottomColor: "rgba(255, 255, 255, 0.05)",
+              }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+                <View style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: "rgba(16, 185, 129, 0.12)",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}>
+                  <Ionicons name="receipt-outline" size={19} color="#10b981" />
+                </View>
+                <Text style={{ color: "#ffffff", fontSize: 14.5, fontWeight: "700" }}>
+                  {isEN ? "Transactions & Receipts" : "የግብይት እና ደረሰኝ ዝርዝር"}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={17} color="#64748b" />
+            </TouchableOpacity>
+
+            {/* Deposit Funds */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => {
+                playTickSound();
+                haptics.tap();
+                setDepositVisible(true);
+              }}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingVertical: 14,
+                paddingHorizontal: 16,
+                borderBottomWidth: 1,
+                borderBottomColor: "rgba(255, 255, 255, 0.05)",
+              }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+                <View style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: "rgba(16, 185, 129, 0.12)",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}>
+                  <Ionicons name="add-circle-outline" size={19} color="#10b981" />
+                </View>
+                <Text style={{ color: "#ffffff", fontSize: 14.5, fontWeight: "700" }}>
+                  {isEN ? "Deposit Funds (Chapa / Telebirr)" : "ገንዘብ አስገባ (ቻፓ / ቴሌብር)"}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={17} color="#64748b" />
+            </TouchableOpacity>
+
+            {/* Withdraw Earnings */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => {
+                playTickSound();
+                haptics.tap();
+                setWithdrawVisible(true);
+              }}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingVertical: 14,
+                paddingHorizontal: 16,
+                borderBottomWidth: 1,
+                borderBottomColor: "rgba(255, 255, 255, 0.05)",
+              }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+                <View style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: "rgba(255, 42, 95, 0.12)",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}>
+                  <Ionicons name="arrow-up-circle-outline" size={19} color="#ff2a5f" />
+                </View>
+                <Text style={{ color: "#ffffff", fontSize: 14.5, fontWeight: "700" }}>
+                  {isEN ? "Withdraw Earnings" : "ያሸነፉትን ገንዘብ አውጣ"}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={17} color="#64748b" />
+            </TouchableOpacity>
+
+            {/* Invite Friends & Referral Rewards */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => {
+                playTickSound();
+                haptics.tap();
+                setShowReferralModal(true);
+              }}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingVertical: 14,
+                paddingHorizontal: 16,
+              }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+                <View style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: "rgba(245, 182, 66, 0.12)",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}>
+                  <Ionicons name="gift-outline" size={19} color="#f5b642" />
+                </View>
+                <Text style={{ color: "#ffffff", fontSize: 14.5, fontWeight: "700" }}>
+                  {isEN ? "Invite Friends & Earn Rewards" : "ጓደኞችን ጋብዝ እና ቦነስ አግኝ"}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={17} color="#64748b" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* 4. Section: "Preferences & Audio" */}
+        <View>
+          <Text style={{
+            color: "#8b93a7",
+            fontSize: 12,
+            fontWeight: "800",
+            textTransform: "uppercase",
+            letterSpacing: 0.8,
+            marginBottom: 8,
+            paddingHorizontal: 4,
+          }}>
+            {isEN ? "Preferences & Security" : "ምርጫዎች እና ደህንነት"}
+          </Text>
+
+          <View style={{
+            backgroundColor: "#111625",
+            borderRadius: 20,
+            borderWidth: 1,
+            borderColor: "rgba(255, 255, 255, 0.08)",
+            overflow: "hidden",
+          }}>
+            {/* Sound & Music Toggle */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => {
+                playTickSound();
+                haptics.tap();
+                toggleMusic();
+              }}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingVertical: 14,
+                paddingHorizontal: 16,
+                borderBottomWidth: 1,
+                borderBottomColor: "rgba(255, 255, 255, 0.05)",
+              }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+                <View style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: "rgba(0, 218, 243, 0.12)",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}>
+                  <Ionicons name={isPlaying ? "volume-high-outline" : "volume-mute-outline"} size={19} color="#00daf3" />
+                </View>
+                <Text style={{ color: "#ffffff", fontSize: 14.5, fontWeight: "700" }}>
+                  {isEN ? (isPlaying ? "Sound Effects (Enabled)" : "Sound Effects (Muted)") : (isPlaying ? "ድምጽ (በርቷል)" : "ድምጽ (ጠፍቷል)")}
+                </Text>
+              </View>
+              <Text style={{ color: isPlaying ? "#00daf3" : "#64748b", fontSize: 13, fontWeight: "800" }}>
+                {isPlaying ? "ON" : "OFF"}
+              </Text>
+            </TouchableOpacity>
+
+            {/* Change Profile & PIN / Password */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => {
+                playTickSound();
+                haptics.tap();
+                setEditUsername(user?.username || "");
+                setEditDisplayName(user?.display_name || user?.username || "");
+                setEditModalVisible(true);
+              }}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingVertical: 14,
+                paddingHorizontal: 16,
+              }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+                <View style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: "rgba(255, 255, 255, 0.06)",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}>
+                  <Ionicons name="lock-closed-outline" size={19} color="#ffffff" />
+                </View>
+                <Text style={{ color: "#ffffff", fontSize: 14.5, fontWeight: "700" }}>
+                  {isEN ? "Edit Profile & Security PIN" : "መገለጫ እና የይለፍ ቃል ቀይር"}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={17} color="#64748b" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* 5. Section: "Support & Community" */}
+        <View>
+          <Text style={{
+            color: "#8b93a7",
+            fontSize: 12,
+            fontWeight: "800",
+            textTransform: "uppercase",
+            letterSpacing: 0.8,
+            marginBottom: 8,
+            paddingHorizontal: 4,
+          }}>
+            {isEN ? "Support & Community" : "ድጋፍ እና ማህበረሰብ"}
+          </Text>
+
+          <View style={{
+            backgroundColor: "#111625",
+            borderRadius: 20,
+            borderWidth: 1,
+            borderColor: "rgba(255, 255, 255, 0.08)",
+            overflow: "hidden",
+          }}>
+            {/* Telegram Support Channel */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => {
+                playTickSound();
+                router.push("https://t.me/xoetsupport" as any);
+              }}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingVertical: 14,
+                paddingHorizontal: 16,
+                borderBottomWidth: 1,
+                borderBottomColor: "rgba(255, 255, 255, 0.05)",
+              }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+                <View style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: "rgba(2, 132, 199, 0.15)",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}>
+                  <Ionicons name="paper-plane" size={18} color="#00daf3" />
+                </View>
+                <Text style={{ color: "#ffffff", fontSize: 14.5, fontWeight: "700" }}>
+                  {isEN ? "Official Telegram Support" : "የቴሌግራም የቀጥታ ድጋፍ"}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={17} color="#64748b" />
+            </TouchableOpacity>
+
+            {/* Provable Fairness & Rules */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => {
+                playTickSound();
+                haptics.tap();
+                toast.info(
+                  isEN ? "Game Rules & Fairness" : "የጨዋታ ህጎች",
+                  isEN ? "Tic-Tac-Toe & Spin outcomes are cryptographically verified and fair." : "የጨዋታ ውጤቶች ፍትሃዊ እና በቴክኖሎጂ የተረጋገጡ ናቸው።"
+                );
+              }}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingVertical: 14,
+                paddingHorizontal: 16,
+              }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+                <View style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: "rgba(16, 185, 129, 0.12)",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}>
+                  <Ionicons name="shield-checkmark-outline" size={19} color="#10b981" />
+                </View>
+                <Text style={{ color: "#ffffff", fontSize: 14.5, fontWeight: "700" }}>
+                  {isEN ? "Game Rules & Provable Fairness" : "የጨዋታ ህጎች እና ፍትሃዊነት"}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={17} color="#64748b" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Admin Panel Button (if admin) */}
+        {(user?.role === "admin" || user?.role === "superadmin" || (user as any)?.is_superadmin || isSuperAdmin) && (
+          <TouchableOpacity
+            onPress={() => {
+              playTickSound();
+              haptics.tap();
+              router.push("/admin" as any);
+            }}
+            activeOpacity={0.8}
+            style={{
+              backgroundColor: "#111625",
+              borderRadius: 18,
+              paddingVertical: 14,
+              paddingHorizontal: 16,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              borderWidth: 1.2,
+              borderColor: "#00daf3",
+            }}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+              <Ionicons name="shield-checkmark" size={20} color="#00daf3" />
+              <Text style={{ color: "#00daf3", fontSize: 14.5, fontWeight: "800" }}>
+                {isEN ? "Open Admin Control Panel" : "የአስተዳዳሪ ገጽ ክፈት"}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#00daf3" />
           </TouchableOpacity>
         )}
 
-        {/* Mobile Logout */}
-        <TouchableOpacity onPress={() => setExitModalVisible(true)} style={s.profileLogoutBtn}>
-          <Text style={s.profileLogoutBtnText}>LOGOUT</Text>
+        {/* 6. Bottom Button: [ ⇥ Log Out ] */}
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => {
+            playTickSound();
+            haptics.tap();
+            setExitModalVisible(true);
+          }}
+          style={{
+            height: 52,
+            borderRadius: 26,
+            backgroundColor: "#111625",
+            borderWidth: 1.2,
+            borderColor: "rgba(255, 42, 95, 0.35)",
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 10,
+            marginTop: 6,
+          }}
+        >
+          <Ionicons name="log-out-outline" size={20} color="#ff2a5f" />
+          <Text style={{
+            color: "#ff2a5f",
+            fontSize: 15,
+            fontWeight: "800",
+            fontFamily: "Inter, sans-serif",
+            letterSpacing: 0.3,
+          }}>
+            {isEN ? "Log Out" : "ውጣ"}
+          </Text>
         </TouchableOpacity>
-
-        {/* 60px Bottom Spacing so Logout and Admin buttons are fully scrollable and clickable on mobile */}
-        <View style={{ height: 60 }} />
       </ScrollView>
-      <NotificationsPopover visible={notificationsVisible} onClose={() => setNotificationsVisible(false)} onUnreadCountChange={setUnreadCount} />
-      
+
       {/* Edit Profile Dialog Modal */}
       {editModalVisible && (
         <View style={s.dialogOverlay}>
@@ -772,7 +1260,7 @@ const s = StyleSheet.create({
     height: 48,
     borderRadius: 24,
     borderWidth: 1.5,
-    borderColor: "#7c3aed",
+    borderColor: "#00BFFF",
   },
   logoText: { color: "#fff", fontSize: 18, fontWeight: "900", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" },
 
@@ -793,9 +1281,9 @@ const s = StyleSheet.create({
     alignItems: "center",
   },
   toggleBtnActive: {
-    backgroundColor: "#7c3aed",
+    backgroundColor: "#00BFFF",
     ...(Platform.OS === 'web' ? { 
-      backgroundImage: "linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)",
+      backgroundImage: "linear-gradient(135deg, #FF1744 0%, #00BFFF 100%)",
       boxShadow: "0 4px 12px rgba(124, 58, 237, 0.4)"
     } as any : {}),
   },
@@ -871,7 +1359,7 @@ const s = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: "#8b5cf6",
+    backgroundColor: "#00BFFF",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -903,7 +1391,7 @@ const s = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#8b5cf6",
+    backgroundColor: "#00BFFF",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -946,14 +1434,14 @@ const s = StyleSheet.create({
     marginBottom: 6,
     position: "relative",
   },
-  navItemActive: { backgroundColor: "rgba(124, 58, 237, 0.08)" },
+  navItemActive: { backgroundColor: "rgba(0, 191, 255, 0.08)" },
   navItemActiveBar: {
     position: "absolute",
     left: 0,
     top: 12,
     bottom: 12,
     width: 3.5,
-    backgroundColor: "#7c3aed",
+    backgroundColor: "#00BFFF",
     borderRadius: 2,
   },
   navText: { color: "#8b93a7", fontSize: 14, fontWeight: "700", fontFamily: "Inter, sans-serif" },
@@ -1013,71 +1501,70 @@ const s = StyleSheet.create({
 
   // ── Profile Header Card ──
   profileHeaderCard: {
-    backgroundColor: "#12172a",
+    backgroundColor: "#111827",
     borderRadius: 24,
-    borderWidth: 1,
-    borderColor: "#1f2540",
+    borderWidth: 1.5,
+    borderColor: "#1E293B",
     padding: 24,
-    ...(Platform.OS === 'web' ? { boxShadow: "0 10px 30px rgba(0,0,0,0.15)" } as any : {}),
+    ...(Platform.OS === 'web' ? { boxShadow: "0 10px 30px rgba(0,0,0,0.25)" } as any : {}),
   },
   profileCardInfoRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 20,
+    gap: 22,
   },
   profileBigAvatarShell: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: "#8b5cf6",
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: "rgba(0, 191, 255, 0.15)",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 2,
-    borderColor: "#1f2540",
-  },
+    borderWidth: 2.5,
+    borderColor: "#00BFFF",
+    boxShadow: "0 0 15px rgba(0, 191, 255, 0.25)",
+  } as any,
   profileBigAvatarText: {
-    color: "#fff",
-    fontSize: 20,
+    color: "#00BFFF",
+    fontSize: 26,
     fontWeight: "900",
-    fontFamily: "Inter, sans-serif",
+    fontFamily: "Space Grotesk, sans-serif",
   },
   profileUsernameText: {
-    color: "#fff",
-    fontSize: 22,
+    color: "#FFFFFF",
+    fontSize: 26,
     fontWeight: "900",
-    fontFamily: "Inter, sans-serif",
+    fontFamily: "Space Grotesk, sans-serif",
   },
   vipLevelBadge: {
-    backgroundColor: "rgba(245, 182, 66, 0.1)",
-    borderWidth: 1,
-    borderColor: "rgba(245, 182, 66, 0.3)",
+    backgroundColor: "rgba(245, 182, 66, 0.15)",
+    borderWidth: 1.2,
+    borderColor: "rgba(245, 182, 66, 0.4)",
     borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
   },
   vipLevelBadgeText: {
-    color: "#f5b642",
-    fontSize: 10,
-    fontWeight: "800",
-    fontFamily: "Inter, sans-serif",
+    color: "#F5B642",
+    fontSize: 11,
+    fontWeight: "900",
+    fontFamily: "Space Grotesk, sans-serif",
   },
   profileVerifiedText: {
-    color: "#22d3ee",
-    fontSize: 10,
+    color: "#00BFFF",
+    fontSize: 11,
     fontWeight: "900",
     letterSpacing: 0.5,
-    fontFamily: "Inter, sans-serif",
+    fontFamily: "Space Grotesk, sans-serif",
   },
   profileDotDivider: {
-    color: "rgba(255, 255, 255, 0.2)",
-    fontSize: 12,
-    fontFamily: "Inter, sans-serif",
+    color: "rgba(255, 255, 255, 0.3)",
+    fontSize: 14,
   },
   profileMemberSinceText: {
-    color: "rgba(255, 255, 255, 0.4)",
-    fontSize: 11,
+    color: "#8893A7",
+    fontSize: 12,
     fontWeight: "600",
-    fontFamily: "Inter, sans-serif",
   },
 
   // ── Stat Cards Grid (Same as history page stats grid) ──
@@ -1087,33 +1574,53 @@ const s = StyleSheet.create({
     minWidth: 160,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#12172a",
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "#1f2540",
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    backgroundColor: "#111827",
+    borderRadius: 22,
+    borderWidth: 1.5,
+    borderColor: "#1E293B",
+    paddingHorizontal: 18,
+    paddingVertical: 18,
   },
   statIconCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
   },
-  statCardLabel: { color: "#8b93a7", fontSize: 9, fontWeight: "800", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" },
-  statCardVal: { color: "#22d3ee", fontSize: 22, fontWeight: "900", marginTop: 2, fontFamily: "Inter, sans-serif" },
+  statCardLabel: { color: "#8893A7", fontSize: 10, fontWeight: "800", letterSpacing: 0.8, fontFamily: "Space Grotesk, sans-serif" },
+  statCardVal: { color: "#FFFFFF", fontSize: 24, fontWeight: "900", marginTop: 2, fontFamily: "Space Grotesk, sans-serif" },
+
+  // Mid-Level Highlight Cards
+  cardHeaderTitleSmall: {
+    color: "#FFFFFF",
+    fontSize: 11.5,
+    fontWeight: "900",
+    letterSpacing: 1,
+    fontFamily: "Space Grotesk, sans-serif",
+  },
+  highlightLabel: {
+    color: "#8893A7",
+    fontSize: 12.5,
+    fontWeight: "600",
+  },
+  highlightVal: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "800",
+    fontFamily: "Space Grotesk, sans-serif",
+  },
 
   // Account details card
   cardHeaderTitle: {
-    color: "#fff",
-    fontSize: 15,
-    fontWeight: "800",
-    fontFamily: "Inter, sans-serif",
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.04)",
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "900",
+    fontFamily: "Space Grotesk, sans-serif",
+    borderBottomWidth: 1.5,
+    borderBottomColor: "#1E293B",
     paddingBottom: 12,
-    marginBottom: 12,
+    marginBottom: 14,
   },
   detailRowsGroup: { gap: 14 },
   accountDetailRow: {
@@ -1123,33 +1630,32 @@ const s = StyleSheet.create({
     paddingVertical: 4,
   },
   accountDetailLabel: {
-    color: "#8b93a7",
-    fontSize: 13,
+    color: "#8893A7",
+    fontSize: 13.5,
     fontWeight: "600",
-    fontFamily: "Inter, sans-serif",
   },
   accountDetailVal: {
-    color: "#fff",
-    fontSize: 13,
+    color: "#FFFFFF",
+    fontSize: 14,
     fontWeight: "800",
-    fontFamily: "Inter, sans-serif",
+    fontFamily: "Space Grotesk, sans-serif",
   },
   copyCodeBtn: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(245, 182, 66, 0.08)",
-    borderWidth: 0.5,
-    borderColor: "rgba(245, 182, 66, 0.3)",
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    gap: 4,
+    backgroundColor: "rgba(245, 182, 66, 0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(245, 182, 66, 0.35)",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    gap: 5,
   },
   copyCodeBtnText: {
-    color: "#f5b642",
-    fontSize: 9,
+    color: "#F5B642",
+    fontSize: 10,
     fontWeight: "900",
-    fontFamily: "Inter, sans-serif",
+    fontFamily: "Space Grotesk, sans-serif",
   },
 
   // ── Settings list rows ──
@@ -1157,41 +1663,70 @@ const s = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.03)",
+    borderBottomColor: "#1E293B",
   },
   settingsIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
   },
   settingsRowLabel: {
-    color: "#e5e3ff",
-    fontSize: 13,
-    fontWeight: "600",
-    fontFamily: "Inter, sans-serif",
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "700",
   },
 
   // Logout Button
   profileLogoutBtn: {
-    backgroundColor: "#ef4444",
+    backgroundColor: "#FF1744", // Brand Signal Red
     borderRadius: 20,
-    paddingVertical: 16,
+    paddingVertical: 18,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     marginTop: 10,
-    ...(Platform.OS === 'web' ? { boxShadow: "0 10px 25px rgba(239, 68, 68, 0.15)" } as any : {}),
+    ...(Platform.OS === 'web' ? { boxShadow: "0 10px 25px rgba(255, 23, 68, 0.25)" } as any : {}),
   },
   profileLogoutBtnText: {
-    color: "#fff",
-    fontSize: 13,
+    color: "#FFFFFF",
+    fontSize: 14,
     fontWeight: "900",
-    letterSpacing: 0.8,
-    fontFamily: "Inter, sans-serif",
+    letterSpacing: 1,
+    fontFamily: "Space Grotesk, sans-serif",
+  },
+
+  // Security Bottom Banner
+  securityBottomBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-around",
+    backgroundColor: "#111827",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#233041",
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    marginTop: 8,
+  },
+  securityBannerItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  securityBannerText: {
+    color: "#8893A7",
+    fontSize: 11.5,
+    fontWeight: "800",
+    fontFamily: "Space Grotesk, sans-serif",
+  },
+  securityBannerDivider: {
+    width: 1,
+    height: 18,
+    backgroundColor: "#233041",
   },
 
   // ── Dialog Overlay Styles ──
@@ -1295,7 +1830,7 @@ const s = StyleSheet.create({
     marginBottom: 16,
   },
   supportChannelBtn: {
-    backgroundColor: "#7c3aed",
+    backgroundColor: "#00BFFF",
     borderRadius: 16,
     paddingVertical: 12,
     flexDirection: "row",

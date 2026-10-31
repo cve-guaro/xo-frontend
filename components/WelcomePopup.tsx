@@ -2,13 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { Modal, View, Text, TouchableOpacity, StyleSheet, Animated, Easing, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useAudioPlayer } from 'expo-audio';
+import { playWinSound } from '../lib/pinTickAudio';
 import { useAuth } from '../context/authContext';
 
 export default function WelcomePopup({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const [show, setShow] = useState(visible);
   const slide = new Animated.Value(0);
-  const chime = useAudioPlayer(require('../assets/sounds/success.mp3'));
 
   useEffect(() => {
     if (show) {
@@ -20,7 +19,7 @@ export default function WelcomePopup({ visible, onClose }: { visible: boolean; o
       }).start();
       // Play a subtle success chime
       try {
-        if (chime && chime.play) chime.play();
+        playWinSound();
       } catch (e) {
         console.warn('Welcome sound error', e);
       }

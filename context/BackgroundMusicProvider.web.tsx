@@ -21,7 +21,7 @@ export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       try {
-        const audio = new Audio(require('../assets/sounds/background.mp3'));
+        const audio = new Audio('/sounds/background.mp3');
         audio.loop = true;
         audio.volume = 0.25;
         audioRef.current = audio;

@@ -2,7 +2,7 @@ import ResultOverlay from "../../../components/game/ResultOverlay";
 import LeaveGameConfirmation from "../../../components/LeaveGameConfirmation";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useIsFocused } from "@react-navigation/native";
-import { useAudioPlayer } from "expo-audio";
+import { playTickSound, playWinSound, playLoseSound } from "../../../lib/pinTickAudio";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -312,15 +312,10 @@ export default function GameRoom() {
     soundOnRef.current = bgMusicOn;
   }, [bgMusicOn]);
 
-  const clickSound = useAudioPlayer(require("../../../assets/sounds/click.wav"));
-  const winSound = useAudioPlayer(require("../../../assets/sounds/win.mp3"));
-  const loseSound = useAudioPlayer(require("../../../assets/sounds/lose.wav"));
-  const xoSound = useAudioPlayer(require("../../../assets/sounds/click.wav"));
-
-  const playClick = useCallback(() => { if (soundOnRef.current) clickSound.play(); }, [clickSound]);
-  const playWin = useCallback(() => { if (soundOnRef.current) winSound.play(); }, [winSound]);
-  const playLose = useCallback(() => { if (soundOnRef.current) loseSound.play(); }, [loseSound]);
-  const playXO = useCallback(() => { if (soundOnRef.current) xoSound.play(); }, [xoSound]);
+  const playClick = useCallback(() => { if (soundOnRef.current) playTickSound(); }, []);
+  const playWin = useCallback(() => { if (soundOnRef.current) playWinSound(); }, []);
+  const playLose = useCallback(() => { if (soundOnRef.current) playLoseSound(); }, []);
+  const playXO = useCallback(() => { if (soundOnRef.current) playTickSound(); }, []);
 
   // ---------- game state ----------
   const [mySymbol, setMySymbol] = useState<"X" | "O">(initialParamSymbol);
@@ -2147,7 +2142,7 @@ const styles = StyleSheet.create({
     elevation: 5,
     margin: 'auto',
     alignSelf: 'center',
-    ...(Platform.OS === 'web' ? { animation: 'turnDotPulse 2s infinite ease-in-out' } as any : {})
+    ...(Platform.OS === 'web' ? { animationKeyframes: 'turnDotPulse', animationDuration: '2s', animationIterationCount: 'infinite', animationTimingFunction: 'ease-in-out' } as any : {})
   },
 
   neonOText: {

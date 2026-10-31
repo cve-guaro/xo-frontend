@@ -23,6 +23,16 @@ export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = 
   const hasInitialized = useRef(false);
   const [shouldLoadSound, setShouldLoadSound] = useState(false);
 
+  const safePlay = (p: any) => {
+    if (!p) return;
+    try {
+      const res = p.play();
+      if (res && typeof res.catch === 'function') {
+        res.catch(() => {});
+      }
+    } catch {}
+  };
+
   const player = useAudioPlayer(shouldLoadSound ? require('../assets/sounds/background.mp3') : null);
   
   if (player) {
@@ -33,7 +43,7 @@ export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = 
   useEffect(() => {
     if (shouldLoadSound && player && isPlayingRef.current && !player.playing) {
       player.volume = 0.15;
-      player.play();
+      safePlay(player);
     }
   }, [shouldLoadSound, player]);
 
@@ -56,8 +66,8 @@ export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = 
         player.volume = 0.15;
       }
 
-      if (shouldStartPlaying && player && player.play) {
-        player.play();
+      if (shouldStartPlaying && player) {
+        safePlay(player);
       }
     };
     
@@ -76,7 +86,7 @@ export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = 
         isPlayingRef.current = dbShouldPlay;
         if (dbShouldPlay) {
           setShouldLoadSound(true);
-          if (player && player.play) player.play();
+          safePlay(player);
         }
         else if (player && player.pause) player.pause();
       }
@@ -87,7 +97,7 @@ export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (next) => {
         if (next === 'active') {
-          if (isPlayingRef.current && player && player.play) player.play();
+          if (isPlayingRef.current && player) safePlay(player);
         } else if (next.match(/inactive|background/) && player && player.pause) {
           player.pause();
         }
@@ -101,8 +111,8 @@ export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = 
 
   const unlockAudio = async () => {
     setShouldLoadSound(true);
-    if (isPlayingRef.current && player && !player.playing && player.play) {
-      player.play();
+    if (isPlayingRef.current && player && !player.playing) {
+      safePlay(player);
     }
   };
 
@@ -140,7 +150,7 @@ export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = 
     
     setShouldLoadSound(true);
     if (nextState) {
-      if (player && player.play) player.play();
+      safePlay(player);
     } else {
       if (player && player.pause) player.pause();
     }

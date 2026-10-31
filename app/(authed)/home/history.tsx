@@ -22,6 +22,8 @@ import ScreenWrapper from "../../../components/ScreenWrapper";
 import { WebPressable } from "../../../components/WebPressable";
 import { WebDepositModal, WebWithdrawModal } from "../../../components/WebModals";
 import ProfileEditModal from "../../../components/ProfileEditModal";
+import DesktopHeader from "../../../components/game/DesktopHeader";
+import DesktopSidebar from "../../../components/game/DesktopSidebar";
 import ReferralModal from "../../../components/ReferralModal";
 import { useBackgroundMusic } from "../../../context/BackgroundMusicProvider";
 import PwaInstallModal from "../../../components/game/PwaInstallModal";
@@ -296,175 +298,33 @@ export default function GamesHistory() {
         <NotificationsPopover visible={notificationsVisible} onClose={() => setNotificationsVisible(false)} onUnreadCountChange={setUnreadCount} />
 
         {/* ── HEADER BAR ── */}
-        <View style={s.header}>
-          <View style={s.headerContentWrapper}>
-            {/* Left: Logo */}
-            <View style={s.logoContainer}>
-              <Image source={require("../../../assets/images/icon.jpg")} style={s.logoImage} />
-              <Text style={s.logoText}>XO ETHIOPIA</Text>
-            </View>
-
-            {/* Center: Toggle Pill */}
-            <View style={s.toggleContainer}>
-              <TouchableOpacity
-                style={s.toggleBtn}
-                onPress={() => router.push('/(authed)/home/gameplay')}
-                activeOpacity={0.85}
-              >
-                <Text style={s.toggleBtnText}>SPIN</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[s.toggleBtn, s.toggleBtnActive, Platform.OS === 'web' ? { backgroundImage: "linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)", boxShadow: "0 4px 12px rgba(124, 58, 237, 0.4)" } as any : undefined]}
-                onPress={() => router.push('/(authed)/home/gameplay')}
-                activeOpacity={0.85}
-              >
-                <Text style={[s.toggleBtnText, s.toggleBtnTextActive]}>XO GAME</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Right: Utility Cluster */}
-            <View style={s.utilityCluster}>
-
-              <TouchableOpacity onPress={() => setPwaModalVisible(true)} style={s.utilityBtn} activeOpacity={0.8}>
-                <Ionicons name="cloud-download-outline" size={16} color="#8b93a7" />
-                <Text style={s.utilityBtnText}>APP</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity onPress={handleLanguageToggle} style={s.utilityBtn} activeOpacity={0.8}>
-                <Ionicons name="globe-outline" size={15} color="#8b93a7" />
-                <Text style={s.utilityBtnText}>{language.toUpperCase()}</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity onPress={toggleMusic} style={s.utilityBtn} activeOpacity={0.8}>
-                <Ionicons name={isPlaying ? "volume-high-outline" : "volume-mute-outline"} size={16} color="#8b93a7" />
-                <Text style={s.utilityBtnText}>{isPlaying ? "SOUND" : "MUTED"}</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity onPress={() => setNotificationsVisible(true)} style={s.bellBtn} activeOpacity={0.8}>
-                <Ionicons name="notifications-outline" size={20} color="#fff" />
-                {unreadCount > 0 && (
-                  <View style={s.bellBadge}><Text style={s.bellBadgeText}>{unreadCount}</Text></View>
-                )}
-              </TouchableOpacity>
-
-              <TouchableOpacity onPress={() => handleNavClick('profile')} style={s.profileChip} activeOpacity={0.85}>
-                <View style={s.profileChipAvatar}>
-                  <Text style={s.profileChipAvatarText}>{user?.username ? user.username.slice(0, 2).toUpperCase() : "ME"}</Text>
-                </View>
-                <View style={{ marginRight: 6 }}>
-                  <Text style={s.profileChipName}>{user?.username || (user?.number ? `User ${user.number.slice(-4)}` : "Set Your Name")}</Text>
-                  <Text style={s.profileChipVip}>VIP 24</Text>
-                </View>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
+        <DesktopHeader
+          user={user}
+          language={language}
+          handleLanguageToggle={handleLanguageToggle}
+          selectedTab="XO_GAME"
+          setPwaModalVisible={setPwaModalVisible}
+          bgMusicPlaying={isPlaying}
+          onToggleSound={toggleMusic}
+          unreadCount={unreadCount}
+          setNotificationsVisible={setNotificationsVisible}
+          router={router}
+        />
 
         {/* ── CORE BODY CONTAINER (Sticky sidebars, Center-only scrolling) ── */}
         <View style={s.desktopLayoutContainer}>
-          {/* 1. LEFT SIDEBAR (fixed width 280px - sticky) */}
-          <ScrollView
-            style={s.stickySidebarScrollLeft}
-            contentContainerStyle={{ gap: 20, paddingBottom: 20 }}
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={s.leftSidebar}>
-              <View style={s.card}>
-                <View style={s.userCardHeader}>
-                    <View style={s.userCardAvatar}>
-                      <Text style={s.userCardAvatarText}>{user?.username ? user.username.slice(0, 1).toUpperCase() : "A"}</Text>
-                    </View>
-                    <View>
-                      <Text style={s.userCardName} numberOfLines={1}>{user?.username || (user?.number ? `User ${user.number.slice(-4)}` : "Set Your Name")}</Text>
-                      <View style={s.onlineRow}>
-                        <View style={s.onlineDot} />
-                        <Text style={s.onlineText}>Online</Text>
-                      </View>
-                    </View>
-                  </View>
-                  
-                  {/* Available Balance card */}
-                  <View style={s.tokensRow}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={s.tokenLabel}>AVAILABLE BALANCE</Text>
-                      <Text style={[s.tokenVal, { color: "#22d3ee" }]}>ETB {user?.available_balance ? Number(user.available_balance).toLocaleString() : "0"}</Text>
-                    </View>
-                    <TouchableOpacity onPress={refreshProfile} style={[s.tokenPlusBtn, { backgroundColor: "rgba(34, 211, 238, 0.15)", borderColor: "rgba(34, 211, 238, 0.3)", borderWidth: 1 }]} activeOpacity={0.8}>
-                      <Ionicons name="refresh" size={12} color="#22d3ee" />
-                    </TouchableOpacity>
-                  </View>
-                </View>
+          {/* 1. LEFT SIDEBAR */}
+          <DesktopSidebar
+            user={user}
+            balance={Number(user?.available_balance || 0)}
+            currentScreen="history"
+            refreshProfile={refreshProfile}
+            setDepositVisible={setDepositVisible}
+            setWithdrawVisible={setWithdrawVisible}
+            router={router}
+          />
 
-                {/* Vertical Navigation Links */}
-                <View style={s.card}>
-                  <TouchableOpacity onPress={() => handleNavClick('home')} style={s.navItem} activeOpacity={0.8}>
-                    <Ionicons name="home-outline" size={18} color="#8b93a7" />
-                    <Text style={s.navText}>Home</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity onPress={() => handleNavClick('history')} style={[s.navItem, s.navItemActive]} activeOpacity={0.8}>
-                    <View style={s.navItemActiveBar} />
-                    <Ionicons name="time" size={18} color="#8b5cf6" />
-                    <Text style={[s.navText, s.navTextActive]}>History</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity onPress={() => handleNavClick('leaderboard')} style={s.navItem} activeOpacity={0.8}>
-                    <Ionicons name="trophy-outline" size={18} color="#8b93a7" />
-                    <Text style={s.navText}>Leaderboard</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity onPress={() => handleNavClick('transactions')} style={s.navItem} activeOpacity={0.8}>
-                    <Ionicons name="receipt-outline" size={18} color="#8b93a7" />
-                    <Text style={s.navText}>Transactions</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity onPress={() => handleNavClick('profile')} style={s.navItem} activeOpacity={0.8}>
-                    <Ionicons name="person-outline" size={18} color="#8b93a7" />
-                    <Text style={s.navText}>Profile</Text>
-                  </TouchableOpacity>
-
-                  {(user?.role === 'admin' || user?.role === 'superadmin' || user?.role === 'maintenance') && (
-                    <TouchableOpacity onPress={() => handleNavClick('admin')} style={s.navItem} activeOpacity={0.8}>
-                      <Ionicons name="shield-checkmark-outline" size={18} color="#8b93a7" />
-                      <Text style={s.navText}>Admin</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-
-                {/* Wallet Summary Panel */}
-                <View style={s.card}>
-                  <Text style={s.sectionTitleSmall}>WALLET</Text>
-                  
-                  <View style={s.walletRow}>
-                    <Text style={s.walletLabel}>Deposit</Text>
-                    <Text style={[s.walletValSmall, { color: "#22c55e" }]}>+ 3,420 ETB</Text>
-                  </View>
-                  
-                  <View style={s.walletRow}>
-                    <Text style={s.walletLabel}>Withdraw</Text>
-                    <Text style={[s.walletValSmall, { color: "#ef4444" }]}>- 420 ETB</Text>
-                  </View>
-                  
-                  <View style={s.walletRow}>
-                    <Text style={s.walletLabel}>Transactions</Text>
-                    <Text style={s.walletValSecond}>12 today</Text>
-                  </View>
-
-                  <View style={s.walletButtons}>
-                    <TouchableOpacity onPress={() => setDepositVisible(true)} style={[s.walletBtnSmall, { borderColor: "#22d3ee" }]} activeOpacity={0.8}>
-                      <Text style={[s.walletBtnTextSmall, { color: "#22d3ee" }]}>DEPOSIT</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => setWithdrawVisible(true)} style={[s.walletBtnSmall, { borderColor: "#7c3aed" }]} activeOpacity={0.8}>
-                      <Text style={[s.walletBtnTextSmall, { color: "#7c3aed" }]}>WITHDRAW</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                {/* Redundant Profile card removed */}
-              </View>
-            </ScrollView>
-
-            {/* 2. CENTER COLUMN (Scrolls independently while sidebars remain sticky) */}
+          {/* 2. CENTER COLUMN (Scrolls independently while sidebars remain sticky) */}
             <ScrollView
               style={s.centerScrollContainer}
               contentContainerStyle={s.centerScrollContent}
@@ -483,9 +343,9 @@ export default function GamesHistory() {
                       paddingHorizontal: 20,
                       paddingVertical: 10,
                       borderRadius: 16,
-                      backgroundColor: gameType === 'xo' ? '#7c3aed' : 'rgba(255,255,255,0.04)',
+                      backgroundColor: gameType === 'xo' ? '#00BFFF' : 'rgba(255,255,255,0.04)',
                       borderWidth: 1,
-                      borderColor: gameType === 'xo' ? '#7c3aed' : 'rgba(255,255,255,0.08)',
+                      borderColor: gameType === 'xo' ? '#00BFFF' : 'rgba(255,255,255,0.08)',
                     }}
                   >
                     <Ionicons name="game-controller" size={16} color={gameType === 'xo' ? '#fff' : '#8b93a7'} />
@@ -504,9 +364,9 @@ export default function GamesHistory() {
                       paddingHorizontal: 20,
                       paddingVertical: 10,
                       borderRadius: 16,
-                      backgroundColor: gameType === 'spin' ? '#7c3aed' : 'rgba(255,255,255,0.04)',
+                      backgroundColor: gameType === 'spin' ? '#00BFFF' : 'rgba(255,255,255,0.04)',
                       borderWidth: 1,
-                      borderColor: gameType === 'spin' ? '#7c3aed' : 'rgba(255,255,255,0.08)',
+                      borderColor: gameType === 'spin' ? '#00BFFF' : 'rgba(255,255,255,0.08)',
                     }}
                   >
                     <Ionicons name="disc-outline" size={16} color={gameType === 'spin' ? '#fff' : '#8b93a7'} />
@@ -565,7 +425,7 @@ export default function GamesHistory() {
                   {/* Card 2 */}
                   <View style={s.statCard}>
                     <View style={[s.statIconCircle, { backgroundColor: "rgba(168, 85, 247, 0.1)" }]}>
-                      <Ionicons name="trending-up" size={18} color="#a855f7" />
+                      <Ionicons name="trending-up" size={18} color="#FF1744" />
                     </View>
                     <View style={{ marginLeft: 12 }}>
                       <Text style={s.statCardLabel}>WIN RATE</Text>
@@ -1175,7 +1035,7 @@ export default function GamesHistory() {
                 paddingVertical: 6,
                 borderRadius: 14,
                 borderWidth: 1,
-                borderColor: filter === "all" ? "#8b5cf6" : "rgba(255,255,255,0.1)",
+                borderColor: filter === "all" ? "#00BFFF" : "rgba(255,255,255,0.1)",
                 backgroundColor: filter === "all" ? "rgba(139, 92, 246, 0.2)" : "rgba(255,255,255,0.05)"
               }}
               activeOpacity={0.8}
@@ -1288,7 +1148,7 @@ const s = StyleSheet.create({
     height: 48,
     borderRadius: 24,
     borderWidth: 1.5,
-    borderColor: "#7c3aed",
+    borderColor: "#00BFFF",
   },
   logoText: { color: "#fff", fontSize: 18, fontWeight: "900", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" },
 
@@ -1309,7 +1169,7 @@ const s = StyleSheet.create({
     alignItems: "center",
   },
   toggleBtnActive: {
-    backgroundColor: "#7c3aed",
+    backgroundColor: "#00BFFF",
   },
   toggleBtnText: { color: "#8b93a7", fontSize: 12, fontWeight: "800", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" },
   toggleBtnTextActive: { color: "#ffffff" },
@@ -1383,7 +1243,7 @@ const s = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: "#8b5cf6",
+    backgroundColor: "#00BFFF",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1451,7 +1311,7 @@ const s = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#8b5cf6",
+    backgroundColor: "#00BFFF",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1494,14 +1354,14 @@ const s = StyleSheet.create({
     marginBottom: 6,
     position: "relative",
   },
-  navItemActive: { backgroundColor: "rgba(124, 58, 237, 0.08)" },
+  navItemActive: { backgroundColor: "rgba(0, 191, 255, 0.08)" },
   navItemActiveBar: {
     position: "absolute",
     left: 0,
     top: 12,
     bottom: 12,
     width: 3.5,
-    backgroundColor: "#7c3aed",
+    backgroundColor: "#00BFFF",
     borderRadius: 2,
   },
   navText: { color: "#8b93a7", fontSize: 14, fontWeight: "700", fontFamily: "Inter, sans-serif" },
@@ -1559,7 +1419,7 @@ const s = StyleSheet.create({
   // Center column
   centerColumn: { flex: 1, gap: 20 },
   titleRowContainer: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
-  mainTitle: { color: "#8b5cf6", fontSize: 36, fontWeight: "900", letterSpacing: -0.5, fontFamily: "Inter, sans-serif" },
+  mainTitle: { color: "#00BFFF", fontSize: 36, fontWeight: "900", letterSpacing: -0.5, fontFamily: "Inter, sans-serif" },
   subTitle: { color: "#8b93a7", fontSize: 13, fontWeight: "600", marginTop: 4, fontFamily: "Inter, sans-serif" },
 
   // Dropdown filter styles
@@ -1683,7 +1543,7 @@ const s = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "#8b5cf6",
+    backgroundColor: "#00BFFF",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 8,
@@ -1708,13 +1568,13 @@ const s = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "rgba(124, 58, 237, 0.15)",
+    backgroundColor: "rgba(0, 191, 255, 0.15)",
     borderWidth: 1.5,
     borderColor: "rgba(124, 58, 237, 0.3)",
     alignItems: "center",
     justifyContent: "center",
   },
-  vsText: { color: "#a855f7", fontSize: 10, fontWeight: "900", fontFamily: "Inter, sans-serif" },
+  vsText: { color: "#FF1744", fontSize: 10, fontWeight: "900", fontFamily: "Inter, sans-serif" },
 
   expandedDetailsRow: {
     flexDirection: "row",
@@ -1752,7 +1612,7 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  pageNumberBtnActive: { backgroundColor: "#7c3aed", borderColor: "#7c3aed" },
+  pageNumberBtnActive: { backgroundColor: "#00BFFF", borderColor: "#00BFFF" },
   pageNumberText: { color: "#8b93a7", fontSize: 11, fontWeight: "700", fontFamily: "Inter, sans-serif" },
   pageNumberTextActive: { color: "#ffffff" },
 
@@ -1782,7 +1642,7 @@ const s = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: "#8b5cf6",
+    backgroundColor: "#00BFFF",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 6,
@@ -1829,7 +1689,7 @@ const s = StyleSheet.create({
   boardCellTextO: { color: "#22c55e" },
 
   playAgainBtn: {
-    backgroundColor: "#7c3aed",
+    backgroundColor: "#00BFFF",
     borderRadius: 16,
     paddingVertical: 12,
     alignItems: "center",

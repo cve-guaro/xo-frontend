@@ -1,7 +1,8 @@
 // lib/receiptGenerator.ts
 // ────────────────────────────────────────────────────────────────────────────
-// Professional Banking-grade Receipt Generator (Moniepoint style matching Image 2)
-// Generates high-resolution PNG receipt cards with scalloped ticket edges.
+// Professional Banking & Ticket Receipt Generator (Matching Image 3 & Image 1)
+// Generates high-resolution PNG receipt ticket with side notches & XO logo.
+// Accurately synchronizes status (Success, Failed, Pending), date, amount & method.
 // ────────────────────────────────────────────────────────────────────────────
 import { Platform } from 'react-native';
 
@@ -10,296 +11,374 @@ export interface ReceiptData {
   ref?: string;
   type: string; // 'deposit' | 'withdrawal' | 'win' | 'prize' | 'stake'
   amount: number;
-  status: string;
+  status: string; // 'success' | 'pending' | 'failed' | 'PENDING' | 'COMPLETED' | 'SUCCESS' | 'FAILED'
   method?: string;
   createdAt: string | Date;
   userName?: string;
   userPhone?: string;
 }
 
-export function formatReceiptDate(rawDate: string | Date): string {
+export function formatTicketDateTime(rawDate: string | Date): string {
+  if (!rawDate) return new Date().toLocaleString();
   try {
+    // If it's already a formatted string like "2/18/2026, 2:56:56 PM", return it directly
+    if (typeof rawDate === 'string') {
+      const trimmed = rawDate.trim();
+      if (trimmed.includes('/') && (trimmed.includes('AM') || trimmed.includes('PM'))) {
+        return trimmed;
+      }
+    }
     const d = new Date(rawDate);
-    if (isNaN(d.getTime())) return "Today | " + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (isNaN(d.getTime())) {
+      return typeof rawDate === 'string' ? rawDate : new Date().toLocaleString();
+    }
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
 
-    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const months = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
-    ];
-
-    const dayName = days[d.getDay()];
-    const monthName = months[d.getMonth()];
-    const dateNum = d.getDate();
-
-    // Suffix (1st, 2nd, 3rd, 4th...)
-    const s = ['th', 'st', 'nd', 'rd'];
-    const v = dateNum % 100;
-    const suffix = s[(v - 20) % 10] || s[v] || s[0];
-
-    // Format time: 5:19 PM
     let hours = d.getHours();
-    const minutes = d.getMinutes().toString().padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    const seconds = String(d.getSeconds()).padStart(2, '0');
     const ampm = hours >= 12 ? 'PM' : 'AM';
     hours = hours % 12 || 12;
+    const hoursStr = String(hours).padStart(2, '0');
 
-    return `${dayName}, ${monthName} ${dateNum}${suffix}, ${d.getFullYear()} | ${hours}:${minutes} ${ampm}`;
+    return `${day}/${month}/${year} ${hoursStr}:${minutes}:${seconds} ${ampm}`;
   } catch {
-    return new Date().toLocaleString();
+    return String(rawDate || new Date().toLocaleString());
   }
 }
 
 /**
- * Generates an Image 2-style banking receipt and triggers download.
+ * Generates an Image 3-style scalloped ticket receipt and downloads it as a PNG image.
  */
 export async function downloadProfessionalReceipt(data: ReceiptData): Promise<void> {
   if (Platform.OS !== 'web' || typeof document === 'undefined') {
     return;
   }
 
-  const width = 840;
-  const height = 1200;
+  const canvasWidth = 750;
+  const canvasHeight = 1050;
   const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
+  canvas.width = canvasWidth;
+  canvas.height = canvasHeight;
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
-  const isCredit = ['deposit', 'win', 'prize'].includes(data.type.toLowerCase());
-  const typeLabel = isCredit ? 'CREDIT' : 'DEBIT';
-  const badgeBg = isCredit ? '#E0F2FE' : '#FEE2E2';
-  const badgeText = isCredit ? '#0284C7' : '#DC2626';
-  const formattedAmt = `${Number(data.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB`;
-  const formattedDate = formatReceiptDate(data.createdAt);
-  const txRef = data.ref || `XOET_${data.id.slice(0, 16).toUpperCase()}`;
-  const senderOrBeneficiary = data.userName || data.userPhone || 'Guest Player';
+  const isDeposit = ['deposit', 'win', 'prize'].includes(data.type.toLowerCase());
+  const statusUpper = String(data.status || 'success').toUpperCase();
+  const isFailed = statusUpper.includes('FAIL');
+  const isPending = statusUpper.includes('PEND');
+  const isSuccess = !isFailed && !isPending;
 
-  // 1. Draw Vibrant Background (Royal Blue with diagonal yellow ribbon stripe — Image 2)
-  ctx.fillStyle = '#0066FF';
-  ctx.fillRect(0, 0, width, height);
+  const sign = isDeposit ? '+' : '-';
+  const formattedAmt = `${sign}${Number(data.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB`;
+  const dateTimeStr = formatTicketDateTime(data.createdAt);
+  const billNumber = (data.ref || data.id || `XO${data.id.slice(0, 10)}`).toUpperCase();
+  const rawMethod = data.method || 'Chapa';
+  const paymentMethod = rawMethod.toUpperCase();
+  const typeDisplay = isDeposit ? 'Top up / Deposit' : data.type === 'withdrawal' ? 'Withdrawal Payout' : 'Game Reward';
 
-  // Diagonal Golden Yellow Ribbon Stripe
+  // 1. Soft Background (Matching Image 3)
+  const bgGrad = ctx.createLinearGradient(0, 0, 0, canvasHeight);
+  bgGrad.addColorStop(0, '#DDE5F4');
+  bgGrad.addColorStop(1, '#C8D6EC');
+  ctx.fillStyle = bgGrad;
+  ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+  // 2. Ticket Dimensions
+  const ticketX = 75;
+  const ticketY = 60;
+  const ticketW = canvasWidth - 150; // 600
+  const ticketH = canvasHeight - 120; // 930
+  const cornerR = 24;
+  const notchY = ticketY + 450; // Perforation line position
+  const notchR = 18;
+
+  // Draw Ticket Shape with Side Semi-Circular Cutouts
   ctx.save();
-  ctx.fillStyle = '#F59E0B';
-  ctx.beginPath();
-  ctx.moveTo(140, 0);
-  ctx.lineTo(240, 0);
-  ctx.lineTo(0, 240);
-  ctx.lineTo(0, 140);
-  ctx.closePath();
-  ctx.fill();
+  ctx.shadowColor = 'rgba(28, 41, 74, 0.16)';
+  ctx.shadowBlur = 30;
+  ctx.shadowOffsetY = 14;
+  ctx.fillStyle = '#FFFFFF';
 
   ctx.beginPath();
-  ctx.moveTo(320, 0);
-  ctx.lineTo(440, 0);
-  ctx.lineTo(0, 440);
-  ctx.lineTo(0, 320);
-  ctx.closePath();
-  ctx.fill();
-
-  ctx.beginPath();
-  ctx.moveTo(width, height - 440);
-  ctx.lineTo(width, height - 320);
-  ctx.lineTo(width - 440, height);
-  ctx.lineTo(width - 320, height);
+  // Top-left corner
+  ctx.moveTo(ticketX + cornerR, ticketY);
+  // Top edge
+  ctx.lineTo(ticketX + ticketW - cornerR, ticketY);
+  ctx.quadraticCurveTo(ticketX + ticketW, ticketY, ticketX + ticketW, ticketY + cornerR);
+  // Right edge down to notch
+  ctx.lineTo(ticketX + ticketW, notchY - notchR);
+  // Right notch (inward semi-circle)
+  ctx.arc(ticketX + ticketW, notchY, notchR, -Math.PI / 2, Math.PI / 2, true);
+  // Right edge from notch to bottom
+  ctx.lineTo(ticketX + ticketW, ticketY + ticketH - cornerR);
+  ctx.quadraticCurveTo(ticketX + ticketW, ticketY + ticketH, ticketX + ticketW - cornerR, ticketY + ticketH);
+  // Bottom edge
+  ctx.lineTo(ticketX + cornerR, ticketY + ticketH);
+  ctx.quadraticCurveTo(ticketX, ticketY + ticketH, ticketX, ticketY + ticketH - cornerR);
+  // Left edge up to notch
+  ctx.lineTo(ticketX, notchY + notchR);
+  // Left notch (inward semi-circle)
+  ctx.arc(ticketX, notchY, notchR, Math.PI / 2, -Math.PI / 2, true);
+  // Left edge from notch to top
+  ctx.lineTo(ticketX, ticketY + cornerR);
+  ctx.quadraticCurveTo(ticketX, ticketY, ticketX + cornerR, ticketY);
   ctx.closePath();
   ctx.fill();
   ctx.restore();
 
-  // 2. White Brand Header (Moniepoint style)
-  // White Pill with Logo & Text
-  const headerCardX = 220;
-  const headerCardY = 40;
-  const headerCardW = 400;
-  const headerCardH = 76;
-  const headerR = 38;
+  // 3. Top Header with XO Logo ("with white in top xo logo")
+  const logoCenterX = ticketX + ticketW / 2;
+  const logoY = ticketY + 36;
 
+  // Pill for XO Logo badge
   ctx.save();
-  ctx.fillStyle = '#FFFFFF';
+  ctx.fillStyle = '#060A14';
   ctx.beginPath();
-  ctx.roundRect(headerCardX, headerCardY, headerCardW, headerCardH, headerR);
+  ctx.roundRect(logoCenterX - 85, logoY, 170, 36, 18);
   ctx.fill();
 
-  // Logo Icon inside header pill
-  ctx.fillStyle = '#0066FF';
+  // Cyan dot
+  ctx.fillStyle = '#00DAF3';
   ctx.beginPath();
-  ctx.roundRect(headerCardX + 16, headerCardY + 12, 52, 52, 14);
+  ctx.arc(logoCenterX - 56, logoY + 18, 5, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = '#FFFFFF';
-  ctx.font = '900 26px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('XO', headerCardX + 42, headerCardY + 38);
 
-  // Logo Text
+  // XO ET text
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = '900 16px sans-serif';
   ctx.textAlign = 'left';
-  ctx.fillStyle = '#0F172A';
-  ctx.font = '900 28px sans-serif';
-  ctx.fillText('XO ETHIOPIA', headerCardX + 80, headerCardY + 33);
-  ctx.fillStyle = '#64748B';
-  ctx.font = '800 11px sans-serif';
-  ctx.letterSpacing = '1px';
-  ctx.fillText('DIGITAL GAMING & ENTERTAINMENT', headerCardX + 80, headerCardY + 54);
+  ctx.textBaseline = 'middle';
+  ctx.fillText('XO ETHIOPIA', logoCenterX - 44, logoY + 18);
   ctx.restore();
 
-  // 3. Main White Receipt Card
-  const cardX = 40;
-  const cardY = 145;
-  const cardW = width - 80; // 760
-  const cardH = 970;
-  const cardR = 36;
-
+  // 4. Circular Status Badge (Success = Green Checkmark, Failed = Red Cross, Pending = Amber Clock)
+  const badgeCenterY = ticketY + 140;
   ctx.save();
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.25)';
-  ctx.shadowBlur = 40;
-  ctx.shadowOffsetY = 15;
-  ctx.fillStyle = '#FFFFFF';
 
-  // Draw Card with Perforated Scalloped Bottom Edge
-  ctx.beginPath();
-  ctx.moveTo(cardX + cardR, cardY);
-  ctx.lineTo(cardX + cardW - cardR, cardY);
-  ctx.quadraticCurveTo(cardX + cardW, cardY, cardX + cardW, cardY + cardR);
-  ctx.lineTo(cardX + cardW, cardY + cardH);
-
-  // Scalloped perforated ripples at the bottom
-  const scallopCount = 19;
-  const scallopStep = cardW / scallopCount;
-  const scallopRadius = scallopStep / 2;
-
-  for (let i = 0; i < scallopCount; i++) {
-    const cx = cardX + cardW - (i * scallopStep) - scallopRadius;
-    const cy = cardY + cardH;
-    ctx.arc(cx, cy, scallopRadius, 0, Math.PI, false);
+  let outerCircleBg = '#DCFCE7';
+  let innerBadgeColor = '#22C55E';
+  if (isFailed) {
+    outerCircleBg = '#FEE2E2';
+    innerBadgeColor = '#EF4444';
+  } else if (isPending) {
+    outerCircleBg = '#FEF3C7';
+    innerBadgeColor = '#F59E0B';
   }
 
-  ctx.lineTo(cardX, cardY + cardR);
-  ctx.quadraticCurveTo(cardX, cardY, cardX + cardR, cardY);
+  // Soft pastel background circle
+  ctx.fillStyle = outerCircleBg;
+  ctx.beginPath();
+  ctx.arc(logoCenterX, badgeCenterY, 44, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Scalloped / star flower badge in center
+  ctx.fillStyle = innerBadgeColor;
+  ctx.beginPath();
+  const numPoints = 12;
+  const outerRadius = 30;
+  const innerRadius = 24;
+  for (let i = 0; i < numPoints * 2; i++) {
+    const r = (i % 2 === 0) ? outerRadius : innerRadius;
+    const angle = (i * Math.PI) / numPoints;
+    const x = logoCenterX + Math.cos(angle) * r;
+    const y = badgeCenterY + Math.sin(angle) * r;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
   ctx.closePath();
   ctx.fill();
+
+  // Draw status icon inside star badge
+  ctx.strokeStyle = '#FFFFFF';
+  ctx.lineWidth = 4.5;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  if (isFailed) {
+    // Red Cross '✕'
+    ctx.beginPath();
+    ctx.moveTo(logoCenterX - 10, badgeCenterY - 10);
+    ctx.lineTo(logoCenterX + 10, badgeCenterY + 10);
+    ctx.moveTo(logoCenterX + 10, badgeCenterY - 10);
+    ctx.lineTo(logoCenterX - 10, badgeCenterY + 10);
+    ctx.stroke();
+  } else if (isPending) {
+    // Amber Clock hands
+    ctx.beginPath();
+    ctx.arc(logoCenterX, badgeCenterY, 13, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(logoCenterX, badgeCenterY - 7);
+    ctx.lineTo(logoCenterX, badgeCenterY);
+    ctx.lineTo(logoCenterX + 5, badgeCenterY);
+    ctx.stroke();
+  } else {
+    // Green Checkmark '✓'
+    ctx.beginPath();
+    ctx.moveTo(logoCenterX - 11, badgeCenterY);
+    ctx.lineTo(logoCenterX - 3, badgeCenterY + 8);
+    ctx.lineTo(logoCenterX + 12, badgeCenterY - 8);
+    ctx.stroke();
+  }
   ctx.restore();
 
-  // 4. Upper Left Pill Badge (CREDIT / DEBIT)
+  // 5. Title & Subtitle (Accurately synchronizing status)
   ctx.save();
-  const badgeX = cardX + 36;
-  const badgeY = cardY + 40;
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#0F172A';
+  ctx.font = '800 24px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+
+  let mainTitle = isDeposit ? 'Top up successfully' : 'Withdrawal processed';
+  let subTitle = isDeposit ? 'Thank you! Your wallet is ready.' : 'Transaction successfully submitted.';
+
+  if (isFailed) {
+    mainTitle = isDeposit ? 'Deposit Failed' : 'Withdrawal Failed';
+    subTitle = 'The transaction could not be processed.';
+  } else if (isPending) {
+    mainTitle = isDeposit ? 'Deposit Processing' : 'Withdrawal Pending';
+    subTitle = 'Awaiting confirmation from provider.';
+  }
+
+  ctx.fillText(mainTitle, logoCenterX, badgeCenterY + 70);
+
+  ctx.fillStyle = '#64748B';
+  ctx.font = '500 14.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  ctx.fillText(subTitle, logoCenterX, badgeCenterY + 98);
+  ctx.restore();
+
+  // 6. Top Half Key-Value Rows (Bill Number, Date and Time)
+  const rowLeftX = ticketX + 44;
+  const rowRightX = ticketX + ticketW - 44;
+  const rowY1 = badgeCenterY + 146;
+  const rowY2 = rowY1 + 34;
+
+  ctx.save();
+  ctx.font = '500 14px sans-serif';
+  ctx.fillStyle = '#64748B';
+  ctx.textAlign = 'left';
+  ctx.fillText('Bill Number:', rowLeftX, rowY1);
+  ctx.fillText('Date and Time:', rowLeftX, rowY2);
+
+  ctx.font = '700 14px monospace';
+  ctx.fillStyle = '#0F172A';
+  ctx.textAlign = 'right';
+  ctx.fillText(billNumber, rowRightX, rowY1);
+
+  ctx.font = '600 13.5px sans-serif';
+  ctx.fillText(dateTimeStr, rowRightX, rowY2);
+  ctx.restore();
+
+  // 7. Perforated Dashed Divider Line across notches
+  ctx.save();
+  ctx.setLineDash([7, 6]);
+  ctx.strokeStyle = '#E2E8F0';
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  ctx.moveTo(ticketX + notchR + 10, notchY);
+  ctx.lineTo(ticketX + ticketW - notchR - 10, notchY);
+  ctx.stroke();
+  ctx.restore();
+
+  // 8. Lower Half Breakdown Rows (Package, Type, Status, Payment Amount)
+  const lowRowY1 = notchY + 38;
+  const lowRowY2 = lowRowY1 + 32;
+  const lowRowY3 = lowRowY2 + 32;
+  const lowRowY4 = lowRowY3 + 34;
+
+  ctx.save();
+  ctx.font = '500 14px sans-serif';
+  ctx.fillStyle = '#64748B';
+  ctx.textAlign = 'left';
+  ctx.fillText('Package:', rowLeftX, lowRowY1);
+  ctx.fillText('Type:', rowLeftX, lowRowY2);
+  ctx.fillText('Status:', rowLeftX, lowRowY3);
+  ctx.fillText('Payment Amount:', rowLeftX, lowRowY4);
+
+  ctx.textAlign = 'right';
+  ctx.font = '700 14px sans-serif';
+  ctx.fillStyle = '#0F172A';
+  ctx.fillText('XOET Gaming Credit', rowRightX, lowRowY1);
+
+  ctx.fillStyle = '#0F172A';
+  ctx.fillText(typeDisplay, rowRightX, lowRowY2);
+
+  // Status Badge
+  const statusColor = isFailed ? '#EF4444' : isPending ? '#D97706' : '#16A34A';
+  const statusLabel = isFailed ? 'FAILED' : isPending ? 'PROCESSING' : 'COMPLETED';
+  ctx.fillStyle = statusColor;
+  ctx.font = '800 13.5px sans-serif';
+  ctx.fillText(statusLabel, rowRightX, lowRowY3);
+
+  // Big Bold Amount
+  ctx.font = '900 19px sans-serif';
+  ctx.fillStyle = isFailed ? '#EF4444' : isSuccess ? '#16A34A' : '#0F172A';
+  ctx.fillText(formattedAmt, rowRightX, lowRowY4);
+  ctx.restore();
+
+  // 9. Payment Method Card (Gray container at the bottom matching Image 3)
+  const methodCardX = ticketX + 36;
+  const methodCardY = lowRowY4 + 28;
+  const methodCardW = ticketW - 72;
+  const methodCardH = 92;
+  const methodCardR = 16;
+
+  ctx.save();
+  ctx.fillStyle = '#F1F5F9';
+  ctx.beginPath();
+  ctx.roundRect(methodCardX, methodCardY, methodCardW, methodCardH, methodCardR);
+  ctx.fill();
+
+  // "Payment method:" header label
+  ctx.font = '600 12.5px sans-serif';
+  ctx.fillStyle = '#64748B';
+  ctx.textAlign = 'left';
+  ctx.fillText('Payment method:', methodCardX + 20, methodCardY + 26);
+
+  // Payment Badge pill
+  const badgePillW = 62;
+  const badgePillH = 28;
+  const badgePillX = methodCardX + 20;
+  const badgePillY = methodCardY + 42;
+
+  const isChapa = paymentMethod.includes('CHAPA');
+  const isTelebirr = paymentMethod.includes('TELEBIRR');
+  const badgeBg = isTelebirr ? '#0284C7' : isChapa ? '#059669' : '#1E3A8A';
+
   ctx.fillStyle = badgeBg;
   ctx.beginPath();
-  ctx.roundRect(badgeX, badgeY, 130, 36, 10);
+  ctx.roundRect(badgePillX, badgePillY, badgePillW, badgePillH, 6);
   ctx.fill();
 
-  ctx.fillStyle = badgeText;
-  ctx.font = '900 16px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(typeLabel, badgeX + 65, badgeY + 18);
-
-  // Upper Right Brand Monogram Icon (Rounded blue square with M/XO)
-  const logoRightX = cardX + cardW - 36 - 64;
-  const logoRightY = cardY + 36;
-  ctx.fillStyle = '#0066FF';
-  ctx.beginPath();
-  ctx.roundRect(logoRightX, logoRightY, 64, 64, 18);
-  ctx.fill();
+  ctx.font = '900 12px sans-serif';
   ctx.fillStyle = '#FFFFFF';
-  ctx.font = '900 30px sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('XO', logoRightX + 32, logoRightY + 32);
+  ctx.fillText(isTelebirr ? 'TELE' : isChapa ? 'CHAPA' : 'PAY', badgePillX + badgePillW / 2, badgePillY + badgePillH / 2);
 
-  // 5. Large Bold Amount (Image 2 style)
+  // Method details text
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
+  ctx.font = '700 14px sans-serif';
   ctx.fillStyle = '#0F172A';
-  ctx.font = '900 52px sans-serif';
-  ctx.fillText(formattedAmt, badgeX, badgeY + 105);
+  ctx.fillText(paymentMethod, badgePillX + badgePillW + 14, badgePillY + 14);
+
+  ctx.font = '500 11.5px sans-serif';
+  ctx.fillStyle = '#64748B';
+  ctx.fillText('Instant Secure Verification', badgePillX + badgePillW + 14, badgePillY + 30);
   ctx.restore();
 
-  // 6. Inner Form Card (Light gray container #F8FAFC matching Image 2)
-  const innerX = cardX + 36;
-  const innerY = cardY + 210;
-  const innerW = cardW - 72;
-  const innerH = 680;
-  const innerR = 24;
-
+  // 10. Watermark & Security ID at bottom footer
   ctx.save();
-  ctx.fillStyle = '#F8FAFC';
-  ctx.strokeStyle = '#EDF2F7';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.roundRect(innerX, innerY, innerW, innerH, innerR);
-  ctx.fill();
-  ctx.stroke();
-
-  // Helper row drawer
-  const drawDetailBlock = (
-    label: string,
-    value: string,
-    yPos: number,
-    isPill: boolean = false,
-    pillColor: string = '#3B82F6',
-    pillBg: string = '#EFF6FF'
-  ) => {
-    // Label (gray)
-    ctx.fillStyle = '#94A3B8';
-    ctx.font = '700 16px sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText(label, innerX + 32, yPos);
-
-    if (isPill) {
-      // Pill value
-      const pillW = 120;
-      const pillH = 34;
-      ctx.fillStyle = pillBg;
-      ctx.beginPath();
-      ctx.roundRect(innerX + 32, yPos + 12, pillW, pillH, 8);
-      ctx.fill();
-
-      ctx.fillStyle = pillColor;
-      ctx.font = '800 16px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(value, innerX + 32 + pillW / 2, yPos + 35);
-    } else {
-      // Value (bold dark)
-      ctx.fillStyle = '#1E293B';
-      ctx.font = '800 20px sans-serif';
-      ctx.textAlign = 'left';
-      ctx.fillText(value, innerX + 32, yPos + 36);
-    }
-
-    // Divider line
-    ctx.strokeStyle = '#E2E8F0';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(innerX + 32, yPos + 64);
-    ctx.lineTo(innerX + innerW - 32, yPos + 64);
-    ctx.stroke();
-  };
-
-  const transferLabel = data.type === 'deposit' ? 'Deposit' : (data.type === 'withdrawal' ? 'Withdrawal' : 'Transfer');
-  drawDetailBlock('Transaction Type', transferLabel, innerY + 45, true, '#2563EB', '#DBEAFE');
-  drawDetailBlock('Business Name', 'XO ETHIOPIA ENTERTAINMENT', innerY + 145);
-  drawDetailBlock('Beneficiary / Account Name', senderOrBeneficiary.toUpperCase(), innerY + 245);
-  drawDetailBlock('Payment Method', (data.method || 'TELEBIRR / CHAPA').toUpperCase(), innerY + 345);
-  drawDetailBlock('Transaction Date', formattedDate, innerY + 445);
-
-  // Transaction Reference
+  ctx.textAlign = 'center';
+  ctx.font = '600 11px monospace';
   ctx.fillStyle = '#94A3B8';
-  ctx.font = '700 16px sans-serif';
-  ctx.textAlign = 'left';
-  ctx.fillText('Transaction Reference', innerX + 32, innerY + 545);
-
-  ctx.fillStyle = '#1E293B';
-  ctx.font = '800 18px monospace';
-  ctx.fillText(txRef, innerX + 32, innerY + 580);
-
-  // Status Badge at bottom of form
-  ctx.fillStyle = '#16A34A';
-  ctx.font = '800 15px sans-serif';
-  ctx.fillText(`● STATUS: ${data.status.toUpperCase()}`, innerX + 32, innerY + 630);
+  ctx.fillText(`AUTHENTICATED BY XO ETHIOPIA • ID: ${data.id.slice(0, 16).toUpperCase()}`, logoCenterX, ticketY + ticketH - 22);
   ctx.restore();
 
-  // 7. Trigger Direct Download of PNG Image
+  // 11. Trigger Direct Download of PNG Image
   const dataUrl = canvas.toDataURL('image/png', 1.0);
   const downloadLink = document.createElement('a');
   downloadLink.download = `XOET_Receipt_${data.id.slice(0, 12)}.png`;

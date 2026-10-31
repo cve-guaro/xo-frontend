@@ -1,3 +1,4 @@
+import { Easing } from 'react-native';
 // theme/tokens.ts
 // ────────────────────────────────────────────────────────────────────────────
 // Xoet Design System — single source of truth.
@@ -181,4 +182,29 @@ export const metrics = {
   avatarSize: 44,
   ctaHeight: 54,
   ctaHeightSm: 48,
+};
+
+// ── Motion System Tokens (snappy, GPU-accelerated, calm) ─────────────────────
+// Strict token governance based on Linear/Stripe/Apple performance rules:
+// - Duration tokens: 100ms, 150ms, 200ms, 300ms. No arbitrary one-offs.
+// - Easing: ease-out on enter; ease-in on exit. No bounce/elastic on chrome.
+// - Animatable: transform and opacity only.
+export const motion = {
+  duration: {
+    instant: 100,    // Micro-interactions, button presses, tap feedback
+    exit: 150,       // Fast dismissals, closing modals, toasts leaving
+    enter: 200,      // Dialog openings, bottom sheets, popovers entering
+    deliberate: 300,  // Full route/layout transitions
+  },
+  easing: {
+    enter: Easing.bezier(0.16, 1, 0.3, 1), // ease-out (smooth arrival)
+    exit: Easing.bezier(0.7, 0, 0.84, 0),  // ease-in (quick departure)
+    linear: Easing.linear,
+  },
+  css: {
+    enterEasing: 'cubic-bezier(0.16, 1, 0.3, 1)',
+    exitEasing: 'cubic-bezier(0.7, 0, 0.84, 0)',
+    fast: '100ms cubic-bezier(0.16, 1, 0.3, 1)',
+    normal: '200ms cubic-bezier(0.16, 1, 0.3, 1)',
+  },
 };

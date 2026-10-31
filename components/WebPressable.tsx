@@ -12,7 +12,7 @@ interface WebPressableProps extends PressableProps {
 
 export const WebPressable: React.FC<WebPressableProps> = ({ 
   style, 
-  hoverScale = 1.018, 
+  hoverScale = 1.0, 
   hoverOpacity = 1, 
   activeScale = 0.96,
   hapticFeedback = true,
@@ -54,7 +54,7 @@ export const WebPressable: React.FC<WebPressableProps> = ({
           baseStyle,
           Platform.OS === 'web' && { 
             cursor: 'pointer', 
-            transition: 'transform 0.16s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.16s ease, filter 0.16s ease, box-shadow 0.2s ease',
+            transition: 'transform 100ms cubic-bezier(0.16, 1, 0.3, 1), opacity 100ms cubic-bezier(0.16, 1, 0.3, 1)',
             touchAction: 'manipulation',
             WebkitTapHighlightColor: 'transparent',
             userSelect: 'none',

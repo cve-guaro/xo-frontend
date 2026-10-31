@@ -1,24 +1,26 @@
 import { Ionicons } from "@expo/vector-icons";
-import { House, ClockCounterClockwise, Trophy, UserCircle } from "phosphor-react-native";
+import { House, ClockCounterClockwise, Trophy, UserCircle, Wallet } from "phosphor-react-native";
 import { Redirect, Tabs, useRouter, usePathname, useGlobalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
-import { Pressable, View, Platform, useWindowDimensions, Text, Image, TouchableOpacity, StyleSheet } from "react-native";
+import { Pressable, View, Platform, useWindowDimensions, Text, Image, TouchableOpacity, StyleSheet , LayoutAnimation } from 'react-native';
 import { useAuth } from "../../../context/authContext";
 import { haptics } from "../../../lib/haptcs";
+import { playTickSound } from "../../../lib/pinTickAudio";
 import { WebPressable } from "../../../components/WebPressable";
 import { BlurView } from "expo-blur";
 
 const TAB_H = Platform.OS === "ios" ? 90 : 82;
 
-
 const colors = {
-  bg: "#0B0B16", // Surface dark
-  bar: "rgba(11,11,22,0.72)", // Glassy bar
-  border: "rgba(255,255,255,0.08)", // Hairline border
-  active: "#00DAF3", // Brand cyan
-  inactive: "#8B8FA8", // Muted
+  bg: "#0B0B16",
+  bar: "rgba(11,11,22,0.88)",
+  border: "rgba(255,255,255,0.08)",
+  active: "#00DAF3",
+  activeBlue: "#00DAF3",
+  activeRed: "#ff2a5f",
   activePillBg: "rgba(0,218,243,0.12)",
-  activePillBorder: "rgba(0,218,243,0.35)",
+  activePillBorder: "rgba(0,218,243,0.3)",
+  inactive: "#8B8FA8",
 };
 
 function TabButton(props: any) {
@@ -61,7 +63,7 @@ const SidebarItem = ({ icon, label, isActive, onPress }: { icon: any, label: str
         borderRadius: 12,
         marginBottom: 8,
         backgroundColor: isActive ? 'rgba(166,140,255,0.1)' : hovered ? 'rgba(255,255,255,0.05)' : 'transparent',
-        borderLeftWidth: isActive ? 4 : 4,
+        borderLeftWidth: isActive ? 4 : 0,
         borderLeftColor: isActive ? colors.active : 'transparent',
       }
     ]}
@@ -170,96 +172,230 @@ export default function AuthedLayout() {
         <Tabs.Screen name="leaderboard" options={{ title: language === 'am' ? 'ሊደርቦርድ' : 'Leaderboard', href: null }} />
       </Tabs>
 
-      {/* Global Custom Floating Bottom Nav — Hidden in Game Rooms & on Desktop. Spin: 2 tabs (Home, Profile), XO: 4 tabs (Home, History, Leaderboard, Profile) */}
-      {!isDesktop && !isInGameRoom && (
-        <View pointerEvents="box-none" style={{
-          position: 'absolute', bottom: 0,
-          left: 0, right: 0, zIndex: 9999, elevation: 9999,
-          alignItems: 'center',
-          paddingBottom: Platform.OS === 'ios' ? 18 : 12,
-        }}>
+      {/* Global Custom Floating Bottom Nav — Hidden in Game Rooms & on Desktop */}
+      {!isDesktop && !isInGameRoom && (() => {
+        const isWalletPage = pathname === '/home/transactions';
+        const isHistoryPage = pathname === '/home/history';
+        const isLeaderboardPage = pathname === '/home/leaderboard';
+        const isAccountPage = pathname === '/home/account';
+        const isGameplayPage = pathname === '/home/gameplay' || pathname.includes('spin');
+
+        // Spin card uses 3 tabs; XO card uses 5 tabs
+        const show3Tabs = isSpinMode;
+        const activeThemeColor = isSpinMode ? colors.activeRed : colors.activeBlue;
+        const activeThemePillBg = isSpinMode ? 'rgba(255, 42, 95, 0.20)' : 'rgba(0, 218, 243, 0.20)';
+        const activeThemePillBorder = isSpinMode ? 'rgba(255, 42, 95, 0.55)' : 'rgba(0, 218, 243, 0.55)';
+
+        return (
           <View style={{
-            width: isSpinMode ? '58%' : '94%',
-            maxWidth: isSpinMode ? 260 : 480,
-            flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around',
-            backgroundColor: 'rgba(11,11,22,0.85)',
-            borderRadius: 24,
-            borderWidth: 1,
-            borderColor: 'rgba(255,255,255,0.12)',
-            paddingTop: 10,
-            paddingBottom: Platform.OS === 'ios' ? 14 : 10,
-            paddingHorizontal: isSpinMode ? 12 : 6,
-            overflow: 'hidden',
-            shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
-            shadowOpacity: 0.45, shadowRadius: 20, elevation: 12,
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            zIndex: 9999,
+            elevation: 9999,
+            backgroundColor: '#080F17', // Matching Brand Identity Deep Navy
+            borderTopWidth: 1,
+            borderTopColor: 'rgba(35, 48, 65, 0.7)',
+            paddingBottom: Platform.OS === 'ios' ? 24 : 10,
+            paddingTop: 8,
+            borderRadius: 0,
           }}>
-            {/* Universal glassmorphic background */}
-            <BlurView tint="dark" intensity={50} style={StyleSheet.absoluteFill} />
+            <View style={{
+              width: '100%',
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-around',
+              paddingHorizontal: show3Tabs ? 20 : 6,
+              borderRadius: 0,
+            }}>
 
-            {/* Home */}
-            <TouchableOpacity onPress={() => router.push('/(authed)/home/gameplay')} style={s.navItem} activeOpacity={0.8}>
-              <View style={[s.iconPill, (pathname === '/home/gameplay' || pathname.includes('spin')) && s.iconPillActive]}>
-                <House size={21} color={(pathname === '/home/gameplay' || pathname.includes('spin')) ? colors.active : colors.inactive} weight={(pathname === '/home/gameplay' || pathname.includes('spin')) ? "fill" : "regular"} />
-              </View>
-              <Text style={[s.navLabel, (pathname === '/home/gameplay' || pathname.includes('spin')) && s.navLabelActive]}>
-                {language === 'am' ? 'ዋና' : 'Home'}
-              </Text>
-            </TouchableOpacity>
-
-            {/* History (Match History) — Only in XO mode */}
-            {!isSpinMode && (
-              <TouchableOpacity onPress={() => router.push('/(authed)/home/history')} style={s.navItem} activeOpacity={0.8}>
-                <View style={[s.iconPill, pathname === '/home/history' && s.iconPillActive]}>
-                  <ClockCounterClockwise size={21} color={pathname === '/home/history' ? colors.active : colors.inactive} weight={pathname === '/home/history' ? "fill" : "regular"} />
+              {/* 1. Home Tab */}
+              <TouchableOpacity
+                onPress={() => {
+                  try { playTickSound(); } catch {}
+                  try { LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); } catch {}
+                  haptics.tap();
+                  if (!isGameplayPage) router.replace('/(authed)/home/gameplay');
+                }}
+                style={isGameplayPage ? s.navItemActive : s.navItem}
+                activeOpacity={0.75}
+              >
+                <View style={[
+                  s.navItemBox,
+                  isGameplayPage && { backgroundColor: activeThemePillBg, borderColor: activeThemePillBorder, paddingHorizontal: 12 },
+                ]}>
+                  <House
+                    size={20}
+                    color={isGameplayPage ? activeThemeColor : colors.inactive}
+                    weight={isGameplayPage ? "fill" : "regular"}
+                  />
+                  {isGameplayPage && (
+                    <Text style={[s.activeNavText, { color: activeThemeColor }]}>
+                      Home
+                    </Text>
+                  )}
                 </View>
-                <Text style={[s.navLabel, pathname === '/home/history' && s.navLabelActive]}>
-                  {language === 'am' ? 'ታሪክ' : 'History'}
-                </Text>
               </TouchableOpacity>
-            )}
 
-            {/* Leaderboard — Only in XO mode */}
-            {!isSpinMode && (
-              <TouchableOpacity onPress={() => router.push('/(authed)/home/leaderboard')} style={s.navItem} activeOpacity={0.8}>
-                <View style={[s.iconPill, pathname === '/home/leaderboard' && s.iconPillActive]}>
-                  <Trophy size={21} color={pathname === '/home/leaderboard' ? colors.active : colors.inactive} weight={pathname === '/home/leaderboard' ? "fill" : "regular"} />
+              {/* 2. History Tab (Only in XO 5-tab mode) */}
+              {!show3Tabs && (
+                <TouchableOpacity
+                  onPress={() => {
+                    try { playTickSound(); } catch {}
+                  try { LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); } catch {}
+                    haptics.tap();
+                    if (!isHistoryPage) router.replace('/(authed)/home/history');
+                  }}
+                  style={isHistoryPage ? s.navItemActive : s.navItem}
+                  activeOpacity={0.75}
+                >
+                  <View style={[
+                    s.navItemBox,
+                    isHistoryPage && { backgroundColor: activeThemePillBg, borderColor: activeThemePillBorder, paddingHorizontal: 12 },
+                  ]}>
+                    <ClockCounterClockwise
+                      size={20}
+                      color={isHistoryPage ? activeThemeColor : colors.inactive}
+                      weight={isHistoryPage ? "fill" : "regular"}
+                    />
+                    {isHistoryPage && (
+                      <Text style={[s.activeNavText, { color: activeThemeColor }]}>
+                        History
+                      </Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              )}
+
+              {/* 3. Leaderboard Tab (Only in XO 5-tab mode) */}
+              {!show3Tabs && (
+                <TouchableOpacity
+                  onPress={() => {
+                    try { playTickSound(); } catch {}
+                  try { LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); } catch {}
+                    haptics.tap();
+                    if (!isLeaderboardPage) router.replace('/(authed)/home/leaderboard');
+                  }}
+                  style={isLeaderboardPage ? s.navItemActive : s.navItem}
+                  activeOpacity={0.75}
+                >
+                  <View style={[
+                    s.navItemBox,
+                    isLeaderboardPage && { backgroundColor: activeThemePillBg, borderColor: activeThemePillBorder, paddingHorizontal: 12 },
+                  ]}>
+                    <Trophy
+                      size={20}
+                      color={isLeaderboardPage ? activeThemeColor : colors.inactive}
+                      weight={isLeaderboardPage ? "fill" : "regular"}
+                    />
+                    {isLeaderboardPage && (
+                      <Text style={[s.activeNavText, { color: activeThemeColor }]}>
+                        Rank
+                      </Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              )}
+
+              {/* 4. Wallet Tab (Present in both modes) */}
+              <TouchableOpacity
+                onPress={() => {
+                  try { playTickSound(); } catch {}
+                  try { LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); } catch {}
+                  haptics.tap();
+                  if (!isWalletPage) router.replace('/(authed)/home/transactions');
+                }}
+                style={isWalletPage ? s.navItemActive : s.navItem}
+                activeOpacity={0.75}
+              >
+                <View style={[
+                  s.navItemBox,
+                  isWalletPage && { 
+                    backgroundColor: activeThemePillBg, 
+                    borderColor: activeThemePillBorder,
+                    paddingHorizontal: 12,
+                  },
+                ]}>
+                  <Wallet
+                    size={20}
+                    color={isWalletPage ? activeThemeColor : colors.inactive}
+                    weight={isWalletPage ? "fill" : "regular"}
+                  />
+                  {isWalletPage && (
+                    <Text style={[s.activeNavText, { color: activeThemeColor }]}>
+                      Wallet
+                    </Text>
+                  )}
                 </View>
-                <Text style={[s.navLabel, pathname === '/home/leaderboard' && s.navLabelActive]}>
-                  {language === 'am' ? 'ሊደርቦርድ' : 'Leaderboard'}
-                </Text>
               </TouchableOpacity>
-            )}
 
-            {/* Profile */}
-            <TouchableOpacity onPress={() => router.push('/(authed)/home/account')} style={s.navItem} activeOpacity={0.8}>
-              <View style={[s.iconPill, pathname === '/home/account' && s.iconPillActive]}>
-                <UserCircle size={21} color={pathname === '/home/account' ? colors.active : colors.inactive} weight={pathname === '/home/account' ? "fill" : "regular"} />
-              </View>
-              <Text style={[s.navLabel, pathname === '/home/account' && s.navLabelActive]}>
-                {language === 'am' ? 'መለያ' : 'Profile'}
-              </Text>
-            </TouchableOpacity>
+              {/* 5. Profile Tab */}
+              <TouchableOpacity
+                onPress={() => {
+                  try { playTickSound(); } catch {}
+                  try { LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); } catch {}
+                  haptics.tap();
+                  if (!isAccountPage) router.replace('/(authed)/home/account');
+                }}
+                style={isAccountPage ? s.navItemActive : s.navItem}
+                activeOpacity={0.75}
+              >
+                <View style={[
+                  s.navItemBox,
+                  isAccountPage && { backgroundColor: activeThemePillBg, borderColor: activeThemePillBorder, paddingHorizontal: 12 },
+                ]}>
+                  <UserCircle
+                    size={20}
+                    color={isAccountPage ? activeThemeColor : colors.inactive}
+                    weight={isAccountPage ? "fill" : "regular"}
+                  />
+                  {isAccountPage && (
+                    <Text style={[s.activeNavText, { color: activeThemeColor }]}>
+                      Profile
+                    </Text>
+                  )}
+                </View>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-      )}
+        );
+      })()}
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  navItem: { flex: 1, alignItems: 'center' },
-  iconPill: {
-    width: 46, height: 30, borderRadius: 15,
-    alignItems: 'center', justifyContent: 'center',
+  navItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
   },
-  iconPillActive: {
-    backgroundColor: 'rgba(0,218,243,0.14)',
-    borderWidth: 1,
-    borderColor: 'rgba(0,218,243,0.35)',
+  navItemActive: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
   },
-  navLabel: { fontSize: 9, marginTop: 4, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.6, color: '#8B8FA8' },
-  navLabelActive: { color: '#00DAF3' },
+  navItemBox: {
+    height: 38,
+    borderRadius: 19,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.2,
+    borderColor: 'transparent',
+    paddingHorizontal: 6,
+    ...(Platform.OS === 'web' ? {
+      transition: 'all 200ms cubic-bezier(0.16, 1, 0.3, 1)',
+    } as any : {}),
+  },
+  activeNavText: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+    marginLeft: 6,
+  },
 });
 
-// export this so screens can pad properly
+
 export const TAB_BAR_HEIGHT = TAB_H + 30;

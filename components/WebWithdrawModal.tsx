@@ -1,5 +1,6 @@
+import { motion } from '../theme/tokens';
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, TextInput, StyleSheet, Animated, Pressable, ActivityIndicator, Platform, ScrollView, Image } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, StyleSheet, Animated, Pressable, ActivityIndicator, Platform, ScrollView, Image, Dimensions, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { API_URL, MIN_PAYOUT } from '../config';
@@ -17,23 +18,43 @@ interface ModalProps {
 
 function useModalAnim(visible: boolean) {
   const opacity = useRef(new Animated.Value(0)).current;
-  const scale   = useRef(new Animated.Value(0.95)).current;
+  const translateY = useRef(new Animated.Value(240)).current;
 
   useEffect(() => {
     if (visible) {
       Animated.parallel([
-        Animated.timing(opacity, { toValue: 1, duration: 250, useNativeDriver: Platform.OS !== 'web' }),
-        Animated.spring(scale, { toValue: 1, speed: 16, bounciness: 6, useNativeDriver: Platform.OS !== 'web' }),
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: motion.duration.enter,
+          easing: motion.easing.enter,
+          useNativeDriver: Platform.OS !== 'web',
+        }),
+        Animated.timing(translateY, {
+          toValue: 0,
+          duration: motion.duration.enter,
+          easing: motion.easing.enter,
+          useNativeDriver: Platform.OS !== 'web',
+        }),
       ]).start();
     } else {
       Animated.parallel([
-        Animated.timing(opacity, { toValue: 0, duration: 200, useNativeDriver: Platform.OS !== 'web' }),
-        Animated.timing(scale, { toValue: 0.95, duration: 200, useNativeDriver: Platform.OS !== 'web' }),
+        Animated.timing(opacity, {
+          toValue: 0,
+          duration: motion.duration.exit,
+          easing: motion.easing.exit,
+          useNativeDriver: Platform.OS !== 'web',
+        }),
+        Animated.timing(translateY, {
+          toValue: 240,
+          duration: motion.duration.exit,
+          easing: motion.easing.exit,
+          useNativeDriver: Platform.OS !== 'web',
+        }),
       ]).start();
     }
   }, [visible]);
 
-  return { opacity, scale };
+  return { opacity, translateY };
 }
 
 export const WebWithdrawModal = ({ visible, onClose, user, token, onSuccess, language }: ModalProps) => {
@@ -49,7 +70,7 @@ export const WebWithdrawModal = ({ visible, onClose, user, token, onSuccess, lan
   const [loading, setLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [submittedData, setSubmittedData] = useState<any>(null);
-  const { opacity, scale }    = useModalAnim(visible);
+  const { opacity, translateY } = useModalAnim(visible);
   const toast = useToast();
 
   const totalGames = (user as any)?.total_games ?? 0;
@@ -138,21 +159,22 @@ export const WebWithdrawModal = ({ visible, onClose, user, token, onSuccess, lan
   };
 
   return (
-    <View style={[StyleSheet.absoluteFill, { zIndex: 9999 }]} pointerEvents={visible ? 'auto' : 'none'}>
+    <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
+      <View style={[StyleSheet.absoluteFill, { zIndex: 999999, elevation: 999999 }]} pointerEvents={visible ? 'auto' : 'none'}>
       <Pressable style={StyleSheet.absoluteFill} onPress={onClose}>
         <Animated.View style={[styles.backdrop, { opacity }]} />
       </Pressable>
       
       <View style={styles.container}>
-        <Animated.View style={[styles.modal, { opacity, transform: [{ scale }], padding: 20 }]}>
+        <Animated.View style={[styles.modal, { opacity, transform: [{ translateY }], padding: 20 }]}>
           <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
             <Ionicons name="close" size={20} color="rgba(255,255,255,0.5)" />
           </TouchableOpacity>
 
           <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 520 }}>
             <View style={styles.modalHeader}>
-              <View style={[styles.modalIcon, { backgroundColor: isSuccess ? 'rgba(16,185,129,0.1)' : 'rgba(0,218,243,0.1)', width: 40, height: 40 }]}>
-                <Ionicons name={isSuccess ? "checkmark-circle" : "send"} size={20} color={isSuccess ? "#10b981" : "#00daf3"} />
+              <View style={[styles.modalIcon, { backgroundColor: isSuccess ? 'rgba(16,185,129,0.1)' : 'rgba(255,42,95,0.15)', width: 40, height: 40 }]}>
+                <Ionicons name={isSuccess ? "checkmark-circle" : "send"} size={20} color={isSuccess ? "#10b981" : "#ff2a5f"} />
               </View>
               <View>
                 <Text style={[styles.title, { fontSize: 18 }]}>
@@ -216,7 +238,7 @@ export const WebWithdrawModal = ({ visible, onClose, user, token, onSuccess, lan
                 <Text style={styles.balanceLabel}>{isEN ? "WITHDRAWABLE" : "ሊወጣ የሚችል"}</Text>
                 <Text style={[styles.balanceValue, { fontSize: 20 }]}>ETB {withdrawable.toLocaleString()}</Text>
               </View>
-              <Ionicons name="wallet-outline" size={28} color="rgba(0,218,243,0.3)" />
+              <Ionicons name="wallet-outline" size={28} color="rgba(255,42,95,0.5)" />
             </View>
 
             <View style={[styles.inputContainer, { marginBottom: 12 }]}>
@@ -228,7 +250,7 @@ export const WebWithdrawModal = ({ visible, onClose, user, token, onSuccess, lan
                   value={amount}
                   onChangeText={(t) => { const v = t.replace(/[^0-9]/g, ""); setAmount(v); validateAmount(v); }}
                   placeholder="0"
-                  placeholderTextColor="rgba(0,218,243,0.3)"
+                  placeholderTextColor="rgba(255,42,95,0.35)"
                   inputMode="numeric"
                 />
               </View>
@@ -255,7 +277,7 @@ export const WebWithdrawModal = ({ visible, onClose, user, token, onSuccess, lan
                   value={accountNumber}
                   onChangeText={setAccountNumber}
                   placeholder="251..."
-                  placeholderTextColor="rgba(0,218,243,0.3)"
+                  placeholderTextColor="rgba(255,42,95,0.35)"
                   inputMode="tel"
                 />
               </View>
@@ -288,15 +310,15 @@ export const WebWithdrawModal = ({ visible, onClose, user, token, onSuccess, lan
               disabled={loading}
             >
               <LinearGradient
-                colors={['#00daf3', '#0891b2']}
+                colors={['#ff2a5f', '#d90429']}
                 start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                 style={[styles.ctaGradient, { paddingVertical: 14 }]}
               >
                 {loading
-                  ? <ActivityIndicator color="#060614" size="small" />
+                  ? <ActivityIndicator color="#ffffff" size="small" />
                   : <>
-                      <Ionicons name="arrow-forward" size={18} color="#060614" />
-                      <Text style={[styles.ctaText, { color: '#060614' }]}>{isEN ? "Withdraw" : "አውጣ"}{Number(amount) > 0 ? ` • ETB ${Number(amount).toLocaleString()}` : ''}</Text>
+                      <Ionicons name="arrow-forward" size={18} color="#ffffff" />
+                      <Text style={[styles.ctaText, { color: '#ffffff' }]}>{isEN ? "Withdraw" : "አውጣ"}{Number(amount) > 0 ? ` • ETB ${Number(amount).toLocaleString()}` : ''}</Text>
                     </>
                 }
               </LinearGradient>
@@ -326,7 +348,8 @@ export const WebWithdrawModal = ({ visible, onClose, user, token, onSuccess, lan
           </View>
         </View>
       )}
-    </View>
+      </View>
+    </Modal>
   );
 };
 
@@ -338,20 +361,34 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 24,
+    justifyContent: Platform.OS === 'web' && Dimensions.get('window').width >= 768 ? 'center' : 'flex-end',
+    paddingHorizontal: Platform.OS === 'web' && Dimensions.get('window').width >= 768 ? 16 : 0,
+    paddingVertical: Platform.OS === 'web' && Dimensions.get('window').width >= 768 ? 24 : 0,
+    paddingBottom: 0,
   },
   modal: {
     width: '100%',
-    maxWidth: 440,
-    backgroundColor: 'rgba(6,6,20,0.97)',
-    borderRadius: 24,
+    maxWidth: Platform.OS === 'web' && Dimensions.get('window').width >= 768 ? 440 : '100%',
+    backgroundColor: '#0c0f1d',
+    borderRadius: Platform.OS === 'web' && Dimensions.get('window').width >= 768 ? 24 : 0,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderBottomLeftRadius: Platform.OS === 'web' && Dimensions.get('window').width >= 768 ? 24 : 0,
+    borderBottomRightRadius: Platform.OS === 'web' && Dimensions.get('window').width >= 768 ? 24 : 0,
     padding: 24,
-    paddingTop: 28,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 44 : (Platform.OS === 'web' && Dimensions.get('window').width < 768 ? 36 : 28),
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(255,255,255,0.08)',
     alignSelf: 'center',
+  },
+  dragHandle: {
+    width: 38,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    alignSelf: 'center',
+    marginBottom: 14,
   },
   closeBtn: {
     position: 'absolute', top: 20, right: 20,
@@ -362,19 +399,19 @@ const styles = StyleSheet.create({
   modalHeader: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 24 },
   modalIcon: {
     width: 48, height: 48, borderRadius: 16,
-    backgroundColor: 'rgba(0,218,243,0.08)',
+    backgroundColor: 'rgba(255,42,95,0.12)',
     alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
   },
   title: { color: '#fff', fontSize: 20, fontWeight: '900', letterSpacing: 0.2 },
   subTitle: { color: 'rgba(255,255,255,0.4)', fontSize: 12, fontWeight: '600', marginTop: 2 },
-  label: { color: 'rgba(0,218,243,0.5)', fontSize: 10, fontWeight: '800', letterSpacing: 1.5, marginBottom: 10, textTransform: 'uppercase' },
+  label: { color: 'rgba(255,42,95,0.7)', fontSize: 10, fontWeight: '800', letterSpacing: 1.5, marginBottom: 10, textTransform: 'uppercase' },
   inputContainer: { marginBottom: 16 },
   inputWrapper: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 16,
     paddingHorizontal: 16, 
     height: 58,
-    borderWidth: 1, borderColor: 'rgba(0,218,243,0.15)', gap: 10,
+    borderWidth: 1, borderColor: 'rgba(255,42,95,0.25)', gap: 10,
   },
   currencyPrefix: { color: 'rgba(255,255,255,0.4)', fontSize: 14, fontWeight: '800', flexShrink: 0 },
   input: { flex: 1, color: '#fff', fontSize: 22, fontWeight: '900', padding: 0, minWidth: 0 },
@@ -384,16 +421,16 @@ const styles = StyleSheet.create({
     paddingVertical: 10, borderRadius: 12, alignItems: 'center',
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)',
   },
-  presetBtnActive: { backgroundColor: 'rgba(0,218,243,0.08)', borderColor: 'rgba(0,218,243,0.25)' },
+  presetBtnActive: { backgroundColor: 'rgba(255,42,95,0.15)', borderColor: 'rgba(255,42,95,0.5)' },
   presetText: { color: 'rgba(255,255,255,0.5)', fontWeight: '800', fontSize: 13 },
-  presetTextActive: { color: '#00daf3' },
+  presetTextActive: { color: '#ff2a5f' },
   methodSection: { marginBottom: 24 },
   methodCardSmall: {
     flex: 1, minWidth: 100, flexDirection: 'row', alignItems: 'center', gap: 8,
     padding: 10, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.02)',
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)',
   },
-  methodCardActive: { backgroundColor: 'rgba(0,218,243,0.04)', borderColor: 'rgba(0,218,243,0.2)' },
+  methodCardActive: { backgroundColor: 'rgba(255,42,95,0.12)', borderColor: 'rgba(255,42,95,0.45)' },
   methodNameSmall: { color: '#fff', fontWeight: '800' },
   ctaBtn: { borderRadius: 16, overflow: 'hidden' },
   ctaGradient: { paddingVertical: 16, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 10 },
@@ -403,8 +440,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,218,243,0.04)', padding: 20, borderRadius: 18, marginBottom: 24,
     borderWidth: 1, borderColor: 'rgba(0,218,243,0.08)',
   },
-  balanceLabel: { color: 'rgba(0,218,243,0.5)', fontSize: 10, fontWeight: '800', letterSpacing: 1, marginBottom: 6 },
+  balanceLabel: { color: 'rgba(255,42,95,0.7)', fontSize: 10, fontWeight: '800', letterSpacing: 1, marginBottom: 6 },
   balanceValue: { color: '#fff', fontSize: 24, fontWeight: '900' },
   errorText: { color: '#f87171', fontSize: 11, fontWeight: '700', marginTop: 6, marginLeft: 2 },
-  hintText: { color: 'rgba(0,218,243,0.5)', fontSize: 11, fontWeight: '600', marginTop: 6, marginLeft: 2 },
+  hintText: { color: 'rgba(255,42,95,0.7)', fontSize: 11, fontWeight: '600', marginTop: 6, marginLeft: 2 },
 });

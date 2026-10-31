@@ -1,7 +1,7 @@
 // context/authContext.tsx
 import * as SecureStore from "expo-secure-store";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { useAudioPlayer } from "expo-audio";
+import { playWinSound, playLoseSound, playTickSound } from "../lib/pinTickAudio";
 // Remove expo-av import completely as audio stubs exist below
 import { Platform, Alert, Modal, View, Text, TouchableOpacity, StyleSheet, Pressable, Linking } from "react-native";
 import { CheckmarkCircleIcon, AlertCircleIcon } from "../components/SvgIcons";
@@ -432,7 +432,7 @@ type Ctx = {
   loginWithToken: (token: string, refreshToken?: string) => Promise<void>;
 
   // Profile & session
-  refreshProfile: () => Promise<void>;
+  refreshProfile: (force?: boolean) => Promise<void>;
   logout: () => Promise<void>;
 
   // Payment methods
@@ -665,29 +665,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshingRef = useRef<Promise<void> | null>(null);
   const methodsFetchingRef = useRef<Promise<PaymentMethod[]> | null>(null);
 
-  // Sound effects players and methods using expo-audio
-  const clickPlayer = useAudioPlayer(require("../assets/sounds/click.wav"));
-  const winPlayer = useAudioPlayer(require("../assets/sounds/win.mp3"));
-  const losePlayer = useAudioPlayer(require("../assets/sounds/lose.wav"));
-
+  // Sound effects methods using synthesized Web Audio / Haptics
   const playSuccessSound = async () => {
-    if ((!user || !user.sound_muted) && clickPlayer) {
+    if (!user || !user.sound_muted) {
       try {
-        await Promise.resolve(clickPlayer.play()).catch(() => {});
+        playWinSound();
       } catch (_) {}
     }
   };
   const playErrorSound = async () => {
-    if ((!user || !user.sound_muted) && losePlayer) {
+    if (!user || !user.sound_muted) {
       try {
-        await Promise.resolve(losePlayer.play()).catch(() => {});
+        playLoseSound();
       } catch (_) {}
     }
   };
   const playClickSound = async () => {
-    if ((!user || !user.sound_muted) && clickPlayer) {
+    if (!user || !user.sound_muted) {
       try {
-        await Promise.resolve(clickPlayer.play()).catch(() => {});
+        playTickSound();
       } catch (_) {}
     }
   };
@@ -1331,16 +1327,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const closeAlert = () => setAlertConfig(prev => ({ ...prev, visible: false }));
 
-  const refreshProfile = useCallback(async () => {
-    if (!token) throw new Error("NO_TOKEN");
+  const refreshProfile = useCallback(async (force: boolean | any = false) => {
+    if (!token) return;
 
-    // Throttle: skip if called again within cooldown
+    // Throttle: skip if called again within cooldown unless force is explicitly true
+    const isForce = typeof force === 'boolean' ? force : false;
     const now = Date.now();
-    if (now - lastRefreshRef.current < REFRESH_COOLDOWN_MS && refreshingRef.current) {
+    if (!isForce && now - lastRefreshRef.current < REFRESH_COOLDOWN_MS && refreshingRef.current) {
       return refreshingRef.current;
     }
 
-    if (!refreshingRef.current) {
+    if (!refreshingRef.current || isForce) {
       lastRefreshRef.current = now;
       refreshingRef.current = (async () => {
         try {
@@ -1350,35 +1347,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setUser(profile);
             await storage.setItemAsync(USER_KEY, JSON.stringify(profile));
           } catch (profileErr: any) {
-            // ✅ Military-Grade: Transparent Token Rotation on 401
+            // Transparent Token Rotation on 401
             if (profileErr?.status === 401) {
               const rt = await storage.getItemAsync(REFRESH_KEY);
-              if (!rt) throw profileErr; // No refresh token -> drop to logout
+              if (!rt) return;
 
               const refRes = await fetch(`${API_URL}/auth/refresh`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ refreshToken: rt })
-              });
+              }).catch(() => null);
 
-              if (!refRes.ok) throw profileErr;
+              if (!refRes || !refRes.ok) return;
 
-              const { token: newToken, refreshToken: newRt } = await refRes.json();
-              await storage.setItemAsync(KEY, newToken);
-              await storage.setItemAsync(REFRESH_KEY, newRt);
-              setToken(newToken);
-              activeToken = newToken;
+              const { token: newToken, refreshToken: newRt } = await refRes.json().catch(() => ({}));
+              if (newToken) {
+                await storage.setItemAsync(KEY, newToken);
+                if (newRt) await storage.setItemAsync(REFRESH_KEY, newRt);
+                setToken(newToken);
+                activeToken = newToken;
 
-              // Retry profile fetch with new access token
-              const profile = await fetchMe(activeToken);
-              setUser(profile);
-              await storage.setItemAsync(USER_KEY, JSON.stringify(profile));
+                try {
+                  const profile = await fetchMe(activeToken);
+                  setUser(profile);
+                  await storage.setItemAsync(USER_KEY, JSON.stringify(profile));
+                } catch (_) {}
+              }
             } else {
-              throw profileErr;
+              console.warn('[refreshProfile] Profile fetch failed (offline/network):', profileErr?.message || profileErr);
+              return;
             }
           }
-
-          await playSuccessSound();
 
           // After profile loads, spawn a background check to rescue any dropped webhooks
           fetch(`${API_URL}/payments/verify-pending`, {
@@ -1387,21 +1386,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             .then(res => res.json())
             .then(async data => {
                if (data && data.completedCount > 0) {
-                  const updatedProfile = await fetchMe(token);
-                  setUser(updatedProfile);
-                  await storage.setItemAsync(USER_KEY, JSON.stringify(updatedProfile));
+                  try {
+                    const updatedProfile = await fetchMe(token);
+                    setUser(updatedProfile);
+                    await storage.setItemAsync(USER_KEY, JSON.stringify(updatedProfile));
+                  } catch (_) {}
                }
             })
             .catch(() => {});
 
         } catch (error: any) {
-          // Silently swallow 429 — don't propagate to callers (prevents retry storms)
           if (error?.status === 429) {
             console.warn('[refreshProfile] Rate-limited, backing off');
             return;
           }
-          await playErrorSound();
-          throw error;
+          console.warn('[refreshProfile] Handled gracefully without crash:', error?.message || error);
         } finally {
           refreshingRef.current = null;
         }

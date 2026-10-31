@@ -1,9 +1,10 @@
-// components/game/RematchTopPopup.tsx
+// components/game/RematchTopPopup.tsx — Styled matching Image 5 with XOET Brand Colors
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useRef } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View, Platform } from "react-native";
 import { useAuth } from "../../context/authContext";
+import { playTickSound } from "../../lib/pinTickAudio";
+import { haptics } from "../../lib/haptcs";
 
 type Props = {
   visible: boolean;
@@ -26,14 +27,18 @@ export default function RematchTopPopup({
 
   useEffect(() => {
     if (visible) {
+      try {
+        playTickSound(700);
+      } catch {}
+
       Animated.parallel([
-        Animated.timing(y, { toValue: 0, duration: 220, useNativeDriver: true, easing: Easing.out(Easing.cubic) }),
-        Animated.timing(op, { toValue: 1, duration: 180, useNativeDriver: true }),
+        Animated.timing(y, { toValue: 0, duration: 220, useNativeDriver: Platform.OS !== 'web', easing: Easing.out(Easing.cubic) }),
+        Animated.timing(op, { toValue: 1, duration: 180, useNativeDriver: Platform.OS !== 'web' }),
       ]).start();
     } else {
       Animated.parallel([
-        Animated.timing(y, { toValue: -80, duration: 180, useNativeDriver: true, easing: Easing.in(Easing.cubic) }),
-        Animated.timing(op, { toValue: 0, duration: 140, useNativeDriver: true }),
+        Animated.timing(y, { toValue: -80, duration: 180, useNativeDriver: Platform.OS !== 'web', easing: Easing.in(Easing.cubic) }),
+        Animated.timing(op, { toValue: 0, duration: 140, useNativeDriver: Platform.OS !== 'web' }),
       ]).start();
     }
   }, [visible, y, op]);
@@ -53,65 +58,46 @@ export default function RematchTopPopup({
       pointerEvents={visible ? "auto" : "none"}
       style={[styles.wrap, { opacity: op, transform: [{ translateY: y }] }]}
     >
-      {/* Ultra transparent container */}
-      {Platform.OS === 'web' ? (
-        <View style={[styles.card, { backgroundColor: "rgba(16, 24, 40, 0.95)" }]}>
-          <View style={styles.row}>
-            <View style={styles.iconWrap}>
-              <Ionicons name="flame" size={16} color="#fbbf24" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.title} numberOfLines={1}>
-                {fromName} {t("wants_rematch")}
-              </Text>
-              <Text style={styles.sub} numberOfLines={1}>
-                {t("stake_label")}: <Text style={{ color: '#00daf3', fontWeight: '800' }}>ETB {amount}</Text>
-              </Text>
-            </View>
+      <View style={styles.card}>
+        <View style={styles.row}>
+          <View style={styles.iconWrap}>
+            <Ionicons name="flame" size={18} color="#f5b642" />
           </View>
-
-          <View style={styles.actions}>
-            <Pressable onPress={onDecline} style={[styles.btn, styles.decline]}>
-              <Text style={[styles.btnText, { color: "rgba(255,255,255,0.7)" }]}>{t("nah_skip")}</Text>
-            </Pressable>
-
-            <Pressable onPress={onAccept} style={[styles.btn, styles.accept]}>
-              <Ionicons name="flash" size={14} color="#000" />
-              <Text style={[styles.btnText, { color: "#000" }]}>{t("lets_go")}</Text>
-            </Pressable>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={styles.title} numberOfLines={1}>
+              {fromName} {t("wants_rematch")}
+            </Text>
+            <Text style={styles.sub} numberOfLines={1}>
+              {t("stake_label")}: <Text style={{ color: '#00daf3', fontWeight: '900' }}>ETB {amount}</Text>
+            </Text>
           </View>
         </View>
-      ) : (
-        <LinearGradient
-          colors={["rgba(20, 24, 40, 0.98)", "rgba(12, 16, 28, 0.95)"]}
-          style={styles.card}
-        >
-          <View style={styles.row}>
-            <View style={styles.iconWrap}>
-              <Ionicons name="flame" size={16} color="#fbbf24" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.title} numberOfLines={1}>
-                {fromName} {t("wants_rematch")}
-              </Text>
-              <Text style={styles.sub} numberOfLines={1}>
-                {t("stake_label")}: <Text style={{ color: '#00daf3', fontWeight: '800' }}>ETB {amount}</Text>
-              </Text>
-            </View>
-          </View>
 
-          <View style={styles.actions}>
-            <Pressable onPress={onDecline} style={[styles.btn, styles.decline]}>
-              <Text style={[styles.btnText, { color: "rgba(255,255,255,0.7)" }]}>{t("nah_skip")}</Text>
-            </Pressable>
+        <View style={styles.actions}>
+          <Pressable
+            onPress={() => {
+              haptics.tap();
+              playTickSound();
+              onDecline();
+            }}
+            style={[styles.btn, styles.decline]}
+          >
+            <Text style={styles.declineText}>{t("nah_skip")}</Text>
+          </Pressable>
 
-            <Pressable onPress={onAccept} style={[styles.btn, styles.accept]}>
-              <Ionicons name="flash" size={14} color="#000" />
-              <Text style={[styles.btnText, { color: "#000" }]}>{t("lets_go")}</Text>
-            </Pressable>
-          </View>
-        </LinearGradient>
-      )}
+          <Pressable
+            onPress={() => {
+              haptics.confirm();
+              playTickSound(800);
+              onAccept();
+            }}
+            style={[styles.btn, styles.accept]}
+          >
+            <Ionicons name="flash" size={14} color="#060a14" />
+            <Text style={styles.acceptText}>{t("lets_go")}</Text>
+          </Pressable>
+        </View>
+      </View>
     </Animated.View>
   );
 }
@@ -119,81 +105,90 @@ export default function RematchTopPopup({
 const styles = StyleSheet.create({
   wrap: {
     position: "absolute",
-    top: 36,
-    left: 0,
-    right: 0,
+    top: Platform.OS === 'web' ? 24 : 48,
+    left: 16,
+    right: 16,
     zIndex: 99999,
     alignItems: "center",
     justifyContent: "center",
   },
   card: {
-    width: "94%",
-    maxWidth: 480,
-    borderRadius: 24,
-    borderWidth: 1.5,
-    borderColor: "rgba(0, 229, 255, 0.4)",
-    paddingHorizontal: 20,
-    paddingVertical: 18,
-    overflow: 'hidden',
-    shadowColor: "#00e5ff",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.35,
+    width: "100%",
+    maxWidth: 420,
+    borderRadius: 20,
+    borderWidth: 1.2,
+    borderColor: "rgba(0, 218, 243, 0.3)",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    backgroundColor: "#111625",
+    shadowColor: "#00daf3",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
     shadowRadius: 20,
-    elevation: 20,
+    elevation: 16,
   },
   iconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    backgroundColor: 'rgba(251,191,36,0.2)',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "rgba(245, 182, 66, 0.15)",
     borderWidth: 1,
-    borderColor: 'rgba(251,191,36,0.4)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: "rgba(245, 182, 66, 0.35)",
+    alignItems: "center",
+    justifyContent: "center",
     marginRight: 12,
   },
   row: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 14,
+    marginBottom: 12,
   },
   title: {
     color: "#FFFFFF",
-    fontWeight: "900",
-    fontSize: 16,
-    letterSpacing: 0.3,
+    fontWeight: "800",
+    fontSize: 14.5,
+    letterSpacing: -0.2,
   },
   sub: {
-    color: "rgba(255,255,255,0.7)",
-    fontSize: 13,
-    marginTop: 3,
-    fontWeight: '700'
+    color: "#8b93a7",
+    fontSize: 12,
+    marginTop: 2,
+    fontWeight: "600",
   },
   actions: {
     flexDirection: "row",
-    gap: 12,
+    gap: 10,
   },
   btn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    borderRadius: 16,
+    gap: 6,
+    height: 42,
+    borderRadius: 14,
     flex: 1,
   },
   decline: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: "#161c2e",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.15)",
+    borderColor: "rgba(255, 255, 255, 0.08)",
+  },
+  declineText: {
+    color: "#8b93a7",
+    fontWeight: "700",
+    fontSize: 13,
   },
   accept: {
-    backgroundColor: "#00E5FF",
-    shadowColor: "#00E5FF",
-    shadowOpacity: 0.4,
+    backgroundColor: "#00daf3",
+    shadowColor: "#00daf3",
+    shadowOpacity: 0.35,
     shadowRadius: 10,
     elevation: 6,
   },
-  btnText: { color: "#fff", fontWeight: "900", fontSize: 14, letterSpacing: 0.5 },
+  acceptText: {
+    color: "#060a14",
+    fontWeight: "900",
+    fontSize: 13,
+    letterSpacing: 0.2,
+  },
 });

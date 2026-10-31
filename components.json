@@ -1,0 +1,6 @@
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "registries": {
+    "@animate-ui": "https://animate-ui.com/r/{name}.json"
+  }
+}

@@ -1214,7 +1214,7 @@ const styles = StyleSheet.create({
     height: 54,
     borderWidth: 1.5,
     borderColor: 'rgba(255,255,255,0.12)',
-    ...(Platform.OS === 'web' ? ({ outline: 'none' } as any) : {}),
+    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none', outlineWidth: 0, } as any) : {}),
   },
   countryCode: {
     color: '#fff',
@@ -1229,7 +1229,7 @@ const styles = StyleSheet.create({
     height: 54,
     borderWidth: 1.5,
     borderColor: 'rgba(255,255,255,0.12)',
-    ...(Platform.OS === 'web' ? ({ outline: 'none', boxShadow: 'none' } as any) : {}),
+    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none', outlineWidth: 0, boxShadow: 'none' } as any) : {}),
   },
   mainInput: {
     flex: 1,
@@ -1237,7 +1237,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     ...(Platform.OS === 'web' ? ({
-      outline: 'none',
       outlineStyle: 'none',
       outlineWidth: 0,
       boxShadow: 'none',
@@ -1282,7 +1281,6 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: '900',
     ...(Platform.OS === 'web' ? ({
-      outline: 'none',
       outlineStyle: 'none',
       outlineWidth: 0,
       boxShadow: 'none',
@@ -1292,7 +1290,7 @@ const styles = StyleSheet.create({
     borderColor: '#FF3B5C',
     backgroundColor: 'rgba(255, 59, 92, 0.08)',
     ...(Platform.OS === 'web' ? ({
-      outline: 'none',
+      outlineStyle: 'none', outlineWidth: 0,
       boxShadow: 'none',
     } as any) : {}),
   },

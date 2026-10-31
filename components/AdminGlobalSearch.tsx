@@ -6,7 +6,7 @@ import { useAuth } from '../context/authContext';
 import { API_URL } from '../config';
 import User360View from './User360View';
 
-import { useAdminTheme } from '../app/(authed)/admin/_layout';
+import { useAdminTheme } from '../constants/adminTheme';
 
 export default function AdminGlobalSearch() {
   const { theme: C, isDark } = useAdminTheme();

@@ -1,7 +1,9 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, Modal, StyleSheet, Dimensions } from 'react-native';
+// components/game/IncomingInviteModal.tsx — Styled matching Image 5 with XOET Brand Colors
+import React, { useEffect } from 'react';
+import { View, Text, TouchableOpacity, Modal, StyleSheet, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+import { playTickSound } from '../../lib/pinTickAudio';
+import { haptics } from '../../lib/haptcs';
 
 interface Props {
   invite: any; // { fromUserId, fromUsername, betAmount }
@@ -10,34 +12,68 @@ interface Props {
 }
 
 export default function IncomingInviteModal({ invite, onAccept, onDecline }: Props) {
+  useEffect(() => {
+    if (invite) {
+      try {
+        playTickSound(700);
+      } catch {}
+    }
+  }, [invite]);
+
   if (!invite) return null;
 
   return (
-    <Modal visible={!!invite} transparent animationType="slide" onRequestClose={onDecline}>
+    <Modal visible={!!invite} transparent animationType="fade" onRequestClose={onDecline}>
       <View style={s.overlay}>
         <View style={s.box}>
+          {/* Header Row (Avatar + Name + Status Dot matching Image 5) */}
           <View style={s.header}>
-            <View style={s.iconBg}>
-              <Ionicons name="game-controller" size={24} color="#00e3fd" />
+            <View style={s.avatarWrap}>
+              <View style={s.avatarCircle}>
+                <Ionicons name="game-controller" size={22} color="#00daf3" />
+              </View>
+              <View style={s.onlineBadge} />
             </View>
-            <Text style={s.title}>New Challenge!</Text>
+
+            <View style={s.headerTextWrap}>
+              <Text style={s.badgeLabel}>CHALLENGE REQUEST</Text>
+              <Text style={s.title} numberOfLines={1}>{invite.username || 'Opponent'}</Text>
+            </View>
           </View>
 
-          <Text style={s.body}>
-            <Text style={s.highlight}>{invite.username || 'Opponent'}</Text> wants to play XO with you for{' '}
-            <Text style={s.highlight}>{invite.amount || 0} ETB</Text>.
-          </Text>
+          {/* Invitation Details Body */}
+          <View style={s.bodyCard}>
+            <Text style={s.bodyText}>
+              Wants to challenge you to a Tic-Tac-Toe match for{' '}
+              <Text style={s.amountHighlight}>{invite.amount || 0} ETB</Text>.
+            </Text>
+          </View>
 
+          {/* Actions: Decline and Accept Pills matching Image 5 */}
           <View style={s.actions}>
-            <TouchableOpacity style={[s.btn, s.btnDecline]} onPress={onDecline}>
+            <TouchableOpacity
+              activeOpacity={0.75}
+              style={[s.btn, s.btnDecline]}
+              onPress={() => {
+                haptics.tap();
+                playTickSound();
+                onDecline();
+              }}
+            >
               <Text style={s.btnDeclineText}>Decline</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={s.btnAccept} onPress={onAccept}>
-              <LinearGradient colors={['#00e3fd', '#0284c7']} style={s.gradient}>
-                <Ionicons name="checkmark-circle" size={18} color="#fff" />
-                <Text style={s.btnAcceptText}>Accept Game</Text>
-              </LinearGradient>
+            <TouchableOpacity
+              activeOpacity={0.88}
+              style={[s.btn, s.btnAccept]}
+              onPress={() => {
+                haptics.confirm();
+                playTickSound(800);
+                onAccept();
+              }}
+            >
+              <Ionicons name="flash" size={16} color="#060a14" />
+              <Text style={s.btnAcceptText}>Accept Match</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -49,91 +85,126 @@ export default function IncomingInviteModal({ invite, onAccept, onDecline }: Pro
 const s = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(6,6,20,0.85)',
+    backgroundColor: 'rgba(4, 6, 12, 0.85)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: 20,
   },
   box: {
     width: '100%',
     maxWidth: 360,
-    backgroundColor: '#111128',
-    borderRadius: 24,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(0,227,253,0.3)',
-    shadowColor: '#00e3fd',
+    backgroundColor: '#111625',
+    borderRadius: 22,
+    padding: 20,
+    borderWidth: 1.2,
+    borderColor: 'rgba(0, 218, 243, 0.25)',
+    shadowColor: '#00daf3',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.2,
     shadowRadius: 24,
-    elevation: 10,
+    elevation: 16,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginBottom: 16,
+    marginBottom: 14,
   },
-  iconBg: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(0,227,253,0.15)',
+  avatarWrap: {
+    position: 'relative',
+  },
+  avatarCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(0, 218, 243, 0.12)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(0, 218, 243, 0.4)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  title: {
-    color: '#fff',
-    fontSize: 22,
-    fontWeight: '900',
-    letterSpacing: 0.5,
+  onlineBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#10b981',
+    borderWidth: 2,
+    borderColor: '#111625',
   },
-  body: {
-    color: '#e5e3ff',
-    fontSize: 15,
-    lineHeight: 24,
-    fontWeight: '500',
-    marginBottom: 24,
+  headerTextWrap: {
+    flex: 1,
+    minWidth: 0,
   },
-  highlight: {
-    color: '#00e3fd',
+  badgeLabel: {
+    color: '#8b93a7',
+    fontSize: 10,
     fontWeight: '800',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  title: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '900',
+    fontFamily: 'Inter, sans-serif',
+    marginTop: 2,
+  },
+  bodyCard: {
+    backgroundColor: '#161c2e',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    marginBottom: 18,
+  },
+  bodyText: {
+    color: '#cbd5e1',
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '600',
+  },
+  amountHighlight: {
+    color: '#00daf3',
+    fontWeight: '900',
   },
   actions: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
   },
   btn: {
     flex: 1,
-    height: 48,
+    height: 46,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 6,
   },
   btnDecline: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#161c2e',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   btnDeclineText: {
-    color: '#a8a7d4',
-    fontSize: 15,
-    fontWeight: '700',
+    color: '#8b93a7',
+    fontSize: 14,
+    fontWeight: '800',
   },
   btnAccept: {
-    flex: 1,
-    height: 48,
-    borderRadius: 14,
-    overflow: 'hidden',
-  },
-  gradient: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
+    backgroundColor: '#00daf3',
+    shadowColor: '#00daf3',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 6,
   },
   btnAcceptText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '800',
+    color: '#060a14',
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: 0.2,
   },
 });

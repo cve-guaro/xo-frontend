@@ -18,6 +18,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../../context/authContext";
 import ScreenWrapper from "../../../components/ScreenWrapper";
+import { playTickSound } from "../../../lib/pinTickAudio";
+import { haptics } from "../../../lib/haptcs";
 
 // ------------------ Types & Constants ------------------
 type SymbolXO = "X" | "O";
@@ -35,21 +37,21 @@ type ParamPayload = {
 };
 
 const THEME = {
-  bgSurface: '#0A090E',
+  bgSurface: '#07090e',
   onSurface: '#ffffff',
-  surfaceContainerLow: '#14131A',
-  surfaceContainer: '#1B1A24',
-  surfaceVariant: '#252535',
-  surfaceBright: '#323247',
+  surfaceContainerLow: '#0d1220',
+  surfaceContainer: '#111625',
+  surfaceVariant: '#161c2e',
+  surfaceBright: '#1e263d',
   primary: '#00daf3',
   primaryDim: '#00daf3',
   primaryContainer: '#00daf3',
   onPrimaryContainer: '#0a0a0f',
   secondary: '#00daf3',
-  onSurfaceVariant: '#CDCCF3',
-  outlineVariant: '#56568A',
-  error: '#ff4766',
-  errorDim: '#ff4766'
+  onSurfaceVariant: '#8b93a7',
+  outlineVariant: '#334155',
+  error: '#ff2a5f',
+  errorDim: '#ff2a5f'
 };
 
 const LINES: number[][] = [
@@ -87,7 +89,15 @@ const RoundTab = memo(function RoundTab({
   index, active, onPress,
 }: { index: number; active: boolean; onPress: (i: number) => void }) {
   return (
-    <TouchableOpacity onPress={() => onPress(index)} style={[styles.tab, active && styles.tabActive]} activeOpacity={0.85}>
+    <TouchableOpacity
+      onPress={() => {
+        playTickSound();
+        haptics.tap();
+        onPress(index);
+      }}
+      style={[styles.tab, active && styles.tabActive]}
+      activeOpacity={0.8}
+    >
       <Text style={[styles.tabText, active && styles.tabTextActive]}>ROUND {index + 1}</Text>
     </TouchableOpacity>
   );
@@ -253,8 +263,8 @@ export default function GameViewer() {
   // Active View Render
   return (
     <ScreenWrapper>
-      <View style={{ flex: 1, backgroundColor: '#0A090E' }}>
-        <LinearGradient colors={["#0A090E", "#08070B", "#060508"]} style={StyleSheet.absoluteFillObject} />
+      <View style={{ flex: 1, backgroundColor: '#07090e' }}>
+        <LinearGradient colors={["#07090e", "#0c111e", "#07090e"]} style={StyleSheet.absoluteFillObject} />
         
         {/* Neon Background Blobs for Abyss vibe */}
         <View style={styles.bgBlobPrimary} />
@@ -264,8 +274,16 @@ export default function GameViewer() {
           
           {/* Top Bar Navigation Add-back */}
           <View style={[styles.topNavBack, isDesktop && { maxWidth: 800, alignSelf: 'center', width: '100%' }]}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backCircle}>
-              <Ionicons name="arrow-back" size={22} color={THEME.onSurface} />
+            <TouchableOpacity
+              onPress={() => {
+                playTickSound();
+                haptics.tap();
+                router.back();
+              }}
+              style={styles.backCircle}
+              activeOpacity={0.75}
+            >
+              <Ionicons name="chevron-back" size={20} color="#ffffff" />
             </TouchableOpacity>
           </View>
 
@@ -278,11 +296,11 @@ export default function GameViewer() {
             {/* Players Layout Block */}
             <View style={styles.playersBlock}>
                 <View style={styles.vaultPill}>
-                    <Ionicons name="person" size={12} color={THEME.onSurfaceVariant} />
+                    <Ionicons name="person" size={13} color="#00daf3" />
                     <Text style={styles.vaultText} numberOfLines={1}>{players[0]}</Text>
                 </View>
                 <Text style={styles.vsText}>VS</Text>
-                <View style={[styles.vaultPill, { borderColor: `rgba(253, 111, 133, 0.2)` }]}>
+                <View style={[styles.vaultPill, { borderColor: 'rgba(255, 42, 95, 0.35)', backgroundColor: 'rgba(255, 42, 95, 0.08)' }]}>
                     <Ionicons name="skull" size={12} color={THEME.error} />
                     <Text style={[styles.vaultText, { color: THEME.error }]} numberOfLines={1}>{players[1]}</Text>
                 </View>
@@ -365,23 +383,55 @@ export default function GameViewer() {
                </View>
 
                <View style={styles.playbackCenter}>
-                  <TouchableOpacity onPress={prev} style={styles.iconBtn}>
-                     <Ionicons name="play-back" size={24} color={THEME.onSurface} />
+                  <TouchableOpacity
+                    onPress={() => {
+                      playTickSound();
+                      haptics.tap();
+                      prev();
+                    }}
+                    style={styles.iconBtn}
+                    activeOpacity={0.7}
+                  >
+                     <Ionicons name="play-back" size={20} color="#ffffff" />
                   </TouchableOpacity>
                   
-                  <TouchableOpacity onPress={togglePlay} style={styles.playBtnMain}>
-                     <Ionicons name={isPlaying ? "pause" : (step === len ? "reload" : "play")} size={32} color={THEME.onPrimaryContainer} style={{ marginLeft: (!isPlaying && step !== len) ? 4 : 0 }} />
+                  <TouchableOpacity
+                    onPress={() => {
+                      playTickSound(900);
+                      haptics.impact();
+                      togglePlay();
+                    }}
+                    style={styles.playBtnMain}
+                    activeOpacity={0.85}
+                  >
+                     <Ionicons name={isPlaying ? "pause" : (step === len ? "reload" : "play")} size={28} color="#060a14" style={{ marginLeft: (!isPlaying && step !== len) ? 3 : 0 }} />
                   </TouchableOpacity>
 
-                  <TouchableOpacity onPress={toEnd} style={styles.iconBtn}>
-                     <Ionicons name="play-forward" size={24} color={THEME.onSurface} />
+                  <TouchableOpacity
+                    onPress={() => {
+                      playTickSound();
+                      haptics.tap();
+                      toEnd();
+                    }}
+                    style={styles.iconBtn}
+                    activeOpacity={0.7}
+                  >
+                     <Ionicons name="play-forward" size={20} color="#ffffff" />
                   </TouchableOpacity>
                </View>
 
                <View style={styles.controlSectionRight}>
                   {/* Pseudo buttons to match the HTML layout aesthetic */}
-                  <TouchableOpacity onPress={toStart} style={styles.analyzeBtn}>
-                     <Text style={styles.analyzeText}>RESTART</Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      playTickSound();
+                      haptics.tap();
+                      toStart();
+                    }}
+                    style={styles.analyzeBtn}
+                    activeOpacity={0.8}
+                  >
+                     <Text style={[styles.analyzeText, { color: '#00daf3' }]}>RESTART</Text>
                   </TouchableOpacity>
                </View>
             </View>
@@ -420,7 +470,7 @@ const styles = StyleSheet.create({
      marginTop: 24,
      paddingHorizontal: 24,
      paddingVertical: 12,
-     backgroundColor: THEME.surfaceBright,
+     backgroundColor: THEME.surfaceVariant,
      borderRadius: 12,
      borderWidth: 1,
      borderColor: 'rgba(68, 68, 107, 0.2)'
@@ -505,7 +555,7 @@ const styles = StyleSheet.create({
      alignItems: 'center',
      justifyContent: 'center',
      borderWidth: 1,
-     borderColor: 'rgba(68, 68, 107, 0.15)'
+     borderColor: 'rgba(255, 255, 255, 0.08)'
   },
   bgBlobSecondary: {
      position: 'absolute',
@@ -585,11 +635,11 @@ const styles = StyleSheet.create({
      paddingVertical: 10,
      borderRadius: 999,
      borderWidth: 1,
-     borderColor: 'rgba(255, 255, 255, 0.1)',
+     borderColor: 'rgba(0, 218, 243, 0.35)',
      backgroundColor: THEME.surfaceContainerLow
   },
   tabActive: {
-     backgroundColor: THEME.surfaceVariant,
+     backgroundColor: 'rgba(0, 218, 243, 0.16)',
      borderColor: THEME.primaryDim
   },
   tabText: {
@@ -606,7 +656,7 @@ const styles = StyleSheet.create({
   glassPanelWrapper: {
      position: 'relative',
      padding: 24,
-     borderRadius: 48,
+     borderRadius: 28,
      overflow: 'hidden',
      borderWidth: 1,
      borderColor: 'rgba(255, 255, 255, 0.08)',
@@ -619,7 +669,7 @@ const styles = StyleSheet.create({
   },
   glassBackground: {
      ...StyleSheet.absoluteFillObject,
-     backgroundColor: 'rgba(20, 19, 26, 0.7)',
+     backgroundColor: '#111625',
   },
   glassGradientTop: {
      position: 'absolute',
@@ -647,7 +697,7 @@ const styles = StyleSheet.create({
      elevation: 5
   },
   cellActive: {
-     backgroundColor: THEME.surfaceBright,
+     backgroundColor: THEME.surfaceVariant,
      transform: [{ scale: 1.05 }],
      borderWidth: 2,
      borderColor: THEME.primary,
@@ -696,7 +746,7 @@ const styles = StyleSheet.create({
      alignItems: 'center',
      justifyContent: 'center',
      backgroundColor: 'rgba(12, 12, 31, 0.85)',
-     borderRadius: 48,
+     borderRadius: 28,
      zIndex: 20,
   },
 
@@ -724,7 +774,7 @@ const styles = StyleSheet.create({
      borderRadius: 24,
      backgroundColor: THEME.surfaceContainerLow,
      borderWidth: 1,
-     borderColor: 'rgba(255, 255, 255, 0.1)',
+     borderColor: 'rgba(0, 218, 243, 0.35)',
      alignItems: 'center',
      justifyContent: 'center'
   },
@@ -752,9 +802,9 @@ const styles = StyleSheet.create({
      gap: 12
   },
   iconBtn: {
-     padding: 16,
+     width: 44, height: 44, alignItems: 'center', justifyContent: 'center',
      borderRadius: 20,
-     backgroundColor: 'transparent'
+     backgroundColor: THEME.surfaceVariant, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)'
   },
   playBtnMain: {
      width: 64,
@@ -777,10 +827,10 @@ const styles = StyleSheet.create({
   analyzeBtn: {
      paddingHorizontal: 24,
      paddingVertical: 14,
-     backgroundColor: THEME.surfaceBright,
+     backgroundColor: THEME.surfaceVariant,
      borderRadius: 14,
      borderWidth: 1,
-     borderColor: 'rgba(255, 255, 255, 0.1)'
+     borderColor: 'rgba(0, 218, 243, 0.35)'
   },
   analyzeText: {
      color: THEME.onSurface,

@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { playNotificationChime, playTickSound } from '../lib/pinTickAudio';
+import { haptics } from '../lib/haptics';
 
 const { width } = Dimensions.get('window');
 
@@ -20,112 +22,122 @@ interface WelcomeBonusModalProps {
 }
 
 export default function WelcomeBonusModal({ visible, onClose }: WelcomeBonusModalProps) {
-  const scale = useRef(new Animated.Value(0.8)).current;
+  const scale = useRef(new Animated.Value(0.85)).current;
   const opacity = useRef(new Animated.Value(0)).current;
-  const rotate = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (visible) {
+      try {
+        playNotificationChime();
+      } catch {}
       Animated.parallel([
         Animated.spring(scale, {
           toValue: 1,
-          tension: 50,
-          friction: 7,
+          tension: 60,
+          friction: 8,
           useNativeDriver: Platform.OS !== 'web',
         }),
         Animated.timing(opacity, {
           toValue: 1,
-          duration: 300,
+          duration: 250,
           useNativeDriver: Platform.OS !== 'web',
         }),
-        Animated.loop(
-          Animated.timing(rotate, {
-            toValue: 1,
-            duration: 10000,
-            useNativeDriver: Platform.OS !== 'web',
-          })
-        ),
       ]).start();
     } else {
-      scale.setValue(0.8);
+      scale.setValue(0.85);
       opacity.setValue(0);
-      rotate.setValue(0);
     }
   }, [visible]);
 
-  const rotation = rotate.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
-
   if (!visible) return null;
+
+  const handleClaim = () => {
+    try {
+      playTickSound(900);
+      haptics.impact();
+    } catch {}
+    onClose();
+  };
 
   return (
     <Modal transparent visible={visible} animationType="fade">
       <View style={styles.overlay}>
-        {/* Ambient Glows */}
-        <Animated.View style={[styles.glow, { opacity: opacity.interpolate({ inputRange: [0, 1], outputRange: [0, 0.4] }) }]} />
-        
+        {/* Ambient Gold Halo */}
+        <View style={styles.glow} />
+
         <Animated.View style={[styles.container, { transform: [{ scale }], opacity }]}>
           <LinearGradient
-            colors={['rgba(28, 28, 60, 0.95)', 'rgba(11, 11, 30, 0.98)']}
+            colors={['#141a2e', '#0d1220']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
             style={styles.card}
           >
-            {/* Decorative Sparkle Background */}
-            <Animated.View style={[styles.pattern, { transform: [{ rotate: rotation }] }]}>
-              <Ionicons name="sparkles" size={300} color="rgba(0, 218, 243, 0.03)" />
-            </Animated.View>
+            {/* Top Close Button */}
+            <TouchableOpacity
+              onPress={handleClaim}
+              style={styles.closeBtn}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="close" size={20} color="#8b93a7" />
+            </TouchableOpacity>
 
+            {/* Header Icon */}
             <View style={styles.header}>
-              <LinearGradient
-                colors={['#f5b642', '#d97706']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.iconWrap}
-              >
-                <Ionicons name="gift" size={34} color="#0B0B0F" />
-              </LinearGradient>
-              <Text style={styles.title}>🎉 10 ETB Welcome Bonus!</Text>
-              <Text style={styles.subtitle}>Congratulations! You've received a 10 ETB playable giveaway balance.</Text>
+              <View style={styles.iconWrap}>
+                <Ionicons name="gift" size={36} color="#f5b642" />
+              </View>
+              <Text style={styles.title}>10 ETB WELCOME BONUS</Text>
+              <Text style={styles.subtitle}>
+                Congratulations! Your 10.00 ETB playable giveaway balance is ready.
+              </Text>
             </View>
 
-            <View style={{
-              backgroundColor: "rgba(245, 182, 66, 0.12)",
-              borderWidth: 1.5,
-              borderColor: "#f5b642",
-              borderRadius: 20,
-              paddingVertical: 14,
-              paddingHorizontal: 20,
-              alignItems: "center",
-              marginVertical: 14,
-              width: "100%",
-            }}>
-              <Text style={{ color: "#fef08a", fontSize: 11, fontWeight: "900", letterSpacing: 1 }}>PLAYABLE GIVEAWAY GIFT</Text>
-              <Text style={{ color: "#ffffff", fontSize: 26, fontWeight: "900", marginTop: 2 }}>+10.00 ETB</Text>
+            {/* Highlight Balance Box */}
+            <View style={styles.balanceBox}>
+              <Text style={styles.balanceBoxLabel}>PLAYABLE GIVEAWAY GIFT</Text>
+              <Text style={styles.balanceBoxAmount}>+10.00 ETB</Text>
             </View>
 
+            {/* Feature Highlights */}
             <View style={styles.detailsContainer}>
               <View style={styles.detailRow}>
-                <Ionicons name="checkmark-circle" size={18} color="#34d399" />
-                <Text style={styles.detailText}>Instant 10 ETB balance credited to your account</Text>
+                <View style={[styles.bulletIconWrap, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
+                  <Ionicons name="checkmark-circle" size={16} color="#10b981" />
+                </View>
+                <Text style={styles.detailText}>Instant 10 ETB credited to your account</Text>
               </View>
+
               <View style={styles.detailRow}>
-                <Ionicons name="game-controller" size={18} color="#00daf3" />
-                <Text style={styles.detailText}>Use it to play Tic-Tac-Toe or Spin Wheel games</Text>
+                <View style={[styles.bulletIconWrap, { backgroundColor: 'rgba(0, 218, 243, 0.15)' }]}>
+                  <Ionicons name="game-controller" size={16} color="#00daf3" />
+                </View>
+                <Text style={styles.detailText}>Use it in Tic-Tac-Toe or Spin Wheel battles</Text>
+              </View>
+
+              <View style={styles.detailRow}>
+                <View style={[styles.bulletIconWrap, { backgroundColor: 'rgba(255, 42, 95, 0.15)' }]}>
+                  <Ionicons name="shield-checkmark" size={16} color="#ff2a5f" />
+                </View>
+                <Text style={styles.detailText}>Zero deposit required to start competing</Text>
               </View>
             </View>
 
-            <TouchableOpacity style={styles.button} onPress={onClose} activeOpacity={0.8}>
+            {/* Claim Action Button */}
+            <TouchableOpacity style={styles.button} onPress={handleClaim} activeOpacity={0.85}>
               <LinearGradient
-                colors={['#f5b642', '#00daf3']}
+                colors={['#f5b642', '#d99726']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
                 style={styles.buttonGradient}
               >
-                <Text style={[styles.buttonText, { color: '#0B0B0F' }]}>CLAIM & START PLAYING</Text>
-                <Ionicons name="arrow-forward" size={18} color="#0B0B0F" style={{ marginLeft: 8 }} />
+                <Text style={styles.buttonText}>CLAIM & START PLAYING</Text>
+                <Ionicons name="arrow-forward" size={18} color="#07090e" style={{ marginLeft: 8 }} />
               </LinearGradient>
             </TouchableOpacity>
 
-            <Text style={styles.footerNote}>Make sure to verify your profile under account settings to join matchmaking.</Text>
+            <Text style={styles.footerNote}>
+              Verify your profile in account settings to join ranked multiplayer matchmaking.
+            </Text>
           </LinearGradient>
         </Animated.View>
       </View>
@@ -136,98 +148,147 @@ export default function WelcomeBonusModal({ visible, onClose }: WelcomeBonusModa
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(6, 6, 20, 0.9)',
+    backgroundColor: 'rgba(7, 9, 14, 0.88)',
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
   },
   glow: {
     position: 'absolute',
-    width: width * 1.5,
-    height: width * 1.5,
-    borderRadius: width * 0.75,
-    backgroundColor: 'rgba(0, 218, 243, 0.15)',
-    filter: Platform.OS === 'web' ? 'blur(100px)' : undefined,
+    width: Math.min(width * 1.2, 500),
+    height: Math.min(width * 1.2, 500),
+    borderRadius: 250,
+    backgroundColor: 'rgba(245, 182, 66, 0.08)',
+    ...Platform.select({ web: { filter: 'blur(80px)' } as any }),
   },
   container: {
-    width: Math.min(width * 0.9, 440),
-    borderRadius: 32,
+    width: '100%',
+    maxWidth: 420,
+    borderRadius: 28,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    shadowColor: '#00daf3',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 10,
+    borderWidth: 1.5,
+    borderColor: 'rgba(245, 182, 66, 0.35)',
+    shadowColor: '#f5b642',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 24,
+    elevation: 16,
   },
   card: {
-    padding: 32,
+    padding: 28,
     alignItems: 'center',
     position: 'relative',
   },
-  pattern: {
+  closeBtn: {
     position: 'absolute',
-    top: -100,
-    right: -150,
-    opacity: 0.5,
+    top: 18,
+    right: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#161c2e',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 20,
   },
   iconWrap: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 72,
+    height: 72,
+    borderRadius: 24,
+    backgroundColor: '#161c2e',
+    borderWidth: 1.5,
+    borderColor: 'rgba(245, 182, 66, 0.45)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
-    shadowColor: '#22D3EE',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 15,
+    marginBottom: 16,
+    shadowColor: '#f5b642',
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
   },
   title: {
-    color: '#fff',
-    fontSize: 28,
+    color: '#ffffff',
+    fontSize: 22,
     fontWeight: '900',
     textAlign: 'center',
-    letterSpacing: -0.5,
+    letterSpacing: 0.8,
   },
   subtitle: {
-    color: 'rgba(168, 167, 212, 0.65)',
-    fontSize: 14,
+    color: '#8b93a7',
+    fontSize: 13,
     textAlign: 'center',
     marginTop: 8,
-    lineHeight: 20,
-    paddingHorizontal: 12,
+    lineHeight: 18,
+    paddingHorizontal: 8,
+  },
+  balanceBox: {
+    backgroundColor: 'rgba(245, 182, 66, 0.08)',
+    borderWidth: 1.5,
+    borderColor: '#f5b642',
+    borderRadius: 20,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    marginBottom: 20,
+    width: '100%',
+  },
+  balanceBoxLabel: {
+    color: '#f5b642',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+  },
+  balanceBoxAmount: {
+    color: '#ffffff',
+    fontSize: 28,
+    fontWeight: '900',
+    marginTop: 4,
+    letterSpacing: 0.5,
   },
   detailsContainer: {
     width: '100%',
-    gap: 16,
-    marginBottom: 32,
+    gap: 10,
+    marginBottom: 24,
   },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    padding: 14,
-    borderRadius: 16,
+    backgroundColor: '#111625',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  bulletIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   detailText: {
-    color: '#e5e3ff',
-    fontSize: 13,
+    color: '#ffffff',
+    fontSize: 12.5,
     fontWeight: '600',
+    flex: 1,
   },
   button: {
     width: '100%',
-    height: 58,
-    borderRadius: 18,
+    height: 52,
+    borderRadius: 16,
     overflow: 'hidden',
-    marginBottom: 20,
+    marginBottom: 16,
+    shadowColor: '#f5b642',
+    shadowOpacity: 0.4,
+    shadowRadius: 14,
+    elevation: 8,
   },
   buttonGradient: {
     flex: 1,
@@ -236,15 +297,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   buttonText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '800',
+    color: '#07090e',
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
   footerNote: {
-    color: 'rgba(168, 167, 212, 0.4)',
+    color: '#8b93a7',
     fontSize: 11,
     textAlign: 'center',
     lineHeight: 16,
-    paddingHorizontal: 20,
+    paddingHorizontal: 12,
   },
 });

@@ -61,10 +61,20 @@ if (Platform.OS === 'web' && typeof console !== 'undefined') {
     '"textShadow',
     'props.pointerEvents',
     'Invalid style property of "outline"',
+    'Invalid style property of "animation"',
     'style.resizeMode is deprecated',
     'pointerEvents is deprecated',
     'Unexpected text node',
     'useNativeDriver',
+    'timeout exceeded',
+    'fontfaceobserver',
+    'NotSupportedError',
+    'no supported source was found',
+    'Failed to load because no supported source',
+    'aria-hidden',
+    'Blocked aria-hidden',
+    'WebSocket',
+    'AgoraRTC',
   ];
   const isSuppressed = (msg: string) => SUPPRESSED.some(s => String(msg).includes(s));
   console.warn = (...args: any[]) => { if (!isSuppressed(args[0])) _warn(...args); };
@@ -73,6 +83,16 @@ if (Platform.OS === 'web' && typeof console !== 'undefined') {
 
 // ✅ Handle chunk loading / dynamic import errors gracefully (e.g. after new deployments)
 if (Platform.OS === 'web' && typeof window !== 'undefined') {
+  // ✅ Suppress fontfaceobserver timeout errors from expo-font's web implementation.
+  // Fonts are loaded via Google Fonts CSS <link> in +html.tsx — fontfaceobserver's
+  // 6000ms verification timeout is harmless and can be safely ignored.
+  const isFontObserverTimeout = (error: any) => {
+    if (!error) return false;
+    const msg = String(error.message || error);
+    const stack = String(error.stack || '');
+    return msg.includes('timeout exceeded') || msg.includes('fontfaceobserver') || stack.includes('fontfaceobserver');
+  };
+
   const isChunkError = (error: any) => {
     if (!error) return false;
     const msg = String(error.message || error);
@@ -102,19 +122,29 @@ if (Platform.OS === 'web' && typeof window !== 'undefined') {
     }
   };
 
-  window.addEventListener('error', (event) => {
+  window.addEventListener('error', (event: any) => {
+    if (isFontObserverTimeout(event.error) || isFontObserverTimeout(event.message)) {
+      event.preventDefault?.();
+      event.stopImmediatePropagation?.();
+      return;
+    }
     if (isChunkError(event.error) || isChunkError(event.message)) {
       console.warn('[RootLayout] Dynamic import error detected. Reloading page...');
       reloadWithLock();
     }
-  });
+  }, true);
 
-  window.addEventListener('unhandledrejection', (event) => {
+  window.addEventListener('unhandledrejection', (event: any) => {
+    if (isFontObserverTimeout(event.reason)) {
+      event.preventDefault?.();
+      event.stopImmediatePropagation?.();
+      return;
+    }
     if (isChunkError(event.reason)) {
       console.warn('[RootLayout] Promise rejection from dynamic import detected. Reloading page...');
       reloadWithLock();
     }
-  });
+  }, true);
 }
 
 

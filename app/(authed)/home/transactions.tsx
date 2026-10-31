@@ -6,6 +6,7 @@ import React, { useCallback, useMemo, useState, memo } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 import {
   ActivityIndicator,
+  Animated,
   Modal,
   Platform,
   RefreshControl,
@@ -24,11 +25,15 @@ import { useAuth } from "../../../context/authContext";
 import AnimatedList from "../../../components/AnimatedList";
 import { WebDepositModal, WebWithdrawModal } from "../../../components/WebModals";
 import ProfileEditModal from "../../../components/ProfileEditModal";
+import DesktopHeader from "../../../components/game/DesktopHeader";
+import DesktopSidebar from "../../../components/game/DesktopSidebar";
 import { useBackgroundMusic } from "../../../context/BackgroundMusicProvider";
 import ReferralModal from "../../../components/ReferralModal";
 import PwaInstallModal from "../../../components/game/PwaInstallModal";
 import NotificationsPopover from "../../../components/NotificationsPopover";
 import { downloadProfessionalReceipt } from "../../../lib/receiptGenerator";
+import { haptics } from "../../../lib/haptcs";
+import { playTickSound } from "../../../lib/pinTickAudio";
 
 type Transaction = {
   id: string;
@@ -337,6 +342,429 @@ const TransactionItem = memo(function TransactionItem({
   );
 });
 
+// Mobile Transaction Item (Matching Phone 3 in reference mockup)
+const MobileTxRow = memo(function MobileTxRow({
+  tx,
+  isEN,
+  onPress,
+}: {
+  tx: Transaction;
+  isEN: boolean;
+  onPress: () => void;
+}) {
+  const type = normalizeType(tx);
+  const isDeposit = type === "deposit";
+  const isPrize = type === "prize" || (tx as any)?.tx_type === "SPIN_WIN" || String(tx?.method || "").toLowerCase().includes("spin");
+  const isBet = (tx as any)?.tx_type === "GAME_BET" || (tx as any)?.tx_type === "BET" || String(tx?.method || "").toLowerCase().includes("bet");
+
+  let iconName: keyof typeof Ionicons.glyphMap = "arrow-down";
+  let iconBg = "rgba(16, 185, 129, 0.16)";
+  let iconColor = "#10b981";
+  let title = isEN ? "Deposit" : "ተቀማጭ";
+  let amountPrefix = "+";
+  let amountColor = "#10b981";
+
+  if (isPrize) {
+    iconName = "swap-horizontal";
+    iconBg = "rgba(0, 218, 243, 0.16)";
+    iconColor = "#00daf3";
+    title = isEN ? "Spin Win" : "ስፒን አሸናፊ";
+    amountPrefix = "+";
+    amountColor = "#10b981";
+  } else if (isBet) {
+    iconName = "game-controller";
+    iconBg = "rgba(168, 85, 247, 0.16)";
+    iconColor = "#a855f7";
+    title = isEN ? "Game Bet" : "የጨዋታ ውርርድ";
+    amountPrefix = "-";
+    amountColor = "#ef4444";
+  } else if (!isDeposit) {
+    iconName = "arrow-up";
+    iconBg = "rgba(239, 68, 68, 0.16)";
+    iconColor = "#ef4444";
+    title = isEN ? "Withdrawal" : "ወጪ";
+    amountPrefix = "-";
+    amountColor = "#ef4444";
+  }
+
+  const txDate = tx?.createdAt || (tx as any)?.created_at || "";
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.75}
+      onPress={onPress}
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: "rgba(255, 255, 255, 0.05)",
+      }}
+    >
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+        <View
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 22,
+            backgroundColor: iconBg,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Ionicons name={iconName} size={20} color={iconColor} />
+        </View>
+        <View>
+          <Text style={{ color: "#ffffff", fontSize: 15, fontWeight: "800", fontFamily: "Inter, sans-serif" }}>
+            {title}
+          </Text>
+          <Text style={{ color: "#8b93a7", fontSize: 11.5, fontWeight: "600", marginTop: 3 }}>
+            {txDate ? formatDate(txDate) : "—"}
+          </Text>
+        </View>
+      </View>
+
+      <Text style={{ color: amountColor, fontSize: 15, fontWeight: "900", fontFamily: "Inter, sans-serif" }}>
+        {amountPrefix}{Number(tx?.amount || 0).toLocaleString()} ETB
+      </Text>
+    </TouchableOpacity>
+  );
+});
+
+// ---------------- Transaction Detail Bottom Sheet Modal (Image 3) ----------------
+const Image3DetailModal = memo(function Image3DetailModal({
+  tx,
+  visible,
+  onClose,
+  isEN,
+  onDownloadReceipt,
+}: {
+  tx: Transaction | null;
+  visible: boolean;
+  onClose: () => void;
+  isEN: boolean;
+  onDownloadReceipt?: (tx: Transaction) => void;
+}) {
+  const slideAnim = React.useRef(new Animated.Value(600)).current;
+  const fadeAnim = React.useRef(new Animated.Value(0)).current;
+
+  React.useEffect(() => {
+    if (visible && tx) {
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+        Animated.spring(slideAnim, {
+          toValue: 0,
+          damping: 20,
+          stiffness: 220,
+          mass: 0.8,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      slideAnim.setValue(600);
+      fadeAnim.setValue(0);
+    }
+  }, [visible, tx]);
+
+  const handleClose = () => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 600,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      onClose();
+    });
+  };
+
+  if (!visible || !tx) return null;
+
+  const type = normalizeType(tx);
+  const status = normalizeStatus(tx);
+  const isDeposit = type === "deposit";
+  const isPrize = type === "prize";
+  const isSuccess = status === "success";
+
+  return (
+    <Modal visible={visible} transparent animationType="none" onRequestClose={handleClose}>
+      <View style={{ flex: 1, justifyContent: "flex-end" }}>
+        {/* Backdrop */}
+        <Animated.View
+          style={{
+            ...StyleSheet.absoluteFillObject,
+            backgroundColor: "rgba(0, 0, 0, 0.75)",
+            opacity: fadeAnim,
+          }}
+        >
+          <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={handleClose} />
+        </Animated.View>
+
+        {/* Slide-Up Bottom Sheet Card (Dark Theme matching our colors) */}
+        <Animated.View
+          style={{
+            width: "100%",
+            backgroundColor: "#0e1322",
+            borderTopLeftRadius: 32,
+            borderTopRightRadius: 32,
+            borderWidth: 1,
+            borderColor: "rgba(255, 255, 255, 0.12)",
+            paddingHorizontal: 24,
+            paddingTop: 12,
+            paddingBottom: Platform.OS === "ios" ? 40 : 28,
+            alignItems: "center",
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: -4 },
+            shadowOpacity: 0.4,
+            shadowRadius: 24,
+            elevation: 24,
+            transform: [{ translateY: slideAnim }],
+          }}
+        >
+          {/* Top Pill Handle */}
+          <View
+            style={{
+              width: 38,
+              height: 4.5,
+              borderRadius: 3,
+              backgroundColor: "#222c42",
+              marginBottom: 20,
+            }}
+          />
+
+          {/* Centered Checkmark Badge */}
+          <View style={{ position: "relative", marginBottom: 16 }}>
+            {/* Subtle decorative sparkle stars */}
+            <Text style={{ position: "absolute", top: -6, right: -12, fontSize: 13, color: "#10b981" }}>✦</Text>
+            <Text style={{ position: "absolute", bottom: -2, right: -14, fontSize: 10, color: "#00daf3" }}>✦</Text>
+            <Text style={{ position: "absolute", top: 12, left: -14, fontSize: 11, color: "#10b981" }}>✦</Text>
+
+            <View
+              style={{
+                width: 76,
+                height: 76,
+                borderRadius: 38,
+                backgroundColor: isSuccess ? "rgba(16, 185, 129, 0.18)" : "rgba(239, 68, 68, 0.18)",
+                borderWidth: 1.5,
+                borderColor: isSuccess ? "#10b981" : "#ef4444",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Ionicons
+                name={isSuccess ? "checkmark" : status === "pending" ? "time-outline" : "close"}
+                size={38}
+                color={isSuccess ? "#10b981" : status === "pending" ? "#f59e0b" : "#ef4444"}
+              />
+            </View>
+          </View>
+
+          {/* Title: Success ! */}
+          <Text
+            style={{
+              fontSize: 22,
+              fontWeight: "900",
+              color: "#ffffff",
+              fontFamily: "Inter, sans-serif",
+              letterSpacing: -0.3,
+              marginBottom: 6,
+            }}
+          >
+            {isSuccess
+              ? (isEN ? "Success !" : "ተሳክቷል !")
+              : status === "pending"
+              ? (isEN ? "Processing..." : "በመከናወን ላይ...")
+              : (isEN ? "Failed" : "አልተሳካም")}
+          </Text>
+
+          {/* Subtitle description */}
+          <Text
+            style={{
+              fontSize: 13,
+              color: "#8b93a7",
+              textAlign: "center",
+              lineHeight: 18,
+              paddingHorizontal: 16,
+              marginBottom: 20,
+            }}
+          >
+            {isSuccess
+              ? (isEN
+                  ? "Your transaction has been processed and added successfully."
+                  : "ግብይትዎ በተሳካ ሁኔታ ተከናውኖ ተጨምሯል።")
+              : (isEN
+                  ? "Transaction details and current status are shown below."
+                  : "የግብይት ዝርዝሮች ከታች ይታያሉ።")}
+          </Text>
+
+          {/* Structured Detail Breakdown Box */}
+          <View
+            style={{
+              width: "100%",
+              backgroundColor: "#141a2e",
+              borderRadius: 18,
+              padding: 16,
+              gap: 12,
+              marginBottom: 20,
+              borderWidth: 1,
+              borderColor: "rgba(255, 255, 255, 0.08)",
+            }}
+          >
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <Text style={{ fontSize: 13, color: "#8b93a7", fontWeight: "600" }}>{isEN ? "Amount" : "መጠን"}</Text>
+              <Text style={{ fontSize: 16, fontWeight: "900", color: isDeposit || isPrize ? "#10b981" : "#ef4444" }}>
+                {isDeposit || isPrize ? "+" : "-"}ETB {Number(tx.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              </Text>
+            </View>
+
+            <View style={{ height: 1, backgroundColor: "rgba(255, 255, 255, 0.06)" }} />
+
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <Text style={{ fontSize: 12.5, color: "#8b93a7", fontWeight: "600" }}>{isEN ? "Type" : "ዓይነት"}</Text>
+              <Text style={{ fontSize: 13, fontWeight: "700", color: "#ffffff", textTransform: "capitalize" }}>
+                {type}
+              </Text>
+            </View>
+
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <Text style={{ fontSize: 12.5, color: "#8b93a7", fontWeight: "600" }}>{isEN ? "Method" : "ዘዴ"}</Text>
+              <Text style={{ fontSize: 13, fontWeight: "700", color: "#ffffff" }}>
+                {(tx.method || "Chapa").toUpperCase()}
+              </Text>
+            </View>
+
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <Text style={{ fontSize: 12.5, color: "#8b93a7", fontWeight: "600" }}>{isEN ? "Date" : "ቀን"}</Text>
+              <Text style={{ fontSize: 12.5, fontWeight: "600", color: "#ffffff" }}>
+                {formatDate(tx.createdAt)}
+              </Text>
+            </View>
+
+            {!!(tx.ref || tx.id) && (
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                <Text style={{ fontSize: 12.5, color: "#8b93a7", fontWeight: "600" }}>{isEN ? "Ref ID" : "መለያ"}</Text>
+                <Text style={{ fontSize: 12, fontWeight: "600", color: "#8b93a7" }} numberOfLines={1}>
+                  {(tx.ref || tx.id).slice(0, 18)}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* Bottom Button: [ Done ] */}
+          <TouchableOpacity
+            activeOpacity={0.88}
+            onPress={() => {
+              haptics.impact();
+              handleClose();
+            }}
+            style={{
+              width: "100%",
+              height: 52,
+              borderRadius: 26,
+              backgroundColor: "#10b981",
+              alignItems: "center",
+              justifyContent: "center",
+              shadowColor: "#10b981",
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.35,
+              shadowRadius: 10,
+              elevation: 4,
+            }}
+          >
+            <Text style={{ color: "#060a14", fontSize: 15.5, fontWeight: "900", letterSpacing: 0.3 }}>
+              {isEN ? "Done" : "ተጠናቅቋል"}
+            </Text>
+          </TouchableOpacity>
+
+          {/* Download Receipt Link */}
+          {onDownloadReceipt && (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => {
+                haptics.tap();
+                onDownloadReceipt(tx);
+              }}
+              style={{ marginTop: 14, paddingVertical: 4 }}
+            >
+              <Text style={{ color: "#00daf3", fontSize: 13, fontWeight: "700", textDecorationLine: "underline" }}>
+                {isEN ? "Download Receipt" : "ደረሰኝ አውርድ"}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+});
+
+// Skeleton Loader component for transactions loading state
+function SkeletonTransactionLoader() {
+  const pulseAnim = React.useRef(new Animated.Value(0.35)).current;
+
+  React.useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 0.8,
+          duration: 750,
+          useNativeDriver: Platform.OS !== "web",
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 0.35,
+          duration: 750,
+          useNativeDriver: Platform.OS !== "web",
+        }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulseAnim]);
+
+  return (
+    <View style={{ gap: 10, paddingTop: 4 }}>
+      {[1, 2, 3, 4, 5].map((_, i) => (
+        <Animated.View
+          key={i}
+          style={{
+            backgroundColor: "#111625",
+            borderRadius: 18,
+            padding: 14,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            borderWidth: 1,
+            borderColor: "rgba(255, 255, 255, 0.05)",
+            opacity: pulseAnim,
+          }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+            <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "#1e263d" }} />
+            <View style={{ gap: 7 }}>
+              <View style={{ width: 110, height: 14, backgroundColor: "#1e263d", borderRadius: 4 }} />
+              <View style={{ width: 140, height: 10, backgroundColor: "#192033", borderRadius: 4 }} />
+            </View>
+          </View>
+          <View style={{ alignItems: "flex-end", gap: 6 }}>
+            <View style={{ width: 75, height: 15, backgroundColor: "#1e263d", borderRadius: 4 }} />
+            <View style={{ width: 55, height: 10, backgroundColor: "#192033", borderRadius: 4 }} />
+          </View>
+        </Animated.View>
+      ))}
+    </View>
+  );
+}
+
 // ---------------- Main Screen Component ----------------
 export default function TransactionsScreen() {
   const router = useRouter();
@@ -351,7 +779,9 @@ export default function TransactionsScreen() {
   const [txs, setTxs] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [filter, setFilter] = useState<"all" | "deposit" | "withdrawal" | "prize">("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | "deposit" | "withdrawal" | "prize">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "success" | "pending" | "failed">("all");
+  const [showFilterModal, setShowFilterModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [bonusModalVisible, setBonusModalVisible] = useState(false);
   const [bonusLogs, setBonusLogs] = useState<any[]>([]);
@@ -366,6 +796,7 @@ export default function TransactionsScreen() {
 
   // Selected Detail Transaction State
   const [selectedDetailTx, setSelectedDetailTx] = useState<Transaction | null>(null);
+  const [isBalanceHidden, setIsBalanceHidden] = useState(false);
 
   // 3-dots popup options menu state
   const [openMenuTxId, setOpenMenuTxId] = useState<string | null>(null);
@@ -424,8 +855,13 @@ export default function TransactionsScreen() {
   const filteredTxs = useMemo(() => {
     return txs.filter((t) => {
       const type = normalizeType(t);
-      const isMatch = filter === "all" ? true : type === filter;
-      if (!isMatch) return false;
+      const status = normalizeStatus(t);
+
+      const matchesType = typeFilter === "all" ? true : type === typeFilter;
+      if (!matchesType) return false;
+
+      const matchesStatus = statusFilter === "all" ? true : status === statusFilter;
+      if (!matchesStatus) return false;
 
       if (searchQuery.trim() !== "") {
         const query = searchQuery.toLowerCase();
@@ -435,7 +871,7 @@ export default function TransactionsScreen() {
       }
       return true;
     });
-  }, [txs, filter, searchQuery]);
+  }, [txs, typeFilter, statusFilter, searchQuery]);
 
   // Pagination logic
   const totalPages = Math.ceil(filteredTxs.length / itemsPerPage);
@@ -512,7 +948,7 @@ Status          : ${status.toUpperCase()}
           type: type,
           amount: Number(tx.amount || 0),
           status: status,
-          method: tx.method,
+          method: tx.method || (tx as any)?.payment_method || "Chapa",
           createdAt: tx.createdAt || (tx as any).created_at || new Date().toISOString(),
           userName: user?.username || (user as any)?.display_name,
           userPhone: user?.number || (user as any)?.phone,
@@ -662,217 +1098,46 @@ Status          : ${status.toUpperCase()}
       <PwaInstallModal visible={pwaModalVisible} onClose={() => setPwaModalVisible(false)} />
       <NotificationsPopover visible={notificationsVisible} onClose={() => setNotificationsVisible(false)} onUnreadCountChange={setUnreadCount} />
 
-      {/* Transaction Details Modal */}
-      {selectedDetailTx && (
-        <Modal visible={!!selectedDetailTx} transparent animationType="fade">
-          <View style={styles.modalOverlay}>
-            <View style={[styles.detailModalCard, { backgroundColor: '#0d1220', borderColor: '#1f2540' }]}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.detailModalTitle}>{isEN ? "TRANSACTION DETAILS" : "የግብይት ዝርዝሮች"}</Text>
-                <TouchableOpacity onPress={() => setSelectedDetailTx(null)} style={styles.closeBtn}>
-                  <Ionicons name="close" size={20} color="#8b93a7" />
-                </TouchableOpacity>
-              </View>
-
-              {/* Icon & Amount */}
-              <View style={{ alignItems: 'center', marginBottom: 24 }}>
-                <View style={[styles.detailIconBox, { backgroundColor: normalizeType(selectedDetailTx) === 'deposit' || normalizeType(selectedDetailTx) === 'prize' ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)' }]}>
-                  <Ionicons 
-                    name={normalizeType(selectedDetailTx) === 'deposit' || normalizeType(selectedDetailTx) === 'prize' ? "arrow-down" : "arrow-up"} 
-                    size={24} 
-                    color={normalizeType(selectedDetailTx) === 'deposit' || normalizeType(selectedDetailTx) === 'prize' ? "#34d399" : "#f87171"} 
-                  />
-                </View>
-                <Text style={[styles.detailModalAmount, { color: normalizeType(selectedDetailTx) === 'deposit' || normalizeType(selectedDetailTx) === 'prize' ? "#34d399" : "#f87171" }]}>
-                  {normalizeType(selectedDetailTx) === 'deposit' || normalizeType(selectedDetailTx) === 'prize' ? "+" : "-"}ETB {Number(selectedDetailTx.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </Text>
-                <Text style={{ color: '#8b93a7', fontSize: 12, marginTop: 4 }}>
-                  {normalizeStatus(selectedDetailTx).toUpperCase()}
-                </Text>
-              </View>
-
-              {/* Data Table */}
-              <View style={{ gap: 14, marginBottom: 28 }}>
-                <View style={styles.detailModalRow}>
-                  <Text style={styles.detailRowLabel}>{isEN ? "Transaction ID" : "የግብይት መለያ"}</Text>
-                  <Text style={styles.detailRowValue} numberOfLines={1}>{selectedDetailTx.id}</Text>
-                </View>
-                <View style={styles.detailModalRow}>
-                  <Text style={styles.detailRowLabel}>{isEN ? "Reference ID" : "ማጣቀሻ መለያ"}</Text>
-                  <Text style={styles.detailRowValue}>{selectedDetailTx.ref || '—'}</Text>
-                </View>
-                <View style={styles.detailModalRow}>
-                  <Text style={styles.detailRowLabel}>{isEN ? "Date & Time" : "ቀን እና ሰዓት"}</Text>
-                  <Text style={styles.detailRowValue}>{formatDate(selectedDetailTx.createdAt)}</Text>
-                </View>
-                <View style={styles.detailModalRow}>
-                  <Text style={styles.detailRowLabel}>{isEN ? "Payment Method" : "የክፍያ ዘዴ"}</Text>
-                  <Text style={styles.detailRowValue}>{(selectedDetailTx.method || "Chapa").toUpperCase()}</Text>
-                </View>
-              </View>
-
-              {/* Actions */}
-              <TouchableOpacity 
-                style={styles.detailDownloadBtn} 
-                onPress={() => {
-                  handleDownloadReceipt(selectedDetailTx);
-                  setSelectedDetailTx(null);
-                }}
-              >
-                <Ionicons name="download-outline" size={16} color="#0a0a0f" style={{ marginRight: 6 }} />
-                <Text style={styles.detailDownloadBtnText}>{isEN ? "DOWNLOAD RECEIPT" : "ደረሰኝ አውርድ"}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
-      )}
+      {/* Transaction Details Modal (Image 3 bottom-to-top spring sheet) */}
+      <Image3DetailModal
+        tx={selectedDetailTx}
+        visible={!!selectedDetailTx}
+        onClose={() => setSelectedDetailTx(null)}
+        isEN={isEN}
+        onDownloadReceipt={handleDownloadReceipt}
+      />
 
       {isDesktop ? (
         /* ────────── PREMIUM DESKTOP LAYOUT ────────── */
         <View style={{ flex: 1 }}>
           {/* Header Bar */}
-          <View style={s.header}>
-            <View style={s.headerContentWrapper}>
-              <View style={s.logoContainer}>
-                <Image source={require("../../../assets/images/icon.jpg")} style={s.logoImage} />
-                <Text style={s.logoText}>XO ETHIOPIA</Text>
-              </View>
-
-              {/* Center Navigation Toggle */}
-              <View style={s.toggleContainer}>
-                <TouchableOpacity style={s.toggleBtn} onPress={() => router.push('/(authed)/home/gameplay')} activeOpacity={0.85}>
-                  <Text style={s.toggleBtnText}>SPIN</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[s.toggleBtn, s.toggleBtnActive]} onPress={() => router.push('/(authed)/home/gameplay')} activeOpacity={0.85}>
-                  <Text style={[s.toggleBtnText, s.toggleBtnTextActive]}>XO GAME</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Top Navigation Utilities (Header Balance is removed as requested) */}
-              <View style={s.utilityCluster}>
-                <TouchableOpacity onPress={() => setPwaModalVisible(true)} style={s.utilityBtn} activeOpacity={0.8}>
-                  <Ionicons name="cloud-download-outline" size={16} color="#8b93a7" />
-                  <Text style={s.utilityBtnText}>APP</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity onPress={handleLanguageToggle} style={s.utilityBtn} activeOpacity={0.8}>
-                  <Ionicons name="globe-outline" size={15} color="#8b93a7" />
-                  <Text style={s.utilityBtnText}>{language.toUpperCase()}</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity onPress={toggleMusic} style={s.utilityBtn} activeOpacity={0.8}>
-                  <Ionicons name={isPlaying ? "volume-high-outline" : "volume-mute-outline"} size={16} color="#8b93a7" />
-                  <Text style={s.utilityBtnText}>{isPlaying ? "SOUND" : "MUTED"}</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity onPress={() => setNotificationsVisible(true)} style={s.bellBtn} activeOpacity={0.8}>
-                  <Ionicons name="notifications-outline" size={20} color="#fff" />
-                  {unreadCount > 0 && (
-                    <View style={s.bellBadge}><Text style={s.bellBadgeText}>{unreadCount}</Text></View>
-                  )}
-                </TouchableOpacity>
-
-                <TouchableOpacity onPress={() => handleNavClick('profile')} style={s.profileChip} activeOpacity={0.85}>
-                  <View style={s.profileChipAvatar}>
-                    <Text style={s.profileChipAvatarText}>{user?.username ? user.username.slice(0, 2).toUpperCase() : "ME"}</Text>
-                  </View>
-                  <View style={{ marginRight: 6 }}>
-                    <Text style={s.profileChipName}>{user?.username || (user?.number ? `User ${user.number.slice(-4)}` : "Set Your Name")}</Text>
-                    <Text style={s.profileChipVip}>VIP 24</Text>
-                  </View>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
+          <DesktopHeader
+          user={user}
+          language={language}
+          handleLanguageToggle={handleLanguageToggle}
+          selectedTab="XO_GAME"
+          setPwaModalVisible={setPwaModalVisible}
+          bgMusicPlaying={isPlaying}
+          onToggleSound={toggleMusic}
+          unreadCount={unreadCount}
+          setNotificationsVisible={setNotificationsVisible}
+          router={router}
+        />
 
           {/* Main Scroll Content */}
           <ScrollView style={s.mainScrollView} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
             <View style={s.pageContentWrapper}>
               <View style={s.threeColumnRow}>
-                {/* 1. LEFT SIDEBAR (No bottom profile chip, balance amount card, or logout button as requested) */}
-                <View style={s.leftSidebar}>
-                  <View style={s.card}>
-                    <View style={s.userCardHeader}>
-                      <View style={s.userCardAvatar}>
-                        <Text style={s.userCardAvatarText}>{user?.username ? user.username.slice(0, 1).toUpperCase() : "A"}</Text>
-                      </View>
-                      <View>
-                        <Text style={s.userCardName} numberOfLines={1}>{user?.username || (user?.number ? `User ${user.number.slice(-4)}` : "Set Your Name")}</Text>
-                        <View style={s.onlineRow}>
-                          <View style={s.onlineDot} />
-                          <Text style={s.onlineText}>Online</Text>
-                        </View>
-                      </View>
-                    </View>
-
-                    {/* Available Balance card (Moved from header to sidebar as requested) */}
-                    <View style={s.tokensRow}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={s.tokenLabel}>AVAILABLE BALANCE</Text>
-                        <Text style={[s.tokenVal, { color: "#22d3ee" }]}>ETB {user?.available_balance ? Number(user.available_balance).toLocaleString() : "0"}</Text>
-                      </View>
-                      <TouchableOpacity onPress={refreshProfile} style={[s.tokenPlusBtn, { backgroundColor: "rgba(34, 211, 238, 0.15)", borderColor: "rgba(34, 211, 238, 0.3)", borderWidth: 1 }]} activeOpacity={0.8}>
-                        <Ionicons name="refresh" size={12} color="#22d3ee" />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-
-                  {/* Navigation Links */}
-                  <View style={s.card}>
-                    <TouchableOpacity onPress={() => handleNavClick('home')} style={s.navItem} activeOpacity={0.8}>
-                      <Ionicons name="home-outline" size={18} color="#8b93a7" />
-                      <Text style={s.navText}>Home</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleNavClick('history')} style={s.navItem} activeOpacity={0.8}>
-                      <Ionicons name="time-outline" size={18} color="#8b93a7" />
-                      <Text style={s.navText}>History</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleNavClick('leaderboard')} style={s.navItem} activeOpacity={0.8}>
-                      <Ionicons name="trophy-outline" size={18} color="#8b93a7" />
-                      <Text style={s.navText}>Leaderboard</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleNavClick('transactions')} style={[s.navItem, s.navItemActive]} activeOpacity={0.8}>
-                      <View style={s.navItemActiveBar} />
-                      <Ionicons name="swap-horizontal" size={18} color="#8b5cf6" />
-                      <Text style={[s.navText, s.navTextActive]}>Transactions</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleNavClick('profile')} style={s.navItem} activeOpacity={0.8}>
-                      <Ionicons name="person-outline" size={18} color="#8b93a7" />
-                      <Text style={s.navText}>Profile</Text>
-                    </TouchableOpacity>
-                    {(user?.role === 'admin' || user?.role === 'superadmin' || user?.role === 'maintenance') && (
-                      <TouchableOpacity onPress={() => handleNavClick('admin')} style={s.navItem} activeOpacity={0.8}>
-                        <Ionicons name="shield-checkmark-outline" size={18} color="#8b93a7" />
-                        <Text style={s.navText}>Admin Center</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-
-                  {/* Wallet panel card */}
-                  <View style={s.card}>
-                    <Text style={s.sectionTitleSmall}>WALLET</Text>
-                    <View style={s.walletRow}>
-                      <Text style={s.walletLabel}>Deposit</Text>
-                      <Text style={[s.walletValSmall, { color: "#22c55e" }]}>+ 3,420 ETB</Text>
-                    </View>
-                    <View style={s.walletRow}>
-                      <Text style={s.walletLabel}>Withdraw</Text>
-                      <Text style={[s.walletValSmall, { color: "#ef4444" }]}>- 420 ETB</Text>
-                    </View>
-                    <View style={s.walletRow}>
-                      <Text style={s.walletLabel}>Transactions</Text>
-                      <Text style={s.walletValSecond}>12 today</Text>
-                    </View>
-                    <View style={s.walletButtons}>
-                      <TouchableOpacity onPress={() => setDepositVisible(true)} style={[s.walletBtnSmall, { borderColor: "#22d3ee" }]} activeOpacity={0.8}>
-                        <Text style={[s.walletBtnTextSmall, { color: "#22d3ee" }]}>DEPOSIT</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity onPress={() => setWithdrawVisible(true)} style={[s.walletBtnSmall, { borderColor: "#7c3aed" }]} activeOpacity={0.8}>
-                        <Text style={[s.walletBtnTextSmall, { color: "#7c3aed" }]}>WITHDRAW</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </View>
+                {/* 1. LEFT SIDEBAR */}
+                <DesktopSidebar
+                  user={user}
+                  balance={Number(user?.available_balance || 0)}
+                  currentScreen="transactions"
+                  refreshProfile={refreshProfile}
+                  setDepositVisible={setDepositVisible}
+                  setWithdrawVisible={setWithdrawVisible}
+                  router={router}
+                />
 
                 {/* 2. TRANSACTIONS MAIN PANEL */}
                 <View style={{ flex: 1, gap: 24 }}>
@@ -914,13 +1179,13 @@ Status          : ${status.toUpperCase()}
                     </LinearGradient>
 
                     {/* Total Deposits */}
-                    <LinearGradient colors={["rgba(168,85,247,0.12)", "rgba(168,85,247,0.03)"]} style={s.statMiniCard}>
-                      <View style={[s.statIconWrap, { backgroundColor: 'rgba(168,85,247,0.15)' }]}>
-                        <Ionicons name="arrow-down" size={16} color="#a855f7" />
+                    <LinearGradient colors={["rgba(16,185,129,0.12)", "rgba(16,185,129,0.03)"]} style={s.statMiniCard}>
+                      <View style={[s.statIconWrap, { backgroundColor: 'rgba(16,185,129,0.15)' }]}>
+                        <Ionicons name="arrow-down" size={16} color="#10b981" />
                       </View>
                       <View>
                         <Text style={s.statLabel}>DEPOSITS</Text>
-                        <Text style={[s.statValue, { color: "#a855f7" }]}>{stats.depCount}</Text>
+                        <Text style={[s.statValue, { color: "#10b981" }]}>{stats.depCount}</Text>
                         <Text style={s.statSubtitle}>Total deposits</Text>
                       </View>
                     </LinearGradient>
@@ -957,12 +1222,12 @@ Status          : ${status.toUpperCase()}
                         <TouchableOpacity
                           key={t}
                           onPress={() => {
-                            setFilter(t);
+                            setTypeFilter(t);
                             setCurrentPage(1);
                           }}
-                          style={[s.desktopTabBtn, filter === t && s.desktopTabBtnActive]}
+                          style={[s.desktopTabBtn, typeFilter === t && s.desktopTabBtnActive]}
                         >
-                          <Text style={[s.desktopTabBtnText, filter === t && s.desktopTabBtnTextActive]}>
+                          <Text style={[s.desktopTabBtnText, typeFilter === t && s.desktopTabBtnTextActive]}>
                             {t === "all" ? "All Transactions" : t === "deposit" ? "Deposits" : t === "withdrawal" ? "Withdrawals" : "Prizes"}
                           </Text>
                         </TouchableOpacity>
@@ -1117,112 +1382,618 @@ Status          : ${status.toUpperCase()}
           </ScrollView>
         </View>
       ) : (
-        /* ────────── MOBILE PORTRAIT LAYOUT ────────── */
-        <View style={styles.container}>
-          {/* Header */}
-          <View style={styles.header}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.headerTitle}>{isEN ? "Transactions" : "ግብይቶች"}</Text>
-              <Text style={styles.headerSub}>{isEN ? "Your deposit & withdrawal history" : "የክፍያ ታሪክዎ"}</Text>
+        /* ────────── MOBILE PORTRAIT LAYOUT (XOET Dark Gaming Theme) ────────── */
+        <View style={{ flex: 1, backgroundColor: "#07090e" }}>
+          {/* ─── FIXED / PINNED TOP SECTION (Header, Balance, 2 Action Buttons, Filter Row) ─── */}
+          <View style={{ paddingHorizontal: 16 }}>
+            {/* 1. Header: Back Chevron + "Welcome back" + Language Switcher + Notifications Bell */}
+            <View style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              paddingTop: 10,
+              paddingBottom: 12,
+            }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                <TouchableOpacity
+                  onPress={() => {
+                    haptics.tap();
+                    router.push("/(authed)/home/gameplay");
+                  }}
+                  activeOpacity={0.75}
+                  style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 19,
+                    backgroundColor: "#121625",
+                    borderWidth: 1,
+                    borderColor: "rgba(255, 255, 255, 0.08)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Ionicons name="chevron-back" size={20} color="#ffffff" />
+                </TouchableOpacity>
+                <Text style={{
+                  color: "#ffffff",
+                  fontSize: 18,
+                  fontWeight: "800",
+                  fontFamily: "Inter, sans-serif",
+                  letterSpacing: -0.2,
+                }}>
+                  {isEN ? "Welcome back" : "እንኳን ደህና መጡ"}
+                </Text>
+              </View>
+
+              {/* Right: Language Selector + Notifications Bell (Beside notification as requested) */}
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <TouchableOpacity
+                  onPress={handleLanguageToggle}
+                  activeOpacity={0.75}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 5,
+                    height: 38,
+                    paddingHorizontal: 11,
+                    borderRadius: 19,
+                    backgroundColor: "#121625",
+                    borderWidth: 1,
+                    borderColor: "rgba(255, 255, 255, 0.08)",
+                  }}
+                >
+                  <Ionicons name="globe-outline" size={15} color="#00daf3" />
+                  <Text style={{ color: "#ffffff", fontSize: 12, fontWeight: "800" }}>
+                    {language.toUpperCase()}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => {
+                    haptics.tap();
+                    setNotificationsVisible(true);
+                  }}
+                  activeOpacity={0.75}
+                  style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 19,
+                    backgroundColor: "#121625",
+                    borderWidth: 1,
+                    borderColor: "rgba(255, 255, 255, 0.08)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    position: "relative",
+                  }}
+                >
+                  <Ionicons name="notifications-outline" size={18} color="#ffffff" />
+                  {unreadCount > 0 && (
+                    <View style={{
+                      position: "absolute",
+                      top: 7,
+                      right: 8,
+                      width: 7,
+                      height: 7,
+                      borderRadius: 3.5,
+                      backgroundColor: "#ef4444",
+                    }} />
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
 
-            <TouchableOpacity style={styles.refreshBtn} onPress={() => setBonusModalVisible(true)}>
-              <Ionicons name="gift-outline" size={18} color="#00e5ff" />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.refreshBtn} onPress={onRefresh} disabled={refreshing}>
-              {refreshing ? <ActivityIndicator size="small" color="#00e5ff" /> : <Ionicons name="refresh" size={18} color="#00e5ff" />}
-            </TouchableOpacity>
-          </View>
-
-          {/* Search Input */}
-          <View style={styles.mobileSearchContainer}>
-            <Ionicons name="search-outline" size={16} color="#8b93a7" style={{ marginLeft: 12 }} />
-            <TextInput
-              style={styles.mobileSearchInput}
-              placeholder={isEN ? "Search by ref or method..." : "በማጣቀሻ ወይም ዘዴ ፈልግ..."}
-              placeholderTextColor="rgba(139,147,167,0.4)"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-          </View>
-
-          {/* Summary Cards */}
-          <View style={styles.summaryRow}>
-            <LinearGradient colors={["rgba(0,229,255,0.18)", "rgba(0,229,255,0.06)"]} style={styles.summaryCard}>
-              <Ionicons name="arrow-down-circle-outline" size={22} color="#00e5ff" />
-              <Text style={styles.summaryLabel}>{isEN ? "Total Deposits" : "ጠቅላላ ተቀማጭ"}</Text>
-              <Text style={[styles.summaryValue, { color: "#00e5ff" }]}>
-                ETB {stats.netFlow >= 0 ? stats.netFlow.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "0.00"}
-              </Text>
-            </LinearGradient>
-            <LinearGradient colors={["rgba(239,68,68,0.18)", "rgba(239,68,68,0.06)"]} style={styles.summaryCard}>
-              <Ionicons name="arrow-up-circle-outline" size={22} color="#f87171" />
-              <Text style={styles.summaryLabel}>{isEN ? "Total Withdrawals" : "ጠቅላላ ወጪ"}</Text>
-              <Text style={[styles.summaryValue, { color: "#f87171" }]}>
-                ETB {Number(user?.available_balance ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-              </Text>
-            </LinearGradient>
-          </View>
-
-          {/* Filter Tabs */}
-          <View style={styles.filterRow}>
-            {(["all", "deposit", "withdrawal"] as const).map((f) => (
+            {/* 2. Account Balance Card (Dark Gaming Styling) */}
+            <View style={{
+              backgroundColor: "#111625",
+              borderRadius: 22,
+              padding: 18,
+              borderWidth: 1,
+              borderColor: "rgba(255, 255, 255, 0.08)",
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.3,
+              shadowRadius: 12,
+              elevation: 6,
+              marginBottom: 12,
+              position: "relative",
+            }}>
+              {/* Eye Toggle */}
               <TouchableOpacity
-                key={f}
-                onPress={() => setFilter(f)}
-                style={[styles.filterTab, filter === f && styles.filterTabActive]}
+                onPress={() => {
+                  try { playTickSound(); } catch {}
+                  haptics.tap();
+                  setIsBalanceHidden((prev) => !prev);
+                }}
+                hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                activeOpacity={0.7}
+                style={{
+                  position: "absolute",
+                  top: 14,
+                  right: 14,
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: "rgba(255, 255, 255, 0.07)",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  zIndex: 20,
+                }}
               >
-                <Text style={[styles.filterTabText, filter === f && styles.filterTabTextActive]}>
-                  {f === "all" ? (isEN ? "All" : "ሁሉም") : f === "deposit" ? (isEN ? "Deposits" : "ተቀማጭ") : (isEN ? "Withdrawals" : "ወጪ")}
+                <Ionicons
+                  name={isBalanceHidden ? "eye-off-outline" : "eye-outline"}
+                  size={18}
+                  color={isBalanceHidden ? "#ff2a5f" : "#8b93a7"}
+                />
+              </TouchableOpacity>
+
+              <View style={{ alignItems: "center" }}>
+                <Text style={{
+                  color: "#8b93a7",
+                  fontSize: 13,
+                  fontWeight: "600",
+                  fontFamily: "Inter, sans-serif",
+                  marginBottom: 4,
+                }}>
+                  {isEN ? "Account balance" : "የሂሳብ ቀሪ ሂሳብ"}
+                </Text>
+
+                <Text style={{
+                  color: "#ffffff",
+                  fontSize: 32,
+                  fontWeight: "900",
+                  fontFamily: "Inter, sans-serif",
+                  letterSpacing: -0.5,
+                  marginBottom: 6,
+                }}>
+                  {isBalanceHidden
+                    ? "ETB ••••••"
+                    : `ETB ${Number(user?.available_balance ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                </Text>
+
+                {/* Account / Phone pill */}
+                <TouchableOpacity
+                  onPress={() => {
+                    haptics.tap();
+                    const phoneOrId = user?.number || (user as any)?.phone || user?.id?.slice(0, 10) || "1289440585";
+                    if (typeof navigator !== "undefined" && navigator.clipboard) {
+                      navigator.clipboard.writeText(phoneOrId);
+                    }
+                    showAlert(isEN ? "Copied" : "ተገልብጧል", phoneOrId);
+                  }}
+                  activeOpacity={0.7}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 6,
+                    paddingHorizontal: 10,
+                    paddingVertical: 3.5,
+                    borderRadius: 12,
+                    backgroundColor: "rgba(255, 255, 255, 0.04)",
+                    borderWidth: 1,
+                    borderColor: "rgba(255, 255, 255, 0.06)",
+                  }}
+                >
+                  <Ionicons name="copy-outline" size={12} color="#8b93a7" />
+                  <Text style={{ color: "#8b93a7", fontSize: 11.5, fontWeight: "600" }}>
+                    {user?.number || (user as any)?.phone || user?.id?.slice(0, 10) || "1289440585"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* 3. ONLY 2 ACTION BUTTONS: [ Deposit ] and [ Withdrawal ] (Misleading buttons removed) */}
+            <View style={{
+              flexDirection: "row",
+              gap: 12,
+              marginBottom: 14,
+            }}>
+              {/* Deposit Button */}
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => {
+                  haptics.impact();
+                  setDepositVisible(true);
+                }}
+                style={{
+                  flex: 1,
+                  height: 48,
+                  borderRadius: 16,
+                  backgroundColor: "#10b981",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  shadowColor: "#10b981",
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.35,
+                  shadowRadius: 10,
+                  elevation: 6,
+                }}
+              >
+                <Ionicons name="add-circle-outline" size={20} color="#052e16" />
+                <Text style={{ color: "#052e16", fontSize: 14.5, fontWeight: "900", letterSpacing: 0.3 }}>
+                  {isEN ? "Deposit" : "ገንዘብ አስገባ"}
                 </Text>
               </TouchableOpacity>
-            ))}
+
+              {/* Withdrawal Button */}
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => {
+                  haptics.impact();
+                  setWithdrawVisible(true);
+                }}
+                style={{
+                  flex: 1,
+                  height: 48,
+                  borderRadius: 16,
+                  backgroundColor: "#161c2e",
+                  borderWidth: 1.2,
+                  borderColor: "rgba(255, 255, 255, 0.12)",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                }}
+              >
+                <Ionicons name="arrow-up-circle-outline" size={20} color="#ffffff" />
+                <Text style={{ color: "#ffffff", fontSize: 14.5, fontWeight: "800", letterSpacing: 0.3 }}>
+                  {isEN ? "Withdrawal" : "ገንዘብ አውጣ"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* 4. Transactions Title Row with Filter Dropdown Trigger */}
+            <View style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 10,
+              paddingHorizontal: 2,
+            }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <Text style={{
+                  color: "#ffffff",
+                  fontSize: 17,
+                  fontWeight: "900",
+                  fontFamily: "Inter, sans-serif",
+                  letterSpacing: -0.2,
+                }}>
+                  {isEN ? "Transactions" : "ግብይቶች"}
+                </Text>
+                <View style={{
+                  backgroundColor: "rgba(255, 255, 255, 0.08)",
+                  paddingHorizontal: 7,
+                  paddingVertical: 2,
+                  borderRadius: 10,
+                }}>
+                  <Text style={{ color: "#8b93a7", fontSize: 11, fontWeight: "700" }}>
+                    {filteredTxs.length}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Filter Button / Active Filter Pill */}
+              <TouchableOpacity
+                onPress={() => {
+                  haptics.tap();
+                  setShowFilterModal(true);
+                }}
+                activeOpacity={0.75}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 6,
+                  paddingHorizontal: 10,
+                  paddingVertical: 5,
+                  borderRadius: 12,
+                  backgroundColor: (typeFilter !== "all" || statusFilter !== "all") ? "rgba(0, 218, 243, 0.15)" : "rgba(255, 255, 255, 0.05)",
+                  borderWidth: 1,
+                  borderColor: (typeFilter !== "all" || statusFilter !== "all") ? "#00daf3" : "rgba(255, 255, 255, 0.08)",
+                }}
+              >
+                <Ionicons name="options-outline" size={14} color={(typeFilter !== "all" || statusFilter !== "all") ? "#00daf3" : "#8b93a7"} />
+                <Text style={{
+                  color: (typeFilter !== "all" || statusFilter !== "all") ? "#00daf3" : "#8b93a7",
+                  fontSize: 12,
+                  fontWeight: "700",
+                }}>
+                  {typeFilter === "all" && statusFilter === "all"
+                    ? (isEN ? "Filter" : "አጣራ")
+                    : `${typeFilter.toUpperCase()}${statusFilter !== "all" ? ` • ${statusFilter.toUpperCase()}` : ""}`}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
-          {/* List content */}
-          {loading ? (
-            <View style={{ gap: 10, paddingHorizontal: 16 }}>
-              {[1, 2, 3, 4, 5].map((_, i) => (
-                <View key={i} style={[styles.txCard, { opacity: 0.5, marginHorizontal: 0 }]}>
-                  <View style={[styles.txIcon, { backgroundColor: 'rgba(255,255,255,0.05)' }]} />
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <View style={styles.txTopRow}>
-                      <View style={{ width: 80, height: 16, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 4 }} />
-                      <View style={{ width: 60, height: 16, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 4 }} />
+          {/* ─── SCROLLABLE TRANSACTION LIST (Only this scrolls!) ─── */}
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 140 }}
+            showsVerticalScrollIndicator={false}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#00daf3" colors={["#00daf3"]} />}
+          >
+            {loading ? (
+              <SkeletonTransactionLoader />
+            ) : filteredTxs.length === 0 ? (
+              <View style={{
+                backgroundColor: "#111625",
+                borderRadius: 18,
+                paddingVertical: 45,
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 10,
+                borderWidth: 1,
+                borderColor: "rgba(255, 255, 255, 0.06)",
+                marginTop: 6,
+              }}>
+                <Ionicons name="receipt-outline" size={42} color="#2a334d" />
+                <Text style={{ color: "#8b93a7", fontSize: 14, fontWeight: "600" }}>
+                  {isEN ? "No transactions found" : "ምንም ግብይት አልተገኘም"}
+                </Text>
+              </View>
+            ) : (
+              filteredTxs.map((item) => {
+                const type = normalizeType(item);
+                const isDeposit = type === "deposit";
+                const isPrize = type === "prize";
+                const txDate = item.createdAt || (item as any)?.created_at || "";
+                const status = normalizeStatus(item);
+
+                const iconName = isDeposit ? "arrow-down" : isPrize ? "gift" : "arrow-up";
+                const iconBg = isDeposit
+                  ? "rgba(16, 185, 129, 0.16)"
+                  : isPrize
+                  ? "rgba(245, 182, 66, 0.16)"
+                  : "rgba(255, 42, 95, 0.16)";
+                const iconColor = isDeposit ? "#10b981" : isPrize ? "#f5b642" : "#ff2a5f";
+                const amtPrefix = isDeposit || isPrize ? "+" : "-";
+                const amtColor = isDeposit ? "#10b981" : isPrize ? "#f5b642" : "#ff2a5f";
+
+                return (
+                  <TouchableOpacity
+                    key={item.id}
+                    activeOpacity={0.82}
+                    onPress={() => {
+                      haptics.tap();
+                      setSelectedDetailTx(item);
+                    }}
+                    style={{
+                      backgroundColor: "#111625",
+                      borderRadius: 18,
+                      padding: 14,
+                      marginBottom: 10,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      borderWidth: 1,
+                      borderColor: "rgba(255, 255, 255, 0.06)",
+                      shadowColor: "#000",
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.2,
+                      shadowRadius: 6,
+                      elevation: 3,
+                    }}
+                  >
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flex: 1, marginRight: 10 }}>
+                      <View style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: 22,
+                        backgroundColor: iconBg,
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}>
+                        <Ionicons name={iconName} size={18} color={iconColor} />
+                      </View>
+
+                      <View style={{ flex: 1 }}>
+                        <Text style={{
+                          color: "#ffffff",
+                          fontSize: 14.5,
+                          fontWeight: "800",
+                          fontFamily: "Inter, sans-serif",
+                        }} numberOfLines={1}>
+                          {isDeposit
+                            ? (isEN ? "Deposit" : "ተቀማጭ")
+                            : isPrize
+                            ? (isEN ? "Prize Reward" : "የስጦታ ሽልማት")
+                            : (isEN ? "Withdrawal" : "ወጪ")}
+                        </Text>
+                        <Text style={{ color: "#8b93a7", fontSize: 11.5, fontWeight: "500", marginTop: 2 }} numberOfLines={1}>
+                          {isDeposit ? "Received" : "Sent by you"} • {txDate ? formatRelativeTime(txDate) || formatDateOnly(txDate) : "Recent"}
+                        </Text>
+                      </View>
                     </View>
-                    <View style={styles.txMidRow}>
-                      <View style={{ width: 50, height: 12, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 4 }} />
-                      <View style={{ width: 60, height: 20, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8 }} />
+
+                    <View style={{ alignItems: "flex-end" }}>
+                      <Text style={{
+                        color: amtColor,
+                        fontSize: 15,
+                        fontWeight: "900",
+                        fontFamily: "Inter, sans-serif",
+                      }}>
+                        {amtPrefix}ETB {Number(item.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </Text>
+                      <Text style={{
+                        color: status === "success" ? "#10b981" : status === "pending" ? "#f59e0b" : "#ef4444",
+                        fontSize: 11,
+                        fontWeight: "700",
+                        marginTop: 2,
+                        textTransform: "capitalize",
+                      }}>
+                        {status === "success" ? (isEN ? "Completed" : "ተጠናቅቋል") : status}
+                      </Text>
                     </View>
-                  </View>
+                  </TouchableOpacity>
+                );
+              })
+            )}
+          </ScrollView>
+
+          {/* Filter Modal Sheet */}
+          <Modal visible={showFilterModal} transparent animationType="fade" onRequestClose={() => setShowFilterModal(false)}>
+            <View style={{
+              flex: 1,
+              justifyContent: "flex-end",
+              backgroundColor: "rgba(0, 0, 0, 0.75)",
+            }}>
+              <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setShowFilterModal(false)} />
+              <View style={{
+                backgroundColor: "#0f1424",
+                borderTopLeftRadius: 28,
+                borderTopRightRadius: 28,
+                borderWidth: 1,
+                borderColor: "rgba(255, 255, 255, 0.1)",
+                paddingHorizontal: 22,
+                paddingTop: 16,
+                paddingBottom: Platform.OS === "ios" ? 38 : 24,
+              }}>
+                {/* Filter Header */}
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                  <Text style={{ color: "#ffffff", fontSize: 18, fontWeight: "900" }}>
+                    {isEN ? "Filter Transactions" : "ግብይቶችን አጣራ"}
+                  </Text>
+                  <TouchableOpacity onPress={() => setShowFilterModal(false)} style={{ padding: 4 }}>
+                    <Ionicons name="close" size={22} color="#8b93a7" />
+                  </TouchableOpacity>
                 </View>
-              ))}
+
+                {/* Filter by Type */}
+                <Text style={{ color: "#8b93a7", fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>
+                  {isEN ? "Transaction Type" : "የግብይት ዓይነት"}
+                </Text>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 20 }}>
+                  {[
+                    { key: "all", label: isEN ? "All Types" : "ሁሉንም" },
+                    { key: "deposit", label: isEN ? "Deposit" : "ተቀማጭ" },
+                    { key: "withdrawal", label: isEN ? "Withdrawal" : "ወጪ" },
+                    { key: "prize", label: isEN ? "Prize / Win" : "ሽልማት" },
+                  ].map((opt) => (
+                    <TouchableOpacity
+                      key={opt.key}
+                      onPress={() => {
+                        haptics.tap();
+                        setTypeFilter(opt.key as any);
+                      }}
+                      style={{
+                        paddingHorizontal: 14,
+                        paddingVertical: 8,
+                        borderRadius: 12,
+                        backgroundColor: typeFilter === opt.key ? "rgba(0, 218, 243, 0.18)" : "#161c2e",
+                        borderWidth: 1,
+                        borderColor: typeFilter === opt.key ? "#00daf3" : "rgba(255, 255, 255, 0.08)",
+                      }}
+                    >
+                      <Text style={{ color: typeFilter === opt.key ? "#00daf3" : "#ffffff", fontSize: 13, fontWeight: "700" }}>
+                        {opt.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Filter by Status (Success, Pending, Failed) */}
+                <Text style={{ color: "#8b93a7", fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>
+                  {isEN ? "Status" : "ሁኔታ"}
+                </Text>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 24 }}>
+                  {[
+                    { key: "all", label: isEN ? "All Statuses" : "ሁሉንም" },
+                    { key: "success", label: isEN ? "Completed" : "ተጠናቅቋል" },
+                    { key: "pending", label: isEN ? "Pending" : "በመጠባበቅ ላይ" },
+                    { key: "failed", label: isEN ? "Failed" : "አልተሳካም" },
+                  ].map((opt) => (
+                    <TouchableOpacity
+                      key={opt.key}
+                      onPress={() => {
+                        haptics.tap();
+                        setStatusFilter(opt.key as any);
+                      }}
+                      style={{
+                        paddingHorizontal: 14,
+                        paddingVertical: 8,
+                        borderRadius: 12,
+                        backgroundColor: statusFilter === opt.key ? "rgba(16, 185, 129, 0.18)" : "#161c2e",
+                        borderWidth: 1,
+                        borderColor: statusFilter === opt.key ? "#10b981" : "rgba(255, 255, 255, 0.08)",
+                      }}
+                    >
+                      <Text style={{ color: statusFilter === opt.key ? "#10b981" : "#ffffff", fontSize: 13, fontWeight: "700" }}>
+                        {opt.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Reset / Apply Buttons */}
+                <View style={{ flexDirection: "row", gap: 10 }}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      haptics.tap();
+                      setTypeFilter("all");
+                      setStatusFilter("all");
+                    }}
+                    style={{
+                      flex: 1,
+                      height: 48,
+                      borderRadius: 14,
+                      backgroundColor: "#161c2e",
+                      borderWidth: 1,
+                      borderColor: "rgba(255, 255, 255, 0.1)",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Text style={{ color: "#8b93a7", fontSize: 14, fontWeight: "700" }}>
+                      {isEN ? "Reset" : "ዳግም ጀምር"}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => {
+                      haptics.impact();
+                      setShowFilterModal(false);
+                    }}
+                    style={{
+                      flex: 2,
+                      height: 48,
+                      borderRadius: 14,
+                      backgroundColor: "#00daf3",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Text style={{ color: "#060a14", fontSize: 14, fontWeight: "900" }}>
+                      {isEN ? "Apply Filters" : "ተግብር"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
             </View>
-          ) : filteredTxs.length === 0 ? (
-            <View style={styles.centered}>
-              <Ionicons name="receipt-outline" size={52} color="rgba(0, 242, 255, 0.25)" />
-              <Text style={styles.emptyText}>{isEN ? "No transactions yet" : "ምንም ግብይት የለም"}</Text>
-              <Text style={styles.emptySubText}>
-                {isEN ? "Your deposits and withdrawals will appear here" : "ተቀማጭ እና ወጪዎ እዚህ ይታያሉ"}
-              </Text>
-            </View>
-          ) : (
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.sectionLabel, { paddingHorizontal: 16 }]}>
-                {isEN ? `${filteredTxs.length} Transaction${filteredTxs.length !== 1 ? "s" : ""}` : `${filteredTxs.length} ግብይቶች`}
-              </Text>
-              <AnimatedList
-                items={filteredTxs}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#00e5ff" colors={["#00e5ff"]} />}
-                renderItem={renderTx}
-              />
-            </View>
-          )}
+          </Modal>
         </View>
       )}
+
+      {/* Deposit and Withdrawal Modals */}
+      <WebDepositModal
+        visible={depositVisible}
+        onClose={() => setDepositVisible(false)}
+        user={user}
+        token={token || undefined}
+        onSuccess={refreshProfile}
+        language={language}
+      />
+      <WebWithdrawModal
+        visible={withdrawVisible}
+        onClose={() => setWithdrawVisible(false)}
+        user={user}
+        token={token || undefined}
+        onSuccess={refreshProfile}
+        language={language}
+      />
     </SafeAreaView>
   );
 }
+
 
 const s = StyleSheet.create({
   // Desktop Header Styles (consistent with history.tsx)
@@ -1244,7 +2015,7 @@ const s = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     borderWidth: 1.5,
-    borderColor: "#7c3aed",
+    borderColor: "#00daf3",
   },
   logoText: { color: "#fff", fontSize: 18, fontWeight: "900", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" },
 
@@ -1276,9 +2047,9 @@ const s = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  toggleBtnActive: { backgroundColor: "#7c3aed" },
+  toggleBtnActive: { backgroundColor: "#00daf3" },
   toggleBtnText: { color: "#8b93a7", fontSize: 12, fontWeight: "800", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" },
-  toggleBtnTextActive: { color: "#ffffff" },
+  toggleBtnTextActive: { color: "#060a14" },
 
   // Right Cluster
   utilityCluster: { flexDirection: "row", alignItems: "center", gap: 14 },
@@ -1334,7 +2105,7 @@ const s = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: "#8b5cf6",
+    backgroundColor: "#00daf3",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1363,7 +2134,7 @@ const s = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#8b5cf6",
+    backgroundColor: "#00daf3",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1407,7 +2178,7 @@ const s = StyleSheet.create({
     position: "relative",
   },
   navItemActive: {
-    backgroundColor: "rgba(124, 58, 237, 0.08)",
+    backgroundColor: "rgba(0, 218, 243, 0.12)",
   },
   navItemActiveBar: {
     position: "absolute",
@@ -1416,7 +2187,7 @@ const s = StyleSheet.create({
     bottom: 12,
     width: 4,
     borderRadius: 2,
-    backgroundColor: "#8b5cf6",
+    backgroundColor: "#00daf3",
   },
   navText: { color: "#8b93a7", fontSize: 13, fontWeight: "600", fontFamily: "Inter, sans-serif" },
   navTextActive: { color: "#e5e3ff", fontWeight: "700" },
@@ -1491,9 +2262,9 @@ const s = StyleSheet.create({
   tabSearchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },
   tabGroup: { flexDirection: 'row', backgroundColor: '#12172a', borderRadius: 20, padding: 4, borderWidth: 1, borderColor: '#1f2540' },
   desktopTabBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 16 },
-  desktopTabBtnActive: { backgroundColor: '#7c3aed' },
+  desktopTabBtnActive: { backgroundColor: '#00daf3' },
   desktopTabBtnText: { color: '#8b93a7', fontSize: 11, fontWeight: '800', fontFamily: 'Inter, sans-serif' },
-  desktopTabBtnTextActive: { color: '#fff' },
+  desktopTabBtnTextActive: { color: '#060a14' },
 
   desktopSearchWrap: {
     flexDirection: 'row',
@@ -1590,9 +2361,9 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pageNumberBtnActive: { backgroundColor: '#7c3aed', borderColor: '#7c3aed' },
+  pageNumberBtnActive: { backgroundColor: '#00daf3', borderColor: '#00daf3' },
   pageNumberText: { color: "#8b93a7", fontSize: 11, fontWeight: "800" },
-  pageNumberTextActive: { color: "#fff" },
+  pageNumberTextActive: { color: "#060a14" },
 });
 
 const styles = StyleSheet.create({

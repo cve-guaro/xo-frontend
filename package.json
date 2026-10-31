@@ -12,6 +12,7 @@
     "test": "jest --verbose"
   },
   "dependencies": {
+    "@animate-ui/react": "^2.4.1",
     "@animateicons/react": "^0.4.3",
     "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "^3.0.2",

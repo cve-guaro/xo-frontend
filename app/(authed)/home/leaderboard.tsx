@@ -22,6 +22,8 @@ import { useSocket } from "../../../context/socketContext";
 import { WebPressable } from "../../../components/WebPressable";
 import { WebDepositModal, WebWithdrawModal } from "../../../components/WebModals";
 import ProfileEditModal from "../../../components/ProfileEditModal";
+import DesktopHeader from "../../../components/game/DesktopHeader";
+import DesktopSidebar from "../../../components/game/DesktopSidebar";
 import ReferralModal from "../../../components/ReferralModal";
 import { useBackgroundMusic } from "../../../context/BackgroundMusicProvider";
 import PwaInstallModal from "../../../components/game/PwaInstallModal";
@@ -299,175 +301,33 @@ export default function LeaderboardScreen() {
         <NotificationsPopover visible={notificationsVisible} onClose={() => setNotificationsVisible(false)} onUnreadCountChange={setUnreadCount} />
 
         {/* ── HEADER BAR ── */}
-        <View style={s.header}>
-          <View style={s.headerContentWrapper}>
-            {/* Left: Logo */}
-            <View style={s.logoContainer}>
-              <Image source={require("../../../assets/images/icon.jpg")} style={s.logoImage} />
-              <Text style={s.logoText}>XO ETHIOPIA</Text>
-            </View>
-
-            {/* Center: Toggle Pill */}
-            <View style={s.toggleContainer}>
-              <TouchableOpacity
-                style={s.toggleBtn}
-                onPress={() => router.push('/(authed)/home/gameplay')}
-                activeOpacity={0.85}
-              >
-                <Text style={s.toggleBtnText}>SPIN</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[s.toggleBtn, s.toggleBtnActive]}
-                onPress={() => router.push('/(authed)/home/gameplay')}
-                activeOpacity={0.85}
-              >
-                <Text style={[s.toggleBtnText, s.toggleBtnTextActive]}>XO GAME</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Right: Utility Cluster */}
-            <View style={s.utilityCluster}>
-
-              <TouchableOpacity onPress={() => setPwaModalVisible(true)} style={s.utilityBtn} activeOpacity={0.8}>
-                <Ionicons name="cloud-download-outline" size={16} color="#8b93a7" />
-                <Text style={s.utilityBtnText}>APP</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity onPress={handleLanguageToggle} style={s.utilityBtn} activeOpacity={0.8}>
-                <Ionicons name="globe-outline" size={15} color="#8b93a7" />
-                <Text style={s.utilityBtnText}>{language.toUpperCase()}</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity onPress={toggleMusic} style={s.utilityBtn} activeOpacity={0.8}>
-                <Ionicons name={isPlaying ? "volume-high-outline" : "volume-mute-outline"} size={16} color="#8b93a7" />
-                <Text style={s.utilityBtnText}>{isPlaying ? "SOUND" : "MUTED"}</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity onPress={() => setNotificationsVisible(true)} style={s.bellBtn} activeOpacity={0.8}>
-                <Ionicons name="notifications-outline" size={20} color="#fff" />
-                {unreadCount > 0 && (
-                  <View style={s.bellBadge}><Text style={s.bellBadgeText}>{unreadCount}</Text></View>
-                )}
-              </TouchableOpacity>
-
-              <TouchableOpacity onPress={() => handleNavClick('profile')} style={s.profileChip} activeOpacity={0.85}>
-                <View style={s.profileChipAvatar}>
-                  <Text style={s.profileChipAvatarText}>{user?.username ? user.username.slice(0, 2).toUpperCase() : "ME"}</Text>
-                </View>
-                <View style={{ marginRight: 6 }}>
-                  <Text style={s.profileChipName}>{user?.username || (user?.number ? `User ${user.number.slice(-4)}` : "Set Your Name")}</Text>
-                  <Text style={s.profileChipVip}>VIP 24</Text>
-                </View>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
+        <DesktopHeader
+          user={user}
+          language={language}
+          handleLanguageToggle={handleLanguageToggle}
+          selectedTab="XO_GAME"
+          setPwaModalVisible={setPwaModalVisible}
+          bgMusicPlaying={isPlaying}
+          onToggleSound={toggleMusic}
+          unreadCount={unreadCount}
+          setNotificationsVisible={setNotificationsVisible}
+          router={router}
+        />
 
         {/* ── CORE BODY CONTAINER (Sticky sidebars, Center-only scrolling) ── */}
         <View style={s.desktopLayoutContainer}>
-          {/* 1. LEFT SIDEBAR (fixed width 280px - sticky) */}
-          <ScrollView
-            style={s.stickySidebarScrollLeft}
-            contentContainerStyle={{ gap: 20, paddingBottom: 20 }}
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={s.leftSidebar}>
-              <View style={s.card}>
-                <View style={s.userCardHeader}>
-                    <View style={s.userCardAvatar}>
-                      <Text style={s.userCardAvatarText}>{user?.username ? user.username.slice(0, 1).toUpperCase() : "A"}</Text>
-                    </View>
-                    <View>
-                      <Text style={s.userCardName} numberOfLines={1}>{user?.username || (user?.number ? `User ${user.number.slice(-4)}` : "Set Your Name")}</Text>
-                      <View style={s.onlineRow}>
-                        <View style={s.onlineDot} />
-                        <Text style={s.onlineText}>Online</Text>
-                      </View>
-                    </View>
-                  </View>
-                  
-                  {/* Available Balance card */}
-                  <View style={s.tokensRow}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={s.tokenLabel}>AVAILABLE BALANCE</Text>
-                      <Text style={[s.tokenVal, { color: "#22d3ee" }]}>ETB {user?.available_balance ? Number(user.available_balance).toLocaleString() : "0"}</Text>
-                    </View>
-                    <TouchableOpacity onPress={refreshProfile} style={[s.tokenPlusBtn, { backgroundColor: "rgba(34, 211, 238, 0.15)", borderColor: "rgba(34, 211, 238, 0.3)", borderWidth: 1 }]} activeOpacity={0.8}>
-                      <Ionicons name="refresh" size={12} color="#22d3ee" />
-                    </TouchableOpacity>
-                  </View>
-                </View>
+          {/* 1. LEFT SIDEBAR */}
+          <DesktopSidebar
+            user={user}
+            balance={Number(user?.available_balance || 0)}
+            currentScreen="leaderboard"
+            refreshProfile={refreshProfile}
+            setDepositVisible={setDepositVisible}
+            setWithdrawVisible={setWithdrawVisible}
+            router={router}
+          />
 
-                {/* Vertical Navigation Links */}
-                <View style={s.card}>
-                  <TouchableOpacity onPress={() => handleNavClick('home')} style={s.navItem} activeOpacity={0.8}>
-                    <Ionicons name="home-outline" size={18} color="#8b93a7" />
-                    <Text style={s.navText}>Home</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity onPress={() => handleNavClick('history')} style={s.navItem} activeOpacity={0.8}>
-                    <Ionicons name="time-outline" size={18} color="#8b93a7" />
-                    <Text style={s.navText}>History</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity onPress={() => handleNavClick('leaderboard')} style={[s.navItem, s.navItemActive]} activeOpacity={0.8}>
-                    <View style={s.navItemActiveBar} />
-                    <Ionicons name="trophy" size={18} color="#8b5cf6" />
-                    <Text style={[s.navText, s.navTextActive]}>Leaderboard</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity onPress={() => handleNavClick('transactions')} style={s.navItem} activeOpacity={0.8}>
-                    <Ionicons name="receipt-outline" size={18} color="#8b93a7" />
-                    <Text style={s.navText}>Transactions</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity onPress={() => handleNavClick('profile')} style={s.navItem} activeOpacity={0.8}>
-                    <Ionicons name="person-outline" size={18} color="#8b93a7" />
-                    <Text style={s.navText}>Profile</Text>
-                  </TouchableOpacity>
-
-                  {(user?.role === 'admin' || user?.role === 'superadmin' || user?.role === 'maintenance') && (
-                    <TouchableOpacity onPress={() => handleNavClick('admin')} style={s.navItem} activeOpacity={0.8}>
-                      <Ionicons name="shield-checkmark-outline" size={18} color="#8b93a7" />
-                      <Text style={s.navText}>Admin</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-
-                {/* Wallet Summary Panel */}
-                <View style={s.card}>
-                  <Text style={s.sectionTitleSmall}>WALLET</Text>
-                  
-                  <View style={s.walletRow}>
-                    <Text style={s.walletLabel}>Deposit</Text>
-                    <Text style={[s.walletValSmall, { color: "#22c55e" }]}>+ 3,420 ETB</Text>
-                  </View>
-                  
-                  <View style={s.walletRow}>
-                    <Text style={s.walletLabel}>Withdraw</Text>
-                    <Text style={[s.walletValSmall, { color: "#ef4444" }]}>- 420 ETB</Text>
-                  </View>
-                  
-                  <View style={s.walletRow}>
-                    <Text style={s.walletLabel}>Transactions</Text>
-                    <Text style={s.walletValSecond}>12 today</Text>
-                  </View>
-
-                  <View style={s.walletButtons}>
-                    <TouchableOpacity onPress={() => setDepositVisible(true)} style={[s.walletBtnSmall, { borderColor: "#22d3ee" }]} activeOpacity={0.8}>
-                      <Text style={[s.walletBtnTextSmall, { color: "#22d3ee" }]}>DEPOSIT</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => setWithdrawVisible(true)} style={[s.walletBtnSmall, { borderColor: "#7c3aed" }]} activeOpacity={0.8}>
-                      <Text style={[s.walletBtnTextSmall, { color: "#7c3aed" }]}>WITHDRAW</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                {/* Redundant Profile card removed */}
-              </View>
-            </ScrollView>
-
-            {/* 2. CENTER COLUMN (Scrolls independently while sidebars remain sticky) */}
+          {/* 2. CENTER COLUMN (Scrolls independently while sidebars remain sticky) */}
             <ScrollView
               style={s.centerScrollContainer}
               contentContainerStyle={s.centerScrollContent}
@@ -545,7 +405,7 @@ export default function LeaderboardScreen() {
                     const isWinner = item.rank === 1;
                     const isThird = item.rank === 3;
                     const blockH = isWinner ? 110 : (isThird ? 75 : 90);
-                    const blockColor = isWinner ? "#7c3aed" : "#1e243d";
+                    const blockColor = isWinner ? "#111827" : "#111827";
                     const winAmt = (item as any).winAmount !== undefined && (item as any).winAmount !== null ? (item as any).winAmount : item.wins * 50;
                     const winnings = `${item.wins} Wins`;
                     const initials = item.username ? item.username.slice(0, 2).toUpperCase() : "ME";
@@ -575,7 +435,7 @@ export default function LeaderboardScreen() {
                         </View>
 
                         {/* Raised 3D block */}
-                        <View style={[s.podiumBlock, { height: blockH, backgroundColor: blockColor, borderColor: isWinner ? "rgba(245, 182, 66, 0.2)" : "#1f2540" }]}>
+                        <View style={[s.podiumBlock, { height: blockH, backgroundColor: blockColor, borderColor: isWinner ? "#F5B642" : "#233041", borderWidth: isWinner ? 2 : 1 }]}>
                           <Text style={[s.podiumNumberText, { fontSize: 32 }]}>{item.rank}</Text>
                         </View>
                       </View>
@@ -587,7 +447,7 @@ export default function LeaderboardScreen() {
                 <View style={s.card}>
                   <View style={s.leaderboardListHeader}>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                      <Ionicons name="trophy-outline" size={16} color="#7c3aed" />
+                      <Ionicons name="trophy-outline" size={16} color="#00BFFF" />
                       <Text style={s.leaderboardListTitle}>Weekly Leaderboard</Text>
                     </View>
 
@@ -623,8 +483,8 @@ export default function LeaderboardScreen() {
                     )}
                     {!loading && leaderboard.map((item, idx) => {
                       const isTop3 = item.rank <= 3;
-                      const badgeBg = item.rank === 1 ? "#f5b642" : (item.rank === 2 ? "#b9cacb" : (item.rank === 3 ? "#fb923c" : "rgba(124, 58, 237, 0.15)"));
-                      const badgeTextCol = isTop3 ? "#0a0e1a" : "#8b5cf6";
+                      const badgeBg = item.rank === 1 ? "#f5b642" : (item.rank === 2 ? "#b9cacb" : (item.rank === 3 ? "#fb923c" : "rgba(0, 191, 255, 0.15)"));
+                      const badgeTextCol = isTop3 ? "#0a0e1a" : "#00BFFF";
                       const winAmt = item.winAmount !== undefined && item.winAmount !== null ? item.winAmount : item.wins * 50;
                       const winnings = `${item.wins} Wins`;
                       const totalGamesCount = item.total || Math.round(item.wins * 1.5);
@@ -692,10 +552,10 @@ export default function LeaderboardScreen() {
                   {/* Avatar list stack */}
                   <View style={s.avatarStackRow}>
                     <View style={s.avatarStackContainer}>
-                      <View style={[s.stackAvatar, { backgroundColor: "#8b5cf6", zIndex: 3 }]}>
+                      <View style={[s.stackAvatar, { backgroundColor: "#00BFFF", zIndex: 3 }]}>
                         <Text style={s.stackAvatarText}>K</Text>
                       </View>
-                      <View style={[s.stackAvatar, { backgroundColor: "#a855f7", zIndex: 2, marginLeft: -10 }]}>
+                      <View style={[s.stackAvatar, { backgroundColor: "#FF1744", zIndex: 2, marginLeft: -10 }]}>
                         <Text style={s.stackAvatarText}>A</Text>
                       </View>
                       <View style={[s.stackAvatar, { backgroundColor: "#06b6d4", zIndex: 1, marginLeft: -10 }]}>
@@ -758,7 +618,7 @@ export default function LeaderboardScreen() {
           {/* Right: Compact Top 3 Badges (Image 5 style) */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             {podiumData.slice(0, 3).map((p, idx) => {
-              const badgeBg = p.rank === 1 ? '#7c3aed' : '#1e243d';
+              const badgeBg = p.rank === 1 ? '#00BFFF' : '#1e243d';
               const nameText = p.username ? p.username.slice(0, 5) : 'User';
               return (
                 <View key={p.id || idx} style={{
@@ -821,7 +681,7 @@ export default function LeaderboardScreen() {
                         <Text style={[s.podiumPlayerName, { fontSize: 11 }]} numberOfLines={1}>{item.username}</Text>
                         <Text style={{ color: "#f5b642", fontSize: 10, fontWeight: "800", marginTop: 2 }}>{item.wins} Wins</Text>
                       </View>
-                      <View style={[s.podiumBlock, { height: blockH, backgroundColor: isWinner ? "#7c3aed" : "#1e243d", paddingVertical: 8 }]}>
+                      <View style={[s.podiumBlock, { height: blockH, backgroundColor: "#111827", borderColor: isWinner ? "#F5B642" : "#233041", borderWidth: isWinner ? 2 : 1, paddingVertical: 8 }]}>
                         <Text style={[s.podiumNumberText, { fontSize: isWinner ? 24 : 18 }]}>{item.rank}</Text>
                       </View>
                     </View>
@@ -878,7 +738,7 @@ const s = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     borderWidth: 1.5,
-    borderColor: "#7c3aed",
+    borderColor: "#00BFFF",
   },
   logoText: { color: "#fff", fontSize: 18, fontWeight: "900", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" },
 
@@ -898,7 +758,7 @@ const s = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  toggleBtnActive: { backgroundColor: "#7c3aed" },
+  toggleBtnActive: { backgroundColor: "#00BFFF" },
   toggleBtnText: { color: "#8b93a7", fontSize: 12, fontWeight: "800", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" },
   toggleBtnTextActive: { color: "#ffffff" },
 
@@ -971,7 +831,7 @@ const s = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: "#8b5cf6",
+    backgroundColor: "#00BFFF",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1039,7 +899,7 @@ const s = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#8b5cf6",
+    backgroundColor: "#00BFFF",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1082,14 +942,14 @@ const s = StyleSheet.create({
     marginBottom: 6,
     position: "relative",
   },
-  navItemActive: { backgroundColor: "rgba(124, 58, 237, 0.08)" },
+  navItemActive: { backgroundColor: "rgba(0, 191, 255, 0.08)" },
   navItemActiveBar: {
     position: "absolute",
     left: 0,
     top: 12,
     bottom: 12,
     width: 3.5,
-    backgroundColor: "#7c3aed",
+    backgroundColor: "#00BFFF",
     borderRadius: 2,
   },
   navText: { color: "#8b93a7", fontSize: 14, fontWeight: "700", fontFamily: "Inter, sans-serif" },
@@ -1298,7 +1158,7 @@ const s = StyleSheet.create({
     alignItems: "center",
   },
   togglePillBtnActive: {
-    backgroundColor: "#7c3aed",
+    backgroundColor: "#00BFFF",
   },
   togglePillBtnText: {
     color: "#8b93a7",
@@ -1330,7 +1190,7 @@ const s = StyleSheet.create({
     paddingVertical: 12,
   },
   rankRowContainerMe: {
-    borderColor: "#7c3aed",
+    borderColor: "#00BFFF",
     backgroundColor: "rgba(124, 58, 237, 0.04)",
   },
   rankBadge: {
@@ -1349,7 +1209,7 @@ const s = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: "#8b5cf6",
+    backgroundColor: "#00BFFF",
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
