@@ -598,11 +598,11 @@ export default function SpinGameScreen() {
   const { width: screenW, height: screenH } = useWindowDimensions();
   const isCompactScreen = screenH < 740;
   const mobileWheelSize = Math.max(
-    280,
+    220,
     Math.min(
-      screenW - 32,
-      isCompactScreen ? 310 : 360,
-      Math.round(screenH * 0.43)
+      screenW - 48,
+      isCompactScreen ? 250 : 275,
+      Math.round(screenH * 0.32)
     )
   );
   const { token, user, refreshProfile, language, switchLanguage, setLanguage, showAlert } = useAuth();
@@ -727,6 +727,7 @@ export default function SpinGameScreen() {
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [languageMenuVisible, setLanguageMenuVisible] = useState(false);
   const [preSpinCountdown, setPreSpinCountdown] = useState<number | null>(null);
+  const [demoOutcome, setDemoOutcome] = useState<"random" | "win" | "lose">("random");
 
   // Listen for real-time spin invitation from other players
   useEffect(() => {
@@ -1776,11 +1777,22 @@ export default function SpinGameScreen() {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   }, []);
 
-  const previewPlayers = React.useMemo(() => {
-    if (round) return round.players;
-    // When user is not in a round, all slots remain empty (grey)
-    return [];
-  }, [round]);
+  const previewPlayers: SpinPlayer[] = React.useMemo(() => {
+    if (round && round.players && round.players.length > 0) return round.players;
+    const myName = user?.username || "guest_3";
+    const myId = user?.id ? String(user.id) : "guest_3_id";
+    const myStakeVal = round ? 0 : (betAmount > 0 ? betAmount : 50);
+    return [
+      { userId: myId, username: myName, seatIndex: 0, stake: myStakeVal, isBot: false },
+      { userId: "p_natnael", username: "natnael_60", seatIndex: 1, stake: 30, isBot: true },
+    ];
+  }, [round, user, betAmount]);
+
+  const recentWinners = React.useMemo(() => [
+    { id: "w1", name: "Samri_42", amount: 130 },
+    { id: "w2", name: user?.username || "guest_3", amount: 1205 },
+    { id: "w3", name: "Natnael_C", amount: 90 },
+  ], [user?.username]);
 
   // Deduplicate and aggregate stakes by userId so the same user NEVER appears twice in slices or seats
   const displayPlayers = React.useMemo(() => {
@@ -1809,10 +1821,9 @@ export default function SpinGameScreen() {
   const previewPot = React.useMemo(() => {
     if (round?.pot) return round.pot;
     if (is5Player) return 500;
-    const roomBet = preJoinRoom?.betAmount || betAmount;
-    const roomCount = typeof preJoinRoom?.currentPlayers === "number" ? preJoinRoom.currentPlayers : 0;
-    return (roomCount * roomBet) + betAmount;
-  }, [round, is5Player, preJoinRoom?.currentPlayers, preJoinRoom?.betAmount, betAmount]);
+    const sum = displayPlayers.reduce((acc, p) => acc + (Number(p.stake) || 0), 0);
+    return sum > 0 ? sum : 40;
+  }, [round, is5Player, displayPlayers]);
 
   const isMyWin = Boolean(
     resultData &&
@@ -2480,18 +2491,18 @@ export default function SpinGameScreen() {
             </View>
           ) : (
             /* ════════════════════════════════════════════════════════════════
-               ██  RAIL SPIN ROOM LAYOUT (DESKTOP — EXACT MATCH IMAGE 2)
+               ██  RAIL SPIN ROOM LAYOUT (DESKTOP — NO DEMO, EXPANDED CARDS)
                ════════════════════════════════════════════════════════════════ */
-            <View style={{ width: "100%", gap: 20 }}>
-              {/* Subheader Row (Image 2) */}
-              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                {/* Left: Back button + Title + Badges + Info */}
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+            <View style={{ width: "100%", gap: 16 }}>
+              {/* Subheader Row (Clean Header without DEMO badge) */}
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+                {/* Left: Back button + Red aperture icon + Title + PUBLIC pill + Subtitle */}
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
                   <TouchableOpacity
                     onPress={handleLeaveRoom}
                     style={{
-                      width: 42,
-                      height: 42,
+                      width: 40,
+                      height: 40,
                       borderRadius: 12,
                       backgroundColor: "rgba(15, 23, 42, 0.8)",
                       borderWidth: 1,
@@ -2505,16 +2516,18 @@ export default function SpinGameScreen() {
                   </TouchableOpacity>
 
                   <View style={{
-                    width: 42,
-                    height: 42,
-                    borderRadius: 21,
-                    backgroundColor: "rgba(244, 63, 94, 0.2)",
-                    borderWidth: 1,
-                    borderColor: "#f43f5e",
+                    width: 40,
+                    height: 40,
+                    borderRadius: 12,
+                    backgroundColor: "#ef4444",
                     alignItems: "center",
                     justifyContent: "center",
+                    shadowColor: "#ef4444",
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.5,
+                    shadowRadius: 8,
                   }}>
-                    <Ionicons name="disc" size={24} color="#f43f5e" />
+                    <Ionicons name="aperture" size={24} color="#ffffff" />
                   </View>
 
                   <View>
@@ -2522,127 +2535,731 @@ export default function SpinGameScreen() {
                       <Text style={{ color: "#ffffff", fontSize: 20, fontWeight: "900", fontFamily: "Inter, sans-serif" }}>
                         Endless Spin
                       </Text>
-                      <View style={{ backgroundColor: "#DC2626", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 }}>
-                        <Text style={{ color: "#ffffff", fontSize: 10, fontWeight: "900", letterSpacing: 0.5 }}>PUBLIC ROOM</Text>
+                      <View style={{
+                        backgroundColor: "rgba(16, 185, 129, 0.15)",
+                        borderWidth: 1,
+                        borderColor: "rgba(16, 185, 129, 0.4)",
+                        paddingHorizontal: 8,
+                        paddingVertical: 2.5,
+                        borderRadius: 6,
+                      }}>
+                        <Text style={{ color: "#10b981", fontSize: 10, fontWeight: "900", letterSpacing: 0.6 }}>PUBLIC</Text>
                       </View>
-                      <Text style={{ color: "#64748b", fontSize: 12 }}>| Stakes vary | Unlimited players</Text>
                     </View>
-
-                    <TouchableOpacity style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 }} activeOpacity={0.8}>
-                      <Ionicons name="information-circle-outline" size={13} color="#64748b" />
-                      <Text style={{ color: "#64748b", fontSize: 11, fontWeight: "600" }}>Room Info</Text>
-                      <Ionicons name="chevron-down" size={12} color="#64748b" />
-                    </TouchableOpacity>
+                    <Text style={{ color: "#64748b", fontSize: 11.5, fontWeight: "500", marginTop: 2 }}>
+                      Public room · Virtual ETB
+                    </Text>
                   </View>
                 </View>
 
-                {/* Center: SPIN ENDS IN */}
-                <View style={{
-                  backgroundColor: "rgba(10, 16, 36, 0.9)",
-                  borderRadius: 14,
-                  paddingHorizontal: 28,
-                  paddingVertical: 8,
-                  borderWidth: 1,
-                  borderColor: "rgba(255, 23, 68, 0.45)",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}>
-                  <Text style={{ color: "#8893a7", fontSize: 10, fontWeight: "800", letterSpacing: 1 }}>SPIN ENDS IN</Text>
-                  <Text style={{ color: "#ffffff", fontSize: 22, fontWeight: "900", fontFamily: "Inter, sans-serif", marginTop: 1 }}>
-                    {formatCountdown(countdown)}
+                {/* Right: WALLET balance only (NO DEMO badge) */}
+                <View style={{ alignItems: "flex-end" }}>
+                  <Text style={{ color: "#64748b", fontSize: 9.5, fontWeight: "800", letterSpacing: 0.8, textTransform: "uppercase" }}>
+                    WALLET
+                  </Text>
+                  <Text style={{ color: "#ffffff", fontSize: 18, fontWeight: "900", fontFamily: "Space Grotesk, Inter, sans-serif", marginTop: 1 }}>
+                    {balance.toLocaleString()} ETB
                   </Text>
                 </View>
               </View>
 
-              {/* Three Columns: Column 1 (Bet Card), Column 2 (Wheel & Controls), Column 3 (Players List) */}
-              <View style={{ flexDirection: "row", gap: 28, alignItems: "flex-start", width: "100%" }}>
-                {/* COLUMN 1: Stakes & Bet Selector (Red Gaming Style) */}
-                <View style={{ flex: 1, minWidth: 260 }}>
+              {/* Three Columns: Column 1 (Players & Winners), Column 2 (Pot & Wheel), Column 3 (Stake Controls) */}
+              <View style={{ flexDirection: "row", gap: 24, alignItems: "stretch", width: "100%" }}>
+                {/* COLUMN 1: PLAYERS & RECENT WINNERS (Left) */}
+                <View style={{ flex: 1, minWidth: 270, maxWidth: 320 }}>
                   <View style={{
-                    backgroundColor: "rgba(10, 16, 36, 0.85)",
+                    backgroundColor: "rgba(10, 16, 36, 0.8)",
                     borderRadius: 20,
-                    padding: 22,
-                    borderWidth: 1.5,
-                    borderColor: "rgba(255, 23, 68, 0.35)",
+                    padding: 20,
+                    borderWidth: 1.2,
+                    borderColor: "rgba(255, 255, 255, 0.08)",
+                    height: "100%",
+                    justifyContent: "space-between",
                   }}>
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
-                      <View>
-                        <Text style={{ color: "#8893a7", fontSize: 11, fontWeight: "800", letterSpacing: 0.5 }}>
-                          YOUR TOTAL STAKE
-                        </Text>
-                        <Text style={{ color: "#ff1744", fontSize: 28, fontWeight: "900", fontFamily: "Inter, sans-serif", marginTop: 2 }}>
-                          {(() => {
-                            const p = round?.players.find(x => x.userId === user?.id);
-                            return p ? p.stake : (round ? 0 : betAmount);
-                          })()} ETB
-                        </Text>
+                    <View>
+                      {/* Header Row: PLAYERS (count) + Invite */}
+                      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                          <Ionicons name="people-outline" size={17} color="#ef4444" />
+                          <Text style={{ color: "#ffffff", fontSize: 13.5, fontWeight: "900", letterSpacing: 0.5 }}>
+                            PLAYERS ({(displayPlayers.length > 0 ? displayPlayers : previewPlayers).length})
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          onPress={() => setInviteModalVisible(true)}
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: 4,
+                            borderRadius: 12,
+                            borderWidth: 1,
+                            borderColor: "rgba(239, 68, 68, 0.4)",
+                            backgroundColor: "rgba(239, 68, 68, 0.12)",
+                            paddingHorizontal: 10,
+                            paddingVertical: 5,
+                          }}
+                          activeOpacity={0.8}
+                        >
+                          <Ionicons name="add" size={13} color="#ef4444" />
+                          <Text style={{ color: "#ef4444", fontSize: 11, fontWeight: "800" }}>Invite</Text>
+                        </TouchableOpacity>
                       </View>
-                      <View style={{
-                        alignItems: "flex-end",
-                        backgroundColor: "rgba(255, 23, 68, 0.12)",
-                        borderWidth: 1,
-                        borderColor: "rgba(255, 23, 68, 0.3)",
-                        borderRadius: 10,
-                        paddingHorizontal: 12,
-                        paddingVertical: 6,
-                      }}>
-                        <Text style={{ color: "#94a3b8", fontSize: 9, fontWeight: "800", letterSpacing: 0.5 }}>
-                          WALLET
-                        </Text>
-                        <Text style={{ color: "#ffffff", fontSize: 15, fontWeight: "900", fontFamily: "Inter, sans-serif", marginTop: 1 }}>
-                          {balance.toLocaleString()} ETB
-                        </Text>
+
+                      {/* Player Cards with Unique Colors */}
+                      <View style={{ gap: 10 }}>
+                        {(displayPlayers.length > 0 ? displayPlayers : previewPlayers).map((p, idx) => {
+                          const isSelf = p.userId === user?.id || (user?.username && p.username === user.username) || p.username === "guest_3";
+                          const isMuted = mutedPlayers.has(p.userId);
+                          const playerColors = [
+                            { bg: "#f59e0b", border: "#f59e0b", text: "#ffffff" }, // Gold (User/guest_3)
+                            { bg: "#10b981", border: "#10b981", text: "#ffffff" }, // Emerald (natnael_60)
+                            { bg: "#06b6d4", border: "#06b6d4", text: "#ffffff" }, // Cyan
+                            { bg: "#f97316", border: "#f97316", text: "#ffffff" }, // Orange
+                          ];
+                          const avColor = playerColors[idx % playerColors.length];
+                          const totalStakeSum = (displayPlayers.length > 0 ? displayPlayers : previewPlayers).reduce((s, pl) => s + (Number(pl.stake) || 0), 0) || 80;
+                          const pWinChance = totalStakeSum > 0 && Number(p.stake || 0) > 0
+                            ? Math.round((Number(p.stake || 0) / totalStakeSum) * 100)
+                            : 0;
+
+                          return (
+                            <View
+                              key={p.userId || idx}
+                              style={{
+                                flexDirection: "row",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                backgroundColor: "rgba(15, 23, 42, 0.7)",
+                                borderWidth: 1,
+                                borderColor: isSelf ? avColor.border : "rgba(255, 255, 255, 0.07)",
+                                borderRadius: 14,
+                                paddingHorizontal: 12,
+                                paddingVertical: 10,
+                              }}
+                            >
+                              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                                <View style={{
+                                  width: 36,
+                                  height: 36,
+                                  borderRadius: 10,
+                                  backgroundColor: avColor.bg,
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                }}>
+                                  <Text style={{ color: avColor.text, fontSize: 16, fontWeight: "900" }}>
+                                    {(p.username || "P").charAt(0).toUpperCase()}
+                                  </Text>
+                                </View>
+                                <View>
+                                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                                    <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "800" }}>
+                                      {p.username}
+                                    </Text>
+                                    {isSelf && (
+                                      <Text style={{ color: "#f59e0b", fontSize: 11, fontWeight: "700" }}>
+                                        👑 (you)
+                                      </Text>
+                                    )}
+                                  </View>
+                                  <Text style={{ color: "#94a3b8", fontSize: 11, fontWeight: "700", marginTop: 2 }}>
+                                    {Number(p.stake || 0)} ETB
+                                  </Text>
+                                </View>
+                              </View>
+
+                              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                                <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "900" }}>
+                                  {pWinChance}%
+                                </Text>
+                                <TouchableOpacity
+                                  onPress={() => {
+                                    if (isSelf) handleToggleMic();
+                                    else toggleMutePlayer(p.userId);
+                                  }}
+                                  activeOpacity={0.7}
+                                >
+                                  <Ionicons
+                                    name={isMuted ? "mic-off-outline" : "mic-outline"}
+                                    size={16}
+                                    color={isMuted ? "#64748b" : "#22c55e"}
+                                  />
+                                </TouchableOpacity>
+                              </View>
+                            </View>
+                          );
+                        })}
                       </View>
                     </View>
-                    <Text style={{ color: "#64748b", fontSize: 12, fontWeight: "500", marginBottom: 16 }}>
-                      Add more money to increase your odds!
-                    </Text>
 
-                    {/* Quick chips: +10, +50, +100, +500 (Red Accents) */}
-                    <View style={{ flexDirection: "row", gap: 8, marginBottom: 14 }}>
-                      {[10, 50, 100, 500].map((val) => {
-                        const isLocking = round && (round.status !== "waiting" || countdown <= 5);
-                        const isSelected = round ? addAmount === val : betAmount === val;
-                        return (
+                    {/* RECENT WINNERS */}
+                    <View style={{ marginTop: 24, paddingTop: 16, borderTopWidth: 1, borderTopColor: "rgba(255, 255, 255, 0.08)" }}>
+                      <Text style={{ color: "#64748b", fontSize: 10.5, fontWeight: "800", letterSpacing: 1, textTransform: "uppercase", marginBottom: 10 }}>
+                        RECENT WINNERS
+                      </Text>
+                      {recentWinners.map((w) => (
+                        <View
+                          key={w.id}
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            paddingVertical: 7,
+                          }}
+                        >
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                            <Ionicons name="trophy-outline" size={14} color="#f59e0b" />
+                            <Text style={{ color: "#cbd5e1", fontSize: 13, fontWeight: "600" }}>
+                              {w.name}
+                            </Text>
+                          </View>
+                          <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "800" }}>
+                            {w.amount} ETB
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                </View>
+
+                {/* COLUMN 2: CENTER WHEEL & CURRENT POT */}
+                <View style={{ flex: 1.3, alignItems: "center", justifyContent: "center" }}>
+                  <Text style={{ color: "#64748b", fontSize: 12, fontWeight: "600", marginBottom: 3 }}>
+                    Round {round?.roundId ? round.roundId.slice(-4) : "4"} / Bets open
+                  </Text>
+                  <Text style={{ color: "#94a3b8", fontSize: 11, fontWeight: "800", letterSpacing: 1.5, textTransform: "uppercase" }}>
+                    CURRENT POT
+                  </Text>
+                  <Text style={{ color: "#ef4444", fontSize: 42, fontWeight: "900", fontFamily: "Space Grotesk, Inter, sans-serif", marginVertical: 3 }}>
+                    {previewPot} ETB
+                  </Text>
+
+                  <View style={{ position: "relative", alignItems: "center", justifyContent: "center", marginTop: 6 }}>
+                    <SpinWheel
+                      size={Math.min(screenW * 0.35, 420)}
+                      players={displayPlayers.length > 0 ? displayPlayers : previewPlayers}
+                      isSpinning={Boolean(screenState === "spinning" || round?.status === "spinning" || isSpinning)}
+                      winningSlice={winningSlice}
+                      winnerId={pendingWinnerId || resultData?.winnerId}
+                      winnerName={resultData?.winnerName || pendingResultDataRef.current?.winnerName}
+                      prizeAmount={resultData?.prizeAmount || pendingResultDataRef.current?.prizeAmount || previewPot}
+                      spinDuration={spinDuration}
+                      onSpinComplete={handleSpinComplete}
+                      status={screenState === "result" ? "resolved" : (round ? round.status : "waiting")}
+                      mode="RAIL"
+                      speakingUserIds={speakingUserIds}
+                      countdown={countdown}
+                      countdownText={countdown > 0 ? formatCountdown(countdown) : (round?.status === "locked" || round?.status === "spinning" ? "00:00" : "01:54")}
+                      currentUserId={user?.id}
+                      flashingUserIds={flashingUserIds}
+                    />
+
+                    {/* Floating Bet Reaction Badges */}
+                    {reactions.map((r) => (
+                      <FloatingBetReactionBadge key={r.id} reaction={r} />
+                    ))}
+                  </View>
+                </View>
+
+                {/* COLUMN 3: STAKES & BET CONTROLS (Right - Expanded) */}
+                <View style={{ flex: 1, minWidth: 270, maxWidth: 320 }}>
+                  {(() => {
+                    const myPlayer = (round?.players || previewPlayers).find(p => String(p.userId) === String(user?.id) || p.username === user?.username || p.username === "guest_3");
+                    const myStake = myPlayer ? Number(myPlayer.stake || 0) : (round ? 0 : betAmount);
+                    const totalPotStake = (round?.players || previewPlayers).reduce((s, p) => s + (Number(p.stake) || 0), 0) || 80;
+                    const myWinPercent = totalPotStake > 0 && myStake > 0
+                      ? Math.round((myStake / totalPotStake) * 100)
+                      : 0;
+
+                    return (
+                      <View style={{
+                        backgroundColor: "rgba(10, 16, 36, 0.8)",
+                        borderRadius: 20,
+                        padding: 20,
+                        borderWidth: 1.2,
+                        borderColor: "rgba(255, 255, 255, 0.08)",
+                        height: "100%",
+                        justifyContent: "space-between",
+                      }}>
+                        <View>
+                          {/* Row with 2 Stat Cards: YOUR STAKE & WIN CHANCE */}
+                          <View style={{ flexDirection: "row", gap: 10, marginBottom: 14 }}>
+                            {/* YOUR STAKE Card */}
+                            <View style={{
+                              flex: 1,
+                              backgroundColor: "rgba(15, 23, 42, 0.7)",
+                              borderRadius: 14,
+                              borderWidth: 1,
+                              borderColor: "rgba(255, 255, 255, 0.08)",
+                              padding: 14,
+                            }}>
+                              <Text style={{ color: "#64748b", fontSize: 10, fontWeight: "800", letterSpacing: 0.6, textTransform: "uppercase" }}>
+                                YOUR STAKE
+                              </Text>
+                              <Text style={{ color: "#ef4444", fontSize: 24, fontWeight: "900", fontFamily: "Space Grotesk, Inter, sans-serif", marginTop: 4 }}>
+                                {myStake} ETB
+                              </Text>
+                            </View>
+
+                            {/* WIN CHANCE Card */}
+                            <View style={{
+                              flex: 1,
+                              backgroundColor: "rgba(15, 23, 42, 0.7)",
+                              borderRadius: 14,
+                              borderWidth: 1,
+                              borderColor: "rgba(255, 255, 255, 0.08)",
+                              padding: 14,
+                            }}>
+                              <Text style={{ color: "#64748b", fontSize: 10, fontWeight: "800", letterSpacing: 0.6, textTransform: "uppercase" }}>
+                                WIN CHANCE
+                              </Text>
+                              <Text style={{ color: "#ffffff", fontSize: 24, fontWeight: "900", fontFamily: "Space Grotesk, Inter, sans-serif", marginTop: 4 }}>
+                                {myWinPercent}%
+                              </Text>
+                            </View>
+                          </View>
+
+                          {/* Helper Text */}
+                          <Text style={{ color: "#64748b", fontSize: 12, fontWeight: "500", marginBottom: 14 }}>
+                            Your place is reserved. Bets are open.
+                          </Text>
+
+                          {/* Quick chips: +10, +50, +100, +500 */}
+                          <View style={{ flexDirection: "row", gap: 8, marginBottom: 14 }}>
+                            {[10, 50, 100, 500].map((val) => {
+                              const isLocking = round && (round.status !== "waiting" || countdown <= 5);
+                              const isSelected = (round ? addAmount : betAmount) === val;
+                              return (
+                                <TouchableOpacity
+                                  key={val}
+                                  disabled={Boolean(isLocking)}
+                                  onPress={() => {
+                                    playCoinSound();
+                                    if (round) setAddAmount(val);
+                                    else setBetAmount(val);
+                                  }}
+                                  style={{
+                                    flex: 1,
+                                    paddingVertical: 10,
+                                    borderRadius: 10,
+                                    backgroundColor: "rgba(15, 23, 42, 0.7)",
+                                    borderWidth: 1,
+                                    borderColor: isSelected ? "#ef4444" : "rgba(255, 255, 255, 0.08)",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    opacity: isLocking ? 0.35 : 1,
+                                  }}
+                                >
+                                  <Text style={{ color: isSelected ? "#ef4444" : "#94a3b8", fontSize: 13, fontWeight: "800" }}>
+                                    +{val}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+
+                          {/* Stepper row: [ - ]  50 ETB  [ + ] */}
+                          <View style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            backgroundColor: "rgba(15, 23, 42, 0.7)",
+                            borderRadius: 14,
+                            borderWidth: 1,
+                            borderColor: "rgba(255, 255, 255, 0.08)",
+                            height: 48,
+                            paddingHorizontal: 8,
+                            marginBottom: 16,
+                          }}>
+                            <TouchableOpacity
+                              onPress={() => {
+                                playCoinSound();
+                                if (round) setAddAmount(prev => Math.max(10, prev - 10));
+                                else setBetAmount(prev => Math.max(10, prev - 10));
+                              }}
+                              style={{ width: 34, height: 34, borderRadius: 8, backgroundColor: "rgba(255, 255, 255, 0.06)", alignItems: "center", justifyContent: "center" }}
+                            >
+                              <Ionicons name="remove" size={18} color="#ffffff" />
+                            </TouchableOpacity>
+
+                            <View style={{ flex: 1, alignItems: "center" }}>
+                              <Text style={{ color: "#ffffff", fontSize: 16, fontWeight: "900", fontFamily: "Space Grotesk, Inter, sans-serif" }}>
+                                {round ? `${addAmount} ETB` : `${betAmount} ETB`}
+                              </Text>
+                            </View>
+
+                            <TouchableOpacity
+                              onPress={() => {
+                                playCoinSound();
+                                if (round) setAddAmount(prev => Math.min(10000, prev + 10));
+                                else setBetAmount(prev => Math.min(10000, prev + 10));
+                              }}
+                              style={{ width: 34, height: 34, borderRadius: 8, backgroundColor: "rgba(255, 255, 255, 0.06)", alignItems: "center", justifyContent: "center" }}
+                            >
+                              <Ionicons name="add" size={18} color="#ffffff" />
+                            </TouchableOpacity>
+                          </View>
+
+                          {/* Primary Button: ADD TO STAKE (Glowing Red) */}
                           <TouchableOpacity
-                            key={val}
-                            disabled={Boolean(isLocking)}
+                            disabled={Boolean(addLoading || joinLoading || (round && (round.status !== "waiting" || countdown <= 5)))}
                             onPress={() => {
                               playCoinSound();
-                              if (round) setAddAmount(val);
-                              else setBetAmount(val);
+                              if (round) handleAddStake(addAmount);
+                              else handleJoinRoom("RAIL", betAmount);
                             }}
                             style={{
-                              flex: 1,
-                              paddingVertical: 10,
-                              borderRadius: 10,
-                              backgroundColor: isSelected ? "rgba(255, 23, 68, 0.18)" : "rgba(15, 23, 42, 0.6)",
-                              borderWidth: 1,
-                              borderColor: isSelected ? "#ff1744" : "rgba(255, 255, 255, 0.08)",
+                              backgroundColor: "#ef4444",
+                              borderRadius: 14,
+                              height: 50,
+                              width: "100%",
                               alignItems: "center",
                               justifyContent: "center",
-                              opacity: isLocking ? 0.35 : 1,
+                              shadowColor: "#ef4444",
+                              shadowOffset: { width: 0, height: 6 },
+                              shadowOpacity: 0.5,
+                              shadowRadius: 16,
+                              elevation: 6,
+                              opacity: Boolean(addLoading || joinLoading || (round && (round.status !== "waiting" || countdown <= 5))) ? 0.6 : 1,
                             }}
+                            activeOpacity={0.85}
                           >
-                            <Text style={{ color: isSelected ? "#ff1744" : "#94a3b8", fontSize: 12, fontWeight: "800" }}>
-                              +{val}
-                            </Text>
+                            {addLoading || joinLoading ? (
+                              <ActivityIndicator size="small" color="#ffffff" />
+                            ) : (
+                              <Text style={{ color: "#ffffff", fontSize: 14.5, fontWeight: "900", letterSpacing: 0.8 }}>
+                                {round
+                                  ? (round.status !== "waiting" || countdown <= 5 ? "LOCKED" : "ADD TO STAKE")
+                                  : "ADD TO STAKE"}
+                              </Text>
+                            )}
                           </TouchableOpacity>
-                        );
-                      })}
+                        </View>
+
+                        {/* Available balance subtext */}
+                        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingTop: 16, borderTopWidth: 1, borderTopColor: "rgba(255, 255, 255, 0.08)" }}>
+                          <Text style={{ color: "#64748b", fontSize: 12, fontWeight: "500" }}>Available</Text>
+                          <Text style={{ color: "#22c55e", fontSize: 14, fontWeight: "800" }}>{balance.toLocaleString()} ETB</Text>
+                        </View>
+                      </View>
+                    );
+                  })()}
+                </View>
+              </View>
+
+              {/* BOTTOM BAR: Centered Voice & Leave (Image 1 Request) */}
+              <View style={{ alignItems: "center", marginTop: 24, marginBottom: 8 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                  {/* Button 1: Mic off / Mic on */}
+                  <TouchableOpacity
+                    onPress={handleToggleMic}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 6,
+                      borderRadius: 20,
+                      paddingHorizontal: 16,
+                      paddingVertical: 9,
+                      backgroundColor: "rgba(15, 23, 42, 0.8)",
+                      borderWidth: 1,
+                      borderColor: "rgba(255, 255, 255, 0.12)",
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name={micMuted ? "mic-off-outline" : "mic-outline"} size={16} color={micMuted ? "#94a3b8" : "#22c55e"} />
+                    <Text style={{ color: micMuted ? "#94a3b8" : "#22c55e", fontSize: 12, fontWeight: "700" }}>
+                      {micMuted ? "Mic off" : "Mic on"}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {/* Button 2: Sound on (Vibrant green border matching image) */}
+                  <TouchableOpacity
+                    onPress={handleToggleSpeaker}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 6,
+                      borderRadius: 20,
+                      paddingHorizontal: 16,
+                      paddingVertical: 9,
+                      backgroundColor: "rgba(16, 185, 129, 0.1)",
+                      borderWidth: 1.5,
+                      borderColor: "#10b981",
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name={masterSpeakerMuted ? "volume-mute-outline" : "volume-high-outline"} size={16} color="#10b981" />
+                    <Text style={{ color: "#10b981", fontSize: 12, fontWeight: "800" }}>
+                      {masterSpeakerMuted ? "Sound off" : "Sound on"}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {/* Button 3: Leave room (Clean Exit Button) */}
+                  <TouchableOpacity
+                    onPress={handleLeaveRoom}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 6,
+                      borderRadius: 20,
+                      paddingHorizontal: 16,
+                      paddingVertical: 9,
+                      backgroundColor: "rgba(15, 23, 42, 0.8)",
+                      borderWidth: 1,
+                      borderColor: "rgba(255, 255, 255, 0.12)",
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="exit-outline" size={16} color="#94a3b8" />
+                    <Text style={{ color: "#94a3b8", fontSize: 12, fontWeight: "700" }}>
+                      Leave room
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={{ color: "#64748b", fontSize: 11, fontWeight: "500", marginTop: 8 }}>
+                  Voice room
+                </Text>
+              </View>
+            </View>
+          )}
+        </ScrollView>
+      ) : (
+        /* ════════════════════════════════════════════════════════════════
+           ██  MOBILE SPIN ROOM LAYOUT (CONSISTENT APP HEADER, NO DEMO)
+           ════════════════════════════════════════════════════════════════ */
+        <ScrollView
+          style={{ flex: 1, backgroundColor: "transparent" }}
+          contentContainerStyle={{
+            flexGrow: 1,
+            paddingHorizontal: 14,
+            paddingTop: 6,
+            paddingBottom: 36,
+            justifyContent: "space-between",
+          }}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
+          {/* Top Header Row (Back < on Left, Balance + Language in Center, Voice Mic on Right - Consistent with App) */}
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", width: "100%", marginBottom: 8 }}>
+            {/* Left: Back < Button */}
+            <TouchableOpacity
+              onPress={handleLeaveRoom}
+              style={{
+                width: 42,
+                height: 42,
+                borderRadius: 21,
+                backgroundColor: "#0c142e",
+                borderWidth: 1.5,
+                borderColor: "rgba(255, 255, 255, 0.12)",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+              activeOpacity={0.75}
+            >
+              <Ionicons name="chevron-back" size={22} color="#ffffff" />
+            </TouchableOpacity>
+
+            {/* Center: Side-by-Side Balance Capsule + Language Switcher */}
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              {/* Wallet Balance Capsule */}
+              <TouchableOpacity
+                onPress={() => setDepositVisible(true)}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 8,
+                  backgroundColor: "#0c142e",
+                  borderRadius: 22,
+                  paddingHorizontal: 14,
+                  height: 42,
+                  borderWidth: 1.5,
+                  borderColor: "rgba(239, 68, 68, 0.35)",
+                }}
+                activeOpacity={0.75}
+              >
+                <Ionicons name="wallet-outline" size={17} color="#ef4444" />
+                <View style={{ alignItems: "flex-start" }}>
+                  <Text style={{ color: "#ef4444", fontSize: 8, fontWeight: "800", letterSpacing: 0.6, textTransform: "uppercase" }}>
+                    BALANCE
+                  </Text>
+                  <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "900", fontFamily: "Space Grotesk, Inter, sans-serif" }}>
+                    {balance.toLocaleString()} ETB
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              {/* Language Switcher Circular Button */}
+              <TouchableOpacity
+                onPress={() => switchLanguage()}
+                style={{
+                  width: 42,
+                  height: 42,
+                  borderRadius: 21,
+                  backgroundColor: "#0c142e",
+                  borderWidth: 1.5,
+                  borderColor: "rgba(239, 68, 68, 0.35)",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+                activeOpacity={0.75}
+              >
+                <Ionicons name="globe-outline" size={19} color="#ef4444" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Right: Voice Chat Mic Button */}
+            <TouchableOpacity
+              onPress={handleToggleMic}
+              style={{
+                width: 42,
+                height: 42,
+                borderRadius: 21,
+                backgroundColor: "#0c142e",
+                borderWidth: 1.5,
+                borderColor: micMuted ? "rgba(244, 63, 94, 0.4)" : "rgba(34, 197, 94, 0.4)",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+              activeOpacity={0.75}
+            >
+              <Ionicons name={micMuted ? "mic-off" : "mic"} size={20} color={micMuted ? "#f43f5e" : "#22c55e"} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Round Subtitle & Current Pot Board (Image 3 Match) */}
+          <View style={{ alignItems: "center", marginVertical: 2 }}>
+            <Text style={{ color: "#64748b", fontSize: 11, fontWeight: "600" }}>
+              Round {round?.roundId ? round.roundId.slice(-4) : "c665"} / Bets open
+            </Text>
+            <Text style={{ color: "#94a3b8", fontSize: 10, fontWeight: "800", letterSpacing: 1.2, textTransform: "uppercase", marginTop: 2 }}>
+              CURRENT POT
+            </Text>
+            <Text style={{ color: "#ef4444", fontSize: 32, fontWeight: "900", fontFamily: "Space Grotesk, Inter, sans-serif", marginTop: 1 }}>
+              {previewPot} ETB
+            </Text>
+          </View>
+
+          {/* Center Spin Wheel Container */}
+          <View style={{ alignItems: "center", justifyContent: "center", marginVertical: isCompactScreen ? 2 : 4, position: "relative" }}>
+            <SpinWheel
+              size={mobileWheelSize}
+              players={displayPlayers.length > 0 ? displayPlayers : previewPlayers}
+              isSpinning={Boolean(screenState === "spinning" || round?.status === "spinning" || isSpinning)}
+              winningSlice={winningSlice}
+              winnerId={pendingWinnerId || resultData?.winnerId}
+              winnerName={resultData?.winnerName || pendingResultDataRef.current?.winnerName}
+              prizeAmount={resultData?.prizeAmount || pendingResultDataRef.current?.prizeAmount || previewPot}
+              spinDuration={spinDuration}
+              onSpinComplete={handleSpinComplete}
+              status={screenState === "result" ? "resolved" : (round ? round.status : "waiting")}
+              mode={is5Player ? "5_PLAYER" : "RAIL"}
+              speakingUserIds={speakingUserIds}
+              countdown={countdown}
+              countdownText={countdown > 0 ? formatCountdown(countdown) : (round?.status === "locked" || round?.status === "spinning" ? "00:00" : "01:54")}
+              currentUserId={user?.id}
+              flashingUserIds={flashingUserIds}
+            />
+
+            {/* Floating Bet Reaction Badges */}
+            {reactions.map((r) => (
+              <FloatingBetReactionBadge key={r.id} reaction={r} />
+            ))}
+          </View>
+
+          {/* Bottom Controls Area (Matching Image 3) */}
+          <View style={{ width: "100%", alignItems: "center" }}>
+            {(() => {
+              const myPlayer = (round?.players || previewPlayers).find(p => String(p.userId) === String(user?.id) || p.username === user?.username || p.username === "guest_3");
+              const myStake = myPlayer ? Number(myPlayer.stake || 0) : (round ? 0 : betAmount);
+              const totalPotStake = (round?.players || previewPlayers).reduce((s, p) => s + (Number(p.stake) || 0), 0) || 80;
+              const myWinPercent = totalPotStake > 0 && myStake > 0
+                ? Math.round((myStake / totalPotStake) * 100)
+                : 0;
+
+              return (
+                <View style={{ width: "100%", gap: 8 }}>
+                  {/* Row with 2 Stat Cards: YOUR STAKE & WIN CHANCE */}
+                  <View style={{ flexDirection: "row", gap: 10 }}>
+                    <View style={{
+                      flex: 1,
+                      backgroundColor: "rgba(15, 23, 42, 0.8)",
+                      borderRadius: 14,
+                      borderWidth: 1,
+                      borderColor: "rgba(255, 255, 255, 0.08)",
+                      paddingVertical: 10,
+                      paddingHorizontal: 12,
+                    }}>
+                      <Text style={{ color: "#64748b", fontSize: 9.5, fontWeight: "800", letterSpacing: 0.6, textTransform: "uppercase" }}>
+                        YOUR STAKE
+                      </Text>
+                      <Text style={{ color: "#ef4444", fontSize: 20, fontWeight: "900", fontFamily: "Space Grotesk, Inter, sans-serif", marginTop: 2 }}>
+                        {myStake} ETB
+                      </Text>
                     </View>
 
-                    {/* Stepper row: [ - ]  100 ETB  [ + ] (Image 2) */}
                     <View style={{
+                      flex: 1,
+                      backgroundColor: "rgba(15, 23, 42, 0.8)",
+                      borderRadius: 14,
+                      borderWidth: 1,
+                      borderColor: "rgba(255, 255, 255, 0.08)",
+                      paddingVertical: 10,
+                      paddingHorizontal: 12,
+                    }}>
+                      <Text style={{ color: "#64748b", fontSize: 9.5, fontWeight: "800", letterSpacing: 0.6, textTransform: "uppercase" }}>
+                        WIN CHANCE
+                      </Text>
+                      <Text style={{ color: "#ffffff", fontSize: 20, fontWeight: "900", fontFamily: "Space Grotesk, Inter, sans-serif", marginTop: 2 }}>
+                        {myWinPercent}%
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Quick Chips: +10, +50, +100, +500 */}
+                  <View style={{ flexDirection: "row", gap: 8 }}>
+                    {[10, 50, 100, 500].map((val) => {
+                      const isLocking = round && (round.status !== "waiting" || countdown <= 5);
+                      const isSelected = (round ? addAmount : betAmount) === val;
+                      return (
+                        <TouchableOpacity
+                          key={val}
+                          disabled={Boolean(isLocking)}
+                          onPress={() => {
+                            playCoinSound();
+                            if (round) setAddAmount(val);
+                            else setBetAmount(val);
+                          }}
+                          style={{
+                            flex: 1,
+                            paddingVertical: 8,
+                            borderRadius: 10,
+                            backgroundColor: "rgba(15, 23, 42, 0.8)",
+                            borderWidth: 1,
+                            borderColor: isSelected ? "#ef4444" : "rgba(255, 255, 255, 0.08)",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            opacity: isLocking ? 0.35 : 1,
+                          }}
+                        >
+                          <Text style={{ color: isSelected ? "#ef4444" : "#94a3b8", fontSize: 12, fontWeight: "800" }}>
+                            +{val}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  {/* Stepper & ADD TO STAKE Action Button */}
+                  <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
+                    <View style={{
+                      flex: 1,
                       flexDirection: "row",
                       alignItems: "center",
                       backgroundColor: "rgba(15, 23, 42, 0.8)",
                       borderRadius: 14,
                       borderWidth: 1,
-                      borderColor: "rgba(255, 255, 255, 0.1)",
+                      borderColor: "rgba(255, 255, 255, 0.08)",
                       height: 48,
-                      paddingHorizontal: 8,
-                      marginBottom: 16,
+                      paddingHorizontal: 6,
                     }}>
                       <TouchableOpacity
                         onPress={() => {
@@ -2656,8 +3273,8 @@ export default function SpinGameScreen() {
                       </TouchableOpacity>
 
                       <View style={{ flex: 1, alignItems: "center" }}>
-                        <Text style={{ color: "#ffffff", fontSize: 15, fontWeight: "800" }}>
-                          {round ? `+${addAmount} ETB` : `${betAmount} ETB`}
+                        <Text style={{ color: "#ffffff", fontSize: 16, fontWeight: "900", fontFamily: "Space Grotesk, Inter, sans-serif" }}>
+                          {round ? `${addAmount} ETB` : `${betAmount} ETB`}
                         </Text>
                       </View>
 
@@ -2673,23 +3290,25 @@ export default function SpinGameScreen() {
                       </TouchableOpacity>
                     </View>
 
-                    {/* Action Button: [ 💰 ADD TO STAKE ] (Image 2) */}
                     <TouchableOpacity
                       disabled={Boolean(addLoading || joinLoading || (round && (round.status !== "waiting" || countdown <= 5)))}
                       onPress={() => {
                         playCoinSound();
                         if (round) handleAddStake(addAmount);
-                        else handleJoinRoom("RAIL", betAmount);
+                        else handleJoinRoom(is5Player ? "5_PLAYER" : "RAIL", betAmount);
                       }}
                       style={{
-                        backgroundColor: "#f43f5e",
+                        flex: 1.15,
+                        backgroundColor: "#ef4444",
                         borderRadius: 14,
-                        height: 50,
-                        width: "100%",
-                        flexDirection: "row",
+                        height: 48,
                         alignItems: "center",
                         justifyContent: "center",
-                        gap: 8,
+                        shadowColor: "#ef4444",
+                        shadowOffset: { width: 0, height: 4 },
+                        shadowOpacity: 0.5,
+                        shadowRadius: 12,
+                        elevation: 5,
                         opacity: Boolean(addLoading || joinLoading || (round && (round.status !== "waiting" || countdown <= 5))) ? 0.6 : 1,
                       }}
                       activeOpacity={0.85}
@@ -2697,764 +3316,57 @@ export default function SpinGameScreen() {
                       {addLoading || joinLoading ? (
                         <ActivityIndicator size="small" color="#ffffff" />
                       ) : (
-                        <>
-                          <CoinStackIcon size={18} color="#ffffff" />
-                          <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "900", letterSpacing: 0.5 }}>
-                            {round
-                              ? (round.status !== "waiting" || countdown <= 5 ? "LOCKED" : "ADD TO STAKE")
-                              : "ADD TO STAKE"}
-                          </Text>
-                        </>
+                        <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "900", letterSpacing: 0.6 }}>
+                          {round
+                            ? (round.status !== "waiting" || countdown <= 5 ? "LOCKED" : "ADD TO STAKE")
+                            : "ADD TO STAKE"}
+                        </Text>
                       )}
                     </TouchableOpacity>
-
-                    {/* Subrow: Stake vs Balance (matches HTML specification) */}
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 12, paddingHorizontal: 4 }}>
-                      <Text style={{ color: "#94a3b8", fontSize: 11, fontWeight: "700" }}>
-                        STAKE: <Text style={{ color: "#ffffff", fontWeight: "900" }}>{(() => {
-                          const p = round?.players.find(x => x.userId === user?.id);
-                          return p ? p.stake : (round ? 0 : betAmount);
-                        })()} ETB</Text>
-                      </Text>
-                      <Text style={{ color: "#94a3b8", fontSize: 11, fontWeight: "700" }}>
-                        AVAILABLE: <Text style={{ color: "#22c55e", fontWeight: "900" }}>{balance.toLocaleString()} ETB</Text>
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-
-                {/* COLUMN 2: Center Wheel & Voice & Pot & Leave (Image 2) */}
-                <View style={{ flex: 1.2, alignItems: "center" }}>
-                  <View style={{ position: "relative", alignItems: "center", justifyContent: "center" }}>
-                    <SpinWheel
-                      size={Math.min(screenW * 0.32, 420)}
-                      players={round ? round.players : previewPlayers}
-                      isSpinning={Boolean(screenState === "spinning" || round?.status === "spinning" || isSpinning)}
-                      winningSlice={winningSlice}
-                      winnerId={pendingWinnerId || resultData?.winnerId}
-                      winnerName={resultData?.winnerName || pendingResultDataRef.current?.winnerName}
-                      prizeAmount={resultData?.prizeAmount || pendingResultDataRef.current?.prizeAmount || previewPot}
-                      spinDuration={spinDuration}
-                      onSpinComplete={handleSpinComplete}
-                      status={screenState === "result" ? "resolved" : (round ? round.status : "waiting")}
-                      mode="RAIL"
-                      speakingUserIds={speakingUserIds}
-                      countdown={countdown}
-                      countdownText={countdown > 0 ? formatCountdown(countdown) : (round?.status === "locked" || round?.status === "spinning" ? "0:00" : "02:00")}
-                      currentUserId={user?.id}
-                      flashingUserIds={flashingUserIds}
-                    />
-
-                    {/* Floating Bet Reaction Badges (PC Desktop Support) */}
-                    {reactions.map((r) => (
-                      <FloatingBetReactionBadge key={r.id} reaction={r} />
-                    ))}
                   </View>
 
-                  {/* Mic & Hear Lobby toggles side-by-side (Image 2) */}
-                  <View style={{ flexDirection: "row", gap: 14, marginTop: 18, marginBottom: 16 }}>
-                    <TouchableOpacity
-                      onPress={handleToggleMic}
-                      disabled={!round}
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        gap: 6,
-                        borderRadius: 12,
-                        paddingHorizontal: 16,
-                        paddingVertical: 10,
-                        backgroundColor: micMuted ? "rgba(244, 63, 94, 0.12)" : "rgba(34, 197, 94, 0.15)",
-                        borderWidth: 1,
-                        borderColor: micMuted ? "#f43f5e" : "#22c55e",
-                        opacity: !round ? 0.4 : 1,
-                      }}
-                    >
-                      <Ionicons name={micMuted ? "mic-off" : "mic"} size={16} color={micMuted ? "#f43f5e" : "#22c55e"} />
-                      <Text style={{ color: micMuted ? "#f43f5e" : "#22c55e", fontSize: 12, fontWeight: "800" }}>
-                        {micMuted ? "Mic Off" : "Mic On"}
-                      </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      onPress={handleToggleSpeaker}
-                      disabled={!round}
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        gap: 6,
-                        borderRadius: 12,
-                        paddingHorizontal: 16,
-                        paddingVertical: 10,
-                        backgroundColor: masterSpeakerMuted ? "rgba(239, 68, 68, 0.12)" : "rgba(15, 23, 42, 0.8)",
-                        borderWidth: 1,
-                        borderColor: masterSpeakerMuted ? "#ef4444" : "rgba(255, 255, 255, 0.15)",
-                        opacity: !round ? 0.4 : 1,
-                      }}
-                    >
-                      <Ionicons name={masterSpeakerMuted ? "volume-mute" : "volume-high"} size={16} color={masterSpeakerMuted ? "#ef4444" : "#ffffff"} />
-                      <Text style={{ color: masterSpeakerMuted ? "#ef4444" : "#ffffff", fontSize: 12, fontWeight: "800" }}>
-                        {masterSpeakerMuted ? "Muted All" : "Hear Lobby"}
-                      </Text>
-                    </TouchableOpacity>
+                  {/* Available Balance Row */}
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 2 }}>
+                    <Text style={{ color: "#64748b", fontSize: 11.5, fontWeight: "500" }}>Available</Text>
+                    <Text style={{ color: "#22c55e", fontSize: 13, fontWeight: "800" }}>{balance.toLocaleString()} ETB</Text>
                   </View>
 
-                  {/* CURRENT POT (Crimson / White, no blue/yellow) */}
-                  <View style={{ alignItems: "center", marginBottom: 14 }}>
-                    <Text style={{ color: "#94a3b8", fontSize: 11, fontWeight: "800", letterSpacing: 1 }}>
-                      CURRENT POT
-                    </Text>
-                    <Text style={{ color: "#ffffff", fontSize: 26, fontWeight: "900", fontFamily: "Space Grotesk, Inter, sans-serif", marginTop: 2 }}>
-                      {previewPot.toLocaleString()} ETB
-                    </Text>
-                  </View>
-
-                  {/* LEAVE ROOM (Normal clean button) */}
+                  {/* View Players Bottom Sheet Button */}
                   <TouchableOpacity
-                    onPress={handleLeaveRoom}
+                    onPress={() => setMobilePlayersSheetVisible(true)}
                     style={{
+                      width: "100%",
                       flexDirection: "row",
                       alignItems: "center",
-                      gap: 8,
-                      borderRadius: 18,
-                      paddingHorizontal: 22,
-                      paddingVertical: 9,
+                      justifyContent: "space-between",
+                      paddingHorizontal: 14,
+                      height: 42,
+                      borderRadius: 14,
+                      backgroundColor: "rgba(15, 23, 42, 0.8)",
                       borderWidth: 1,
-                      borderColor: leaveBlocked ? "rgba(244, 63, 94, 0.35)" : "rgba(255, 255, 255, 0.15)",
-                      backgroundColor: leaveBlocked ? "rgba(244, 63, 94, 0.08)" : "rgba(255, 255, 255, 0.05)",
+                      borderColor: "rgba(255, 255, 255, 0.08)",
+                      marginTop: 2,
                     }}
                     activeOpacity={0.8}
                   >
-                    <Ionicons name={leaveBlocked ? "lock-closed" : "exit-outline"} size={15} color={leaveBlocked ? "#f43f5e" : "#94a3b8"} />
-                    <Text style={{ color: leaveBlocked ? "#f43f5e" : "#94a3b8", fontSize: 12, fontWeight: "500", letterSpacing: 0.2 }}>
-                      {leaveBlocked ? (language === "am" ? "ተቆልፏል" : "Leave Locked") : (language === "am" ? "ከክፍሉ ውጣ" : "Leave Room")}
-                    </Text>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      <Ionicons name="people-outline" size={16} color="#ef4444" />
+                      <Text style={{ color: "#e2e8f0", fontSize: 12.5, fontWeight: "800" }}>
+                        PLAYERS ({(displayPlayers.length > 0 ? displayPlayers : previewPlayers).length})
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
                   </TouchableOpacity>
                 </View>
-
-                {/* COLUMN 3: Players List (Image 2) */}
-                <View style={{ flex: 1.1, minWidth: 280 }}>
-                  <View style={{
-                    backgroundColor: "rgba(10, 16, 36, 0.85)",
-                    borderRadius: 20,
-                    padding: 20,
-                    borderWidth: 1,
-                    borderColor: "rgba(255, 23, 68, 0.25)",
-                  }}>
-                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                        <Ionicons name="people" size={18} color="#94a3b8" />
-                        <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "900", letterSpacing: 0.5 }}>
-                          PLAYERS IN ROOM ({round ? round.players.length : 0})
-                        </Text>
-                      </View>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                        <TouchableOpacity
-                          onPress={() => setInviteModalVisible(true)}
-                          style={{
-                            flexDirection: "row",
-                            alignItems: "center",
-                            gap: 5,
-                            backgroundColor: "rgba(255, 23, 68, 0.16)",
-                            paddingHorizontal: 10,
-                            paddingVertical: 5,
-                            borderRadius: 14,
-                            borderWidth: 1,
-                            borderColor: "#FF1744",
-                            cursor: "pointer",
-                          }}
-                        >
-                          <Ionicons name="person-add" size={12} color="#FF1744" />
-                          <Text style={{ color: "#FF1744", fontSize: 11, fontWeight: "800" }}>
-                            {language === "am" ? "+ ጋብዝ" : "+ Invite"}
-                          </Text>
-                        </TouchableOpacity>
-                        <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#22c55e" }} />
-                      </View>
-                    </View>
-
-                    <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
-                      {(round ? round.players : []).map((p: any, idx: number) => {
-                        const isSelf = p.userId === user?.id;
-                        const isHost = idx === 0;
-                        const isMuted = mutedPlayers.has(p.userId);
-                        const isSelfHost = round?.players[0]?.userId === user?.id;
-                        const isSpeaking = Boolean(Array.isArray(speakingUserIds) && speakingUserIds.some(id => String(id) === String(p.userId)));
-                        return (
-                          <View
-                            key={p.userId || idx}
-                            style={{
-                              flexDirection: "row",
-                              alignItems: "center",
-                              justifyContent: "space-between",
-                              backgroundColor: "rgba(15, 23, 42, 0.6)",
-                              borderRadius: 14,
-                              paddingVertical: 12,
-                              paddingHorizontal: 14,
-                              borderWidth: 1,
-                              borderColor: isSelf ? "#FF1744" : "rgba(255, 255, 255, 0.05)",
-                              marginBottom: 8,
-                            }}
-                          >
-                            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                              <View style={{
-                                width: 36,
-                                height: 36,
-                                borderRadius: 18,
-                                backgroundColor: isSelf ? "#FF1744" : "#991B1B",
-                                alignItems: "center",
-                                justifyContent: "center",
-                              }}>
-                                <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "900" }}>
-                                  {p.username.slice(0, 1).toUpperCase()}
-                                </Text>
-                              </View>
-                              <View>
-                                <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "800" }}>
-                                  {isSelf ? `${p.username} 👑` : p.username}
-                                </Text>
-                                <Text style={{ color: "#ffffff", fontSize: 11, fontWeight: "700", marginTop: 1 }}>
-                                  {p.stake || 100} ETB
-                                </Text>
-                              </View>
-                            </View>
-
-                            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                              {isHost && (
-                                <View style={{ backgroundColor: "#FF1744", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
-                                  <Text style={{ color: "#ffffff", fontSize: 10, fontWeight: "900", letterSpacing: 0.5 }}>HOST</Text>
-                                </View>
-                              )}
-                              <AnimatedUserMicButton
-                                isSelf={isSelf}
-                                isBot={Boolean(p.isBot)}
-                                isMutedLocally={isSelf ? micMuted : mutedPlayers.has(p.userId)}
-                                isRemoteMuted={isSelf ? micMuted : (Boolean(p.isBot) || remoteMicMuted[p.userId] === true)}
-                                isSpeaking={speakingUserIds.includes(String(p.userId))}
-                                onPress={() => {
-                                  if (isSelf) {
-                                    handleToggleMic();
-                                  } else if (isSelfHost) {
-                                    handleHostMuteUser(p.userId, mutedPlayers.has(p.userId));
-                                  } else {
-                                    toggleMutePlayer(p.userId);
-                                  }
-                                }}
-                              />
-                            </View>
-                          </View>
-                        );
-                      })}
-                    </ScrollView>
-                  </View>
-                </View>
-              </View>
-            </View>
-          )}
-        </ScrollView>
-      ) : (
-        /* ════════════════════════════════════════════════════════════════
-           ██  MOBILE SPIN ROOM LAYOUT (Red background + Crimson accents)
-           ════════════════════════════════════════════════════════════════ */
-        <ScrollView
-          style={{ flex: 1, backgroundColor: "transparent" }}
-          contentContainerStyle={{
-            flexGrow: 1,
-            paddingHorizontal: 16,
-            paddingTop: 10,
-            paddingBottom: 24,
-            justifyContent: "space-between",
-          }}
-          showsVerticalScrollIndicator={false}
-          bounces={false}
-        >
-          {/* Top Header Row (Back < on Left, Balance + Language side-by-side in Center, Voice Mic on Right with Gap - Exact Mockup Match) */}
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", width: "100%", marginBottom: 6, position: "relative", zIndex: 10 }}>
-            {/* Left Action Button: Back < */}
-            <TouchableOpacity
-              onPress={handleLeaveRoom}
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: 22,
-                backgroundColor: "#0c142e",
-                borderWidth: 1.5,
-                borderColor: leaveBlocked ? "rgba(239, 68, 68, 0.35)" : "rgba(255, 23, 68, 0.35)",
-                alignItems: "center",
-                justifyContent: "center",
-                opacity: leaveBlocked ? 0.45 : 1,
-              }}
-              activeOpacity={0.75}
-            >
-              <Ionicons name="chevron-back" size={22} color={leaveBlocked ? "#94a3b8" : "#ffffff"} />
-            </TouchableOpacity>
-
-            {/* Center: Side-by-Side Balance Capsule + Language Switcher */}
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-              {/* Wallet Balance Capsule */}
-              <TouchableOpacity
-                onPress={() => setDepositVisible(true)}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 8,
-                  backgroundColor: "#0c142e",
-                  borderRadius: 22,
-                  paddingHorizontal: 16,
-                  height: 44,
-                  borderWidth: 1.5,
-                  borderColor: "rgba(255, 23, 68, 0.35)",
-                }}
-                activeOpacity={0.75}
-              >
-                <Ionicons name="wallet-outline" size={18} color="#FF1744" />
-                <View style={{ alignItems: "flex-start" }}>
-                  <Text style={{ color: "#FF1744", fontSize: 8.5, fontWeight: "800", letterSpacing: 0.6, textTransform: "uppercase" }}>
-                    {language === "am" ? "ቀሪ ሂሳብ" : "BALANCE"}
-                  </Text>
-                  <Text style={{ color: "#ffffff", fontSize: 13.5, fontWeight: "900", fontFamily: "Space Grotesk, Inter, sans-serif" }}>
-                    {balance.toLocaleString()} ETB
-                  </Text>
-                </View>
-              </TouchableOpacity>
-
-              {/* Language Switcher Circular Button (Matches Back & Mic buttons) */}
-              <TouchableOpacity
-                onPress={() => switchLanguage()}
-                style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 22,
-                  backgroundColor: "#0c142e",
-                  borderWidth: 1.5,
-                  borderColor: "rgba(255, 23, 68, 0.35)",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-                activeOpacity={0.75}
-              >
-                <Ionicons name="globe-outline" size={20} color="#FF1744" />
-              </TouchableOpacity>
-            </View>
-
-            {/* Right: Voice Chat Mic Button with Gap */}
-            <TouchableOpacity
-              onPress={handleToggleMic}
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: 22,
-                backgroundColor: "#0c142e",
-                borderWidth: 1.5,
-                borderColor: micMuted ? "rgba(244, 63, 94, 0.4)" : "rgba(34, 197, 94, 0.4)",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-              activeOpacity={0.75}
-            >
-              <Ionicons name={micMuted ? "mic-off" : "mic"} size={20} color={micMuted ? "#f43f5e" : "#22c55e"} />
-            </TouchableOpacity>
-          </View>
-
-          {/* Center Spin Wheel Container */}
-          <View style={{ flex: 1, alignItems: "center", justifyContent: "center", marginVertical: isCompactScreen ? 2 : 4, position: "relative" }}>
-            <SpinWheel
-              size={mobileWheelSize}
-              players={round ? round.players : previewPlayers}
-              isSpinning={Boolean(screenState === "spinning" || round?.status === "spinning" || isSpinning)}
-              winningSlice={winningSlice}
-              winnerId={pendingWinnerId || resultData?.winnerId}
-              winnerName={resultData?.winnerName || pendingResultDataRef.current?.winnerName}
-              prizeAmount={resultData?.prizeAmount || pendingResultDataRef.current?.prizeAmount || previewPot}
-              spinDuration={spinDuration}
-              onSpinComplete={handleSpinComplete}
-              status={screenState === "result" ? "resolved" : (round ? round.status : "waiting")}
-              mode={is5Player ? "5_PLAYER" : "RAIL"}
-              speakingUserIds={speakingUserIds}
-              countdown={countdown}
-              countdownText={countdown > 0 ? formatCountdown(countdown) : (round?.status === "locked" || round?.status === "spinning" ? "0:00" : "02:00")}
-              currentUserId={user?.id}
-              flashingUserIds={flashingUserIds}
-            />
-
-            {/* Floating Bet Reaction Badges (Exact Prototype Match) */}
-            {reactions.map((r) => (
-              <FloatingBetReactionBadge key={r.id} reaction={r} />
-            ))}
-
-
-          </View>
-
-          {/* Docked Floating Total Jackpot Pill (Crimson Red / Slate / Crisp White) */}
-          <Animated.View style={{
-            transform: [{ scale: ribbonBumpAnim }],
-            alignSelf: "center",
-            marginVertical: isCompactScreen ? 4 : 8,
-            backgroundColor: "rgba(10, 16, 36, 0.94)",
-            borderWidth: 1.5,
-            borderColor: "rgba(255, 23, 68, 0.45)",
-            borderRadius: 30,
-            paddingVertical: 8,
-            paddingHorizontal: 22,
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 12,
-            shadowColor: "#FF1744",
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.35,
-            shadowRadius: 14,
-            elevation: 8,
-          }}>
-            <Ionicons name="trophy" size={24} color="#FF1744" />
-            <View style={{ alignItems: "center" }}>
-              <Text style={{
-                color: "#FF1744",
-                fontSize: 9.5,
-                fontWeight: "900",
-                letterSpacing: 1.5,
-                textTransform: "uppercase",
-              }}>
-                {resultData
-                  ? (isMyWin
-                      ? (language === "am" ? "አሸንፈዋል!" : "YOU WON!")
-                      : `${resultData.winnerName.toUpperCase()} WON!`)
-                  : (language === "am" ? "ጠቅላላ ሽልማት" : "TOTAL JACKPOT")}
-              </Text>
-              <Text style={{
-                color: "#FFFFFF",
-                fontSize: 22,
-                fontWeight: "900",
-                letterSpacing: 0.5,
-                fontFamily: "Space Grotesk, Inter, sans-serif",
-                marginTop: 1,
-              }}>
-                {resultData
-                  ? `${resultData.prizeAmount.toLocaleString()} ETB`
-                  : (previewPot > 0 ? previewPot.toLocaleString() : "1,000") + " ETB"}
-              </Text>
-            </View>
-          </Animated.View>
-
-          {/* Bottom Controls Area */}
-          <View style={{ width: "100%", alignItems: "center", paddingBottom: 4 }}>
-            {is5Player ? (
-              /* ── 5-PLAYER MODE CONTROLS: Fixed entry + Bordered Joined Players button ── */
-              <View style={{ width: "100%", gap: 8 }}>
-                {round && round.players.some(p => String(p.userId) === String(user?.id)) ? (
-                  <View style={{
-                    width: "100%",
-                    backgroundColor: "rgba(10, 18, 40, 0.92)",
-                    borderRadius: 22,
-                    borderWidth: 1.5,
-                    borderColor: "rgba(0, 218, 243, 0.35)",
-                    paddingVertical: 14,
-                    paddingHorizontal: 16,
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#22c55e" }} />
-                      <Text style={{ color: "#ffffff", fontSize: 15, fontWeight: "800", fontFamily: "Inter, sans-serif" }}>
-                        Waiting for Players ({round.players.length}/5)
-                      </Text>
-                    </View>
-                    <Text style={{ color: "#94a3b8", fontSize: 12, fontWeight: "600" }}>
-                      Fixed 100 ETB entry • Round spins automatically when full
-                    </Text>
-                  </View>
-                ) : (
-                  <TouchableOpacity
-                    disabled={Boolean(joinLoading || isSpinning || (round && round.players.length >= 5))}
-                    onPress={() => handleJoinRoom("5_PLAYER", 100)}
-                    style={{
-                      backgroundColor: "#ec4899",
-                      borderRadius: 24,
-                      height: 50,
-                      width: "100%",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      borderWidth: 1,
-                      borderColor: "rgba(255, 255, 255, 0.2)",
-                      opacity: Boolean(joinLoading || isSpinning || (round && round.players.length >= 5)) ? 0.7 : 1,
-                    }}
-                    activeOpacity={0.85}
-                  >
-                    {joinLoading ? (
-                      <ActivityIndicator size="small" color="#ffffff" />
-                    ) : (
-                      <Text style={{ color: "#ffffff", fontSize: 16, fontWeight: "900", letterSpacing: 1, fontFamily: "Inter, sans-serif" }}>
-                        JOIN GAME (100 ETB)
-                      </Text>
-                    )}
-                  </TouchableOpacity>
-                )}
-
-                {/* Bordered Button to see joined players in 5-Player Mode */}
-                <TouchableOpacity
-                  onPress={() => setMobilePlayersSheetVisible(true)}
-                  style={{
-                    width: "100%",
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    paddingHorizontal: 16,
-                    height: 44,
-                    borderRadius: 22,
-                    backgroundColor: "rgba(10, 18, 40, 0.85)",
-                    borderWidth: 1.5,
-                    borderColor: "rgba(56, 189, 248, 0.25)",
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                    <Ionicons name="people" size={17} color="#38bdf8" />
-                    <Text numberOfLines={1} style={{ color: "#e2e8f0", fontSize: 13, fontWeight: "800", fontFamily: "Inter, sans-serif" }}>
-                      {language === "am"
-                        ? `ተጫዋቾች (${round?.players?.length || 0}/5)`
-                        : `View Players (${round?.players?.length || 0}/5)`}
-                    </Text>
-                  </View>
-                  <Ionicons name="chevron-down" size={16} color="#38bdf8" />
-                </TouchableOpacity>
-              </View>
-            ) : (
-              /* ── RAIL MODE CONTROLS: Clean Modern Interface (Exact Mockup Match) ── */
-              <View style={{ width: "100%" }}>
-                {/* Unified Modern Dark Glass Profile & Bet Card */}
-                {(() => {
-                  const myPlayer = round?.players?.find(p => String(p.userId) === String(user?.id));
-                  const myStake = myPlayer ? Number(myPlayer.stake || 0) : 0;
-                  const stepStake = round ? addAmount : betAmount;
-                  const displayStake = myStake > 0 ? myStake : stepStake;
-                  const potTotal = previewPot > 0 ? previewPot : 1000;
-                  const myOdds = Math.min(100, Math.round(((myStake > 0 ? myStake : stepStake) / potTotal) * 100)) || 10;
-
-                  return (
-                    <View style={{
-                      width: "100%",
-                      backgroundColor: "rgba(10, 18, 40, 0.9)",
-                      borderRadius: 18,
-                      borderWidth: 1.5,
-                      borderColor: "rgba(255, 23, 68, 0.3)",
-                      paddingHorizontal: 16,
-                      paddingTop: 12,
-                      paddingBottom: 10,
-                      marginBottom: 8,
-                    }}>
-                      {/* Top Row: User Avatar & Name | YOUR BET | PERCENTAGE */}
-                      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                        {/* Left: Avatar + GUEST_2 + YOU badge */}
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1.1, minWidth: 0 }}>
-                          <View style={{
-                            width: 40,
-                            height: 40,
-                            borderRadius: 20,
-                            backgroundColor: "rgba(255, 23, 68, 0.15)",
-                            borderWidth: 2,
-                            borderColor: "#FF1744",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            flexShrink: 0,
-                          }}>
-                            <Ionicons name="person" size={20} color="#FF1744" />
-                          </View>
-
-                          <View style={{ minWidth: 0, flexShrink: 1 }}>
-                            <Text numberOfLines={1} style={{ color: "#ffffff", fontSize: 14, fontWeight: "900", letterSpacing: 0.5, fontFamily: "Space Grotesk, Inter, sans-serif" }}>
-                              {user?.username ? user.username.toUpperCase() : "PLAYER"}
-                            </Text>
-                            <View style={{
-                              alignSelf: "flex-start",
-                              backgroundColor: "rgba(255, 23, 68, 0.2)",
-                              paddingHorizontal: 6,
-                              paddingVertical: 1,
-                              borderRadius: 6,
-                              borderWidth: 1,
-                              borderColor: "#FF1744",
-                              marginTop: 2,
-                            }}>
-                              <Text style={{ color: "#FF1744", fontSize: 9, fontWeight: "900", letterSpacing: 0.8 }}>
-                                YOU
-                              </Text>
-                            </View>
-                          </View>
-                        </View>
-
-                        {/* Subtle Divider */}
-                        <View style={{ width: 1, height: 32, backgroundColor: "rgba(255, 255, 255, 0.12)", marginHorizontal: 4 }} />
-
-                        {/* Middle: YOUR BET */}
-                        <View style={{ alignItems: "center", flex: 0.95 }}>
-                          <Text style={{ color: "#94a3b8", fontSize: 9, fontWeight: "800", letterSpacing: 0.6, textTransform: "uppercase" }}>
-                            {language === "am" ? "የእርስዎ ውርርድ" : "YOUR BET"}
-                          </Text>
-                          <Text style={{ color: "#ffffff", fontSize: 16, fontWeight: "900", fontFamily: "Space Grotesk, Inter, sans-serif", marginTop: 2 }}>
-                            {displayStake} ETB
-                          </Text>
-                        </View>
-
-                        {/* Subtle Divider */}
-                        <View style={{ width: 1, height: 32, backgroundColor: "rgba(255, 255, 255, 0.12)", marginHorizontal: 4 }} />
-
-                        {/* Right: PERCENTAGE */}
-                        <View style={{ alignItems: "center", flex: 0.85 }}>
-                          <Text style={{ color: "#94a3b8", fontSize: 9, fontWeight: "800", letterSpacing: 0.6, textTransform: "uppercase" }}>
-                            {language === "am" ? "መቶኛ" : "PERCENTAGE"}
-                          </Text>
-                          <Text style={{ color: "#FF1744", fontSize: 16, fontWeight: "900", fontFamily: "Space Grotesk, Inter, sans-serif", marginTop: 2 }}>
-                            {myOdds}%
-                          </Text>
-                        </View>
-                      </View>
-
-                      {/* Bottom: Crimson Red Progress Bar */}
-                      <View style={{ height: 6, backgroundColor: "rgba(255, 255, 255, 0.08)", borderRadius: 3, marginTop: 10, overflow: "hidden" }}>
-                        <View style={{
-                          width: `${Math.max(4, myOdds)}%`,
-                          height: "100%",
-                          backgroundColor: "#FF1744",
-                          borderRadius: 3,
-                        }} />
-                      </View>
-                    </View>
-                  );
-                })()}
-
-                {/* Row 2: Stepper Capsule & Compact ADD BET Action Button */}
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                  {/* Stepper (Left) - Expanded width & circular minus/plus buttons */}
-                  <View style={{
-                    flex: 1.35,
-                    backgroundColor: "rgba(10, 18, 40, 0.85)",
-                    borderRadius: 24,
-                    borderWidth: 1.5,
-                    borderColor: "rgba(255, 23, 68, 0.3)",
-                    height: 50,
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    paddingHorizontal: 5,
-                  }}>
-                    <TouchableOpacity
-                      onPress={() => {
-                        if (round) setAddAmount(p => Math.max(10, p - 10));
-                        else setBetAmount(p => Math.max(10, p - 10));
-                      }}
-                      style={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: 20,
-                        backgroundColor: "rgba(15, 23, 42, 0.9)",
-                        borderWidth: 1.5,
-                        borderColor: "rgba(255, 23, 68, 0.4)",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                      activeOpacity={0.75}
-                    >
-                      <Ionicons name="remove" size={20} color="#FF1744" />
-                    </TouchableOpacity>
-
-                    <View style={{ flexDirection: "row", alignItems: "baseline", gap: 4 }}>
-                      <Text style={{ color: "#ffffff", fontSize: 19, fontWeight: "900", fontFamily: "Space Grotesk, Inter, sans-serif" }}>
-                        {round ? addAmount : betAmount}
-                      </Text>
-                      <Text style={{ color: "#94a3b8", fontSize: 13, fontWeight: "800", fontFamily: "Space Grotesk, Inter, sans-serif" }}>
-                        ETB
-                      </Text>
-                    </View>
-
-                    <TouchableOpacity
-                      onPress={() => {
-                        if (round) setAddAmount(p => Math.min(10000, p + 10));
-                        else setBetAmount(p => Math.min(10000, p + 10));
-                      }}
-                      style={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: 20,
-                        backgroundColor: "rgba(15, 23, 42, 0.9)",
-                        borderWidth: 1.5,
-                        borderColor: "rgba(255, 23, 68, 0.4)",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                      activeOpacity={0.75}
-                    >
-                      <Ionicons name="add" size={20} color="#FF1744" />
-                    </TouchableOpacity>
-                  </View>
-
-                  {/* Primary CTA (Right) - Signal Red ADD BET Button */}
-                  <TouchableOpacity
-                    disabled={joinLoading || addLoading || isSpinning}
-                    onPress={() => {
-                      if (round) handleAddStake(addAmount);
-                      else handleJoinRoom("RAIL", betAmount);
-                    }}
-                    style={{
-                      flex: 1,
-                      height: 50,
-                      borderRadius: 24,
-                      backgroundColor: "#FF1744",
-                      flexDirection: "row",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 8,
-                      borderWidth: 1,
-                      borderColor: "rgba(255, 255, 255, 0.2)",
-                      opacity: joinLoading || addLoading || isSpinning ? 0.7 : 1,
-                    }}
-                    activeOpacity={0.85}
-                  >
-                    {joinLoading || addLoading ? (
-                      <ActivityIndicator size="small" color="#ffffff" />
-                    ) : (
-                      <>
-                        <Ionicons name="layers" size={19} color="#ffffff" />
-                        <Text style={{ color: "#ffffff", fontSize: 15, fontWeight: "900", letterSpacing: 0.8, fontFamily: "Space Grotesk, Inter, sans-serif" }}>
-                          {language === "am" ? "ውርርድ ጨምር" : "ADD BET"}
-                        </Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                </View>
-
-                {/* Row 3: Proper Bordered Button to view joined players */}
-                <TouchableOpacity
-                  onPress={() => setMobilePlayersSheetVisible(true)}
-                  style={{
-                    width: "100%",
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    paddingHorizontal: 16,
-                    height: 44,
-                    borderRadius: 22,
-                    backgroundColor: "rgba(10, 18, 40, 0.85)",
-                    borderWidth: 1.5,
-                    borderColor: "rgba(255, 23, 68, 0.3)",
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                    <Ionicons name="people" size={17} color="#FF1744" />
-                    <Text numberOfLines={1} style={{ color: "#e2e8f0", fontSize: 13, fontWeight: "800", fontFamily: "Space Grotesk, Inter, sans-serif" }}>
-                      {language === "am"
-                        ? `ተጫዋቾች (${round?.players?.length || 0})`
-                        : `View Players (${round?.players?.length || 0})`}
-                    </Text>
-                  </View>
-                  <Ionicons name="chevron-down" size={16} color="#FF1744" />
-                </TouchableOpacity>
-              </View>
-            )}
+              );
+            })()}
           </View>
         </ScrollView>
       )}
 
 
 
-      {/* ════════════════════════════════════════════════════════════════
+      /* ════════════════════════════════════════════════════════════════
          ██  WINNER / LOSER POPUP OVERLAY (Exact Match Image 4)
          ════════════════════════════════════════════════════════════════ */}
       {screenState === "result" && resultData && (

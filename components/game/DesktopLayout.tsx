@@ -11,6 +11,8 @@ import {
   Platform,
   Image,
   Animated,
+  PanResponder,
+  useWindowDimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -116,17 +118,19 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
   } = props;
 
   // Carousel order
+  const { width: winW } = useWindowDimensions();
+  const isTabletLayout = winW < 1200;
   const tabs: DesktopTabType[] = ["XO_GAME", "SPIN", "COMING_SOON"];
   const [spinBetModalVisible, setSpinBetModalVisible] = useState(false);
   const [sheetInitialView, setSheetInitialView] = useState<"STAKES" | "FRIENDS">("STAKES");
-  const slideAnim = useRef(new Animated.Value(0)).current;
+    const slideAnim = useRef(new Animated.Value(0)).current;
 
   const triggerSlide = (direction: "left" | "right") => {
-    slideAnim.setValue(direction === "left" ? 50 : -50);
+    slideAnim.setValue(direction === "left" ? 40 : -40);
     Animated.spring(slideAnim, {
       toValue: 0,
-      tension: 75,
-      friction: 8,
+      tension: 65,
+      friction: 8.5,
       useNativeDriver: Platform.OS !== "web",
     }).start();
   };
@@ -148,6 +152,40 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
     const nextIdx = (currIdx + 1) % tabs.length;
     setSelectedTab(tabs[nextIdx]);
   };
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, gestureState) => Math.abs(gestureState.dx) > 12,
+      onPanResponderMove: (_, gestureState) => {
+        slideAnim.setValue(gestureState.dx * 0.55);
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        const dx = gestureState.dx;
+        const vx = gestureState.vx;
+        if (dx < -55 || vx < -0.35) {
+          handleNextCard();
+        } else if (dx > 55 || vx > 0.35) {
+          handlePrevCard();
+        } else {
+          Animated.spring(slideAnim, {
+            toValue: 0,
+            tension: 70,
+            friction: 8.5,
+            useNativeDriver: Platform.OS !== "web",
+          }).start();
+        }
+      },
+      onPanResponderTerminate: () => {
+        Animated.spring(slideAnim, {
+          toValue: 0,
+          tension: 70,
+          friction: 8.5,
+          useNativeDriver: Platform.OS !== "web",
+        }).start();
+      },
+    })
+  ).current;
 
   // 3-Card 3D Coverflow Cycling: Left (small) - Center (BIG Active) - Right (small)
   const visibleCards = useMemo(() => {
@@ -612,6 +650,7 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
               user={user}
               balance={balance}
               currentScreen="home"
+              style={{ width: isTabletLayout ? 240 : 270 }}
               refreshProfile={(force?: boolean) => { try { refreshProfile?.(force ?? true); } catch (_) {} }}
               setDepositVisible={setDepositVisible}
               setWithdrawVisible={setWithdrawVisible}
@@ -852,12 +891,12 @@ const s = StyleSheet.create({
   },
   pageContentWrapper: {
     width: "100%",
-    maxWidth: 1620,
+    maxWidth: 1480,
     alignSelf: "center",
   },
   threeColumnRow: {
     flexDirection: "row",
-    gap: 18,
+    gap: 16,
     alignItems: "flex-start",
   },
 
@@ -906,9 +945,9 @@ const s = StyleSheet.create({
   } as any,
   threeCardsRow: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     justifyContent: "center",
-    gap: 14,
+    gap: 16,
     width: "100%",
     paddingHorizontal: 8,
   },
@@ -917,11 +956,11 @@ const s = StyleSheet.create({
     transition: "all 300ms cubic-bezier(0.16, 1, 0.3, 1)",
   } as any,
   coverflowColumnCenter: {
-    flex: 1.75,
+    flex: 1.0,
     zIndex: 10,
   },
   coverflowColumnSide: {
-    flex: 0.82,
+    flex: 0.75,
     zIndex: 2,
     cursor: "pointer",
   } as any,
@@ -942,18 +981,20 @@ const s = StyleSheet.create({
     transition: "all 300ms cubic-bezier(0.16, 1, 0.3, 1)",
   } as any,
   gameCardCenter: {
-    minHeight: 650,
-    padding: 26,
+    minHeight: 460,
+    maxHeight: 510,
+    padding: 20,
     zIndex: 10,
     transform: [{ scale: 1.0 }],
     opacity: 1.0,
   },
   gameCardSide: {
-    minHeight: 560,
-    padding: 18,
+    minHeight: 345,
+    maxHeight: 382,
+    padding: 14,
     zIndex: 2,
-    transform: [{ scale: 0.86 }],
-    opacity: 0.6,
+    transform: [{ scale: 1.0 }],
+    opacity: 0.65,
     cursor: "pointer",
   } as any,
   gameCardFocusedSpin: {
@@ -1003,12 +1044,12 @@ const s = StyleSheet.create({
     zIndex: 2,
   },
   cardArtWrapperCenter: {
-    height: 360,
-    marginVertical: 8,
+    height: 220,
+    marginVertical: 6,
   },
   cardArtWrapperSide: {
-    height: 290,
-    marginVertical: 6,
+    height: 165,
+    marginVertical: 4,
   },
   cardTitle: {
     color: "#FFFFFF",
@@ -1235,7 +1276,7 @@ const s = StyleSheet.create({
 
   // Right Sidebar: Weekly Leaderboard List
   rightSidebar: {
-    width: 310,
+    width: 285,
   },
   leaderboardCard: {
     backgroundColor: "#111827",

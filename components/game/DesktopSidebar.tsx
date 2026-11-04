@@ -20,6 +20,7 @@ interface DesktopSidebarProps {
   setDepositVisible?: (v: boolean) => void;
   setWithdrawVisible?: (v: boolean) => void;
   router: any;
+  style?: any;
 }
 
 export default function DesktopSidebar({
@@ -30,6 +31,7 @@ export default function DesktopSidebar({
   setDepositVisible = () => {},
   setWithdrawVisible = () => {},
   router,
+  style,
 }: DesktopSidebarProps) {
   const { token } = useAuth();
   const [todayStats, setTodayStats] = useState({ deposits: 0, withdrawals: 0, count: 0 });
@@ -79,7 +81,7 @@ export default function DesktopSidebar({
   };
 
   return (
-    <View style={s.leftSidebar}>
+    <View style={[s.leftSidebar, style]}>
       <View style={{ gap: 16 }}>
         {/* Profile & Available Balance Card */}
         <View style={s.card}>
@@ -233,14 +235,14 @@ export default function DesktopSidebar({
               style={[s.walletBtnSmall, { borderColor: "#00BFFF", backgroundColor: "rgba(0, 191, 255, 0.08)" }]}
               activeOpacity={0.8}
             >
-              <Text style={[s.walletBtnTextSmall, { color: "#00BFFF" }]}>DEPOSIT</Text>
+              <Text numberOfLines={1} style={[s.walletBtnTextSmall, { color: "#00BFFF" }]}>DEPOSIT</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setWithdrawVisible(true)}
               style={[s.walletBtnSmall, { borderColor: "#FF1744", backgroundColor: "rgba(255, 23, 68, 0.08)" }]}
               activeOpacity={0.8}
             >
-              <Text style={[s.walletBtnTextSmall, { color: "#FF1744" }]}>WITHDRAW</Text>
+              <Text numberOfLines={1} style={[s.walletBtnTextSmall, { color: "#FF1744" }]}>WITHDRAW</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -251,7 +253,7 @@ export default function DesktopSidebar({
 
 const s = StyleSheet.create({
   leftSidebar: {
-    width: 290,
+    width: 270,
   },
   card: {
     backgroundColor: "#111827", // Brand Slate
@@ -418,14 +420,15 @@ const s = StyleSheet.create({
     flex: 1,
     borderWidth: 1.5,
     borderRadius: 14,
-    paddingVertical: 10,
+    paddingVertical: 9,
+    paddingHorizontal: 4,
     alignItems: "center",
     justifyContent: "center",
   },
   walletBtnTextSmall: {
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: "900",
-    letterSpacing: 0.8,
+    letterSpacing: 0.5,
     fontFamily: "Space Grotesk, sans-serif",
   },
 });

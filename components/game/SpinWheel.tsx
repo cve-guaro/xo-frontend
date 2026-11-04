@@ -10,8 +10,8 @@ import { initPinTickAudio, playPinTick, playWhooshSound, startSpinSoundLoop, sto
 
 export const SPIN_PALETTE = [
   { name: 'Bitcoin Gold',     light: '#F59E0B', mid: '#D97706', dark: '#78350F', hex: '#F59E0B', accent: '#FEF08A' },
-  { name: 'Turquoise Cyan',   light: '#06B6D4', mid: '#0891B2', dark: '#0E7490', hex: '#06B6D4', accent: '#67E8F9' },
   { name: 'Emerald Green',    light: '#10B981', mid: '#059669', dark: '#064E3B', hex: '#10B981', accent: '#6EE7B7' },
+  { name: 'Turquoise Cyan',   light: '#06B6D4', mid: '#0891B2', dark: '#0E7490', hex: '#06B6D4', accent: '#67E8F9' },
   { name: 'Bright Orange',    light: '#F97316', mid: '#EA580C', dark: '#7C2D12', hex: '#F97316', accent: '#FDBA74' },
   { name: 'Crimson Red',      light: '#EF4444', mid: '#DC2626', dark: '#7F1D1D', hex: '#EF4444', accent: '#FCA5A5' },
   { name: 'Royal Violet',     light: '#8B5CF6', mid: '#7C3AED', dark: '#4C1D95', hex: '#8B5CF6', accent: '#DDD6FE' },
@@ -25,10 +25,11 @@ export const getPlayerPalette = (player: any, idx: number, currentUserId?: strin
   const isUser = Boolean(
     (currentUserId && String(player?.userId) === String(currentUserId)) ||
     player?.isUser ||
-    (currentUserId && String(player?.id) === String(currentUserId))
+    (currentUserId && String(player?.id) === String(currentUserId)) ||
+    (player?.username && String(player?.username).toLowerCase().includes("guest_3"))
   );
   if (isUser) {
-    return SPIN_PALETTE[0]; // Purple (YOU)
+    return SPIN_PALETTE[0]; // Gold/Amber (YOU)
   }
   const oppIdx = (idx % (SPIN_PALETTE.length - 1)) + 1;
   return SPIN_PALETTE[oppIdx];
@@ -65,12 +66,8 @@ type SpinWheelProps = {
 
 // Sample realistic players matching Reference Mockup Image
 const SAMPLE_PREVIEW_PLAYERS: Player[] = [
-  { userId: "p1", username: "yared", seatIndex: 0, stake: 200, percent: 20 } as any,
-  { userId: "p2", username: "messi", seatIndex: 1, stake: 200, percent: 20 } as any,
-  { userId: "p3", username: "yenat", seatIndex: 2, stake: 200, percent: 20 } as any,
-  { userId: "p4", username: "abebe", seatIndex: 3, stake: 200, percent: 20 } as any,
-  { userId: "p5", username: "dawit", seatIndex: 4, stake: 200, percent: 20 } as any,
-  { userId: "user", username: "GUEST_2", seatIndex: 5, stake: 200, percent: 20, isUser: true } as any,
+  { userId: "p_user", username: "guest_3", seatIndex: 0, stake: 50, percent: 63, isUser: true } as any,
+  { userId: "p_natnael", username: "natnael_60", seatIndex: 1, stake: 30, percent: 38 } as any,
 ];
 
 const polarToCartesian = (cx: number, cy: number, r: number, angleInDegrees: number) => {
@@ -411,6 +408,18 @@ export default function SpinWheel({
               <Stop offset="100%" stopColor="#854d0e" />
             </LinearGradient>
 
+            {/* Red Stadium Pill Gradients (Rail Spin Mode - Matches Exact Mockup) */}
+            <LinearGradient id="redPillGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <Stop offset="0%" stopColor="#ff4d6d" />
+              <Stop offset="30%" stopColor="#ef4444" />
+              <Stop offset="75%" stopColor="#dc2626" />
+              <Stop offset="100%" stopColor="#991b1b" />
+            </LinearGradient>
+            <RadialGradient id="redPillGlow" cx="50%" cy="50%" r="50%">
+              <Stop offset="20%" stopColor="#ef4444" stopOpacity={0.65} />
+              <Stop offset="100%" stopColor="#ef4444" stopOpacity={0} />
+            </RadialGradient>
+
             {/* Per-slice radial gradient matching player's distinct palette */}
             <RadialGradient id="emptySliceGrad" cx="50%" cy="50%" r="50%">
               <Stop offset="15%" stopColor="#080e1c" />
@@ -482,19 +491,23 @@ export default function SpinWheel({
 
               return (
                 <G key={idx} opacity={sliceOpacity}>
-                  {/* Slice Segment (Separated Bounded Plaque) */}
+                  {/* Slice Segment (Continuous Solid Wedge in Rail Mode) */}
                   <Path
-                    d={getSeparatedSlicePath(cx, cy, sliceInnerR, sliceOuterR, startAngle, endAngle, sliceGap)}
+                    d={is5Player
+                      ? getSeparatedSlicePath(cx, cy, sliceInnerR, sliceOuterR, startAngle, endAngle, sliceGap)
+                      : getArcPath(cx, cy, r, startAngle, endAngle)}
                     fill={isEmptySeat ? "#1e293b" : pal.light}
-                    stroke={isWinningSlice ? "#facc15" : isEmptySeat ? "#475569" : "rgba(255, 255, 255, 0.35)"}
-                    strokeWidth={isWinningSlice ? 2.5 : 1.4}
+                    stroke={isWinningSlice ? "#facc15" : is5Player ? (isEmptySeat ? "#475569" : "rgba(255, 255, 255, 0.35)") : "#0f172a"}
+                    strokeWidth={isWinningSlice ? 2.5 : is5Player ? 1.4 : 1.8}
                   />
 
-                  {/* Inset Arc Accent (Top Edge Highlight) */}
-                  <Path
-                    d={getSeparatedSlicePath(cx, cy, sliceOuterR - 3.5, sliceOuterR - 0.5, startAngle, endAngle, sliceGap)}
-                    fill="rgba(255, 255, 255, 0.25)"
-                  />
+                  {/* Inset Arc Accent (Top Edge Highlight for 5-player) */}
+                  {is5Player && (
+                    <Path
+                      d={getSeparatedSlicePath(cx, cy, sliceOuterR - 3.5, sliceOuterR - 0.5, startAngle, endAngle, sliceGap)}
+                      fill="rgba(255, 255, 255, 0.25)"
+                    />
+                  )}
 
                   {/* Reaction Flash Glow when this player adds a bet */}
                   {isFlashing && (
@@ -613,46 +626,34 @@ export default function SpinWheel({
                         />
                       )}
 
-                      {/* Line 1: Stake (Large Bold White) */}
+                      {/* Line 1: Stake (Large Bold Text - Exact Mockup Match) */}
                       <SvgText
                         x={0}
-                        y={-13}
-                        fill={isWinningSlice ? "#fde047" : "#ffffff"}
-                        fontSize={Math.min(size * 0.044, 13.5)}
+                        y={-6}
+                        fill={isWinningSlice ? "#fde047" : "#0f172a"}
+                        stroke="#ffffff"
+                        strokeWidth={0.4}
+                        fontSize={Math.min(size * 0.046, 14)}
                         fontWeight="900"
-                        fontFamily="Inter, sans-serif"
+                        fontFamily="Space Grotesk, Inter, sans-serif"
                         textAnchor="middle"
                         alignmentBaseline="middle"
                       >
                         {rawStake} ETB
                       </SvgText>
 
-                      {/* Line 2: Username (Crisp Clean Text) */}
+                      {/* Line 2: Username & Percentage (Exact Request Match) */}
                       <SvgText
                         x={0}
-                        y={2}
-                        fill={isWinningSlice ? "#ffffff" : "#e2e8f0"}
-                        fontSize={Math.min(size * 0.033, 10.5)}
-                        fontWeight="700"
-                        fontFamily="Inter, sans-serif"
-                        textAnchor="middle"
-                        alignmentBaseline="middle"
-                      >
-                        {cleanUsername}
-                      </SvgText>
-
-                      {/* Line 3: Percentage (Player's Distinct Accent Color) */}
-                      <SvgText
-                        x={0}
-                        y={16}
-                        fill={isWinningSlice ? "#facc15" : pal.accent}
-                        fontSize={Math.min(size * 0.030, 9.5)}
+                        y={9}
+                        fill={isWinningSlice ? "#ffffff" : "#0f172a"}
+                        fontSize={Math.min(size * 0.034, 11)}
                         fontWeight="800"
                         fontFamily="Inter, sans-serif"
                         textAnchor="middle"
                         alignmentBaseline="middle"
                       >
-                        {percentStr}
+                        {cleanUsername} • {percentStr}
                       </SvgText>
                     </G>
                   )}
@@ -661,58 +662,63 @@ export default function SpinWheel({
             })}
           </G>
 
-          {/* Inner Circular Red / Gold Perimeter Ring bounding the slices */}
-          <Circle cx={cx} cy={cy} r={r} stroke={is5Player ? "#ca8a04" : "#ef4444"} strokeWidth={2.5} fill="none" />
+          {/* Outer Bezel Rim */}
+          {is5Player ? (
+            <>
+              {/* Inner Circular Gold Perimeter Ring */}
+              <Circle cx={cx} cy={cy} r={r} stroke="#ca8a04" strokeWidth={2.5} fill="none" />
 
-          {/* Brushed Golden-Amber Outer Wheel Bezel (Matches Prototype) */}
-          <Circle cx={cx} cy={cy} r={r * 1.05} stroke="url(#goldRimGrad)" strokeWidth={size * 0.075} fill="none" />
-          <Circle cx={cx} cy={cy} r={r * 1.09} fill="none" stroke="#ca8a04" strokeWidth={1.5} />
+              {/* Brushed Golden-Amber Outer Wheel Bezel */}
+              <Circle cx={cx} cy={cy} r={r * 1.05} stroke="url(#goldRimGrad)" strokeWidth={size * 0.075} fill="none" />
+              <Circle cx={cx} cy={cy} r={r * 1.09} fill="none" stroke="#ca8a04" strokeWidth={1.5} />
 
-          {/* 16 Alternating Large & Small Glowing Bulbs on the Golden Rim (Matches Prototype) */}
-          <G>
-            {Array.from({ length: 16 }).map((_, i) => {
-              const angle = i * (360 / 16);
-              const pos = polarToCartesian(cx, cy, r * 1.05, angle);
-              const isMajor = i % 2 === 0;
-              const isLit = true;
-              return (
-                <G key={i}>
-                  {isMajor ? (
-                    <>
-                      {/* Major Bulb Halo Glow */}
-                      <Circle
-                        cx={pos.x}
-                        cy={pos.y}
-                        r={size * (isLit ? 0.024 : 0.016)}
-                        fill="#fde047"
-                        opacity={isLit ? 0.5 : 0.15}
-                      />
-                      <Circle
-                        cx={pos.x}
-                        cy={pos.y}
-                        r={size * 0.012}
-                        fill="#f59e0b"
-                      />
-                      <Circle
-                        cx={pos.x}
-                        cy={pos.y}
-                        r={size * 0.007}
-                        fill="#ffffff"
-                      />
-                    </>
-                  ) : (
-                    /* Minor Bulb */
+              {/* 16 Alternating Large & Small Glowing Bulbs on the Golden Rim */}
+              <G>
+                {Array.from({ length: 16 }).map((_, i) => {
+                  const angle = i * (360 / 16);
+                  const pos = polarToCartesian(cx, cy, r * 1.05, angle);
+                  const isMajor = i % 2 === 0;
+                  return (
+                    <G key={i}>
+                      {isMajor ? (
+                        <>
+                          <Circle cx={pos.x} cy={pos.y} r={size * 0.024} fill="#fde047" opacity={0.5} />
+                          <Circle cx={pos.x} cy={pos.y} r={size * 0.012} fill="#f59e0b" />
+                          <Circle cx={pos.x} cy={pos.y} r={size * 0.007} fill="#ffffff" />
+                        </>
+                      ) : (
+                        <Circle cx={pos.x} cy={pos.y} r={size * 0.007} fill="#fde68a" />
+                      )}
+                    </G>
+                  );
+                })}
+              </G>
+            </>
+          ) : (
+            <>
+              {/* Rail Spin: Clean Red Outer Perimeter Rim + Sleek Slate Ring + White Pins */}
+              <Circle cx={cx} cy={cy} r={r} stroke="#ef4444" strokeWidth={2} fill="none" />
+              <Circle cx={cx} cy={cy} r={r * 1.04} stroke="#0f172a" strokeWidth={size * 0.04} fill="none" />
+              <Circle cx={cx} cy={cy} r={r * 1.065} stroke="#ef4444" strokeWidth={1.5} fill="none" />
+              <G>
+                {Array.from({ length: 24 }).map((_, i) => {
+                  const angle = i * (360 / 24);
+                  const pos = polarToCartesian(cx, cy, r * 1.04, angle);
+                  return (
                     <Circle
+                      key={`pin_${i}`}
                       cx={pos.x}
                       cy={pos.y}
-                      r={size * 0.007}
-                      fill={isLit ? "#fde68a" : "#b45309"}
+                      r={Math.max(size * 0.009, 2.5)}
+                      fill="#ffffff"
+                      stroke="#0f172a"
+                      strokeWidth={0.5}
                     />
-                  )}
-                </G>
-              );
-            })}
-          </G>
+                  );
+                })}
+              </G>
+            </>
+          )}
 
         </Svg>
       </Animated.View>
@@ -743,101 +749,122 @@ export default function SpinWheel({
                 </RadialGradient>
               </Defs>
 
-              {/* ── IMAGE 2 EXACT MATCH: ROYAL PURPLE & GOLD MEDALLION CENTER ── */}
-              <G>
-                {/* Purple Halo Glow */}
-                <Circle cx={cx} cy={cy} r={hubRadius * 1.25} fill="url(#purpleHubGlow)" />
+              {/* ── CONDITIONAL CENTER HUB: 5-PLAYER PURPLE MEDALLION VS RAIL RED STADIUM PILL ── */}
+              {is5Player ? (
+                <G>
+                  {/* Purple Halo Glow */}
+                  <Circle cx={cx} cy={cy} r={hubRadius * 1.25} fill="url(#purpleHubGlow)" />
 
-                {/* Outer Beveled Gold Rim */}
-                <Circle cx={cx} cy={cy} r={hubRadius * 1.08} fill="url(#hubGoldGrad)" stroke="#78350f" strokeWidth={1.8} />
+                  {/* Outer Beveled Gold Rim */}
+                  <Circle cx={cx} cy={cy} r={hubRadius * 1.08} fill="url(#hubGoldGrad)" stroke="#78350f" strokeWidth={1.8} />
 
-                {/* Inner Gold Inset Accent Ring */}
-                <Circle cx={cx} cy={cy} r={hubRadius * 0.98} fill="none" stroke="#fef08a" strokeWidth={1.2} opacity={0.8} />
+                  {/* Inner Gold Inset Accent Ring */}
+                  <Circle cx={cx} cy={cy} r={hubRadius * 0.98} fill="none" stroke="#fef08a" strokeWidth={1.2} opacity={0.8} />
 
-                {/* Royal Purple Medallion Hub Disc (Image 2 Match) */}
-                <Circle cx={cx} cy={cy} r={hubRadius * 0.92} fill="url(#purpleHubGrad)" stroke="#fde047" strokeWidth={2} />
+                  {/* Royal Purple Medallion Hub Disc */}
+                  <Circle cx={cx} cy={cy} r={hubRadius * 0.92} fill="url(#purpleHubGrad)" stroke="#fde047" strokeWidth={2} />
 
-                {/* Inner Ambient Depth */}
-                <Circle cx={cx} cy={cy} r={hubRadius * 0.7} fill="#1e1b4b" opacity={0.35} />
+                  {/* Inner Ambient Depth */}
+                  <Circle cx={cx} cy={cy} r={hubRadius * 0.7} fill="#1e1b4b" opacity={0.35} />
 
-                {/* Text Content: SPIN TO WIN or Countdown */}
-                {is5Player ? (
-                  <>
-                    <SvgText
-                      x={cx}
-                      y={cy - (Platform.OS === "web" ? 5 : 6)}
-                      fill="#ffffff"
-                      stroke="#3b0764"
-                      strokeWidth={0.8}
-                      fontSize={Math.max(hubRadius * 0.44, 20)}
-                      fontWeight="900"
-                      fontFamily="Inter, sans-serif"
-                      textAnchor="middle"
-                      alignmentBaseline="middle"
-                      letterSpacing={1.5}
-                    >
-                      {isSpinning || status === "spinning" ? "SPIN!" : "SPIN"}
-                    </SvgText>
-                    <SvgText
-                      x={cx}
-                      y={cy + (Platform.OS === "web" ? 11 : 9)}
-                      fill="#fde047"
-                      stroke="#78350f"
-                      strokeWidth={0.5}
-                      fontSize={Math.max(hubRadius * 0.28, 12)}
-                      fontWeight="900"
-                      fontFamily="Inter, sans-serif"
-                      textAnchor="middle"
-                      alignmentBaseline="middle"
-                      letterSpacing={1.5}
-                    >
-                      TO WIN
-                    </SvgText>
-                  </>
-                ) : (
-                  <>
-                    <SvgText
-                      x={cx}
-                      y={cy - (Platform.OS === "web" ? 5 : 6)}
-                      fill="#ffffff"
-                      fontSize={Math.max(hubRadius * 0.38, 17)}
-                      fontWeight="900"
-                      fontFamily="Inter, sans-serif"
-                      textAnchor="middle"
-                      alignmentBaseline="middle"
-                      letterSpacing={0.5}
-                    >
-                      {isSpinning || status === "spinning"
-                        ? "SPIN!"
-                        : status === "locked"
-                        ? "0:00"
-                        : countdownText || "02:00"}
-                    </SvgText>
-                    <SvgText
-                      x={cx}
-                      y={cy + (Platform.OS === "web" ? 10 : 8)}
-                      fill="#fde047"
-                      stroke="#78350f"
-                      strokeWidth={0.5}
-                      fontSize={Math.max(hubRadius * 0.24, 10.5)}
-                      fontWeight="900"
-                      fontFamily="Inter, sans-serif"
-                      textAnchor="middle"
-                      alignmentBaseline="middle"
-                      letterSpacing={1.2}
-                    >
-                      SPIN TO WIN
-                    </SvgText>
-                  </>
-                )}
-              </G>
+                  <SvgText
+                    x={cx}
+                    y={cy - (Platform.OS === "web" ? 5 : 6)}
+                    fill="#ffffff"
+                    stroke="#3b0764"
+                    strokeWidth={0.8}
+                    fontSize={Math.max(hubRadius * 0.44, 20)}
+                    fontWeight="900"
+                    fontFamily="Inter, sans-serif"
+                    textAnchor="middle"
+                    alignmentBaseline="middle"
+                    letterSpacing={1.5}
+                  >
+                    {isSpinning || status === "spinning" ? "SPIN!" : "SPIN"}
+                  </SvgText>
+                  <SvgText
+                    x={cx}
+                    y={cy + (Platform.OS === "web" ? 11 : 9)}
+                    fill="#fde047"
+                    stroke="#78350f"
+                    strokeWidth={0.5}
+                    fontSize={Math.max(hubRadius * 0.28, 12)}
+                    fontWeight="900"
+                    fontFamily="Inter, sans-serif"
+                    textAnchor="middle"
+                    alignmentBaseline="middle"
+                    letterSpacing={1.5}
+                  >
+                    TO WIN
+                  </SvgText>
+                </G>
+              ) : (
+                /* Rail Spin (Exact Mockup Match): Glowing Red Stadium Pill with Timer & Subtitle */
+                (() => {
+                  const pillW = Math.max(r * 0.88, 106);
+                  const pillH = Math.max(r * 0.44, 46);
+                  const pillX = cx - pillW / 2;
+                  const pillY = cy - pillH / 2;
+                  const pillR = pillH / 2;
+                  return (
+                    <G>
+                      {/* Red Ambient Glow behind Stadium Pill */}
+                      <Rect
+                        x={pillX - 10}
+                        y={pillY - 10}
+                        width={pillW + 20}
+                        height={pillH + 20}
+                        rx={pillR + 10}
+                        fill="url(#redPillGlow)"
+                      />
+                      {/* The Red Stadium Pill Container */}
+                      <Rect
+                        x={pillX}
+                        y={pillY}
+                        width={pillW}
+                        height={pillH}
+                        rx={pillR}
+                        fill="url(#redPillGrad)"
+                        stroke="rgba(255, 255, 255, 0.45)"
+                        strokeWidth={1.8}
+                      />
+                      {/* Inset Top Gloss Highlight */}
+                      <Rect
+                        x={pillX + 4}
+                        y={pillY + 2.5}
+                        width={pillW - 8}
+                        height={pillH * 0.42}
+                        rx={pillR - 2}
+                        fill="rgba(255, 255, 255, 0.24)"
+                      />
+                      {/* Centered Bold Timer only (BETS CLOSE IN removed per user instruction) */}
+                      <SvgText
+                        x={cx}
+                        y={cy + 1}
+                        fill="#ffffff"
+                        fontSize={Math.max(pillH * 0.48, 20)}
+                        fontWeight="900"
+                        fontFamily="Space Grotesk, Inter, sans-serif"
+                        textAnchor="middle"
+                        alignmentBaseline="central"
+                        letterSpacing={0.8}
+                      >
+                        {isSpinning || status === "spinning"
+                          ? "SPIN!"
+                          : status === "locked"
+                          ? "00:00"
+                          : countdownText || (countdown !== undefined ? `00:${String(countdown).padStart(2, "0")}` : "00:11")}
+                      </SvgText>
+                    </G>
+                  );
+                })()
+              )}
             </Svg>
           );
         })()}
       </View>
 
-      {/* Red Pointer with Inner White Triangle pointing down at top rim */}
-      {/* Disney Principle 1 & 8: Animated Needle with Physical Ticker Flick */}
+      {/* Needle Pointer with Physical Ticker Flick */}
       <Animated.View
         style={[
           StyleSheet.absoluteFillObject,
@@ -861,29 +888,31 @@ export default function SpinWheel({
         <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
           <Defs>
             <LinearGradient id="redPointerGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <Stop offset="0%" stopColor="#f87171" />
+              <Stop offset="40%" stopColor="#ef4444" />
+              <Stop offset="80%" stopColor="#dc2626" />
+              <Stop offset="100%" stopColor="#991b1b" />
+            </LinearGradient>
+            <LinearGradient id="goldPointerGrad" x1="0%" y1="0%" x2="0%" y2="100%">
               <Stop offset="0%" stopColor="#fef08a" />
               <Stop offset="40%" stopColor="#f59e0b" />
               <Stop offset="80%" stopColor="#d97706" />
               <Stop offset="100%" stopColor="#78350f" />
             </LinearGradient>
-            <LinearGradient id="pointerGoldBorder" x1="0%" y1="0%" x2="100%" y2="100%">
-              <Stop offset="0%" stopColor="#fef08a" />
-              <Stop offset="100%" stopColor="#ca8a04" />
-            </LinearGradient>
           </Defs>
           <G>
-            {/* Main Outer Red Triangle Pointer (Exact Mockup Match) */}
+            {/* Main Outer Pointer (Red in Rail Mode, Gold in 5-Player Mode) */}
             <Path
               d={`M ${cx - size * 0.052} ${cy - r * 1.07} L ${cx + size * 0.052} ${cy - r * 1.07} L ${cx} ${cy - r * 0.88} Z`}
-              fill="url(#redPointerGrad)"
-              stroke="url(#pointerGoldBorder)"
+              fill={is5Player ? "url(#goldPointerGrad)" : "url(#redPointerGrad)"}
+              stroke={is5Player ? "#ca8a04" : "#7f1d1d"}
               strokeWidth={2}
             />
             {/* Inner Highlight Triangle */}
             <Path
-              d={`M ${cx - size * 0.026} ${cy - r * 1.05} L ${cx + size * 0.026} ${cy - r * 1.05} L ${cx} ${cy - r * 0.94} Z`}
+              d={`M ${cx - size * 0.024} ${cy - r * 1.05} L ${cx + size * 0.024} ${cy - r * 1.05} L ${cx} ${cy - r * 0.94} Z`}
               fill="#ffffff"
-              opacity={0.88}
+              opacity={is5Player ? 0.85 : 0.45}
             />
           </G>
         </Svg>
