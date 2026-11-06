@@ -108,7 +108,6 @@ export const LobbyHeader = memo(function LobbyHeader({
               <Text style={styles.usernameText} numberOfLines={1}>
                 {user?.username || "Player"}
               </Text>
-              <Text style={{ fontSize: 13, marginLeft: 3 }}>👑</Text>
             </View>
           </View>
         </TouchableOpacity>

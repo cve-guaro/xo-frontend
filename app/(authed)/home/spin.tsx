@@ -35,6 +35,8 @@ import { SlidingNumber } from "../../../components/game/SlidingNumber";
 import { WebDepositModal, WebWithdrawModal } from "../../../components/WebModals";
 import InviteFriendsModal from "../../../components/game/InviteFriendsModal";
 import IncomingSpinInviteModal, { SpinInvitePayload } from "../../../components/game/IncomingSpinInviteModal";
+import SpinInviteWaitingModal from "../../../components/game/SpinInviteWaitingModal";
+import SpinBetSelectModal from "../../../components/game/SpinBetSelectModal";
 import { voiceService } from "../../../lib/voiceService";
 import { useBackgroundMusic } from "../../../context/BackgroundMusicProvider";
 import {
@@ -597,12 +599,13 @@ export default function SpinGameScreen() {
   const router = useRouter();
   const { width: screenW, height: screenH } = useWindowDimensions();
   const isCompactScreen = screenH < 740;
+  // Dynamic mobile wheel sizing: precisely scales so header, pot, wheel, stake controls, and players bar 100% fit without cut-off
+  const availableWheelH = Math.max(160, screenH - 420);
   const mobileWheelSize = Math.max(
-    220,
+    175,
     Math.min(
       screenW - 48,
-      isCompactScreen ? 250 : 275,
-      Math.round(screenH * 0.32)
+      Math.min(225, availableWheelH)
     )
   );
   const { token, user, refreshProfile, language, switchLanguage, setLanguage, showAlert } = useAuth();
@@ -723,6 +726,9 @@ export default function SpinGameScreen() {
   const [mobilePlayersSheetVisible, setMobilePlayersSheetVisible] = useState(false);
   const [inviteModalVisible, setInviteModalVisible] = useState(false);
   const [incomingSpinInvite, setIncomingSpinInvite] = useState<SpinInvitePayload | null>(null);
+  const [waitingInvite, setWaitingInvite] = useState<{ targetUserId: string; targetUsername: string; mode: "5_PLAYER" | "RAIL" } | null>(null);
+  const [stakeChooserVisible, setStakeChooserVisible] = useState(false);
+  const [pendingInviteToJoin, setPendingInviteToJoin] = useState<{ mode: "5_PLAYER" | "RAIL"; fromUsername?: string } | null>(null);
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [languageMenuVisible, setLanguageMenuVisible] = useState(false);
@@ -743,11 +749,16 @@ export default function SpinGameScreen() {
   const handleAcceptSpinInvite = () => {
     if (!incomingSpinInvite) return;
     const inv = incomingSpinInvite;
+    send("spin:invite_accept", { targetUserId: inv.fromUserId, fromUsername: user?.username || "Player" });
     setIncomingSpinInvite(null);
-    handleJoinRoom(inv.mode || "5_PLAYER", inv.entryAmount || 100);
+    setPendingInviteToJoin({ mode: inv.mode || "5_PLAYER", fromUsername: inv.fromUsername });
+    setStakeChooserVisible(true);
   };
 
   const handleDeclineSpinInvite = () => {
+    if (incomingSpinInvite) {
+      send("spin:invite_decline", { targetUserId: incomingSpinInvite.fromUserId, fromUsername: user?.username || "Player" });
+    }
     setIncomingSpinInvite(null);
   };
   const preSpinTimerRef = useRef<any>(null);
@@ -1420,7 +1431,7 @@ export default function SpinGameScreen() {
           : result.error === "INVALID_STAKE"
           ? "Invalid stake amount"
           : result.error === "SPIN_GAME_DISABLED"
-          ? "🔧 The Spin game is currently under maintenance. Please check back later!"
+          ? "The Spin game is currently under maintenance. Please check back later!"
           : result.error || "Failed to join room";
         setError(errMsg);
       }
@@ -1524,8 +1535,8 @@ export default function SpinGameScreen() {
     if (leaveBlocked && !prevLeaveBlockedRef.current) {
       playLockoutSound();
       const msg = language === "am"
-        ? "🔒 ውርርድ ተዘግቷል፡ ስፒኑ ከመጀመሩ በፊት ከክፍሉ መውጣት አይቻልም።"
-        : "🔒 Room Locked: Stakes are in play. Exit is disabled until the round completes!";
+        ? "ውርርድ ተዘግቷል፡ ስፒኑ ከመጀመሩ በፊት ከክፍሉ መውጣት አይቻልም።"
+        : "Room Locked: Stakes are in play. Exit is disabled until the round completes!";
       showTopBanner("warning", msg);
     }
     prevLeaveBlockedRef.current = leaveBlocked;
@@ -1550,8 +1561,8 @@ export default function SpinGameScreen() {
     if (leaveBlocked) {
       playLockoutSound();
       const msg = language === "am"
-        ? "🔒 ስፒኑ እስኪያልቅ ድረስ ከክፍሉ መውጣት አይቻልም! አሸናፊው ሲታወቅ መውጣት ይችላሉ።"
-        : "🔒 Exit Locked: Stakes are locked for this round. You can leave once the winner is determined!";
+        ? "ስፒኑ እስኪያልቅ ድረስ ከክፍሉ መውጣት አይቻልም! አሸናፊው ሲታወቅ መውጣት ይችላሉ።"
+        : "Exit Locked: Stakes are locked for this round. You can leave once the winner is determined!";
       showTopBanner("warning", msg);
       return;
     }
@@ -2564,7 +2575,7 @@ export default function SpinGameScreen() {
               </View>
 
               {/* Three Columns: Column 1 (Players & Winners), Column 2 (Pot & Wheel), Column 3 (Stake Controls) */}
-              <View style={{ flexDirection: "row", gap: 24, alignItems: "stretch", width: "100%" }}>
+              <View style={{ flexDirection: "row", gap: 24, alignItems: "flex-end", justifyContent: "center", width: "100%" }}>
                 {/* COLUMN 1: PLAYERS & RECENT WINNERS (Left) */}
                 <View style={{ flex: 1, minWidth: 270, maxWidth: 320 }}>
                   <View style={{
@@ -2573,8 +2584,6 @@ export default function SpinGameScreen() {
                     padding: 20,
                     borderWidth: 1.2,
                     borderColor: "rgba(255, 255, 255, 0.08)",
-                    height: "100%",
-                    justifyContent: "space-between",
                   }}>
                     <View>
                       {/* Header Row: PLAYERS (count) + Invite */}
@@ -2605,18 +2614,18 @@ export default function SpinGameScreen() {
                         </TouchableOpacity>
                       </View>
 
-                      {/* Player Cards with Unique Colors */}
-                      <View style={{ gap: 10 }}>
+                      {/* Player Cards with Unique Colors (Scrollable when 5 players to prevent stretching) */}
+                      <ScrollView
+                        style={{ maxHeight: 220 }}
+                        showsVerticalScrollIndicator={true}
+                        nestedScrollEnabled={true}
+                        contentContainerStyle={{ gap: 8 }}
+                      >
                         {(displayPlayers.length > 0 ? displayPlayers : previewPlayers).map((p, idx) => {
                           const isSelf = p.userId === user?.id || (user?.username && p.username === user.username) || p.username === "guest_3";
-                          const isMuted = mutedPlayers.has(p.userId);
-                          const playerColors = [
-                            { bg: "#f59e0b", border: "#f59e0b", text: "#ffffff" }, // Gold (User/guest_3)
-                            { bg: "#10b981", border: "#10b981", text: "#ffffff" }, // Emerald (natnael_60)
-                            { bg: "#06b6d4", border: "#06b6d4", text: "#ffffff" }, // Cyan
-                            { bg: "#f97316", border: "#f97316", text: "#ffffff" }, // Orange
-                          ];
-                          const avColor = playerColors[idx % playerColors.length];
+                          const isSelfMuted = isSelf ? micMuted : mutedPlayers.has(p.userId);
+                          const pal = getPlayerPalette(p, idx);
+                          const avColor = { bg: pal.mid || pal.hex, border: pal.light || pal.accent, text: "#ffffff" };
                           const totalStakeSum = (displayPlayers.length > 0 ? displayPlayers : previewPlayers).reduce((s, pl) => s + (Number(pl.stake) || 0), 0) || 80;
                           const pWinChance = totalStakeSum > 0 && Number(p.stake || 0) > 0
                             ? Math.round((Number(p.stake || 0) / totalStakeSum) * 100)
@@ -2657,7 +2666,7 @@ export default function SpinGameScreen() {
                                     </Text>
                                     {isSelf && (
                                       <Text style={{ color: "#f59e0b", fontSize: 11, fontWeight: "700" }}>
-                                        👑 (you)
+                                        (you)
                                       </Text>
                                     )}
                                   </View>
@@ -2679,16 +2688,16 @@ export default function SpinGameScreen() {
                                   activeOpacity={0.7}
                                 >
                                   <Ionicons
-                                    name={isMuted ? "mic-off-outline" : "mic-outline"}
+                                    name={isSelfMuted ? "mic-off-outline" : "mic-outline"}
                                     size={16}
-                                    color={isMuted ? "#64748b" : "#22c55e"}
+                                    color={isSelfMuted ? "#ef4444" : "#22c55e"}
                                   />
                                 </TouchableOpacity>
                               </View>
                             </View>
                           );
                         })}
-                      </View>
+                      </ScrollView>
                     </View>
 
                     {/* RECENT WINNERS */}
@@ -2777,8 +2786,6 @@ export default function SpinGameScreen() {
                         padding: 20,
                         borderWidth: 1.2,
                         borderColor: "rgba(255, 255, 255, 0.08)",
-                        height: "100%",
-                        justifyContent: "space-between",
                       }}>
                         <View>
                           {/* Row with 2 Stat Cards: YOUR STAKE & WIN CHANCE */}
@@ -3027,26 +3034,32 @@ export default function SpinGameScreen() {
            ██  MOBILE SPIN ROOM LAYOUT (CONSISTENT APP HEADER, NO DEMO)
            ════════════════════════════════════════════════════════════════ */
         <ScrollView
-          style={{ flex: 1, backgroundColor: "transparent" }}
+          style={{
+            flex: 1,
+            backgroundColor: "transparent",
+            ...(Platform.OS === "web" ? { height: "100vh", maxHeight: "100vh" } as any : {}),
+          }}
           contentContainerStyle={{
             flexGrow: 1,
-            paddingHorizontal: 14,
-            paddingTop: 6,
-            paddingBottom: 36,
+            minHeight: "100%",
+            ...(Platform.OS === "web" ? { minHeight: "100vh" } as any : {}),
+            paddingHorizontal: 16,
+            paddingTop: 8,
+            paddingBottom: 16,
             justifyContent: "space-between",
           }}
           showsVerticalScrollIndicator={false}
           bounces={false}
         >
           {/* Top Header Row (Back < on Left, Balance + Language in Center, Voice Mic on Right - Consistent with App) */}
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", width: "100%", marginBottom: 8 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", width: "100%", marginBottom: 4 }}>
             {/* Left: Back < Button */}
             <TouchableOpacity
               onPress={handleLeaveRoom}
               style={{
-                width: 42,
-                height: 42,
-                borderRadius: 21,
+                width: 38,
+                height: 38,
+                borderRadius: 19,
                 backgroundColor: "#0c142e",
                 borderWidth: 1.5,
                 borderColor: "rgba(255, 255, 255, 0.12)",
@@ -3055,33 +3068,33 @@ export default function SpinGameScreen() {
               }}
               activeOpacity={0.75}
             >
-              <Ionicons name="chevron-back" size={22} color="#ffffff" />
+              <Ionicons name="chevron-back" size={20} color="#ffffff" />
             </TouchableOpacity>
 
             {/* Center: Side-by-Side Balance Capsule + Language Switcher */}
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
               {/* Wallet Balance Capsule */}
               <TouchableOpacity
                 onPress={() => setDepositVisible(true)}
                 style={{
                   flexDirection: "row",
                   alignItems: "center",
-                  gap: 8,
+                  gap: 6,
                   backgroundColor: "#0c142e",
-                  borderRadius: 22,
-                  paddingHorizontal: 14,
-                  height: 42,
+                  borderRadius: 19,
+                  paddingHorizontal: 12,
+                  height: 38,
                   borderWidth: 1.5,
                   borderColor: "rgba(239, 68, 68, 0.35)",
                 }}
                 activeOpacity={0.75}
               >
-                <Ionicons name="wallet-outline" size={17} color="#ef4444" />
+                <Ionicons name="wallet-outline" size={15} color="#ef4444" />
                 <View style={{ alignItems: "flex-start" }}>
-                  <Text style={{ color: "#ef4444", fontSize: 8, fontWeight: "800", letterSpacing: 0.6, textTransform: "uppercase" }}>
+                  <Text style={{ color: "#ef4444", fontSize: 7.5, fontWeight: "800", letterSpacing: 0.5, textTransform: "uppercase" }}>
                     BALANCE
                   </Text>
-                  <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "900", fontFamily: "Space Grotesk, Inter, sans-serif" }}>
+                  <Text style={{ color: "#ffffff", fontSize: 12, fontWeight: "900", fontFamily: "Space Grotesk, Inter, sans-serif" }}>
                     {balance.toLocaleString()} ETB
                   </Text>
                 </View>
@@ -3091,9 +3104,9 @@ export default function SpinGameScreen() {
               <TouchableOpacity
                 onPress={() => switchLanguage()}
                 style={{
-                  width: 42,
-                  height: 42,
-                  borderRadius: 21,
+                  width: 38,
+                  height: 38,
+                  borderRadius: 19,
                   backgroundColor: "#0c142e",
                   borderWidth: 1.5,
                   borderColor: "rgba(239, 68, 68, 0.35)",
@@ -3102,7 +3115,7 @@ export default function SpinGameScreen() {
                 }}
                 activeOpacity={0.75}
               >
-                <Ionicons name="globe-outline" size={19} color="#ef4444" />
+                <Ionicons name="globe-outline" size={17} color="#ef4444" />
               </TouchableOpacity>
             </View>
 
@@ -3110,9 +3123,9 @@ export default function SpinGameScreen() {
             <TouchableOpacity
               onPress={handleToggleMic}
               style={{
-                width: 42,
-                height: 42,
-                borderRadius: 21,
+                width: 38,
+                height: 38,
+                borderRadius: 19,
                 backgroundColor: "#0c142e",
                 borderWidth: 1.5,
                 borderColor: micMuted ? "rgba(244, 63, 94, 0.4)" : "rgba(34, 197, 94, 0.4)",
@@ -3121,25 +3134,25 @@ export default function SpinGameScreen() {
               }}
               activeOpacity={0.75}
             >
-              <Ionicons name={micMuted ? "mic-off" : "mic"} size={20} color={micMuted ? "#f43f5e" : "#22c55e"} />
+              <Ionicons name={micMuted ? "mic-off" : "mic"} size={18} color={micMuted ? "#f43f5e" : "#22c55e"} />
             </TouchableOpacity>
           </View>
 
           {/* Round Subtitle & Current Pot Board (Image 3 Match) */}
-          <View style={{ alignItems: "center", marginVertical: 2 }}>
-            <Text style={{ color: "#64748b", fontSize: 11, fontWeight: "600" }}>
+          <View style={{ alignItems: "center", marginVertical: 1 }}>
+            <Text style={{ color: "#64748b", fontSize: 10, fontWeight: "600" }}>
               Round {round?.roundId ? round.roundId.slice(-4) : "c665"} / Bets open
             </Text>
-            <Text style={{ color: "#94a3b8", fontSize: 10, fontWeight: "800", letterSpacing: 1.2, textTransform: "uppercase", marginTop: 2 }}>
+            <Text style={{ color: "#94a3b8", fontSize: 9.5, fontWeight: "800", letterSpacing: 1.1, textTransform: "uppercase", marginTop: 1 }}>
               CURRENT POT
             </Text>
-            <Text style={{ color: "#ef4444", fontSize: 32, fontWeight: "900", fontFamily: "Space Grotesk, Inter, sans-serif", marginTop: 1 }}>
+            <Text style={{ color: "#ef4444", fontSize: 26, fontWeight: "900", fontFamily: "Space Grotesk, Inter, sans-serif", marginTop: 1 }}>
               {previewPot} ETB
             </Text>
           </View>
 
-          {/* Center Spin Wheel Container */}
-          <View style={{ alignItems: "center", justifyContent: "center", marginVertical: isCompactScreen ? 2 : 4, position: "relative" }}>
+          {/* Center Spin Wheel Container with Dynamic Centering (Eliminates bottom dead gap) */}
+          <View style={{ alignItems: "center", justifyContent: "center", marginVertical: 2, minHeight: mobileWheelSize + 4, position: "relative" }}>
             <SpinWheel
               size={mobileWheelSize}
               players={displayPlayers.length > 0 ? displayPlayers : previewPlayers}
@@ -3176,46 +3189,46 @@ export default function SpinGameScreen() {
                 : 0;
 
               return (
-                <View style={{ width: "100%", gap: 8 }}>
+                <View style={{ width: "100%", gap: 6 }}>
                   {/* Row with 2 Stat Cards: YOUR STAKE & WIN CHANCE */}
-                  <View style={{ flexDirection: "row", gap: 10 }}>
+                  <View style={{ flexDirection: "row", gap: 8 }}>
                     <View style={{
                       flex: 1,
-                      backgroundColor: "rgba(15, 23, 42, 0.8)",
-                      borderRadius: 14,
+                      backgroundColor: "rgba(15, 23, 42, 0.85)",
+                      borderRadius: 13,
                       borderWidth: 1,
                       borderColor: "rgba(255, 255, 255, 0.08)",
-                      paddingVertical: 10,
-                      paddingHorizontal: 12,
+                      paddingVertical: 7,
+                      paddingHorizontal: 10,
                     }}>
-                      <Text style={{ color: "#64748b", fontSize: 9.5, fontWeight: "800", letterSpacing: 0.6, textTransform: "uppercase" }}>
+                      <Text style={{ color: "#64748b", fontSize: 9.5, fontWeight: "800", letterSpacing: 0.5, textTransform: "uppercase" }}>
                         YOUR STAKE
                       </Text>
-                      <Text style={{ color: "#ef4444", fontSize: 20, fontWeight: "900", fontFamily: "Space Grotesk, Inter, sans-serif", marginTop: 2 }}>
+                      <Text style={{ color: "#ef4444", fontSize: 18, fontWeight: "900", fontFamily: "Space Grotesk, Inter, sans-serif", marginTop: 2 }}>
                         {myStake} ETB
                       </Text>
                     </View>
 
                     <View style={{
                       flex: 1,
-                      backgroundColor: "rgba(15, 23, 42, 0.8)",
-                      borderRadius: 14,
+                      backgroundColor: "rgba(15, 23, 42, 0.85)",
+                      borderRadius: 13,
                       borderWidth: 1,
                       borderColor: "rgba(255, 255, 255, 0.08)",
-                      paddingVertical: 10,
-                      paddingHorizontal: 12,
+                      paddingVertical: 7,
+                      paddingHorizontal: 10,
                     }}>
-                      <Text style={{ color: "#64748b", fontSize: 9.5, fontWeight: "800", letterSpacing: 0.6, textTransform: "uppercase" }}>
+                      <Text style={{ color: "#64748b", fontSize: 9.5, fontWeight: "800", letterSpacing: 0.5, textTransform: "uppercase" }}>
                         WIN CHANCE
                       </Text>
-                      <Text style={{ color: "#ffffff", fontSize: 20, fontWeight: "900", fontFamily: "Space Grotesk, Inter, sans-serif", marginTop: 2 }}>
+                      <Text style={{ color: "#ffffff", fontSize: 18, fontWeight: "900", fontFamily: "Space Grotesk, Inter, sans-serif", marginTop: 2 }}>
                         {myWinPercent}%
                       </Text>
                     </View>
                   </View>
 
                   {/* Quick Chips: +10, +50, +100, +500 */}
-                  <View style={{ flexDirection: "row", gap: 8 }}>
+                  <View style={{ flexDirection: "row", gap: 6 }}>
                     {[10, 50, 100, 500].map((val) => {
                       const isLocking = round && (round.status !== "waiting" || countdown <= 5);
                       const isSelected = (round ? addAmount : betAmount) === val;
@@ -3230,9 +3243,9 @@ export default function SpinGameScreen() {
                           }}
                           style={{
                             flex: 1,
-                            paddingVertical: 8,
+                            paddingVertical: 6,
                             borderRadius: 10,
-                            backgroundColor: "rgba(15, 23, 42, 0.8)",
+                            backgroundColor: "rgba(15, 23, 42, 0.85)",
                             borderWidth: 1,
                             borderColor: isSelected ? "#ef4444" : "rgba(255, 255, 255, 0.08)",
                             alignItems: "center",
@@ -3240,7 +3253,7 @@ export default function SpinGameScreen() {
                             opacity: isLocking ? 0.35 : 1,
                           }}
                         >
-                          <Text style={{ color: isSelected ? "#ef4444" : "#94a3b8", fontSize: 12, fontWeight: "800" }}>
+                          <Text style={{ color: isSelected ? "#ef4444" : "#cbd5e1", fontSize: 12, fontWeight: "900" }}>
                             +{val}
                           </Text>
                         </TouchableOpacity>
@@ -3249,16 +3262,16 @@ export default function SpinGameScreen() {
                   </View>
 
                   {/* Stepper & ADD TO STAKE Action Button */}
-                  <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
+                  <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
                     <View style={{
                       flex: 1,
                       flexDirection: "row",
                       alignItems: "center",
-                      backgroundColor: "rgba(15, 23, 42, 0.8)",
-                      borderRadius: 14,
+                      backgroundColor: "rgba(15, 23, 42, 0.85)",
+                      borderRadius: 13,
                       borderWidth: 1,
                       borderColor: "rgba(255, 255, 255, 0.08)",
-                      height: 48,
+                      height: 44,
                       paddingHorizontal: 6,
                     }}>
                       <TouchableOpacity
@@ -3267,13 +3280,13 @@ export default function SpinGameScreen() {
                           if (round) setAddAmount(prev => Math.max(10, prev - 10));
                           else setBetAmount(prev => Math.max(10, prev - 10));
                         }}
-                        style={{ width: 34, height: 34, borderRadius: 8, backgroundColor: "rgba(255, 255, 255, 0.06)", alignItems: "center", justifyContent: "center" }}
+                        style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: "rgba(255, 255, 255, 0.08)", alignItems: "center", justifyContent: "center" }}
                       >
-                        <Ionicons name="remove" size={18} color="#ffffff" />
+                        <Ionicons name="remove" size={17} color="#ffffff" />
                       </TouchableOpacity>
 
                       <View style={{ flex: 1, alignItems: "center" }}>
-                        <Text style={{ color: "#ffffff", fontSize: 16, fontWeight: "900", fontFamily: "Space Grotesk, Inter, sans-serif" }}>
+                        <Text style={{ color: "#ffffff", fontSize: 15, fontWeight: "900", fontFamily: "Space Grotesk, Inter, sans-serif" }}>
                           {round ? `${addAmount} ETB` : `${betAmount} ETB`}
                         </Text>
                       </View>
@@ -3284,9 +3297,9 @@ export default function SpinGameScreen() {
                           if (round) setAddAmount(prev => Math.min(10000, prev + 10));
                           else setBetAmount(prev => Math.min(10000, prev + 10));
                         }}
-                        style={{ width: 34, height: 34, borderRadius: 8, backgroundColor: "rgba(255, 255, 255, 0.06)", alignItems: "center", justifyContent: "center" }}
+                        style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: "rgba(255, 255, 255, 0.08)", alignItems: "center", justifyContent: "center" }}
                       >
-                        <Ionicons name="add" size={18} color="#ffffff" />
+                        <Ionicons name="add" size={17} color="#ffffff" />
                       </TouchableOpacity>
                     </View>
 
@@ -3300,15 +3313,15 @@ export default function SpinGameScreen() {
                       style={{
                         flex: 1.15,
                         backgroundColor: "#ef4444",
-                        borderRadius: 14,
-                        height: 48,
+                        borderRadius: 13,
+                        height: 44,
                         alignItems: "center",
                         justifyContent: "center",
                         shadowColor: "#ef4444",
-                        shadowOffset: { width: 0, height: 4 },
-                        shadowOpacity: 0.5,
-                        shadowRadius: 12,
-                        elevation: 5,
+                        shadowOffset: { width: 0, height: 3 },
+                        shadowOpacity: 0.45,
+                        shadowRadius: 8,
+                        elevation: 4,
                         opacity: Boolean(addLoading || joinLoading || (round && (round.status !== "waiting" || countdown <= 5))) ? 0.6 : 1,
                       }}
                       activeOpacity={0.85}
@@ -3316,7 +3329,7 @@ export default function SpinGameScreen() {
                       {addLoading || joinLoading ? (
                         <ActivityIndicator size="small" color="#ffffff" />
                       ) : (
-                        <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "900", letterSpacing: 0.6 }}>
+                        <Text style={{ color: "#ffffff", fontSize: 13.5, fontWeight: "900", letterSpacing: 0.5 }}>
                           {round
                             ? (round.status !== "waiting" || countdown <= 5 ? "LOCKED" : "ADD TO STAKE")
                             : "ADD TO STAKE"}
@@ -3326,8 +3339,8 @@ export default function SpinGameScreen() {
                   </View>
 
                   {/* Available Balance Row */}
-                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 2 }}>
-                    <Text style={{ color: "#64748b", fontSize: 11.5, fontWeight: "500" }}>Available</Text>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 4 }}>
+                    <Text style={{ color: "#64748b", fontSize: 11, fontWeight: "600" }}>Available</Text>
                     <Text style={{ color: "#22c55e", fontSize: 13, fontWeight: "800" }}>{balance.toLocaleString()} ETB</Text>
                   </View>
 
@@ -3340,22 +3353,22 @@ export default function SpinGameScreen() {
                       alignItems: "center",
                       justifyContent: "space-between",
                       paddingHorizontal: 14,
-                      height: 42,
-                      borderRadius: 14,
-                      backgroundColor: "rgba(15, 23, 42, 0.8)",
+                      height: 40,
+                      borderRadius: 13,
+                      backgroundColor: "rgba(15, 23, 42, 0.85)",
                       borderWidth: 1,
                       borderColor: "rgba(255, 255, 255, 0.08)",
-                      marginTop: 2,
+                      marginTop: 0,
                     }}
                     activeOpacity={0.8}
                   >
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
                       <Ionicons name="people-outline" size={16} color="#ef4444" />
                       <Text style={{ color: "#e2e8f0", fontSize: 12.5, fontWeight: "800" }}>
                         PLAYERS ({(displayPlayers.length > 0 ? displayPlayers : previewPlayers).length})
                       </Text>
                     </View>
-                    <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+                    <Ionicons name="chevron-forward" size={15} color="#94a3b8" />
                   </TouchableOpacity>
                 </View>
               );
@@ -3366,7 +3379,7 @@ export default function SpinGameScreen() {
 
 
 
-      /* ════════════════════════════════════════════════════════════════
+      {/* ════════════════════════════════════════════════════════════════
          ██  WINNER / LOSER POPUP OVERLAY (Exact Match Image 4)
          ════════════════════════════════════════════════════════════════ */}
       {screenState === "result" && resultData && (
@@ -3501,9 +3514,10 @@ export default function SpinGameScreen() {
                 const isSelfHost = round?.players[0]?.userId === user?.id;
                 const isSpeaking = Array.isArray(speakingUserIds) && speakingUserIds.some(id => String(id) === String(p.userId));
 
-                // Avatar Colors: Self is crimson #FF1744, others cycle deep reds and accents
-                const otherColors = ["#DC2626", "#B91C1C", "#991B1B", "#E11D48", "#EA580C"];
-                const avatarBg = isSelf ? "#f43f5e" : otherColors[idx % otherColors.length];
+                // Palette strictly matching wheel slice color (1:1 synchronization with board)
+                const pal = getPlayerPalette(p, idx, user?.id);
+                const avatarBg = pal.mid || pal.hex;
+                const avatarBorder = pal.light || pal.accent;
                 const rawName = p.username || "Player";
                 const cleanName = isSelf ? "You" : (rawName.split(" ")[0].split("_")[0]);
 
@@ -3513,8 +3527,8 @@ export default function SpinGameScreen() {
                     style={{
                       backgroundColor: "rgba(15, 23, 42, 0.85)",
                       borderRadius: 16,
-                      borderWidth: 1,
-                      borderColor: "rgba(255, 255, 255, 0.08)",
+                      borderWidth: 1.5,
+                      borderColor: isSelf ? pal.light : "rgba(255, 255, 255, 0.08)",
                       paddingHorizontal: 14,
                       paddingVertical: 12,
                       flexDirection: "row",
@@ -3524,8 +3538,17 @@ export default function SpinGameScreen() {
                     }}
                   >
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flex: 1 }}>
-                      {/* Avatar Circle */}
-                      <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: avatarBg, alignItems: "center", justifyContent: "center" }}>
+                      {/* Avatar Circle with matching board slice color */}
+                      <View style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: 22,
+                        backgroundColor: avatarBg,
+                        borderWidth: 2,
+                        borderColor: avatarBorder,
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}>
                         <Ionicons name="person" size={22} color="#ffffff" />
                       </View>
 
@@ -3537,7 +3560,7 @@ export default function SpinGameScreen() {
                           </Text>
                           {isSpeaking && <SpeakingWaveAnimation />}
                         </View>
-                        <Text style={{ color: "#facc15", fontSize: 13, fontWeight: "800", marginTop: 2 }}>
+                        <Text style={{ color: pal.light, fontSize: 13, fontWeight: "800", marginTop: 2 }}>
                           {p.stake || 10} ETB {(() => {
                             const totalStk = sortedPlayers.reduce((acc: number, item: any) => acc + Number(item.stake || 10), 0);
                             const pct = is5Player ? 20 : (totalStk > 0 ? Math.round(((p.stake || 10) / totalStk) * 100) : 0);
@@ -3821,7 +3844,16 @@ const ds = StyleSheet.create({
   profileName: { color: "#fff", fontSize: 12, fontWeight: "700", fontFamily: "Inter, sans-serif" },
   // ── Body ──
   body: { flex: 1 },
-  bodyContent: { paddingHorizontal: 24, paddingVertical: 20, maxWidth: 1600, alignSelf: "center", width: "100%" },
+  bodyContent: {
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    maxWidth: 1600,
+    alignSelf: "center",
+    width: "100%",
+    ...(Platform.OS === "web" ? {
+      zoom: 1.25,
+    } as any : {}),
+  },
   mainRow: { flexDirection: "row", gap: 24 },
   // ── Left sidebar ──
   leftSidebar: { width: 260, gap: 12 },

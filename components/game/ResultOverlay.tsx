@@ -45,9 +45,9 @@ type UiMeta = {
 // ✅ static meta (no per-render object creation)
 const UI_WIN = (amount: number): UiMeta => ({
   title: "Victory!",
-  message: `You won ETB ${Number(amount || 0).toLocaleString()} 🎉`,
+  message: `You won ETB ${Number(amount || 0).toLocaleString()}`,
   badgeLabel: "WIN",
-  emoji: "😄",
+  emoji: "",
   border: ["rgba(255,215,0,0.95)", "rgba(0,218,243,0.95)", "rgba(0,163,255,0.90)"],
   glow: "rgba(0,218,243,0.38)",
   primaryGrad: ["#00daf3", "#00a3ff"],
@@ -58,7 +58,7 @@ const UI_LOSE = (amount: number): UiMeta => ({
   title: "Game Over",
   message: `You lost ETB ${Number(amount || 0).toLocaleString()}`,
   badgeLabel: "LOSE",
-  emoji: "😔",
+  emoji: "",
   border: ["rgba(255,107,107,0.95)", "rgba(0,218,243,0.92)", "rgba(10,12,28,0.92)"],
   glow: "rgba(255,107,107,0.32)",
   primaryGrad: ["#00daf3", "#00a3ff"],
@@ -174,7 +174,7 @@ function ResultOverlay({ visible, outcome, amount, onHome, onPlayAgain, onSendEm
                   style={styles.badgeRing}
                 >
                   <View style={styles.badgeCore}>
-                    <Text style={styles.badgeEmoji}>{ui.emoji}</Text>
+                    <Ionicons name={isWin ? "trophy" : "close"} size={26} color={isWin ? "#f59e0b" : "#ef4444"} />
                   </View>
                 </LinearGradient>
 
@@ -235,13 +235,13 @@ function ResultOverlay({ visible, outcome, amount, onHome, onPlayAgain, onSendEm
                       >
                         <LinearGradient colors={["rgba(255,255,255,0.1)", "rgba(255,255,255,0.05)"]} style={[styles.btn, { borderWidth: 1, borderColor: insufficientBalance ? "rgba(255,75,75,0.3)" : "rgba(255,255,255,0.15)" }]}>
                           <Ionicons name="refresh-outline" size={18} color="#fff" />
-                          <Text style={[styles.btnText, { color: '#fff' }]}>Run It Back! 🔥</Text>
+                          <Text style={[styles.btnText, { color: '#fff' }]}>Run It Back!</Text>
                           {!canContinue && <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, marginLeft: 'auto', fontWeight: '800' }}>({countdown}s)</Text>}
                         </LinearGradient>
                       </WebPressable>
                       {insufficientBalance && (
                         <Text style={{ color: '#ff6b6b', fontSize: 11, fontWeight: '700', textAlign: 'center', marginTop: 6 }}>
-                          ⚠️ Insufficient balance for this rematch
+                          Insufficient balance for this rematch
                         </Text>
                       )}
                     </View>

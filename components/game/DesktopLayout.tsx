@@ -420,12 +420,11 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
         <TouchableOpacity
           activeOpacity={0.85}
           onPress={() => {
-            if (!isCenter) {
-              setSelectedTab("SPIN");
-              return;
-            }
             haptics.impact();
-            router.push('/(authed)/home/spin');
+            router.push({
+              pathname: '/(authed)/home/spin',
+              params: { mode: "5_PLAYER" }
+            } as any);
           }}
           style={s.extraShelfBtn}
         >
@@ -454,9 +453,9 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
                 <Text style={s.shelfAvatarPlusText}>+2</Text>
               </View>
             </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Text style={s.shelfActionText}>5 Players Room</Text>
-              <Ionicons name="chevron-forward" size={14} color="#FF1744" />
+              <Ionicons name="chevron-forward" size={15} color="#FF1744" />
             </View>
           </View>
         </TouchableOpacity>
@@ -562,27 +561,33 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
 
   return (
     <View style={s.rootContainer}>
-      {/* Background Ambience: Subtle Signal Red & Electric Blue auras (No purple) */}
-      <View style={{
-        position: 'absolute',
-        top: -100,
-        left: -100,
-        width: 500,
-        height: 500,
-        borderRadius: 250,
-        backgroundColor: 'rgba(255, 23, 68, 0.04)',
-        ...(Platform.OS === 'web' ? { filter: 'blur(140px)' } as any : {}),
-      }} />
-      <View style={{
-        position: 'absolute',
-        bottom: -150,
-        right: -100,
-        width: 600,
-        height: 600,
-        borderRadius: 300,
-        backgroundColor: 'rgba(0, 191, 255, 0.04)',
-        ...(Platform.OS === 'web' ? { filter: 'blur(160px)' } as any : {}),
-      }} />
+      {/* Background Ambience: High performance GPU accelerated auras (No heavy software blur) */}
+      <View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          top: -100,
+          left: -100,
+          width: 500,
+          height: 500,
+          borderRadius: 250,
+          backgroundColor: 'rgba(255, 23, 68, 0.035)',
+          ...(Platform.OS === 'web' ? { filter: 'blur(50px)', willChange: 'transform' } as any : {}),
+        }}
+      />
+      <View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          bottom: -150,
+          right: -100,
+          width: 600,
+          height: 600,
+          borderRadius: 300,
+          backgroundColor: 'rgba(0, 191, 255, 0.035)',
+          ...(Platform.OS === 'web' ? { filter: 'blur(50px)', willChange: 'transform' } as any : {}),
+        }}
+      />
 
       {/* Modals & Profile */}
       <WebDepositModal visible={depositVisible} onClose={() => setDepositVisible(false)} user={user} token={token || undefined} onSuccess={() => { try { refreshProfile?.(true); } catch {} }} />
@@ -640,239 +645,291 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
         router={router}
       />
 
-      {/* ── MAIN THREE-COLUMN WORKSPACE ── */}
-      <ScrollView style={s.mainScrollView} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={s.pageContentWrapper}>
-          <View style={s.threeColumnRow}>
-            
-            {/* ── 1. UNIFIED LEFT SIDEBAR (Brand Compliant, Consistent Across ALL Pages) ── */}
-            <DesktopSidebar
-              user={user}
-              balance={balance}
-              currentScreen="home"
-              style={{ width: isTabletLayout ? 240 : 270 }}
-              refreshProfile={(force?: boolean) => { try { refreshProfile?.(force ?? true); } catch (_) {} }}
-              setDepositVisible={setDepositVisible}
-              setWithdrawVisible={setWithdrawVisible}
-              router={router}
-            />
-
-            {/* ── 2. CENTER COLUMN: COVERFLOW 3-CARD CAROUSEL + WELCOME BONUS ── */}
-            <View style={s.centerColumn}>
-              {/* Carousel Container with Overlaid Arrows */}
-              <View style={s.carouselWrapper}>
-                
-                {/* Left Navigation Arrow */}
-                <TouchableOpacity
-                  onPress={handlePrevCard}
-                  style={s.carouselArrowLeft}
-                  activeOpacity={0.85}
-                  accessibilityLabel="Previous Card"
-                >
-                  <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
-                </TouchableOpacity>
-
-                {/* Right Navigation Arrow */}
-                <TouchableOpacity
-                  onPress={handleNextCard}
-                  style={s.carouselArrowRight}
-                  activeOpacity={0.85}
-                  accessibilityLabel="Next Card"
-                >
-                  <Ionicons name="chevron-forward" size={24} color="#FFFFFF" />
-                </TouchableOpacity>
-
-                {/* 3 Game Columns: Left (scale 0.8) - Center (BIG active scale 1.0) - Right (scale 0.8) with horizontal spring slide */}
-                <Animated.View style={[s.threeCardsRow, { transform: [{ translateX: slideAnim }] }]}>
-                  {visibleCards.map(({ tab, position }) => {
-                    const isCenter = position === "center";
-                    return (
-                      <View
-                        key={tab}
-                        style={[
-                          s.coverflowColumn,
-                          isCenter ? s.coverflowColumnCenter : s.coverflowColumnSide,
-                        ]}
-                      >
-                        {/* 1. Main Game Card (1 primary button inside) */}
-                        {renderCoverflowCard(tab, position)}
-
-                        {/* 2. Outside Feature Shelf directly underneath */}
-                        <View style={[s.outerShelfWrapper, !isCenter && { opacity: 0.55 }]}>
-                          {renderOuterShelf(tab, isCenter)}
-                        </View>
-                      </View>
-                    );
-                  })}
-                </Animated.View>
-
-                {/* Bottom Indicators */}
-                <View style={s.indicatorsRow}>
-                  <TouchableOpacity
-                    onPress={() => setSelectedTab("XO_GAME")}
-                    style={[
-                      s.indicatorPill,
-                      {
-                        backgroundColor: selectedTab === "XO_GAME" ? "#00BFFF" : "#233041",
-                        width: selectedTab === "XO_GAME" ? 28 : 10,
-                      }
-                    ]}
-                  />
-                  <TouchableOpacity
-                    onPress={() => setSelectedTab("SPIN")}
-                    style={[
-                      s.indicatorPill,
-                      {
-                        backgroundColor: selectedTab === "SPIN" ? "#FF1744" : "#233041",
-                        width: selectedTab === "SPIN" ? 28 : 10,
-                      }
-                    ]}
-                  />
-                  <TouchableOpacity
-                    onPress={() => setSelectedTab("COMING_SOON")}
-                    style={[
-                      s.indicatorPill,
-                      {
-                        backgroundColor: selectedTab === "COMING_SOON" ? "#8893A7" : "#233041",
-                        width: selectedTab === "COMING_SOON" ? 28 : 10,
-                      }
-                    ]}
-                  />
-                </View>
+      {/* ── 3. MODULAR SUB-SECTIONS (LEADERBOARD & COMMUNITY) ── */}
+      {(() => {
+        const renderLeaderboardCard = () => (
+          <View style={s.leaderboardCard}>
+            {/* Header */}
+            <View style={s.leaderboardHeader}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <View style={{ width: 4, height: 16, borderRadius: 2, backgroundColor: "#00BFFF" }} />
+                <Text style={s.leaderboardTitle}>WEEKLY LEADERBOARD</Text>
               </View>
-
-              {/* ── FULL-WIDTH WELCOME BONUS CLAIMED CARD (Per User Request) ── */}
-              <View style={s.desktopWelcomeBonusCard}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
-                  <View style={s.bonusIconBox}>
-                    <Ionicons name="gift" size={24} color="#F5B642" />
-                  </View>
-                  <View>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                      <Text style={s.bonusTitle}>WELCOME BONUS</Text>
-                      <View style={s.bonusClaimedPill}>
-                        <Text style={s.bonusClaimedText}>CLAIMED</Text>
-                      </View>
-                    </View>
-                    <Text style={s.bonusDesc}>{isEN ? "You have received your welcome reward" : "የእንኳን ደህና መጡ ሽልማትዎን ወስደዋል"}</Text>
-                  </View>
-                </View>
-
-                <View style={s.bonusActionBtn}>
-                  <Ionicons name="checkmark-circle" size={16} color="#10B981" />
-                  <Text style={s.bonusActionText}>CLAIMED</Text>
-                </View>
-              </View>
+              <Text style={s.leaderboardSubtitle}>Top 8 Ranks</Text>
             </View>
 
-            {/* ── 3. RIGHT SIDEBAR: LEADERBOARD + 2 LINKS (TELEGRAM & SUPPORT) ── */}
-            <View style={s.rightSidebar}>
-              <View style={s.leaderboardCard}>
-                {/* Header */}
-                <View style={s.leaderboardHeader}>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                    <View style={{ width: 4, height: 16, borderRadius: 2, backgroundColor: "#00BFFF" }} />
-                    <Text style={s.leaderboardTitle}>WEEKLY LEADERBOARD</Text>
-                  </View>
-                  <Text style={s.leaderboardSubtitle}>Top 8 Ranks</Text>
+            {/* Player List (8 rows) */}
+            <View style={{ gap: 8 }}>
+              {top8Players.length === 0 ? (
+                <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 32, gap: 8 }}>
+                  <Ionicons name="trophy-outline" size={28} color="rgba(255,255,255,0.2)" />
+                  <Text style={{ color: '#8893A7', fontSize: 12, fontStyle: 'italic', textAlign: 'center' }}>
+                    Weekly leaderboard active!{'\n'}Play matches to claim rank #1.
+                  </Text>
                 </View>
+              ) : (
+                top8Players.map((champ) => {
+                  const rankColor = champ.rank === 1 ? "#F5B642" : champ.rank === 2 ? "#00BFFF" : champ.rank === 3 ? "#FF1744" : "#8893A7";
+                  return (
+                    <View key={champ.rank} style={s.leaderboardRow}>
+                      {/* Rank Badge */}
+                      <View style={[s.rankNumberBadge, { borderColor: rankColor === '#8893A7' ? '#233041' : rankColor }]}>
+                        <Text style={[s.rankNumberText, { color: rankColor }]}>#{champ.rank}</Text>
+                      </View>
 
-                {/* Player List (8 rows) */}
-                <View style={{ gap: 8 }}>
-                  {top8Players.length === 0 ? (
-                    <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 32, gap: 8 }}>
-                      <Ionicons name="trophy-outline" size={28} color="rgba(255,255,255,0.2)" />
-                      <Text style={{ color: '#8893A7', fontSize: 12, fontStyle: 'italic', textAlign: 'center' }}>
-                        Weekly leaderboard active!{'\n'}Play matches to claim rank #1.
-                      </Text>
-                    </View>
-                  ) : (
-                    top8Players.map((champ) => {
-                    const rankColor = champ.rank === 1 ? "#F5B642" : champ.rank === 2 ? "#00BFFF" : champ.rank === 3 ? "#FF1744" : "#8893A7";
-                    return (
-                      <View key={champ.rank} style={s.leaderboardRow}>
-                        {/* Rank Badge */}
-                        <View style={[s.rankNumberBadge, { borderColor: rankColor === '#8893A7' ? '#233041' : rankColor }]}>
-                          <Text style={[s.rankNumberText, { color: rankColor }]}>#{champ.rank}</Text>
-                        </View>
-
-                        {/* Avatar & Username */}
-                        <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 8 }}>
-                          {champ.avatar ? (
-                            <Image source={{ uri: champ.avatar }} style={s.playerAvatarImg} resizeMode="cover" />
-                          ) : (
-                            <View style={[s.playerAvatarImg, { backgroundColor: "#1F2937", alignItems: "center", justifyContent: "center" }]}>
-                              <Text style={{ color: "#8893A7", fontSize: 10, fontWeight: "800" }}>{champ.username.slice(0, 1)}</Text>
-                            </View>
-                          )}
-                          <View>
-                            <Text numberOfLines={1} style={s.playerUsername}>{champ.username}</Text>
-                            <Text style={s.playerWins}>{champ.wins} wins this week</Text>
+                      {/* Avatar & Username */}
+                      <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 8 }}>
+                        {champ.avatar ? (
+                          <Image source={{ uri: champ.avatar }} style={s.playerAvatarImg} resizeMode="cover" />
+                        ) : (
+                          <View style={[s.playerAvatarImg, { backgroundColor: "#1F2937", alignItems: "center", justifyContent: "center" }]}>
+                            <Text style={{ color: "#8893A7", fontSize: 10, fontWeight: "800" }}>{champ.username.slice(0, 1)}</Text>
                           </View>
-                        </View>
-
-                        {/* Prize Amount */}
-                        <View style={s.playerPrizeBadge}>
-                          <Text style={[s.playerPrizeText, { color: rankColor }]}>
-                            {champ.prize} ETB
-                          </Text>
+                        )}
+                        <View>
+                          <Text numberOfLines={1} style={s.playerUsername}>{champ.username}</Text>
+                          <Text style={s.playerWins}>{champ.wins} wins this week</Text>
                         </View>
                       </View>
-                    );
-                  }))}
-                </View>
 
-                {/* View All / See More Button */}
+                      {/* Prize Amount */}
+                      <View style={s.playerPrizeBadge}>
+                        <Text style={[s.playerPrizeText, { color: rankColor }]}>
+                          {champ.prize} ETB
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })
+              )}
+            </View>
+
+            {/* View All / See More Button */}
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => {
+                try { playTickSound(); } catch {}
+                haptics.tap();
+                router.push('/(authed)/home/leaderboard');
+              }}
+              style={s.seeMoreBtn}
+            >
+              <Text style={s.seeMoreBtnText}>VIEW ALL LEADERBOARD</Text>
+              <Ionicons name="arrow-forward" size={14} color="#00BFFF" />
+            </TouchableOpacity>
+          </View>
+        );
+
+        const renderCommunityCard = () => (
+          <View style={[s.leaderboardCard, { marginTop: isTabletLayout ? 0 : 16 }]}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
+              <Ionicons name="globe-outline" size={17} color="#00BFFF" />
+              <Text style={s.leaderboardTitle}>COMMUNITY & SUPPORT</Text>
+            </View>
+
+            <Text style={{ color: "#8893A7", fontSize: 11.5, lineHeight: 16, marginBottom: 14 }}>
+              Connect with fellow players or reach out for instant deposit & withdrawal assistance.
+            </Text>
+
+            {/* Link 1: Telegram Channel */}
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => router.push('https://t.me/xoethiopia' as any)}
+              style={[s.supportLinkBtn, { backgroundColor: "rgba(0, 191, 255, 0.12)", borderColor: "rgba(0, 191, 255, 0.4)" }]}
+            >
+              <Ionicons name="paper-plane" size={15} color="#00BFFF" />
+              <Text style={[s.supportLinkBtnText, { color: "#00BFFF" }]}>JOIN TELEGRAM CHANNEL</Text>
+            </TouchableOpacity>
+
+            {/* Link 2: 24/7 Live Support */}
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => router.push('https://t.me/xoetsupport' as any)}
+              style={[s.supportLinkBtn, { backgroundColor: "rgba(16, 185, 129, 0.12)", borderColor: "rgba(16, 185, 129, 0.4)", marginTop: 8 }]}
+            >
+              <Ionicons name="headset" size={15} color="#10B981" />
+              <Text style={[s.supportLinkBtnText, { color: "#10B981" }]}>24/7 LIVE SUPPORT</Text>
+            </TouchableOpacity>
+
+            {/* Live Security & Verification Banner (Eliminates Empty Space) */}
+            <View style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+              backgroundColor: "rgba(16, 185, 129, 0.08)",
+              borderWidth: 1,
+              borderColor: "rgba(16, 185, 129, 0.25)",
+              borderRadius: 12,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              marginTop: 14,
+            }}>
+              <View style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: "#10B981" }} />
+              <Text style={{ color: "#10B981", fontSize: 10.5, fontWeight: "800" }}>
+                Official Servers 100% Operational • Instant Payouts
+              </Text>
+            </View>
+          </View>
+        );
+
+        const renderCenterContent = () => (
+          <View style={s.centerColumn}>
+            {/* Carousel Container with Overlaid Arrows */}
+            <View style={s.carouselWrapper}>
+              
+              {/* Left Navigation Arrow */}
+              <TouchableOpacity
+                onPress={handlePrevCard}
+                style={s.carouselArrowLeft}
+                activeOpacity={0.85}
+                accessibilityLabel="Previous Card"
+              >
+                <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+
+              {/* Right Navigation Arrow */}
+              <TouchableOpacity
+                onPress={handleNextCard}
+                style={s.carouselArrowRight}
+                activeOpacity={0.85}
+                accessibilityLabel="Next Card"
+              >
+                <Ionicons name="chevron-forward" size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+
+              {/* 3 Game Columns: Left (scale 0.75) - Center (1.0 BIG active) - Right (scale 0.75) */}
+              <Animated.View style={[s.threeCardsRow, { transform: [{ translateX: slideAnim }] }]}>
+                {visibleCards.map(({ tab, position }) => {
+                  const isCenter = position === "center";
+                  return (
+                    <View
+                      key={tab}
+                      style={[
+                        s.coverflowColumn,
+                        isCenter ? s.coverflowColumnCenter : s.coverflowColumnSide,
+                      ]}
+                    >
+                      {/* 1. Main Game Card */}
+                      {renderCoverflowCard(tab, position)}
+
+                      {/* 2. Feature Shelf directly underneath card matching its exact width */}
+                      <View style={[s.outerShelfWrapper, !isCenter && { opacity: 0.85 }]}>
+                        {renderOuterShelf(tab, isCenter)}
+                      </View>
+                    </View>
+                  );
+                })}
+              </Animated.View>
+
+              {/* Bottom Pagination Indicators */}
+              <View style={s.indicatorsRow}>
                 <TouchableOpacity
-                  activeOpacity={0.8}
-                  onPress={() => {
-                    try { playTickSound(); } catch {}
-                    haptics.tap();
-                    router.push('/(authed)/home/leaderboard');
-                  }}
-                  style={s.seeMoreBtn}
-                >
-                  <Text style={s.seeMoreBtnText}>VIEW ALL LEADERBOARD</Text>
-                  <Ionicons name="arrow-forward" size={14} color="#00BFFF" />
-                </TouchableOpacity>
-              </View>
-
-              {/* 2 LINKS: TELEGRAM COMMUNITY & 24/7 SUPPORT (Per User Request) */}
-              <View style={[s.leaderboardCard, { marginTop: 16 }]}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                  <Ionicons name="globe-outline" size={17} color="#00BFFF" />
-                  <Text style={s.leaderboardTitle}>COMMUNITY & SUPPORT</Text>
-                </View>
-
-                <Text style={{ color: "#8893A7", fontSize: 11.5, lineHeight: 16, marginBottom: 14 }}>
-                  Connect with fellow players or reach out for instant deposit & withdrawal assistance.
-                </Text>
-
-                {/* Link 1: Telegram Channel */}
+                  onPress={() => setSelectedTab("XO_GAME")}
+                  style={[
+                    s.indicatorPill,
+                    {
+                      backgroundColor: selectedTab === "XO_GAME" ? "#00BFFF" : "#233041",
+                      width: selectedTab === "XO_GAME" ? 28 : 10,
+                    }
+                  ]}
+                />
                 <TouchableOpacity
-                  activeOpacity={0.85}
-                  onPress={() => router.push('https://t.me/xoethiopia' as any)}
-                  style={[s.supportLinkBtn, { backgroundColor: "rgba(0, 191, 255, 0.12)", borderColor: "rgba(0, 191, 255, 0.4)" }]}
-                >
-                  <Ionicons name="paper-plane" size={15} color="#00BFFF" />
-                  <Text style={[s.supportLinkBtnText, { color: "#00BFFF" }]}>JOIN TELEGRAM CHANNEL</Text>
-                </TouchableOpacity>
-
-                {/* Link 2: 24/7 Live Support */}
+                  onPress={() => setSelectedTab("SPIN")}
+                  style={[
+                    s.indicatorPill,
+                    {
+                      backgroundColor: selectedTab === "SPIN" ? "#FF1744" : "#233041",
+                      width: selectedTab === "SPIN" ? 28 : 10,
+                    }
+                  ]}
+                />
                 <TouchableOpacity
-                  activeOpacity={0.85}
-                  onPress={() => router.push('https://t.me/xoetsupport' as any)}
-                  style={[s.supportLinkBtn, { backgroundColor: "rgba(16, 185, 129, 0.12)", borderColor: "rgba(16, 185, 129, 0.4)", marginTop: 8 }]}
-                >
-                  <Ionicons name="headset" size={15} color="#10B981" />
-                  <Text style={[s.supportLinkBtnText, { color: "#10B981" }]}>24/7 LIVE SUPPORT</Text>
-                </TouchableOpacity>
+                  onPress={() => setSelectedTab("COMING_SOON")}
+                  style={[
+                    s.indicatorPill,
+                    {
+                      backgroundColor: selectedTab === "COMING_SOON" ? "#8893A7" : "#233041",
+                      width: selectedTab === "COMING_SOON" ? 28 : 10,
+                    }
+                  ]}
+                />
               </View>
             </View>
 
+            {/* ── FULL-WIDTH WELCOME BONUS CLAIMED CARD (Per User Request) ── */}
+            <View style={s.desktopWelcomeBonusCard}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+                <View style={s.bonusIconBox}>
+                  <Ionicons name="gift" size={24} color="#F5B642" />
+                </View>
+                <View>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <Text style={s.bonusTitle}>WELCOME BONUS</Text>
+                    <View style={s.bonusClaimedPill}>
+                      <Text style={s.bonusClaimedText}>CLAIMED</Text>
+                    </View>
+                  </View>
+                  <Text style={s.bonusDesc}>{isEN ? "You have received your welcome reward" : "የእንኳን ደህና መጡ ሽልማትዎን ወስደዋል"}</Text>
+                </View>
+              </View>
+
+              <View style={s.bonusActionBtn}>
+                <Ionicons name="checkmark-circle" size={16} color="#10B981" />
+                <Text style={s.bonusActionText}>CLAIMED</Text>
+              </View>
+            </View>
           </View>
-        </View>
-      </ScrollView>
+        );
+
+        return (
+          <ScrollView style={s.mainScrollView} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
+            <View style={s.pageContentWrapper}>
+              {isTabletLayout ? (
+                /* TABLET 2-COLUMN RESPONSIVE LAYOUT (iPad/Tablet Support) */
+                <View style={{ flexDirection: "row", gap: 16, alignItems: "flex-start", width: "100%" }}>
+                  <DesktopSidebar
+                    user={user}
+                    balance={balance}
+                    currentScreen="home"
+                    style={{ width: 230 }}
+                    refreshProfile={(force?: boolean) => { try { refreshProfile?.(force ?? true); } catch (_) {} }}
+                    setDepositVisible={setDepositVisible}
+                    setWithdrawVisible={setWithdrawVisible}
+                    router={router}
+                  />
+                  <View style={{ flex: 1, gap: 16 }}>
+                    {renderCenterContent()}
+                    {/* On Tablet: Leaderboard & Community sit side-by-side underneath */}
+                    <View style={{ flexDirection: "row", gap: 16, alignItems: "flex-start", width: "100%" }}>
+                      <View style={{ flex: 1 }}>{renderLeaderboardCard()}</View>
+                      <View style={{ flex: 1 }}>{renderCommunityCard()}</View>
+                    </View>
+                  </View>
+                </View>
+              ) : (
+                /* DESKTOP 3-COLUMN LAYOUT (Image 3 Match) */
+                <View style={s.threeColumnRow}>
+                  <DesktopSidebar
+                    user={user}
+                    balance={balance}
+                    currentScreen="home"
+                    style={{ width: 280 }}
+                    refreshProfile={(force?: boolean) => { try { refreshProfile?.(force ?? true); } catch (_) {} }}
+                    setDepositVisible={setDepositVisible}
+                    setWithdrawVisible={setWithdrawVisible}
+                    router={router}
+                  />
+                  {renderCenterContent()}
+                  <View style={s.rightSidebar}>
+                    {renderLeaderboardCard()}
+                    {renderCommunityCard()}
+                  </View>
+                </View>
+              )}
+            </View>
+          </ScrollView>
+        );
+      })()}
     </View>
   );
 }
@@ -891,12 +948,15 @@ const s = StyleSheet.create({
   },
   pageContentWrapper: {
     width: "100%",
-    maxWidth: 1480,
+    maxWidth: 1720,
     alignSelf: "center",
+    ...(Platform.OS === "web" ? {
+      zoom: 1.10,
+    } as any : {}),
   },
   threeColumnRow: {
     flexDirection: "row",
-    gap: 16,
+    gap: 20,
     alignItems: "flex-start",
   },
 
@@ -981,20 +1041,20 @@ const s = StyleSheet.create({
     transition: "all 300ms cubic-bezier(0.16, 1, 0.3, 1)",
   } as any,
   gameCardCenter: {
-    minHeight: 460,
-    maxHeight: 510,
-    padding: 20,
+    minHeight: 520,
+    maxHeight: 570,
+    padding: 22,
     zIndex: 10,
     transform: [{ scale: 1.0 }],
     opacity: 1.0,
   },
   gameCardSide: {
-    minHeight: 345,
-    maxHeight: 382,
-    padding: 14,
+    minHeight: 390,
+    maxHeight: 428,
+    padding: 16,
     zIndex: 2,
     transform: [{ scale: 1.0 }],
-    opacity: 0.65,
+    opacity: 0.75,
     cursor: "pointer",
   } as any,
   gameCardFocusedSpin: {
@@ -1044,22 +1104,22 @@ const s = StyleSheet.create({
     zIndex: 2,
   },
   cardArtWrapperCenter: {
-    height: 220,
-    marginVertical: 6,
+    height: 250,
+    marginVertical: 8,
   },
   cardArtWrapperSide: {
-    height: 165,
-    marginVertical: 4,
+    height: 185,
+    marginVertical: 6,
   },
   cardTitle: {
     color: "#FFFFFF",
-    fontSize: 32,
+    fontSize: 34,
     fontWeight: "900",
     fontFamily: "Space Grotesk, sans-serif",
-    letterSpacing: 0.5,
+    letterSpacing: 0.6,
   },
   cardTitleSide: {
-    fontSize: 21,
+    fontSize: 22,
     letterSpacing: 0.4,
   },
   cardSubtitle: {
@@ -1276,7 +1336,7 @@ const s = StyleSheet.create({
 
   // Right Sidebar: Weekly Leaderboard List
   rightSidebar: {
-    width: 285,
+    width: 320,
   },
   leaderboardCard: {
     backgroundColor: "#111827",

@@ -297,6 +297,7 @@ export default function ProfileScreen() {
             user={user}
             balance={Number(user?.available_balance || 0)}
             currentScreen="profile"
+            style={{ width: 280 }}
             refreshProfile={refreshProfile}
             setDepositVisible={setDepositVisible}
             setWithdrawVisible={setWithdrawVisible}
@@ -456,24 +457,6 @@ export default function ProfileScreen() {
                   <Ionicons name="log-out-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
                   <Text style={s.profileLogoutBtnText}>LOGOUT FROM ACCOUNT</Text>
                 </TouchableOpacity>
-
-                {/* 6. Fair Play & Security Banner (Per Image 1 Wireframe Bottom Box) */}
-                <View style={s.securityBottomBanner}>
-                  <View style={s.securityBannerItem}>
-                    <Ionicons name="lock-closed" size={16} color="#00BFFF" />
-                    <Text style={s.securityBannerText}>256-Bit SSL Encrypted</Text>
-                  </View>
-                  <View style={s.securityBannerDivider} />
-                  <View style={s.securityBannerItem}>
-                    <Ionicons name="shield-checkmark" size={16} color="#10B981" />
-                    <Text style={s.securityBannerText}>Provably Fair Random Seeds</Text>
-                  </View>
-                  <View style={s.securityBannerDivider} />
-                  <View style={s.securityBannerItem}>
-                    <Ionicons name="flash" size={16} color="#F5B642" />
-                    <Text style={s.securityBannerText}>Instant Telebirr Payouts</Text>
-                  </View>
-                </View>
               </View>
 
               {/* 3. RIGHT SIDEBAR — Placeholder or Leaderboard widget */}
@@ -1369,12 +1352,17 @@ const s = StyleSheet.create({
 
   // Scroll View & Layout blueprints
   mainScrollView: { flex: 1 },
-  scrollContent: { paddingHorizontal: 40, paddingVertical: 24, gap: 24 },
+  scrollContent: { paddingHorizontal: 20, paddingVertical: 16, gap: 20 },
   pageContentWrapper: {
     width: "100%",
-    gap: 24,
+    maxWidth: 1720,
+    alignSelf: "center",
+    gap: 20,
+    ...(Platform.OS === "web" ? {
+      zoom: 1.10,
+    } as any : {}),
   },
-  threeColumnRow: { flexDirection: "row", gap: 28, alignItems: "flex-start", width: "100%" },
+  threeColumnRow: { flexDirection: "row", gap: 20, alignItems: "flex-start", width: "100%" },
 
   // Sidebar Layout (Same as gameplay & history left sidebars)
   leftSidebar: { width: 280, gap: 20 },

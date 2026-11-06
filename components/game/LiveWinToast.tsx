@@ -3,6 +3,7 @@
 import React, { useEffect, useRef } from "react";
 import { View, Text, Animated, StyleSheet, Easing } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
 
 interface LiveWinToastProps {
   message?: string | null;
@@ -52,7 +53,8 @@ export const LiveWinToast: React.FC<LiveWinToastProps> = ({ message }) => {
         style={styles.toastGradient}
       >
         <View style={styles.liveBadge}>
-          <Text style={styles.liveBadgeText}>🔥 LIVE</Text>
+          <Ionicons name="flame" size={12} color="#FF1744" style={{ marginRight: 3 }} />
+          <Text style={styles.liveBadgeText}>LIVE</Text>
         </View>
         <Text style={styles.messageText} numberOfLines={1}>
           {message}

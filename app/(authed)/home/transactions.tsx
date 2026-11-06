@@ -1133,6 +1133,7 @@ Status          : ${status.toUpperCase()}
                   user={user}
                   balance={Number(user?.available_balance || 0)}
                   currentScreen="transactions"
+                  style={{ width: 280 }}
                   refreshProfile={refreshProfile}
                   setDepositVisible={setDepositVisible}
                   setWithdrawVisible={setWithdrawVisible}
@@ -2115,9 +2116,17 @@ const s = StyleSheet.create({
 
   // Scroll View & Layout blueprints
   mainScrollView: { flex: 1 },
-  scrollContent: { paddingHorizontal: 40, paddingVertical: 24, gap: 24 },
-  pageContentWrapper: { width: "100%", gap: 24 },
-  threeColumnRow: { flexDirection: "row", gap: 28, alignItems: "flex-start", width: "100%" },
+  scrollContent: { paddingHorizontal: 20, paddingVertical: 16, gap: 20 },
+  pageContentWrapper: {
+    width: "100%",
+    maxWidth: 1720,
+    alignSelf: "center",
+    gap: 20,
+    ...(Platform.OS === "web" ? {
+      zoom: 1.10,
+    } as any : {}),
+  },
+  threeColumnRow: { flexDirection: "row", gap: 20, alignItems: "flex-start", width: "100%" },
 
   // Sidebar Layout
   leftSidebar: { width: 280, gap: 20 },

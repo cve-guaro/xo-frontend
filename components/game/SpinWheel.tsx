@@ -3,7 +3,7 @@
 // Animated multiplayer spin wheel for the Spin game.
 // Receives player data + winning slice from server, then animates.
 // ────────────────────────────────────────────────────────────────────────────
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState, memo } from "react";
 import { View, Animated, Easing, StyleSheet, Text, Platform } from "react-native";
 import Svg, { Circle, Path, G, Rect, Text as SvgText, Defs, RadialGradient, Stop, LinearGradient } from "react-native-svg";
 import { initPinTickAudio, playPinTick, playWhooshSound, startSpinSoundLoop, stopSpinSoundLoop } from "../../lib/pinTickAudio";
@@ -21,18 +21,23 @@ export const SPIN_PALETTE = [
   { name: 'Amber Glow',       light: '#FBBF24', mid: '#D97706', dark: '#78350F', hex: '#FBBF24', accent: '#FEF3C7' },
 ];
 
-export const getPlayerPalette = (player: any, idx: number, currentUserId?: string) => {
-  const isUser = Boolean(
-    (currentUserId && String(player?.userId) === String(currentUserId)) ||
-    player?.isUser ||
-    (currentUserId && String(player?.id) === String(currentUserId)) ||
-    (player?.username && String(player?.username).toLowerCase().includes("guest_3"))
-  );
-  if (isUser) {
-    return SPIN_PALETTE[0]; // Gold/Amber (YOU)
+export const getPlayerPalette = (player: any, idx: number, _currentUserId?: string) => {
+  // Deterministic color assignment across ALL devices:
+  // 1. If player has a canonical seatIndex (0 to 9), use it directly.
+  if (typeof player?.seatIndex === "number" && player.seatIndex >= 0) {
+    return SPIN_PALETTE[player.seatIndex % SPIN_PALETTE.length];
   }
-  const oppIdx = (idx % (SPIN_PALETTE.length - 1)) + 1;
-  return SPIN_PALETTE[oppIdx];
+  // 2. Use canonical slice/seat index so slices and list items match 1:1 on every device
+  if (typeof idx === "number" && idx >= 0) {
+    return SPIN_PALETTE[idx % SPIN_PALETTE.length];
+  }
+  // 3. Fallback: deterministic string hash
+  const key = String(player?.userId || player?.id || player?.username || "");
+  let hash = 0;
+  for (let i = 0; i < key.length; i++) {
+    hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+  }
+  return SPIN_PALETTE[hash % SPIN_PALETTE.length];
 };
 
 type Player = {
@@ -121,7 +126,7 @@ const getSeparatedSlicePath = (
   ].join(" ");
 };
 
-export default function SpinWheel({
+const SpinWheel = memo(function SpinWheel({
   size,
   players,
   isSpinning,
@@ -626,13 +631,13 @@ export default function SpinWheel({
                         />
                       )}
 
-                      {/* Line 1: Stake (Large Bold Text - Exact Mockup Match) */}
+                      {/* Line 1: Stake (Large Bold Text - 56 etb format) */}
                       <SvgText
                         x={0}
-                        y={-6}
+                        y={-14}
                         fill={isWinningSlice ? "#fde047" : "#0f172a"}
                         stroke="#ffffff"
-                        strokeWidth={0.4}
+                        strokeWidth={0.5}
                         fontSize={Math.min(size * 0.046, 14)}
                         fontWeight="900"
                         fontFamily="Space Grotesk, Inter, sans-serif"
@@ -642,10 +647,10 @@ export default function SpinWheel({
                         {rawStake} ETB
                       </SvgText>
 
-                      {/* Line 2: Username & Percentage (Exact Request Match) */}
+                      {/* Line 2: Username (yared format) */}
                       <SvgText
                         x={0}
-                        y={9}
+                        y={2}
                         fill={isWinningSlice ? "#ffffff" : "#0f172a"}
                         fontSize={Math.min(size * 0.034, 11)}
                         fontWeight="800"
@@ -653,7 +658,21 @@ export default function SpinWheel({
                         textAnchor="middle"
                         alignmentBaseline="middle"
                       >
-                        {cleanUsername} • {percentStr}
+                        {cleanUsername}
+                      </SvgText>
+
+                      {/* Line 3: Percentage (20% format) */}
+                      <SvgText
+                        x={0}
+                        y={16}
+                        fill={isWinningSlice ? "#facc15" : "#0f172a"}
+                        fontSize={Math.min(size * 0.032, 10.5)}
+                        fontWeight="900"
+                        fontFamily="Space Grotesk, Inter, sans-serif"
+                        textAnchor="middle"
+                        alignmentBaseline="middle"
+                      >
+                        {percentStr}
                       </SvgText>
                     </G>
                   )}
@@ -919,7 +938,9 @@ export default function SpinWheel({
       </Animated.View>
     </View>
   );
-}
+});
+
+export default SpinWheel;
 
 const styles = StyleSheet.create({
   container: {

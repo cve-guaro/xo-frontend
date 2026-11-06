@@ -98,6 +98,50 @@ const RoomSheet = memo(function RoomSheet({
   const [isExpanded, setIsExpanded] = useState(false);
   const expandAnim = useRef(new Animated.Value(0)).current; // 0 = 55% peek, 1 = 90% expanded
 
+  // 3D Push Button Tactile Animation (Image 5 specification)
+  const playNowPressAnim = useRef(new Animated.Value(0)).current;
+  const friendBtnPressAnim = useRef(new Animated.Value(0)).current;
+
+  const onPressInPlayNow = () => {
+    try { playClickSound(); } catch {}
+    haptics.impact();
+    Animated.spring(playNowPressAnim, {
+      toValue: 4,
+      useNativeDriver: true,
+      speed: 50,
+      bounciness: 0,
+    }).start();
+  };
+
+  const onPressOutPlayNow = () => {
+    Animated.spring(playNowPressAnim, {
+      toValue: 0,
+      useNativeDriver: true,
+      speed: 30,
+      bounciness: 4,
+    }).start();
+  };
+
+  const onPressInFriend = () => {
+    try { playClickSound(); } catch {}
+    haptics.impact();
+    Animated.spring(friendBtnPressAnim, {
+      toValue: 3,
+      useNativeDriver: true,
+      speed: 50,
+      bounciness: 0,
+    }).start();
+  };
+
+  const onPressOutFriend = () => {
+    Animated.spring(friendBtnPressAnim, {
+      toValue: 0,
+      useNativeDriver: true,
+      speed: 30,
+      bounciness: 4,
+    }).start();
+  };
+
   const toggleExpand = () => {
     try { playTickSound(); } catch {}
     haptics.tap();
@@ -151,8 +195,8 @@ const RoomSheet = memo(function RoomSheet({
       setSelectedStake(25);
       setSearchQuery("");
       setInvitedUsers({});
-      setIsExpanded(false);
-      expandAnim.setValue(0);
+      setIsExpanded(true);
+      expandAnim.setValue(1);
 
       if (token) {
         setIsLoadingFriends(true);
@@ -315,11 +359,7 @@ const RoomSheet = memo(function RoomSheet({
   };
 
   // Calculate Peek offset (55% visible means offset is screenHeight * 0.35)
-  const peekOffset = useMemo(() => {
-    const totalSheetH = screenHeight * 0.9;
-    const peekH = screenHeight * 0.55;
-    return Math.max(160, totalSheetH - peekH);
-  }, [screenHeight]);
+  const peekOffset = useMemo(() => 0, []);
 
   const animatedTranslateY = expandAnim.interpolate({
     inputRange: [0, 1],
@@ -351,8 +391,7 @@ const RoomSheet = memo(function RoomSheet({
               : [
                   styles.sheet,
                   {
-                    height: "90%",
-                    maxHeight: "90%",
+                    maxHeight: "92%",
                     transform: [
                       { translateY: sheetTranslateY },
                       { translateY: animatedTranslateY },
@@ -375,21 +414,9 @@ const RoomSheet = memo(function RoomSheet({
           {/* Top Handle: Swipable / Tappable on Mobile */}
           {!isDesktop ? (
             <View {...panResponder.panHandlers} style={styles.expandHandleWrapper}>
-              <TouchableOpacity activeOpacity={0.8} onPress={toggleExpand} style={{ alignItems: "center" }}>
+              <View style={{ alignItems: "center", paddingVertical: 4 }}>
                 <View style={styles.topAccentBar} />
-                <View style={styles.expandHintRow}>
-                  <Ionicons
-                    name={isExpanded ? "chevron-down" : "chevron-up"}
-                    size={12}
-                    color="rgba(0, 218, 243, 0.7)"
-                  />
-                  <Text style={styles.expandHintText}>
-                    {isExpanded
-                      ? (isEN ? "Collapse (55%)" : "ያሳንሱ (55%)")
-                      : (isEN ? "Swipe up / Tap to expand (90%)" : "ለማሳደግ ወደ ላይ ይጎትቱ (90%)")}
-                  </Text>
-                </View>
-              </TouchableOpacity>
+              </View>
             </View>
           ) : (
             <View style={styles.topAccentBar} />
@@ -474,54 +501,66 @@ const RoomSheet = memo(function RoomSheet({
                   <Text style={styles.balanceValue}>ETB {balance.toLocaleString()}</Text>
                 </View>
 
-                {/* Action Buttons: [ PLAY NOW ] & [ PLAY WITH FRIEND ] */}
+                {/* Action Buttons: [ PLAY NOW ] & [ PLAY WITH FRIEND ] (3D Push Button Animation - Image 5) */}
                 <View style={styles.actionBtnGroup}>
-                  <TouchableOpacity
-                    activeOpacity={0.88}
-                    disabled={selectedStake === null}
-                    onPress={handlePlayNow}
-                    style={[
-                      styles.primaryPlayBtn,
-                      selectedStake === null && styles.primaryPlayBtnDisabled,
-                    ]}
-                  >
-                    <LinearGradient
-                      colors={
-                        selectedStake !== null
-                          ? ["#00daf3", "#0284c7"]
-                          : ["rgba(255,255,255,0.08)", "rgba(255,255,255,0.05)"]
-                      }
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.btnGradInner}
-                    >
-                      <Ionicons
-                        name="game-controller"
-                        size={18}
-                        color={selectedStake !== null ? "#080F17" : "rgba(255,255,255,0.3)"}
-                        style={{ marginRight: 8 }}
-                      />
-                      <Text
+                  {/* 3D Push Button: PLAY NOW */}
+                  <View style={styles.primaryPlay3DBase}>
+                    <Animated.View style={{ transform: [{ translateY: playNowPressAnim }] }}>
+                      <Pressable
+                        disabled={selectedStake === null}
+                        onPressIn={onPressInPlayNow}
+                        onPressOut={onPressOutPlayNow}
+                        onPress={handlePlayNow}
                         style={[
-                          styles.primaryPlayText,
-                          selectedStake === null && styles.primaryPlayTextDisabled,
+                          styles.primaryPlayBtn,
+                          selectedStake === null && styles.primaryPlayBtnDisabled,
                         ]}
                       >
-                        {isEN ? `PLAY NOW (${selectedStake || 25} ETB)` : `አሁን ይጫወቱ (${selectedStake || 25} ብር)`}
-                      </Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
+                        <LinearGradient
+                          colors={
+                            selectedStake !== null
+                              ? ["#00daf3", "#0284c7"]
+                              : ["rgba(255,255,255,0.08)", "rgba(255,255,255,0.05)"]
+                          }
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={styles.btnGradInner}
+                        >
+                          <Ionicons
+                            name="game-controller"
+                            size={18}
+                            color={selectedStake !== null ? "#080F17" : "rgba(255,255,255,0.3)"}
+                            style={{ marginRight: 8 }}
+                          />
+                          <Text
+                            style={[
+                              styles.primaryPlayText,
+                              selectedStake === null && styles.primaryPlayTextDisabled,
+                            ]}
+                          >
+                            {isEN ? `PLAY NOW (${selectedStake || 25} ETB)` : `አሁን ይጫወቱ (${selectedStake || 25} ብር)`}
+                          </Text>
+                        </LinearGradient>
+                      </Pressable>
+                    </Animated.View>
+                  </View>
 
-                  <TouchableOpacity
-                    activeOpacity={0.85}
-                    onPress={handleOpenPlayWithFriend}
-                    style={styles.outlineFriendBtn}
-                  >
-                    <Ionicons name="people-outline" size={17} color="#00daf3" style={{ marginRight: 8 }} />
-                    <Text style={styles.outlineFriendText}>
-                      {isEN ? "PLAY WITH FRIEND" : "ከጓደኛ ጋር ይጫወቱ"}
-                    </Text>
-                  </TouchableOpacity>
+                  {/* 3D Push Button: PLAY WITH FRIEND */}
+                  <View style={styles.outlineFriend3DBase}>
+                    <Animated.View style={{ transform: [{ translateY: friendBtnPressAnim }] }}>
+                      <Pressable
+                        onPressIn={onPressInFriend}
+                        onPressOut={onPressOutFriend}
+                        onPress={handleOpenPlayWithFriend}
+                        style={styles.outlineFriendBtn}
+                      >
+                        <Ionicons name="people-outline" size={17} color="#00daf3" style={{ marginRight: 8 }} />
+                        <Text style={styles.outlineFriendText}>
+                          {isEN ? "PLAY WITH FRIEND" : "ከጓደኛ ጋር ይጫወቱ"}
+                        </Text>
+                      </Pressable>
+                    </Animated.View>
+                  </View>
                 </View>
               </>
             ) : (
@@ -790,7 +829,7 @@ const styles = StyleSheet.create({
   sheetContent: {
     paddingHorizontal: 22,
     paddingTop: 8,
-    paddingBottom: 48,
+    paddingBottom: Platform.OS === "ios" ? 44 : 32,
   },
   headerRow: {
     flexDirection: "row",
@@ -848,17 +887,18 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 218, 243, 0.14)",
     borderColor: "#00daf3",
     borderWidth: 2,
-    transform: [{ translateY: -5 }],
+    transform: [{ translateY: -6 }],
+    boxShadow: "0 6px 0 #0088b3, 0 12px 24px rgba(0, 218, 243, 0.35)",
   } as any,
   card3DBase: {
     position: "absolute",
     bottom: -6,
-    left: 12,
-    right: 12,
-    height: 10,
-    backgroundColor: "rgba(0, 218, 243, 0.22)",
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
+    left: 0,
+    right: 0,
+    height: 12,
+    backgroundColor: "#0088b3",
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
     borderBottomWidth: 2,
     borderLeftWidth: 2,
     borderRightWidth: 2,
@@ -935,9 +975,19 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
 
-  // Action Buttons
+  // Action Buttons (3D Tactile Push Extrusion Base - Image 5)
   actionBtnGroup: {
-    gap: 10,
+    gap: 12,
+  },
+  primaryPlay3DBase: {
+    borderRadius: 16,
+    backgroundColor: "#025a8a",
+    paddingBottom: 4,
+  },
+  outlineFriend3DBase: {
+    borderRadius: 16,
+    backgroundColor: "rgba(0, 218, 243, 0.25)",
+    paddingBottom: 3,
   },
   primaryPlayBtn: {
     height: 50,

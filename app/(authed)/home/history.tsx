@@ -318,6 +318,7 @@ export default function GamesHistory() {
             user={user}
             balance={Number(user?.available_balance || 0)}
             currentScreen="history"
+            style={{ width: 280 }}
             refreshProfile={refreshProfile}
             setDepositVisible={setDepositVisible}
             setWithdrawVisible={setWithdrawVisible}
@@ -1255,15 +1256,20 @@ const s = StyleSheet.create({
   desktopLayoutContainer: {
     flex: 1,
     width: "100%",
+    maxWidth: 1720,
+    alignSelf: "center",
     height: Platform.OS === "web" ? ("calc(100vh - 72px)" as any) : undefined,
     maxHeight: Platform.OS === "web" ? ("calc(100vh - 72px)" as any) : undefined,
-    paddingHorizontal: 40,
-    paddingTop: 20,
+    paddingHorizontal: 20,
+    paddingTop: 16,
     paddingBottom: 20,
     flexDirection: "row",
-    gap: 28,
+    gap: 20,
     alignItems: "stretch",
     overflow: "hidden",
+    ...(Platform.OS === "web" ? {
+      zoom: 1.10,
+    } as any : {}),
   },
   stickySidebarScrollLeft: {
     width: 280,
@@ -1439,16 +1445,18 @@ const s = StyleSheet.create({
     position: "absolute",
     top: 50,
     right: 0,
-    backgroundColor: "#12172a",
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#1f2540",
+    backgroundColor: "#0d1220",
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: "#233041",
     width: 140,
-    padding: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
+    padding: 6,
+    zIndex: 1000,
+    ...(Platform.OS === "web" ? {
+      boxShadow: "0 10px 30px rgba(0, 0, 0, 0.6)",
+    } as any : {
+      elevation: 20,
+    }),
   },
   dropdownItem: { paddingVertical: 10, paddingHorizontal: 12, borderRadius: 8 },
   dropdownItemText: { color: "#fff", fontSize: 12, fontWeight: "600", fontFamily: "Inter, sans-serif" },
