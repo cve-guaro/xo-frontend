@@ -34,6 +34,8 @@ import { useBackgroundMusic } from "../../../context/BackgroundMusicProvider";
 import ReferralModal from "../../../components/ReferralModal";
 import PwaInstallModal from "../../../components/game/PwaInstallModal";
 import NotificationsPopover from "../../../components/NotificationsPopover";
+import { TransactionDetailModal } from "../../../components/transactions/TransactionDetailModal";
+import { BonusTrackingLogModal } from "../../../components/transactions/BonusTrackingLogModal";
 import { downloadProfessionalReceipt } from "../../../lib/receiptGenerator";
 import { haptics } from "../../../lib/haptcs";
 import { playTickSound } from "../../../lib/pinTickAudio";
@@ -126,134 +128,6 @@ function normalizeStatus(tx: Transaction): "success" | "pending" | "failed" {
 }
 
 // ---------------- Components ----------------
-const BonusTrackingLogModal = memo(function BonusTrackingLogModal({ 
-  visible, 
-  onClose, 
-  bonusLogs,
-  token,
-  fetchTxs
-}: { 
-  visible: boolean; 
-  onClose: () => void;
-  bonusLogs: any[];
-  token: string | null;
-  fetchTxs?: () => void;
-}) {
-  const { language, showAlert } = useAuth();
-  const isEN = language === "en";
-  const [code, setCode] = useState("");
-  const [redeeming, setRedeeming] = useState(false);
-
-  const redeemCode = async () => {
-    if (!code.trim()) return;
-    setRedeeming(true);
-    try {
-      const res = await fetch(`${API_URL}/account/redeem-code`, {
-        method: 'POST',
-        headers: { 
-          Authorization: `Bearer ${token}`, 
-          'Content-Type': 'application/json' 
-        },
-        body: JSON.stringify({ code: code.trim().toUpperCase() })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        showAlert(isEN ? "Success" : "ተሳክቷል", isEN ? `Success! +${data.amount} ETB bonus added` : `ተሳክቷል! +${data.amount} ETB ቦነስ ተጨምሯል`);
-        setCode("");
-        if (fetchTxs) {
-          setTimeout(() => fetchTxs(), 500);
-        }
-      } else {
-        const err = await res.json().catch(() => ({ error: "Invalid code" }));
-        showAlert(isEN ? "Redemption Failed" : "መቀበል አልተቻለም", err.error || (isEN ? "Invalid or expired code" : "የተሳሳተ ወይም የጨረሰ ኮድ"));
-      }
-    } catch {
-      showAlert(isEN ? "Error" : "ስህተት", isEN ? "Network error" : "ኔትወርክ ስህተት");
-    } finally {
-      setRedeeming(false);
-    }
-  };
-
-  if (!visible) return null;
-
-  return (
-    <Modal visible={visible} transparent animationType="fade">
-      <View style={styles.modalOverlay}>
-        <View style={[styles.bonusModal, { backgroundColor: 'rgba(10,10,20,0.98)', borderColor: 'rgba(0,242,255,0.3)' }]}>
-          <View style={styles.modalHeader}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <View style={styles.bonusIconBox}>
-                <Ionicons name="gift" size={24} color="#00e5ff" />
-              </View>
-              <View>
-                <Text style={styles.modalTitle}>{isEN ? "Bonus Tracking Log" : "ቦነስ ታሪክ"}</Text>
-                <Text style={styles.modalSubtitle}>{isEN ? "View your reward history" : "የሽልማትዎን ታሪክ ይመልከቱ"}</Text>
-              </View>
-            </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Ionicons name="close" size={22} color="#e5e3ff" />
-            </TouchableOpacity>
-          </View>
-
-          {/* Gift Code Input */}
-          <View style={styles.codeInputContainer}>
-            <TextInput
-              style={styles.codeInput}
-              placeholder={isEN ? "ENTER GIFT CODE" : "የስጦታ ኮድ ያስገቡ"}
-              placeholderTextColor="rgba(0,242,255,0.4)"
-              value={code}
-              onChangeText={setCode}
-              autoCapitalize="characters"
-            />
-            <TouchableOpacity 
-              style={styles.redeemBtn} 
-              onPress={redeemCode}
-              disabled={redeeming || !code.trim()}
-            >
-              {redeeming ? (
-                <ActivityIndicator size="small" color="#0a0a0f" />
-              ) : (
-                <Ionicons name="gift" size={18} color="#0a0a0f" />
-              )}
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity onPress={() => {}} style={styles.claimLink}>
-            <Text style={styles.claimLinkText}>{isEN ? "HAVE A VOUCHER? CLAIM IT HERE" : "ቦቸር አለህ? እዚህ ይክፈሉ"}</Text>
-          </TouchableOpacity>
-
-          {/* Bonus Log List */}
-          <ScrollView style={styles.bonusLogList} showsVerticalScrollIndicator={false}>
-            {bonusLogs.length === 0 ? (
-              <View style={styles.emptyBonusLog}>
-                <Ionicons name="gift-outline" size={48} color="rgba(0,242,255,0.2)" />
-                <Text style={styles.emptyBonusText}>{isEN ? "No bonus history yet" : "ምንም ቦነስ ታሪክ የለም"}</Text>
-              </View>
-            ) : (
-              bonusLogs.map((log, i) => (
-                <View key={i} style={styles.bonusLogItem}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.bonusLogTitle}>{log.reason || (isEN ? "Bonus Credit" : "ቦነስ ክሬዲት")}</Text>
-                    <Text style={styles.bonusLogDate}>{log.created_at ? formatDate(log.created_at) : ""}</Text>
-                  </View>
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={styles.bonusLogAmount}>+ETB {Number(log.amount || 0).toFixed(2)}</Text>
-                    <Text style={{ color: '#34d399', fontSize: 10, fontWeight: '700', marginTop: 2 }}>{isEN ? 'CLAIMED' : 'ተወስዷል'}</Text>
-                  </View>
-                </View>
-              ))
-            )}
-          </ScrollView>
-
-          <TouchableOpacity style={styles.closeModalBtn} onPress={onClose}>
-            <Text style={styles.closeModalBtnText}>{isEN ? "CLOSE" : "ይዝጋ"}</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-  );
-});
-
 // ---------------- Transaction Row / Card Component (Mobile Only) ----------------
 const TransactionItem = memo(function TransactionItem({ 
   tx, 
@@ -433,469 +307,6 @@ const MobileTxRow = memo(function MobileTxRow({
         {amountPrefix}{Number(tx?.amount || 0).toLocaleString()} ETB
       </Text>
     </TouchableOpacity>
-  );
-});
-
-// ---------------- Transaction Detail Bottom Sheet Modal (Image 3) ----------------
-const Image3DetailModal = memo(function Image3DetailModal({
-  tx,
-  visible,
-  onClose,
-  isEN,
-  onDownloadReceipt,
-}: {
-  tx: Transaction | null;
-  visible: boolean;
-  onClose: () => void;
-  isEN: boolean;
-  onDownloadReceipt?: (tx: Transaction) => void;
-}) {
-  const slideAnim = React.useRef(new Animated.Value(600)).current;
-  const fadeAnim = React.useRef(new Animated.Value(0)).current;
-  const { width: winW } = useWindowDimensions();
-  const isDesktop = winW >= 800;
-
-  React.useEffect(() => {
-    if (visible && tx) {
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 220,
-          useNativeDriver: true,
-        }),
-        Animated.spring(slideAnim, {
-          toValue: 0,
-          damping: 20,
-          stiffness: 220,
-          mass: 0.8,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    } else {
-      slideAnim.setValue(600);
-      fadeAnim.setValue(0);
-    }
-  }, [visible, tx]);
-
-  const handleClose = () => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 180,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 600,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      onClose();
-    });
-  };
-
-  if (!visible || !tx) return null;
-
-  const type = normalizeType(tx);
-  const status = normalizeStatus(tx);
-  const isDeposit = type === "deposit";
-  const isPrize = type === "prize";
-  const isSuccess = status === "success";
-
-  return (
-    <Modal visible={visible} transparent animationType="none" onRequestClose={handleClose}>
-      {isDesktop ? (
-        /* ── DESKTOP VIEW: Centered High-Fi Side-by-Side Modal ── */
-        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 24 }}>
-          {/* Backdrop */}
-          <Animated.View
-            style={{
-              ...StyleSheet.absoluteFillObject,
-              backgroundColor: "rgba(0, 0, 0, 0.78)",
-              opacity: fadeAnim,
-            }}
-          >
-            <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={handleClose} />
-          </Animated.View>
-
-          {/* Centered Desktop Modal Card */}
-          <Animated.View
-            style={{
-              width: "100%",
-              maxWidth: 620,
-              backgroundColor: "#0d1326",
-              borderRadius: 24,
-              borderWidth: 1.5,
-              borderColor: "rgba(0, 218, 243, 0.35)",
-              padding: 28,
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: 16 },
-              shadowOpacity: 0.65,
-              shadowRadius: 32,
-              elevation: 24,
-              opacity: fadeAnim,
-              transform: [{ scale: fadeAnim.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] }) }],
-            }}
-          >
-            {/* Desktop Top Header */}
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: "rgba(0, 218, 243, 0.12)", borderWidth: 1, borderColor: "rgba(0, 218, 243, 0.3)", alignItems: "center", justifyContent: "center" }}>
-                  <Ionicons name="receipt-outline" size={20} color="#00daf3" />
-                </View>
-                <Text style={{ fontSize: 18, fontWeight: "900", color: "#FFFFFF", fontFamily: "Inter, sans-serif" }}>
-                  {isEN ? "Transaction Receipt" : "የግብይት ደረሰኝ"}
-                </Text>
-              </View>
-              <TouchableOpacity
-                onPress={handleClose}
-                style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: "#141c30", borderWidth: 1, borderColor: "rgba(255, 255, 255, 0.1)", alignItems: "center", justifyContent: "center" }}
-              >
-                <Ionicons name="close" size={18} color="#94a3b8" />
-              </TouchableOpacity>
-            </View>
-
-            {/* Hero Banner: Amount + Status Banner */}
-            <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: "#141a2e", borderRadius: 18, padding: 18, marginBottom: 20, borderWidth: 1, borderColor: "rgba(255, 255, 255, 0.08)", gap: 16 }}>
-              <View
-                style={{
-                  width: 58,
-                  height: 58,
-                  borderRadius: 29,
-                  backgroundColor: isSuccess ? "rgba(16, 185, 129, 0.18)" : status === "pending" ? "rgba(245, 158, 11, 0.18)" : "rgba(239, 68, 68, 0.18)",
-                  borderWidth: 1.5,
-                  borderColor: isSuccess ? "#10b981" : status === "pending" ? "#f59e0b" : "#ef4444",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Ionicons
-                  name={isSuccess ? "checkmark" : status === "pending" ? "time-outline" : "close"}
-                  size={30}
-                  color={isSuccess ? "#10b981" : status === "pending" ? "#f59e0b" : "#ef4444"}
-                />
-              </View>
-
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 13, color: isSuccess ? "#10b981" : status === "pending" ? "#f59e0b" : "#ef4444", fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.8 }}>
-                  {isSuccess
-                    ? (isEN ? "Completed Successfully" : "በተሳካ ሁኔታ ተጠናቋል")
-                    : status === "pending"
-                    ? (isEN ? "Processing In Progress" : "በመከናወን ላይ")
-                    : (isEN ? "Transaction Failed" : "ግብይቱ አልተሳካም")}
-                </Text>
-                <Text style={{ fontSize: 26, fontWeight: "900", color: isDeposit || isPrize ? "#10b981" : "#ef4444", marginTop: 2 }}>
-                  {isDeposit || isPrize ? "+" : "-"}ETB {Number(tx.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                </Text>
-              </View>
-            </View>
-
-            {/* Two-Column Side-by-Side Breakdown Grid */}
-            <View
-              style={{
-                width: "100%",
-                backgroundColor: "#11172a",
-                borderRadius: 18,
-                padding: 18,
-                marginBottom: 24,
-                borderWidth: 1,
-                borderColor: "rgba(255, 255, 255, 0.08)",
-              }}
-            >
-              <View style={{ flexDirection: "row", gap: 20 }}>
-                {/* Left Column */}
-                <View style={{ flex: 1, gap: 12 }}>
-                  <View>
-                    <Text style={{ fontSize: 11.5, color: "#8b93a7", fontWeight: "600", textTransform: "uppercase" }}>{isEN ? "Transaction Type" : "የግብይት ዓይነት"}</Text>
-                    <Text style={{ fontSize: 13.5, fontWeight: "800", color: "#FFFFFF", marginTop: 2, textTransform: "capitalize" }}>{type}</Text>
-                  </View>
-                  <View style={{ height: 1, backgroundColor: "rgba(255, 255, 255, 0.06)" }} />
-                  <View>
-                    <Text style={{ fontSize: 11.5, color: "#8b93a7", fontWeight: "600", textTransform: "uppercase" }}>{isEN ? "Payment Channel" : "የክፍያ ዘዴ"}</Text>
-                    <Text style={{ fontSize: 13.5, fontWeight: "800", color: "#00daf3", marginTop: 2 }}>{(tx.method || "Chapa").toUpperCase()}</Text>
-                  </View>
-                </View>
-
-                {/* Divider */}
-                <View style={{ width: 1, backgroundColor: "rgba(255, 255, 255, 0.08)" }} />
-
-                {/* Right Column */}
-                <View style={{ flex: 1, gap: 12 }}>
-                  <View>
-                    <Text style={{ fontSize: 11.5, color: "#8b93a7", fontWeight: "600", textTransform: "uppercase" }}>{isEN ? "Date & Time" : "ቀን እና ሰዓት"}</Text>
-                    <Text style={{ fontSize: 13.5, fontWeight: "700", color: "#FFFFFF", marginTop: 2 }}>{formatDate(tx.createdAt)}</Text>
-                  </View>
-                  <View style={{ height: 1, backgroundColor: "rgba(255, 255, 255, 0.06)" }} />
-                  <View>
-                    <Text style={{ fontSize: 11.5, color: "#8b93a7", fontWeight: "600", textTransform: "uppercase" }}>{isEN ? "Reference ID" : "የማጣቀሻ ቁጥር"}</Text>
-                    <Text style={{ fontSize: 12.5, fontWeight: "700", color: "#94a3b8", marginTop: 2 }} numberOfLines={1}>
-                      {(tx.ref || tx.id || "—")}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            </View>
-
-            {/* Desktop Action Row (Side-by-Side Buttons) */}
-            <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
-              {onDownloadReceipt && (
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  onPress={() => {
-                    haptics.tap();
-                    onDownloadReceipt(tx);
-                  }}
-                  style={{
-                    flex: 1,
-                    height: 48,
-                    borderRadius: 14,
-                    backgroundColor: "rgba(0, 218, 243, 0.12)",
-                    borderWidth: 1.2,
-                    borderColor: "rgba(0, 218, 243, 0.4)",
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 8,
-                  }}
-                >
-                  <Ionicons name="download-outline" size={17} color="#00daf3" />
-                  <Text style={{ color: "#00daf3", fontSize: 14, fontWeight: "800" }}>
-                    {isEN ? "Download Receipt" : "ደረሰኝ አውርድ"}
-                  </Text>
-                </TouchableOpacity>
-              )}
-
-              <TouchableOpacity
-                activeOpacity={0.88}
-                onPress={() => {
-                  haptics.impact();
-                  handleClose();
-                }}
-                style={{
-                  flex: 1,
-                  height: 48,
-                  borderRadius: 14,
-                  backgroundColor: "#10b981",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Text style={{ color: "#060a14", fontSize: 14.5, fontWeight: "900" }}>
-                  {isEN ? "Done" : "ተጠናቅቋል"}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </Animated.View>
-        </View>
-      ) : (
-        /* ── MOBILE VIEW: Bottom Sheet ── */
-        <View style={{ flex: 1, justifyContent: "flex-end" }}>
-          {/* Backdrop */}
-          <Animated.View
-            style={{
-              ...StyleSheet.absoluteFillObject,
-              backgroundColor: "rgba(0, 0, 0, 0.75)",
-              opacity: fadeAnim,
-            }}
-          >
-            <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={handleClose} />
-          </Animated.View>
-
-          {/* Slide-Up Bottom Sheet Card (Dark Theme matching our colors) */}
-          <Animated.View
-            style={{
-              width: "100%",
-              backgroundColor: "#0e1322",
-              borderTopLeftRadius: 32,
-              borderTopRightRadius: 32,
-              borderWidth: 1,
-              borderColor: "rgba(255, 255, 255, 0.12)",
-              paddingHorizontal: 24,
-              paddingTop: 12,
-              paddingBottom: Platform.OS === "ios" ? 40 : 28,
-              alignItems: "center",
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: -4 },
-              shadowOpacity: 0.4,
-              shadowRadius: 24,
-              elevation: 24,
-              transform: [{ translateY: slideAnim }],
-            }}
-          >
-            {/* Top Pill Handle */}
-            <View
-              style={{
-                width: 38,
-                height: 4.5,
-                borderRadius: 3,
-                backgroundColor: "#222c42",
-                marginBottom: 20,
-              }}
-            />
-
-            {/* Centered Checkmark Badge */}
-            <View style={{ position: "relative", marginBottom: 16 }}>
-              {/* Subtle decorative sparkle stars */}
-              <Text style={{ position: "absolute", top: -6, right: -12, fontSize: 13, color: "#10b981" }}>✦</Text>
-              <Text style={{ position: "absolute", bottom: -2, right: -14, fontSize: 10, color: "#00daf3" }}>✦</Text>
-              <Text style={{ position: "absolute", top: 12, left: -14, fontSize: 11, color: "#10b981" }}>✦</Text>
-
-              <View
-                style={{
-                  width: 76,
-                  height: 76,
-                  borderRadius: 38,
-                  backgroundColor: isSuccess ? "rgba(16, 185, 129, 0.18)" : "rgba(239, 68, 68, 0.18)",
-                  borderWidth: 1.5,
-                  borderColor: isSuccess ? "#10b981" : "#ef4444",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Ionicons
-                  name={isSuccess ? "checkmark" : status === "pending" ? "time-outline" : "close"}
-                  size={38}
-                  color={isSuccess ? "#10b981" : status === "pending" ? "#f59e0b" : "#ef4444"}
-                />
-              </View>
-            </View>
-
-            {/* Title: Success ! */}
-            <Text
-              style={{
-                fontSize: 22,
-                fontWeight: "900",
-                color: "#ffffff",
-                fontFamily: "Inter, sans-serif",
-                letterSpacing: -0.3,
-                marginBottom: 6,
-              }}
-            >
-              {isSuccess
-                ? (isEN ? "Success !" : "ተሳክቷል !")
-                : status === "pending"
-                ? (isEN ? "Processing..." : "በመከናወን ላይ...")
-                : (isEN ? "Failed" : "አልተሳካም")}
-            </Text>
-
-            {/* Subtitle description */}
-            <Text
-              style={{
-                fontSize: 13,
-                color: "#8b93a7",
-                textAlign: "center",
-                lineHeight: 18,
-                paddingHorizontal: 16,
-                marginBottom: 20,
-              }}
-            >
-              {isSuccess
-                ? (isEN
-                    ? "Your transaction has been processed and added successfully."
-                    : "ግብይትዎ በተሳካ ሁኔታ ተከናውኖ ተጨምሯል።")
-                : (isEN
-                    ? "Transaction details and current status are shown below."
-                    : "የግብይት ዝርዝሮች ከታች ይታያሉ።")}
-            </Text>
-
-            {/* Structured Detail Breakdown Box */}
-            <View
-              style={{
-                width: "100%",
-                backgroundColor: "#141a2e",
-                borderRadius: 18,
-                padding: 16,
-                gap: 12,
-                marginBottom: 20,
-                borderWidth: 1,
-                borderColor: "rgba(255, 255, 255, 0.08)",
-              }}
-            >
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                <Text style={{ fontSize: 13, color: "#8b93a7", fontWeight: "600" }}>{isEN ? "Amount" : "መጠን"}</Text>
-                <Text style={{ fontSize: 16, fontWeight: "900", color: isDeposit || isPrize ? "#10b981" : "#ef4444" }}>
-                  {isDeposit || isPrize ? "+" : "-"}ETB {Number(tx.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                </Text>
-              </View>
-
-              <View style={{ height: 1, backgroundColor: "rgba(255, 255, 255, 0.06)" }} />
-
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                <Text style={{ fontSize: 12.5, color: "#8b93a7", fontWeight: "600" }}>{isEN ? "Type" : "ዓይነት"}</Text>
-                <Text style={{ fontSize: 13, fontWeight: "700", color: "#ffffff", textTransform: "capitalize" }}>
-                  {type}
-                </Text>
-              </View>
-
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                <Text style={{ fontSize: 12.5, color: "#8b93a7", fontWeight: "600" }}>{isEN ? "Method" : "ዘዴ"}</Text>
-                <Text style={{ fontSize: 13, fontWeight: "700", color: "#ffffff" }}>
-                  {(tx.method || "Chapa").toUpperCase()}
-                </Text>
-              </View>
-
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                <Text style={{ fontSize: 12.5, color: "#8b93a7", fontWeight: "600" }}>{isEN ? "Date" : "ቀን"}</Text>
-                <Text style={{ fontSize: 12.5, fontWeight: "600", color: "#ffffff" }}>
-                  {formatDate(tx.createdAt)}
-                </Text>
-              </View>
-
-              {!!(tx.ref || tx.id) && (
-                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                  <Text style={{ fontSize: 12.5, color: "#8b93a7", fontWeight: "600" }}>{isEN ? "Ref ID" : "መለያ"}</Text>
-                  <Text style={{ fontSize: 12, fontWeight: "600", color: "#8b93a7" }} numberOfLines={1}>
-                    {(tx.ref || tx.id).slice(0, 18)}
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            {/* Bottom Button: [ Done ] */}
-            <TouchableOpacity
-              activeOpacity={0.88}
-              onPress={() => {
-                haptics.impact();
-                handleClose();
-              }}
-              style={{
-                width: "100%",
-                height: 52,
-                borderRadius: 26,
-                backgroundColor: "#10b981",
-                alignItems: "center",
-                justifyContent: "center",
-                shadowColor: "#10b981",
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.35,
-                shadowRadius: 10,
-                elevation: 4,
-              }}
-            >
-              <Text style={{ color: "#060a14", fontSize: 15.5, fontWeight: "900", letterSpacing: 0.3 }}>
-                {isEN ? "Done" : "ተጠናቅቋል"}
-              </Text>
-            </TouchableOpacity>
-
-            {/* Download Receipt Link */}
-            {onDownloadReceipt && (
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => {
-                  haptics.tap();
-                  onDownloadReceipt(tx);
-                }}
-                style={{ marginTop: 14, paddingVertical: 4 }}
-              >
-                <Text style={{ color: "#00daf3", fontSize: 13, fontWeight: "700", textDecorationLine: "underline" }}>
-                  {isEN ? "Download Receipt" : "ደረሰኝ አውርድ"}
-                </Text>
-              </TouchableOpacity>
-            )}
-          </Animated.View>
-        </View>
-      )}
-    </Modal>
   );
 });
 
@@ -1318,7 +729,7 @@ Status          : ${status.toUpperCase()}
       <NotificationsPopover visible={notificationsVisible} onClose={() => setNotificationsVisible(false)} onUnreadCountChange={setUnreadCount} />
 
       {/* Transaction Details Modal (Image 3 bottom-to-top spring sheet) */}
-      <Image3DetailModal
+      <TransactionDetailModal
         tx={selectedDetailTx}
         visible={!!selectedDetailTx}
         onClose={() => setSelectedDetailTx(null)}
@@ -1707,45 +1118,25 @@ Status          : ${status.toUpperCase()}
               backgroundColor: "#111625",
               borderRadius: 22,
               padding: 18,
-              borderWidth: 1,
+              borderWidth: 1.2,
               borderColor: "rgba(255, 255, 255, 0.08)",
               shadowColor: "#000",
               shadowOffset: { width: 0, height: 4 },
               shadowOpacity: 0.3,
               shadowRadius: 12,
               elevation: 6,
-              marginBottom: 12,
-              position: "relative",
+              marginBottom: 14,
             }}>
-              {/* Header Actions: Refresh & Eye Toggle */}
-              <View style={{
-                position: "absolute",
-                top: 14,
-                right: 14,
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 8,
-                zIndex: 20,
-              }}>
-                <TouchableOpacity
-                  onPress={handleRefreshWallet}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  activeOpacity={0.7}
-                  style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 18,
-                    backgroundColor: "rgba(0, 218, 243, 0.12)",
-                    borderWidth: 1,
-                    borderColor: "rgba(0, 218, 243, 0.35)",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <Animated.View style={{ transform: [{ rotate: walletSpinDeg }] }}>
-                    <SyncIcon size={15} color="#00daf3" />
-                  </Animated.View>
-                </TouchableOpacity>
+              {/* Top Row: Label & Eye Icon */}
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <Text style={{
+                  color: "#8b93a7",
+                  fontSize: 13,
+                  fontWeight: "700",
+                  fontFamily: "Inter, sans-serif",
+                }}>
+                  {isEN ? "Wallet balance" : "የቦርሳ ቀሪ ሂሳብ"}
+                </Text>
 
                 <TouchableOpacity
                   onPress={() => {
@@ -1756,9 +1147,9 @@ Status          : ${status.toUpperCase()}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   activeOpacity={0.7}
                   style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 18,
+                    width: 34,
+                    height: 34,
+                    borderRadius: 17,
                     backgroundColor: "rgba(255, 255, 255, 0.07)",
                     alignItems: "center",
                     justifyContent: "center",
@@ -1767,36 +1158,50 @@ Status          : ${status.toUpperCase()}
                   <Ionicons
                     name={isBalanceHidden ? "eye-off-outline" : "eye-outline"}
                     size={18}
-                    color={isBalanceHidden ? "#ff2a5f" : "#8b93a7"}
+                    color={isBalanceHidden ? "#ff2a5f" : "#cbd5e1"}
                   />
                 </TouchableOpacity>
               </View>
 
-              <View style={{ alignItems: "center" }}>
-                <Text style={{
-                  color: "#8b93a7",
-                  fontSize: 13,
-                  fontWeight: "600",
-                  fontFamily: "Inter, sans-serif",
-                  marginBottom: 4,
-                }}>
-                  {isEN ? "Account balance" : "የሂሳብ ቀሪ ሂሳብ"}
-                </Text>
-
+              {/* Main Balance Row: Left-Aligned Big Balance + Refresh directly under eye */}
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                 <Text style={{
                   color: "#ffffff",
                   fontSize: 32,
                   fontWeight: "900",
                   fontFamily: "Inter, sans-serif",
                   letterSpacing: -0.5,
-                  marginBottom: 6,
                 }}>
                   {isBalanceHidden
-                    ? "ETB ••••••"
-                    : `ETB ${Number(user?.available_balance ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                    ? "••••••••"
+                    : `ETB ${Math.floor(Number(user?.available_balance ?? 0)).toLocaleString()}`}
                 </Text>
 
-                {/* Account / Phone pill */}
+                {/* Refresh button directly under the eye (gray icon only matching eye toggle) */}
+                <TouchableOpacity
+                  onPress={handleRefreshWallet}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  activeOpacity={0.7}
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: 17,
+                    backgroundColor: "rgba(255, 255, 255, 0.07)",
+                    borderWidth: 1,
+                    borderColor: "rgba(255, 255, 255, 0.1)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                  accessibilityLabel="Refresh Balance"
+                >
+                  <Animated.View style={{ transform: [{ rotate: walletSpinDeg }] }}>
+                    <SyncIcon size={15} color="#cbd5e1" />
+                  </Animated.View>
+                </TouchableOpacity>
+              </View>
+
+              {/* Account / Phone pill */}
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                 <TouchableOpacity
                   onPress={() => {
                     haptics.tap();
@@ -1813,7 +1218,7 @@ Status          : ${status.toUpperCase()}
                     gap: 6,
                     paddingHorizontal: 10,
                     paddingVertical: 3.5,
-                    borderRadius: 12,
+                    borderRadius: 10,
                     backgroundColor: "rgba(255, 255, 255, 0.04)",
                     borderWidth: 1,
                     borderColor: "rgba(255, 255, 255, 0.06)",
@@ -2367,9 +1772,7 @@ const s = StyleSheet.create({
     maxWidth: 1720,
     alignSelf: "center",
     gap: 20,
-    ...(Platform.OS === "web" ? {
-      zoom: 1.10,
-    } as any : {}),
+    // zoom removed for proper responsive layout
   },
   threeColumnRow: { flexDirection: "row", gap: 20, alignItems: "flex-start", width: "100%" },
 

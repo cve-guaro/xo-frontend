@@ -606,13 +606,13 @@ export default function SpinGameScreen() {
   const router = useRouter();
   const { width: screenW, height: screenH } = useWindowDimensions();
   const isCompactScreen = screenH < 740;
-  // Dynamic mobile wheel sizing: precisely scales so header, pot, wheel, stake controls, and players bar 100% fit without cut-off
-  const availableWheelH = Math.max(160, screenH - 420);
+  // Dynamic mobile wheel sizing: precisely scales so header, pot, wheel, stake controls, and players bar fit comfortably
+  const availableWheelH = Math.max(200, screenH - 360);
   const mobileWheelSize = Math.max(
-    175,
+    210,
     Math.min(
-      screenW - 48,
-      Math.min(225, availableWheelH)
+      screenW - 36,
+      Math.min(isCompactScreen ? 260 : 310, availableWheelH)
     )
   );
   const { token, user, refreshProfile, language, switchLanguage, setLanguage, showAlert } = useAuth();
@@ -836,7 +836,7 @@ export default function SpinGameScreen() {
       cumulativeAngle += pAngle;
     }
 
-    const currentWheelSize = isDesktop ? Math.min(screenW * 0.32, 420) : mobileWheelSize;
+    const currentWheelSize = isDesktop ? Math.min(screenW * 0.36, 460) : mobileWheelSize;
     const cx = currentWheelSize / 2;
     const cy = currentWheelSize / 2;
     const radius = currentWheelSize * 0.32;
@@ -1668,16 +1668,17 @@ export default function SpinGameScreen() {
                 winnerId: res.data.winnerId || res.data.winner?.userId,
                 prizeAmount: res.data.prizeAmount || res.data.pot || 0,
               };
+              const curId = res.data.roundId || roundRef.current?.roundId;
+              // If round resolved while user was on another tab, terminate spinning immediately to avoid glitch/freeze
               if (isSpinningRef.current) {
-                pendingResultDataRef.current = resData;
-              } else {
-                const curId = res.data.roundId || roundRef.current?.roundId;
-                if (!curId || resultShownRoundIdRef.current !== curId) {
-                  if (curId) resultShownRoundIdRef.current = curId;
-                  setResultData(resData);
-                  setScreenState("result");
-                  setCountdown(0);
-                }
+                setIsSpinning(false);
+                isSpinningRef.current = false;
+              }
+              if (!curId || resultShownRoundIdRef.current !== curId) {
+                if (curId) resultShownRoundIdRef.current = curId;
+                setResultData(resData);
+                setScreenState("result");
+                setCountdown(0);
               }
             } else if (res.data.status === "cancelled") {
               setError("Round was cancelled. Balance refreshed.");
@@ -1892,7 +1893,11 @@ export default function SpinGameScreen() {
       {/* ── 5-PLAYER JOIN CONFIRMATION MODAL (Modular Component) ── */}
       <SpinJoin5PModal
         visible={showJoin5pConfirmModal}
-        onClose={() => setShowJoin5pConfirmModal(false)}
+        onClose={() => {
+          setShowJoin5pConfirmModal(false);
+          joinAttemptedRef.current = false;
+          router.replace("/(authed)/home/gameplay");
+        }}
         balance={balance}
         loading={joinLoading}
         onConfirm={() => {

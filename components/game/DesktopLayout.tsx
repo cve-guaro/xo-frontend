@@ -121,7 +121,7 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
     handleSendInvite, inviteResult,
     refreshProfile, handleLanguageToggle,
     router,
-    selectedTab = "SPIN", setSelectedTab,
+    selectedTab = "XO_GAME", setSelectedTab,
     bgMusicPlaying = true,
     onToggleSound = () => {},
     unreadCount = 0,
@@ -161,6 +161,18 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
       setIndex(targetIdx);
     }
   }, [selectedTab]);
+
+  // Guaranteed initial alignment to selectedTab on mount (prevents initial Spin/XO mismatch)
+  useEffect(() => {
+    const targetIdx = tabs.indexOf(selectedTab);
+    if (targetIdx >= 0) {
+      const timer = setTimeout(() => {
+        carouselRef.current?.scrollTo({ index: targetIdx, animated: false });
+        setIndex(targetIdx);
+      }, 70);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   const handlePrevCard = () => {
     try { playTickSound(); } catch {}
@@ -246,7 +258,7 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
               style={{
                 width: "100%",
                 height: "100%",
-                maxWidth: isCenter ? 280 : 180,
+                transform: [{ scale: isCenter ? 1.14 : 1.05 }],
               }}
               resizeMode="contain"
             />
@@ -320,7 +332,7 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
               style={{
                 width: "100%",
                 height: "100%",
-                maxWidth: isCenter ? 280 : 180,
+                transform: [{ scale: isCenter ? 1.14 : 1.05 }],
               }}
               resizeMode="contain"
             />
@@ -481,10 +493,7 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
             </View>
             <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '700' }}>Play with Friends</Text>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <Text style={[s.shelfActionText, { color: '#00BFFF', fontSize: 12 }]}>Invite</Text>
-            <Ionicons name="chevron-forward" size={14} color="#00BFFF" />
-          </View>
+          <Ionicons name="chevron-forward" size={15} color="#00BFFF" />
         </TouchableOpacity>
       );
     }
@@ -510,10 +519,7 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
           </View>
           <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '700' }}>Next-Gen Battles</Text>
         </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-          <Text style={[s.shelfActionText, { color: '#F5B642', fontSize: 12 }]}>View Rules</Text>
-          <Ionicons name="chevron-forward" size={14} color="#F5B642" />
-        </View>
+        <Ionicons name="chevron-forward" size={15} color="#F5B642" />
       </TouchableOpacity>
     );
   };
@@ -788,13 +794,13 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
               </TouchableOpacity>
 
               {/* Reanimated 3D Carousel (Matching Phone Animation Specification) */}
-              <View style={{ width: "100%", height: 630, alignItems: "center" }}>
+              <View style={{ width: "100%", height: 590, alignItems: "center" }}>
                 <Carousel
                   ref={carouselRef}
                   loop={true}
                   defaultIndex={initialIndex}
                   data={tabs}
-                  style={{ width: centerWidth, height: 630 }}
+                  style={{ width: centerWidth, height: 590 }}
                   itemSize={itemSize}
                   itemAnimation={itemAnimation}
                   animation={{
@@ -858,9 +864,6 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
                 <View>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                     <Text style={s.bonusTitle}>WELCOME BONUS</Text>
-                    <View style={s.bonusClaimedPill}>
-                      <Text style={s.bonusClaimedText}>CLAIMED</Text>
-                    </View>
                   </View>
                   <Text style={s.bonusDesc}>{isEN ? "You have received your welcome reward" : "የእንኳን ደህና መጡ ሽልማትዎን ወስደዋል"}</Text>
                 </View>
@@ -943,9 +946,7 @@ const s = StyleSheet.create({
     width: "100%",
     maxWidth: 1720,
     alignSelf: "center",
-    ...(Platform.OS === "web" ? {
-      zoom: 1.10,
-    } as any : {}),
+    // zoom removed for proper responsive layout
   },
   threeColumnRow: {
     flexDirection: "row",
@@ -1038,9 +1039,9 @@ const s = StyleSheet.create({
     transition: "all 300ms cubic-bezier(0.16, 1, 0.3, 1)",
   } as any,
   gameCardCenter: {
-    minHeight: 520,
-    maxHeight: 570,
-    padding: 22,
+    minHeight: 490,
+    maxHeight: 530,
+    padding: 18,
     zIndex: 10,
     transform: [{ scale: 1.0 }],
     opacity: 1.0,
@@ -1101,16 +1102,16 @@ const s = StyleSheet.create({
     zIndex: 2,
   },
   cardArtWrapperCenter: {
-    height: 250,
-    marginVertical: 8,
+    height: 310,
+    marginVertical: 4,
   },
   cardArtWrapperSide: {
-    height: 185,
-    marginVertical: 6,
+    height: 225,
+    marginVertical: 4,
   },
   cardTitle: {
     color: "#FFFFFF",
-    fontSize: 34,
+    fontSize: 32,
     fontWeight: "900",
     fontFamily: "Space Grotesk, sans-serif",
     letterSpacing: 0.6,
@@ -1128,20 +1129,20 @@ const s = StyleSheet.create({
   },
   cardActionBtn: {
     width: "100%",
-    height: 52,
+    height: 50,
     borderRadius: 16,
     overflow: "hidden",
     zIndex: 2,
   },
   extraShelfBtn: {
     width: "100%",
-    marginTop: 12,
+    marginTop: 8,
     backgroundColor: "rgba(15, 23, 42, 0.85)",
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1.2,
     borderColor: "rgba(255, 255, 255, 0.08)",
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    height: 48,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",

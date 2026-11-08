@@ -1151,8 +1151,13 @@ export default function Landing() {
   if (booting) {
     return (
       <View style={styles.boot}>
-        <ActivityIndicator size="large" color="#7C3AED" />
-        <Text style={styles.bootText}>{t("loading")}</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 3, marginBottom: 14 }}>
+          <Text style={{ color: "#FF1744", fontSize: 26, fontWeight: "900", fontFamily: "Space Grotesk, sans-serif" }}>X</Text>
+          <Text style={{ color: "#00BFFF", fontSize: 26, fontWeight: "900", fontFamily: "Space Grotesk, sans-serif" }}>O</Text>
+          <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "900", marginLeft: 6, letterSpacing: 2, fontFamily: "Space Grotesk, sans-serif" }}>ETHIOPIA</Text>
+        </View>
+        <ActivityIndicator size="small" color="#00BFFF" />
+        <Text style={styles.bootText}>{isEN ? "Entering Arena..." : "ወደ ጨዋታው በመግባት ላይ..."}</Text>
       </View>
     );
   }
@@ -1363,18 +1368,20 @@ export default function Landing() {
                         <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "900", letterSpacing: 0.3 }}>
                           WELCOME BONUS
                         </Text>
-                        <View style={{
-                          backgroundColor: isBonusClaimed ? "rgba(148, 163, 184, 0.15)" : "rgba(245, 182, 66, 0.2)",
-                          paddingHorizontal: 7,
-                          paddingVertical: 2,
-                          borderRadius: 8,
-                          borderWidth: 0.8,
-                          borderColor: isBonusClaimed ? "rgba(148, 163, 184, 0.3)" : "rgba(245, 182, 66, 0.4)",
-                        }}>
-                          <Text style={{ color: isBonusClaimed ? "#94a3b8" : "#f5b642", fontSize: 10, fontWeight: "900" }}>
-                            {isBonusClaimed ? "CLAIMED" : "10 ETB FREE"}
-                          </Text>
-                        </View>
+                        {!isBonusClaimed && (
+                          <View style={{
+                            backgroundColor: "rgba(245, 182, 66, 0.2)",
+                            paddingHorizontal: 7,
+                            paddingVertical: 2,
+                            borderRadius: 8,
+                            borderWidth: 0.8,
+                            borderColor: "rgba(245, 182, 66, 0.4)",
+                          }}>
+                            <Text style={{ color: "#f5b642", fontSize: 10, fontWeight: "900" }}>
+                              10 ETB FREE
+                            </Text>
+                          </View>
+                        )}
                       </View>
                       <Text style={{ color: "#8b93a7", fontSize: 11, fontWeight: "600", marginTop: 2 }}>
                         {isBonusClaimed
@@ -1650,8 +1657,8 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   scroll: { paddingHorizontal: 14, paddingBottom: 18 },
 
-  boot: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#050816" },
-  bootText: { color: "rgba(255,255,255,0.8)", marginTop: 10, fontWeight: "700" },
+  boot: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#080F17" },
+  bootText: { color: "#8893A7", marginTop: 12, fontSize: 13, fontWeight: "700" },
 
   // blobs
   blob: {

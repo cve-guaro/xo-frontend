@@ -297,7 +297,6 @@ export default function ProfileScreen() {
             user={user}
             balance={Number(user?.available_balance || 0)}
             currentScreen="profile"
-            style={{ width: 280 }}
             refreshProfile={refreshProfile}
             setDepositVisible={setDepositVisible}
             setWithdrawVisible={setWithdrawVisible}
@@ -425,6 +424,25 @@ export default function ProfileScreen() {
                   <Text style={s.cardHeaderTitle}>Settings & Preferences</Text>
 
                   <View style={{ marginTop: 10 }}>
+                    {/* Row 0: Install XO App (PWA) */}
+                    <TouchableOpacity
+                      onPress={() => {
+                        playTickSound();
+                        haptics.tap();
+                        setPwaModalVisible(true);
+                      }}
+                      style={s.settingsListRow}
+                      activeOpacity={0.8}
+                    >
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                        <View style={[s.settingsIconWrap, { backgroundColor: "rgba(0, 191, 255, 0.12)" }]}>
+                          <Ionicons name="download-outline" size={17} color="#00BFFF" />
+                        </View>
+                        <Text style={s.settingsRowLabel}>{isEN ? "Install XO App (PWA)" : "የ XO መተግበሪያ ጫን"}</Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={16} color="#8b93a7" />
+                    </TouchableOpacity>
+
                     {/* Row 1: Edit Profile */}
                     <TouchableOpacity onPress={() => setEditModalVisible(true)} style={s.settingsListRow} activeOpacity={0.8}>
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
@@ -1023,6 +1041,42 @@ export default function ProfileScreen() {
               </View>
               <Ionicons name="chevron-forward" size={17} color="#64748b" />
             </TouchableOpacity>
+
+            {/* Install XO App (PWA) */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => {
+                playTickSound();
+                haptics.tap();
+                setPwaModalVisible(true);
+              }}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingVertical: 14,
+                paddingHorizontal: 16,
+                borderTopWidth: 1,
+                borderTopColor: "rgba(255, 255, 255, 0.05)",
+              }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+                <View style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: "rgba(0, 191, 255, 0.12)",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}>
+                  <Ionicons name="download-outline" size={19} color="#00BFFF" />
+                </View>
+                <Text style={{ color: "#ffffff", fontSize: 14.5, fontWeight: "700" }}>
+                  {isEN ? "Install XO App (PWA)" : "የ XO መተግበሪያ ጫን"}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={17} color="#64748b" />
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -1358,11 +1412,9 @@ const s = StyleSheet.create({
     maxWidth: 1720,
     alignSelf: "center",
     gap: 20,
-    ...(Platform.OS === "web" ? {
-      zoom: 1.10,
-    } as any : {}),
+    // zoom removed for proper responsive layout
   },
-  threeColumnRow: { flexDirection: "row", gap: 20, alignItems: "flex-start", width: "100%" },
+  threeColumnRow: { flexDirection: "row", flexWrap: "wrap", gap: 16, alignItems: "flex-start", width: "100%" },
 
   // Sidebar Layout (Same as gameplay & history left sidebars)
   leftSidebar: { width: 280, gap: 20 },
@@ -1485,7 +1537,7 @@ const s = StyleSheet.create({
   logoutBtnText: { color: "rgba(255,255,255,0.4)", fontSize: 12, fontWeight: "800", letterSpacing: 0.8, fontFamily: "Inter, sans-serif" },
 
   // Center column
-  centerColumn: { flex: 1, gap: 20 },
+  centerColumn: { flex: 1.2, minWidth: 280, gap: 16 },
 
   // ── Profile Header Card ──
   profileHeaderCard: {

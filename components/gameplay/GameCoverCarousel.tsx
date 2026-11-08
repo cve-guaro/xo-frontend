@@ -85,6 +85,16 @@ export const GameCoverCarousel: React.FC<GameCoverCarouselProps> = ({
     }
   }, [selectedTab]);
 
+  // Guaranteed initial alignment to selectedTab on mount
+  useEffect(() => {
+    const targetIdx = selectedTab === "SPIN" ? 0 : selectedTab === "XO_GAME" ? 1 : 2;
+    const timer = setTimeout(() => {
+      carouselRef.current?.scrollTo({ index: targetIdx, animated: false });
+      setIndex(targetIdx);
+    }, 70);
+    return () => clearTimeout(timer);
+  }, []);
+
   const handleTabPress = (tab: MobileCardMode) => {
     try { playTickSound(); } catch {}
     haptics.impact();
@@ -173,7 +183,7 @@ export const GameCoverCarousel: React.FC<GameCoverCarouselProps> = ({
         </View>
 
         {/* Artwork Image: spin-card bord.webp */}
-        <View style={{ width: "100%", height: 245, alignItems: "center", justifyContent: "center", marginVertical: 4 }}>
+        <View style={{ width: "100%", height: 265, alignItems: "center", justifyContent: "center", marginVertical: 4 }}>
           <Image
             source={spinCardBordImg}
             style={{ width: "100%", height: "100%" }}
@@ -352,7 +362,7 @@ export const GameCoverCarousel: React.FC<GameCoverCarouselProps> = ({
         </View>
 
         {/* Artwork Image: xo-card bord.webp */}
-        <View style={{ width: "100%", height: 245, alignItems: "center", justifyContent: "center", marginVertical: 4 }}>
+        <View style={{ width: "100%", height: 265, alignItems: "center", justifyContent: "center", marginVertical: 4 }}>
           <Image
             source={xoCardBordImg}
             style={{ width: "100%", height: "100%" }}

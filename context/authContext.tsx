@@ -721,7 +721,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [language, setLanguage]);
 
   // Global Active Game Mode ('spin' vs 'xo')
-  const [activeGameMode, setActiveGameModeState] = useState<'spin' | 'xo'>('spin');
+  const [activeGameMode, setActiveGameModeState] = useState<'spin' | 'xo'>('xo');
 
   useEffect(() => {
     storage.getItemAsync("XOET_GAME_MODE").then((val) => {
@@ -1647,7 +1647,7 @@ export const useAuth = (): Ctx => {
       t: (key: string) => key,
       switchLanguage: () => {},
       fixUrl: (url?: string | null) => url || null,
-      activeGameMode: 'spin',
+      activeGameMode: 'xo',
       setActiveGameMode: () => {},
     } as any;
   }

@@ -32,6 +32,7 @@ import { SlidingNumber } from "../../../components/game/SlidingNumber";
 import NotificationsPopover from "../../../components/NotificationsPopover";
 import { SkeletonRow } from "../../../components/SkeletonLoading";
 import SpinWheel from "../../../components/game/SpinWheel";
+import { HistoryDetailPanel } from "../../../components/history/HistoryDetailPanel";
 
 // ---- Types ----
 type Move = { ts: string; user: string; index: number; symbol: "X" | "O" };
@@ -140,6 +141,21 @@ export default function GamesHistory() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const gamesPerPage = 6;
+
+  // Web outside-click listener for reliable filter dropdown dismissal
+  useEffect(() => {
+    if (!dropdownOpen || Platform.OS !== 'web') return;
+    const handleOutsideClick = () => {
+      setDropdownOpen(false);
+    };
+    const timer = setTimeout(() => {
+      window.addEventListener('click', handleOutsideClick);
+    }, 10);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('click', handleOutsideClick);
+    };
+  }, [dropdownOpen]);
 
   // Modals visibility
   const [depositVisible, setDepositVisible] = useState(false);
@@ -319,7 +335,6 @@ export default function GamesHistory() {
             user={user}
             balance={Number(user?.available_balance || 0)}
             currentScreen="history"
-            style={{ width: 280 }}
             refreshProfile={refreshProfile}
             setDepositVisible={setDepositVisible}
             setWithdrawVisible={setWithdrawVisible}
@@ -679,333 +694,20 @@ export default function GamesHistory() {
               showsVerticalScrollIndicator={false}
             >
               <View style={s.rightSidebar}>
-                {gameType === 'spin' ? (() => {
-                  const selectedRound = spinHistory.find(
-                    (r: any) => String(r.round_id || r.id || '') === selectedSpinId
-                  ) || spinHistory[0] || null;
-
-                  if (!selectedRound) {
-                    return (
-                      <View style={[s.card, { flex: 1, alignItems: "center", justifyContent: "center" }]}>
-                        <Ionicons name="disc-outline" size={36} color="rgba(255,255,255,0.2)" />
-                        <Text style={{ color: "rgba(255,255,255,0.3)", marginTop: 10, fontSize: 13, fontFamily: "Inter, sans-serif" }}>
-                          {isEN ? "Select a spin round to view details" : "ዝርዝሩን ለማየት የስፒን ጨዋታ ይምረጡ"}
-                        </Text>
-                      </View>
-                    );
-                  }
-
-                  const isWin = selectedRound.is_winner;
-                  const statusColor = isWin ? "#34d399" : "#ef4444";
-                  const statusText = isWin ? "VICTORY" : "DEFEAT";
-                  const modeLabel = selectedRound.mode_label || (selectedRound.config_id === 2 ? "Rail Spin" : "5-Player Spin");
-                  const pot = Number(selectedRound.pot_amount || 0);
-                  const prize = Number(selectedRound.prize_amount || 0);
-                  const entryFee = Number(selectedRound.bet_amount || 100);
-                  const roundPlayers = Array.isArray(selectedRound.players) ? selectedRound.players : [];
-
-                  const mappedPlayers = roundPlayers.map((p: any, idx: number) => ({
-                    userId: p.userId || p.id || String(idx),
-                    username: p.username || `Player ${idx + 1}`,
-                    seatIndex: p.seatIndex ?? idx,
-                    avatar: p.avatar,
-                  }));
-
-                  const winningSlice = mappedPlayers.findIndex(
-                    (p: any) => p.username === selectedRound.winner_name
-                  );
-
-                  return (
-                    <View style={[s.card, { flex: 1 }]}>
-                      {/* Sidebar Header */}
-                      <View style={s.leaderboardHeader}>
-                        <Text style={s.leaderboardTitle}>ROUND DETAILS</Text>
-                        <TouchableOpacity onPress={() => setSelectedSpinId(null)}>
-                          <Ionicons name="close" size={18} color="#8b93a7" />
-                        </TouchableOpacity>
-                      </View>
-
-                      {/* Outcome Badge Row */}
-                      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 14, marginBottom: 16 }}>
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                          <Ionicons name={isWin ? "trophy" : "skull"} size={16} color={statusColor} />
-                          <Text style={[s.detailBadgeText, { color: statusColor }]}>{statusText}</Text>
-                        </View>
-                        <View style={s.modeBadge}>
-                          <Text style={s.modeBadgeText}>
-                            {modeLabel.toUpperCase()}
-                          </Text>
-                        </View>
-                      </View>
-
-                      {/* Prize Amount Showcase Banner */}
-                      <View style={{ backgroundColor: 'rgba(34, 211, 238, 0.08)', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: 'rgba(34, 211, 238, 0.25)', marginBottom: 16, alignItems: 'center' }}>
-                        <Text style={{ color: '#8b93a7', fontSize: 10, fontWeight: '800', letterSpacing: 1 }}>TOTAL PRIZE</Text>
-                        <Text style={{ color: '#22d3ee', fontSize: 28, fontWeight: '900', marginTop: 2, fontFamily: 'Inter, sans-serif' }}>
-                          ETB {prize.toLocaleString()}
-                        </Text>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                          <Ionicons name="trophy" size={13} color="#f5b642" />
-                          <Text style={{ color: '#f5b642', fontSize: 12, fontWeight: '700' }}>
-                            Winner: @{selectedRound.winner_name || '—'}
-                          </Text>
-                        </View>
-                      </View>
-
-                      {/* Stat Lines */}
-                      <View style={s.statLinesGroup}>
-                        <View style={s.statLineRow}>
-                          <Text style={s.statLineLabel}>POT AMOUNT</Text>
-                          <Text style={s.statLineVal}>ETB {pot.toLocaleString()}</Text>
-                        </View>
-                        <View style={s.statLineRow}>
-                          <Text style={s.statLineLabel}>ENTRY FEE</Text>
-                          <Text style={s.statLineVal}>ETB {entryFee.toLocaleString()}</Text>
-                        </View>
-                        <View style={s.statLineRow}>
-                          <Text style={s.statLineLabel}>ROUND ID</Text>
-                          <Text style={s.statLineVal}>#SPIN-{String(selectedRound.round_id || selectedRound.id || '').slice(-6).toUpperCase()}</Text>
-                        </View>
-                        <View style={s.statLineRow}>
-                          <Text style={s.statLineLabel}>DATE & TIME</Text>
-                          <Text style={s.statLineVal}>{formatWhen(selectedRound.created_at)}</Text>
-                        </View>
-                      </View>
-
-                      {/* Participants / List of Users */}
-                      <Text style={[s.boardTitleHeader, { marginTop: 14, marginBottom: 8 }]}>PARTICIPANTS ({mappedPlayers.length})</Text>
-                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
-                        {mappedPlayers.map((p: any, idx: number) => {
-                          const isWinner = p.username === selectedRound.winner_name;
-                          return (
-                            <View
-                              key={p.userId || idx}
-                              style={{
-                                flexDirection: 'row',
-                                alignItems: 'center',
-                                gap: 5,
-                                backgroundColor: isWinner ? 'rgba(52, 211, 153, 0.12)' : 'rgba(255, 255, 255, 0.04)',
-                                borderWidth: 1,
-                                borderColor: isWinner ? 'rgba(52, 211, 153, 0.35)' : 'rgba(255, 255, 255, 0.07)',
-                                paddingHorizontal: 10,
-                                paddingVertical: 5,
-                                borderRadius: 10,
-                              }}
-                            >
-                              <Ionicons name={isWinner ? "trophy" : "person"} size={12} color={isWinner ? "#34d399" : "#8b93a7"} />
-                              <Text style={{ color: isWinner ? "#34d399" : "#e2e8f0", fontSize: 11, fontWeight: "700" }}>
-                                {p.username}
-                              </Text>
-                            </View>
-                          );
-                        })}
-                      </View>
-
-                      {/* Spin Wheel Replay Section */}
-                      <Text style={[s.boardTitleHeader, { marginBottom: 6 }]}>SPIN REPLAY</Text>
-                      <View style={{ alignItems: 'center', justifyContent: 'center', marginVertical: 8 }}>
-                        <SpinWheel
-                          size={180}
-                          players={mappedPlayers}
-                          isSpinning={isSpinReplayPlaying}
-                          winningSlice={winningSlice >= 0 ? winningSlice : 0}
-                          status={isSpinReplayPlaying ? "spinning" : "resolved"}
-                          mode={selectedRound.config_id === 2 ? "RAIL" : "5_PLAYER"}
-                          onSpinComplete={() => setIsSpinReplayPlaying(false)}
-                        />
-                      </View>
-
-                      {/* Replay Controls (Play/Pause, Reset) */}
-                      <View style={s.replayControlsRow}>
-                        {/* Reset Button */}
-                        <TouchableOpacity 
-                          onPress={() => setIsSpinReplayPlaying(false)}
-                          style={s.replayControlBtn}
-                          activeOpacity={0.8}
-                        >
-                          <Ionicons name="refresh" size={16} color="#fff" />
-                        </TouchableOpacity>
-
-                        {/* Play/Pause Button */}
-                        <TouchableOpacity 
-                          onPress={() => setIsSpinReplayPlaying(!isSpinReplayPlaying)}
-                          style={[s.replayControlBtn, s.replayPlayBtn]}
-                          activeOpacity={0.8}
-                        >
-                          <Ionicons name={isSpinReplayPlaying ? "pause" : "play"} size={18} color="#0a0e1a" />
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  );
-                })() : selectedGame ? (() => {
-                  const isWin = selectedGame.is_winner === true ||
-                    (selectedGame.is_winner === undefined && selectedGame.winner != null && String(selectedGame.winner).toLowerCase() === String(myId || '').toLowerCase());
-                  const statusColor = isWin ? "#22c55e" : "#ef4444";
-                  const statusText = isWin ? "VICTORY" : "DEFEAT";
-                  const isPlayerX = selectedGame.players && selectedGame.players[0] === myId;
-                  const myMark = isPlayerX ? "X" : "O";
-                  const oppMark = myMark === "X" ? "O" : "X";
-                  const opponentName = isPlayerX ? selectedGame.po_name || "Opponent" : selectedGame.px_name || "Opponent";
-                  const duration = getDuration(selectedGame.created_at, selectedGame.finished_at);
-                  const roomId = `XO-${selectedGame.id.slice(-4).toUpperCase()}`;
-                  const boardState = getBoardForStep(selectedGame.moves, currentMoveStep);
-
-                  return (
-                    <View style={[s.card, { flex: 1 }]}>
-                      {/* Sidebar Header */}
-                      <View style={s.leaderboardHeader}>
-                        <Text style={s.leaderboardTitle}>MATCH DETAILS</Text>
-                        <TouchableOpacity onPress={() => setSelectedGameId(null)}>
-                          <Ionicons name="close" size={18} color="#8b93a7" />
-                        </TouchableOpacity>
-                      </View>
-
-                      {/* Outcome Badge Row */}
-                      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 14, marginBottom: 20 }}>
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                          <Ionicons name={isWin ? "trophy" : "skull"} size={16} color={statusColor} />
-                          <Text style={[s.detailBadgeText, { color: statusColor }]}>{statusText}</Text>
-                        </View>
-                        <View style={s.modeBadge}>
-                          <Text style={s.modeBadgeText}>
-                            {selectedGame.bet_amount >= 1000 ? "LEGEND" : (selectedGame.bet_amount >= 100 ? "PRO" : "STARTER")}
-                          </Text>
-                        </View>
-                      </View>
-
-                      {/* Opponent VS card */}
-                      <View style={s.sideVsContainer}>
-                        <View style={{ alignItems: "center", width: 90 }}>
-                          <View style={s.sideAvatar}>
-                            <Text style={s.sideAvatarText}>{user?.username ? user.username.slice(0, 1).toUpperCase() : "M"}</Text>
-                          </View>
-                          <Text style={s.sidePlayerName} numberOfLines={1}>@{user?.username || (user?.number ? `User ${user.number.slice(-4)}` : "Set Your Name")}</Text>
-                          <Text style={s.sideMarkIndicator}>Mark: {myMark}</Text>
-                        </View>
-
-                        <Text style={s.sideVsText}>VS</Text>
-
-                        <View style={{ alignItems: "center", width: 90 }}>
-                          <View style={[s.sideAvatar, { backgroundColor: "#f5b642" }]}>
-                            <Text style={s.sideAvatarText}>{opponentName.slice(0, 1).toUpperCase()}</Text>
-                          </View>
-                          <Text style={s.sidePlayerName} numberOfLines={1}>@{opponentName}</Text>
-                          <Text style={s.sideMarkIndicator}>Mark: {oppMark}</Text>
-                        </View>
-                      </View>
-
-                      {/* Stat Lines */}
-                      <View style={s.statLinesGroup}>
-                        <View style={s.statLineRow}>
-                          <Text style={s.statLineLabel}>BET AMOUNT</Text>
-                          <Text style={s.statLineVal}>ETB {selectedGame.bet_amount}</Text>
-                        </View>
-                        <View style={s.statLineRow}>
-                          <Text style={s.statLineLabel}>MATCH ID</Text>
-                          <Text style={s.statLineVal}>#XO-{selectedGame.id.slice(-8).toUpperCase()}</Text>
-                        </View>
-                        <View style={s.statLineRow}>
-                          <Text style={s.statLineLabel}>ROOM ID</Text>
-                          <Text style={s.statLineVal}>{roomId}</Text>
-                        </View>
-                        <View style={s.statLineRow}>
-                          <Text style={s.statLineLabel}>DURATION</Text>
-                          <Text style={s.statLineVal}>{duration}</Text>
-                        </View>
-                        <View style={s.statLineRow}>
-                          <Text style={s.statLineLabel}>DATE & TIME</Text>
-                          <Text style={s.statLineVal}>{formatWhen(selectedGame.created_at)}</Text>
-                        </View>
-                      </View>
-
-                      {/* Game Board grid */}
-                      <Text style={s.boardTitleHeader}>GAME BOARD</Text>
-                      <View style={s.boardContainerCenter}>
-                        <View style={s.boardGrid}>
-                          {boardState.map((cell, idx) => {
-                            const isCellX = cell === "X";
-                            const isCellO = cell === "O";
-                            return (
-                              <View 
-                                key={idx} 
-                                style={[
-                                  s.boardCell, 
-                                  isCellX && s.boardCellX, 
-                                  isCellO && s.boardCellO
-                                ]}
-                              >
-                                <Text 
-                                  style={[
-                                    s.boardCellText, 
-                                    isCellX && s.boardCellTextX, 
-                                    isCellO && s.boardCellTextO
-                                  ]}
-                                >
-                                  {cell || ""}
-                                </Text>
-                              </View>
-                            );
-                          })}
-                        </View>
-                      </View>
-
-                      {/* Step Indicator */}
-                      <Text style={s.replayStepText}>
-                        Move {currentMoveStep} of {selectedGame.moves ? selectedGame.moves.length : 0}
-                      </Text>
-
-                      {/* Replay Controls (Backward, Play/Pause, Forward) */}
-                      <View style={s.replayControlsRow}>
-                        {/* Backward Button */}
-                        <TouchableOpacity 
-                          onPress={() => {
-                            setIsPlayingReplay(false);
-                            setCurrentMoveStep(prev => Math.max(0, prev - 1));
-                          }}
-                          style={s.replayControlBtn}
-                          activeOpacity={0.8}
-                        >
-                          <Ionicons name="play-back" size={16} color="#fff" />
-                        </TouchableOpacity>
-
-                        {/* Play/Pause Button */}
-                        <TouchableOpacity 
-                          onPress={() => {
-                            if (currentMoveStep >= selectedGame.moves.length) {
-                              setCurrentMoveStep(0);
-                              setIsPlayingReplay(true);
-                            } else {
-                              setIsPlayingReplay(!isPlayingReplay);
-                            }
-                          }}
-                          style={[s.replayControlBtn, s.replayPlayBtn]}
-                          activeOpacity={0.8}
-                        >
-                          <Ionicons name={isPlayingReplay ? "pause" : "play"} size={18} color="#0a0e1a" />
-                        </TouchableOpacity>
-
-                        {/* Forward Button */}
-                        <TouchableOpacity 
-                          onPress={() => {
-                            setIsPlayingReplay(false);
-                            setCurrentMoveStep(prev => Math.min(selectedGame.moves.length, prev + 1));
-                          }}
-                          style={s.replayControlBtn}
-                          activeOpacity={0.8}
-                        >
-                          <Ionicons name="play-forward" size={16} color="#fff" />
-                        </TouchableOpacity>
-                      </View>
-
-                      {/* Play Again button removed */}
-                    </View>
-                  );
-                })() : (
-                  <View style={[s.card, { flex: 1, alignItems: "center", justifyContent: "center" }]}>
-                    <Ionicons name="information-circle-outline" size={32} color="rgba(255,255,255,0.2)" />
-                    <Text style={{ color: "rgba(255,255,255,0.3)", marginTop: 10, fontSize: 13, fontFamily: "Inter, sans-serif" }}>Select a match to view details</Text>
-                  </View>
-                )}
+                <HistoryDetailPanel
+                  selectedRound={gameType === 'spin' ? (spinHistory.find((r: any) => String(r.round_id || r.id || '') === selectedSpinId) || spinHistory[0] || null) : null}
+                  selectedGame={gameType !== 'spin' ? selectedGame : null}
+                  myId={myId}
+                  user={user}
+                  onCloseSpin={() => setSelectedSpinId(null)}
+                  onCloseGame={() => setSelectedGameId(null)}
+                  isSpinReplayPlaying={isSpinReplayPlaying}
+                  setIsSpinReplayPlaying={setIsSpinReplayPlaying}
+                  currentMoveStep={currentMoveStep}
+                  setCurrentMoveStep={setCurrentMoveStep}
+                  isPlayingReplay={isPlayingReplay}
+                  setIsPlayingReplay={setIsPlayingReplay}
+                />
               </View>
             </ScrollView>
         </View>
@@ -1293,9 +995,7 @@ const s = StyleSheet.create({
     gap: 20,
     alignItems: "stretch",
     overflow: "hidden",
-    ...(Platform.OS === "web" ? {
-      zoom: 1.10,
-    } as any : {}),
+    // zoom removed for proper responsive layout
   },
   stickySidebarScrollLeft: {
     width: 280,
@@ -1304,13 +1004,7 @@ const s = StyleSheet.create({
     flexGrow: 0,
     flexShrink: 0,
   },
-  stickySidebarScrollRight: {
-    width: 320,
-    height: "100%",
-    maxHeight: "100%",
-    flexGrow: 0,
-    flexShrink: 0,
-  },
+  stickySidebarScrollRight: { width: 300, maxWidth: "35%", height: "100%", maxHeight: "100%", flexGrow: 0, flexShrink: 1 },
   centerScrollContainer: {
     flex: 1,
     height: "100%",
@@ -1449,16 +1143,9 @@ const s = StyleSheet.create({
   logoutBtnText: { color: "rgba(255,255,255,0.4)", fontSize: 12, fontWeight: "800", letterSpacing: 0.8, fontFamily: "Inter, sans-serif" },
 
   // Center column
-  centerColumn: { flex: 1, gap: 20 },
-  titleRowContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 6,
-    position: "relative",
-    zIndex: 1000,
-  },
-  mainTitle: { color: "#00BFFF", fontSize: 36, fontWeight: "900", letterSpacing: -0.5, fontFamily: "Inter, sans-serif" },
+  centerColumn: { flex: 1, minWidth: 0, gap: 16 },
+  titleRowContainer: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 6, position: "relative", zIndex: 1000 },
+  mainTitle: { color: "#00BFFF", fontSize: 26, fontWeight: "900", letterSpacing: -0.5, fontFamily: "Inter, sans-serif", flexShrink: 1, minWidth: 0 },
   subTitle: { color: "#8b93a7", fontSize: 13, fontWeight: "600", marginTop: 4, fontFamily: "Inter, sans-serif" },
 
   // Dropdown filter styles
@@ -1509,17 +1196,19 @@ const s = StyleSheet.create({
   dropdownItemTextActive: { color: "#FFFFFF", fontWeight: "800" },
 
   // Stats Card Grid
-  statsGrid: { flexDirection: "row", gap: 16 },
+  statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12, width: "100%" },
   statCard: {
     flex: 1,
+    minWidth: 135,
+    flexBasis: "46%",
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#12172a",
-    borderRadius: 20,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: "#1f2540",
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
   },
   statIconCircle: {
     width: 38,

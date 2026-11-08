@@ -120,10 +120,13 @@ export function PwaInstallBanner() {
   return (
     <View style={isDesktop ? styles.desktopContainer : styles.mobileContainer}>
       <View style={styles.content}>
-        <Image
-          source={require('../assets/images/adaptive-icon.png')}
-          style={{ width: 40, height: 40, borderRadius: 10, marginRight: 12 }}
-        />
+        <View style={styles.iconContainer}>
+          <Image
+            source={require('../assets/brand/PNG/icon/xo-icon-color-transparent-64.png')}
+            style={styles.appIcon}
+            resizeMode="contain"
+          />
+        </View>
         <View style={styles.textContainer}>
           <Text style={styles.title}>Install XO Ethiopia App</Text>
           <Text style={styles.subtitle} numberOfLines={isDesktop ? 2 : 1}>
@@ -135,7 +138,7 @@ export function PwaInstallBanner() {
             <Text style={styles.installText}>Install</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={handleDismiss} style={styles.dismissBtn}>
-            <CloseIcon size={22} color="#ffffff" />
+            <CloseIcon size={20} color="#ffffff" />
           </TouchableOpacity>
         </View>
       </View>
@@ -152,38 +155,46 @@ const styles = StyleSheet.create({
     zIndex: 9999,
     borderRadius: 20,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#0091EA',
-    shadowColor: '#0091EA',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
+    boxShadow: '0 8px 30px rgba(0, 218, 243, 0.45)',
     elevation: 10,
-    backgroundColor: '#0091EA',
+    backgroundColor: '#00daf3',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
     padding: 16,
-  },
+  } as any,
   mobileContainer: {
     position: 'absolute',
-    bottom: 16,
+    bottom: 20,
     left: 16,
     right: 16,
     zIndex: 9999,
-    borderRadius: 16,
+    borderRadius: 18,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#0091EA',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    boxShadow: '0 8px 24px rgba(0, 218, 243, 0.45)',
     elevation: 8,
-    backgroundColor: '#0091EA',
+    backgroundColor: '#00daf3',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
     padding: 16,
-  },
+  } as any,
   content: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  iconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    overflow: 'hidden',
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  } as any,
+  appIcon: {
+    width: 44,
+    height: 44,
   },
   textContainer: {
     flex: 1,
@@ -192,13 +203,13 @@ const styles = StyleSheet.create({
   title: {
     color: '#ffffff',
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: '900',
   },
   subtitle: {
-    color: '#ffffff',
+    color: 'rgba(255, 255, 255, 0.92)',
     fontSize: 11,
+    fontWeight: '600',
     marginTop: 2,
-    opacity: 0.9,
   },
   actions: {
     flexDirection: 'row',
@@ -215,9 +226,10 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     alignItems: 'center',
     justifyContent: 'center',
-  },
+    boxShadow: '0 3px 12px rgba(0, 0, 0, 0.15)',
+  } as any,
   installText: {
-    color: '#0b0b0f',
+    color: '#080f17',
     fontWeight: '900',
     fontSize: 12,
     letterSpacing: 0.5,

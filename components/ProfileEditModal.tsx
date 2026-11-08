@@ -87,8 +87,13 @@ export default function ProfileEditModal({
       setBanner({ type: "error", text: "You must be logged in." });
       return;
     }
-    if (!username?.trim()) {
+    const cleanUsername = username.trim().replace(/[^a-zA-Z0-9_]/g, "").slice(0, 20);
+    if (!cleanUsername) {
       setBanner({ type: "info", text: "Username cannot be empty." });
+      return;
+    }
+    if (cleanUsername.length < 3) {
+      setBanner({ type: "info", text: "Username must be at least 3 characters." });
       return;
     }
     try {
@@ -97,8 +102,8 @@ export default function ProfileEditModal({
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          username: username.trim(),
-          display_name: displayName?.trim?.() ?? "",
+          username: cleanUsername,
+          display_name: (displayName?.trim?.() ?? "").slice(0, 30),
           avatar,
         }),
       });
@@ -191,8 +196,9 @@ export default function ProfileEditModal({
                 <TextInput
 
                   value={username}
-                  onChangeText={setUsername}
-                  placeholder="Unique handle"
+                  onChangeText={(t) => setUsername(t.replace(/[^a-zA-Z0-9_]/g, "").slice(0, 20))}
+                  maxLength={20}
+                  placeholder="Unique handle (3-20 chars)"
                   placeholderTextColor="#6B7280"
                   style={styles.input}
                   autoCapitalize="none"
@@ -203,7 +209,8 @@ export default function ProfileEditModal({
                 <Text style={styles.label}>{isEN ? "Display Name" : "የሚታይ ስም"}</Text>
                 <TextInput
                   value={displayName}
-                  onChangeText={setDisplayName}
+                  onChangeText={(t) => setDisplayName(t.slice(0, 30))}
+                  maxLength={30}
                   placeholder={isEN ? "How should we show your name?" : "ስምዎ እንዲ እንዴት እንዲታይ ይፈልጋሉ?"}
                   placeholderTextColor="#6B7280"
                   style={styles.input}

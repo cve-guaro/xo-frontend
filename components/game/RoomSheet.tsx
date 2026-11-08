@@ -188,11 +188,20 @@ const RoomSheet = memo(function RoomSheet({
     [isExpanded, onClose, expandAnim]
   );
 
+  const affordablePresets = useMemo(() => STAKE_PRESETS.filter((p) => balance >= p.amount), [balance]);
+  const maxAffordableStake = useMemo(() => {
+    return affordablePresets.length > 0 ? Math.max(...affordablePresets.map((p) => p.amount)) : 0;
+  }, [affordablePresets]);
+
   // Fetch real friends on modal open
   useEffect(() => {
     if (visible) {
       setCurrentView(initialView || "STAKES");
-      setSelectedStake(25);
+      if (balance >= 25) {
+        setSelectedStake((prev) => (prev && balance >= prev ? prev : 25));
+      } else {
+        setSelectedStake(null);
+      }
       setSearchQuery("");
       setInvitedUsers({});
       setIsExpanded(true);
@@ -347,7 +356,7 @@ const RoomSheet = memo(function RoomSheet({
 
   // Send friend match invite
   const handleInviteUser = (username: string) => {
-    if (!selectedStake) return;
+    if (!selectedStake || balance < selectedStake) return;
     try { playNotificationSound(); } catch {}
     haptics.impact();
 
@@ -591,6 +600,101 @@ const RoomSheet = memo(function RoomSheet({
                   </TouchableOpacity>
                 </View>
 
+                {/* Available Balance & Max Stake Header */}
+                <View style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                  borderRadius: 14,
+                  paddingHorizontal: 14,
+                  paddingVertical: 10,
+                  marginBottom: 12,
+                  borderWidth: 1,
+                  borderColor: 'rgba(255, 255, 255, 0.06)',
+                }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Ionicons name="wallet-outline" size={16} color="#00daf3" />
+                    <Text style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: 12, fontWeight: '600' }}>
+                      {isEN ? 'Balance:' : 'ሂሳብ:'}
+                    </Text>
+                    <Text style={{ color: '#00daf3', fontSize: 13, fontWeight: '900' }}>
+                      ETB {balance.toLocaleString()}
+                    </Text>
+                  </View>
+                  <View style={{
+                    backgroundColor: balance >= 25 ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                    paddingHorizontal: 9,
+                    paddingVertical: 4,
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: balance >= 25 ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)',
+                  }}>
+                    <Text style={{ color: balance >= 25 ? '#22c55e' : '#ef4444', fontSize: 11, fontWeight: '800' }}>
+                      {isEN ? `Max: ${maxAffordableStake} ETB` : `ከፍተኛ: ${maxAffordableStake} ብር`}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Match Stake Selector Chips */}
+                <View style={{ marginBottom: 14 }}>
+                  <Text style={{ color: '#8893a7', fontSize: 11, fontWeight: '800', letterSpacing: 0.5, marginBottom: 8, textTransform: 'uppercase' }}>
+                    {isEN ? 'Select Entry Stake' : 'የውርርድ መጠን ይምረጡ'}
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    {STAKE_PRESETS.map((item) => {
+                      const isSelected = selectedStake === item.amount;
+                      const isInsufficient = balance < item.amount;
+
+                      return (
+                        <TouchableOpacity
+                          key={item.amount}
+                          disabled={isInsufficient}
+                          activeOpacity={0.8}
+                          onPress={() => {
+                            try { playTickSound(); } catch {}
+                            haptics.tap();
+                            setSelectedStake(item.amount);
+                          }}
+                          style={{
+                            flex: 1,
+                            paddingVertical: 10,
+                            borderRadius: 12,
+                            backgroundColor: isSelected
+                              ? 'rgba(0, 191, 255, 0.16)'
+                              : 'rgba(255, 255, 255, 0.03)',
+                            borderWidth: 1.5,
+                            borderColor: isSelected
+                              ? '#00BFFF'
+                              : isInsufficient
+                                ? 'rgba(255, 255, 255, 0.04)'
+                                : 'rgba(255, 255, 255, 0.08)',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            opacity: isInsufficient ? 0.35 : 1,
+                            ...(Platform.OS === 'web' && isInsufficient ? ({ cursor: 'not-allowed' } as any) : {}),
+                          }}
+                        >
+                          <Text style={{
+                            color: isSelected ? '#00BFFF' : isInsufficient ? 'rgba(255,255,255,0.3)' : '#ffffff',
+                            fontSize: 14,
+                            fontWeight: '900',
+                          }}>
+                            {item.amount}
+                          </Text>
+                          <Text style={{
+                            color: isSelected ? '#00BFFF' : '#8893a7',
+                            fontSize: 10,
+                            fontWeight: '700',
+                          }}>
+                            Birr
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+
                 {/* Search Bar Input */}
                 <View style={styles.searchBarWrapper}>
                   <Ionicons name="search-outline" size={17} color="#8893a7" style={{ marginRight: 8 }} />
@@ -629,7 +733,8 @@ const RoomSheet = memo(function RoomSheet({
                   ) : (
                     friendsList.map((userItem) => {
                       const isOffline = !userItem.isOnline;
-                      const canInvite = userItem.isOnline;
+                      const isInsufficientBalance = selectedStake === null || balance < selectedStake;
+                      const canInvite = userItem.isOnline && !isInsufficientBalance;
                       const isAlreadyInvited = !!invitedUsers[userItem.username];
 
                       return (
@@ -670,7 +775,9 @@ const RoomSheet = memo(function RoomSheet({
                             >
                               {isAlreadyInvited
                                 ? (isEN ? "Sent" : "ተልኳል")
-                                : (isEN ? "Invite" : "ጋብዝ")}
+                                : isInsufficientBalance
+                                  ? (isEN ? "Low Balance" : "አነስተኛ ሂሳብ")
+                                  : (isEN ? `Invite (${selectedStake} ETB)` : `ጋብዝ (${selectedStake} ብር)`)}
                             </Text>
                           </TouchableOpacity>
                         </View>
@@ -689,7 +796,9 @@ const RoomSheet = memo(function RoomSheet({
                     </Text>
                   ) : (
                     suggestionsList.map((userItem) => {
+                      const isInsufficientBalance = selectedStake === null || balance < selectedStake;
                       const isAlreadyInvited = !!invitedUsers[userItem.username];
+                      const canInvite = !isInsufficientBalance;
 
                       return (
                         <View key={userItem.id} style={styles.playerRow}>
@@ -713,23 +822,25 @@ const RoomSheet = memo(function RoomSheet({
                           {/* Action Buttons: [ Invite ] + [ + ] */}
                           <View style={styles.actionRowRight}>
                             <TouchableOpacity
-                              disabled={isAlreadyInvited}
+                              disabled={!canInvite || isAlreadyInvited}
                               onPress={() => handleInviteUser(userItem.username)}
                               style={[
                                 styles.inviteBtn,
-                                !isAlreadyInvited ? styles.inviteBtnActive : styles.inviteBtnDisabled,
+                                canInvite && !isAlreadyInvited ? styles.inviteBtnActive : styles.inviteBtnDisabled,
                               ]}
                               activeOpacity={0.8}
                             >
                               <Text
                                 style={[
                                   styles.inviteBtnText,
-                                  !isAlreadyInvited ? styles.inviteBtnTextActive : styles.inviteBtnTextDisabled,
+                                  canInvite && !isAlreadyInvited ? styles.inviteBtnTextActive : styles.inviteBtnTextDisabled,
                                 ]}
                               >
                                 {isAlreadyInvited
                                   ? (isEN ? "Sent" : "ተልኳል")
-                                  : (isEN ? "Invite" : "ጋብዝ")}
+                                  : isInsufficientBalance
+                                    ? (isEN ? "Low Balance" : "አነስተኛ ሂሳብ")
+                                    : (isEN ? `Invite (${selectedStake} ETB)` : `ጋብዝ (${selectedStake} ብር)`)}
                               </Text>
                             </TouchableOpacity>
 

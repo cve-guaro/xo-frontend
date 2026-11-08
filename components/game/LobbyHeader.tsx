@@ -15,6 +15,8 @@ import {
   StyleSheet,
   Platform,
   Image,
+  Modal,
+  Pressable,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -56,9 +58,9 @@ export const LobbyHeader = memo(function LobbyHeader({
   compactBalance = false,
 }: LobbyHeaderProps) {
   const wholeBalance = Math.floor(balance).toLocaleString();
-  const decimalPart = (balance % 1).toFixed(2).slice(1); // ".50" | ".00"
   const spinValue = React.useRef(new Animated.Value(0)).current;
   const [refreshToastVisible, setRefreshToastVisible] = React.useState(false);
+  const [langDropdownOpen, setLangDropdownOpen] = React.useState(false);
 
   const handleRefreshClick = () => {
     haptics.tap();
@@ -89,6 +91,113 @@ export const LobbyHeader = memo(function LobbyHeader({
         { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
       ]}
     >
+      {/* ── Language Dropdown Modal ────────────────────────────────────── */}
+      <Modal
+        visible={langDropdownOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setLangDropdownOpen(false)}
+      >
+        <Pressable
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0, 0, 0, 0.65)",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 24,
+          }}
+          onPress={() => setLangDropdownOpen(false)}
+        >
+          <Pressable
+            style={{
+              width: "100%",
+              maxWidth: 320,
+              backgroundColor: "#111625",
+              borderRadius: 20,
+              borderWidth: 1.2,
+              borderColor: "rgba(255, 255, 255, 0.12)",
+              padding: 18,
+              gap: 12,
+            }}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <Text style={{ color: "#ffffff", fontSize: 16, fontWeight: "900", marginBottom: 4 }}>
+              {isEN ? "Select Language" : "ቋንቋ ይምረጡ"}
+            </Text>
+
+            {/* Option: English */}
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => {
+                haptics.tap();
+                playTickSound();
+                if (!isEN) handleLanguageToggle();
+                setLangDropdownOpen(false);
+              }}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingVertical: 14,
+                paddingHorizontal: 16,
+                borderRadius: 16,
+                backgroundColor: isEN ? "rgba(0, 218, 243, 0.16)" : "#161f36",
+                borderWidth: 1.5,
+                borderColor: isEN ? "#00daf3" : "rgba(255, 255, 255, 0.16)",
+              }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                <View style={{
+                  paddingHorizontal: 7,
+                  paddingVertical: 3,
+                  borderRadius: 6,
+                  backgroundColor: isEN ? "#00daf3" : "rgba(255, 255, 255, 0.1)",
+                }}>
+                  <Text style={{ color: isEN ? "#080f17" : "#cbd5e1", fontSize: 11, fontWeight: "900" }}>US</Text>
+                </View>
+                <Text style={{ color: "#ffffff", fontSize: 15, fontWeight: "800" }}>English (EN)</Text>
+              </View>
+              {isEN && <Ionicons name="checkmark-circle" size={20} color="#00daf3" />}
+            </TouchableOpacity>
+
+            {/* Option: Amharic */}
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => {
+                haptics.tap();
+                playTickSound();
+                if (isEN) handleLanguageToggle();
+                setLangDropdownOpen(false);
+              }}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingVertical: 14,
+                paddingHorizontal: 16,
+                borderRadius: 16,
+                backgroundColor: !isEN ? "rgba(0, 218, 243, 0.16)" : "#161f36",
+                borderWidth: 1.5,
+                borderColor: !isEN ? "#00daf3" : "rgba(255, 255, 255, 0.16)",
+              }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                <View style={{
+                  paddingHorizontal: 7,
+                  paddingVertical: 3,
+                  borderRadius: 6,
+                  backgroundColor: !isEN ? "#00daf3" : "rgba(255, 255, 255, 0.1)",
+                }}>
+                  <Text style={{ color: !isEN ? "#080f17" : "#cbd5e1", fontSize: 11, fontWeight: "900" }}>ET</Text>
+                </View>
+                <Text style={{ color: "#ffffff", fontSize: 15, fontWeight: "800" }}>አማርኛ (AM)</Text>
+              </View>
+              {!isEN && <Ionicons name="checkmark-circle" size={20} color="#00daf3" />}
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       {/* ── Identity row (Matching Image 1 & 2) ─────────────────────────────── */}
       <View style={styles.headerTop}>
         <TouchableOpacity
@@ -100,22 +209,20 @@ export const LobbyHeader = memo(function LobbyHeader({
             <Ionicons name="person" size={19} color="#00daf3" />
           </View>
           <View style={styles.userInfo}>
-            <Text style={styles.welcomeText}>
-              {isEN ? "WELCOME BACK" : "እንኳን ደህና መጡ"}
+            <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "900", letterSpacing: 0.3 }} numberOfLines={1}>
+              {(user as any)?.display_name || user?.username || "Player"}
             </Text>
-            <View style={styles.usernameRow}>
-              <Text style={styles.usernameText} numberOfLines={1}>
-                {user?.username || "Player"}
-              </Text>
-            </View>
+            <Text style={{ color: "#8b93a7", fontSize: 11, fontWeight: "600", marginTop: 1 }} numberOfLines={1}>
+              @{user?.username || "player"}
+            </Text>
           </View>
         </TouchableOpacity>
 
         {/* Top Right: Only Language & Notification Bell (No App download button) */}
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          {/* Language Toggle Pill */}
+          {/* Language Toggle Pill with Dropdown */}
           <TouchableOpacity
-            onPress={() => { haptics.tap(); playTickSound(); handleLanguageToggle(); }}
+            onPress={() => { haptics.tap(); playTickSound(); setLangDropdownOpen(true); }}
             activeOpacity={0.8}
             style={{
               flexDirection: "row",
@@ -163,131 +270,85 @@ export const LobbyHeader = memo(function LobbyHeader({
         </View>
       </View>
 
-      {/* ── Balance display: Compact bar or full card ──────────────────── */}
-      {compactBalance ? (
+      {/* ── Balance display: Clicking navigates to Wallet page ──────────────────── */}
+      <TouchableOpacity
+        activeOpacity={0.9}
+        onPress={() => {
+          haptics.tap();
+          playTickSound();
+          goReplace("/(authed)/home/transactions");
+        }}
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          backgroundColor: "#111625",
+          borderRadius: 20,
+          borderWidth: 1.2,
+          borderColor: "rgba(0, 218, 243, 0.22)",
+          paddingHorizontal: 16,
+          paddingVertical: 14,
+          minHeight: 72,
+          marginTop: 4,
+          marginBottom: 8,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.35,
+          shadowRadius: 12,
+          elevation: 6,
+        }}
+      >
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+          <View
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              backgroundColor: "rgba(0, 218, 243, 0.12)",
+              borderWidth: 1,
+              borderColor: "rgba(0, 218, 243, 0.3)",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Ionicons name="wallet" size={21} color="#00daf3" />
+          </View>
+          <View>
+            <Text style={{ color: "#8b93a7", fontSize: 10.5, fontWeight: "800", letterSpacing: 0.8, textTransform: "uppercase" }}>
+              {isEN ? "TOTAL BALANCE" : "ጠቅላላ ሂሳብ"}
+            </Text>
+            <Text style={{ color: "#ffffff", fontSize: 20, fontWeight: "900", fontFamily: "Inter, sans-serif", marginTop: 2 }}>
+              ETB {wholeBalance}
+            </Text>
+          </View>
+        </View>
+
         <TouchableOpacity
-          activeOpacity={0.9}
-          onPress={handleRefreshClick}
+          onPress={(e) => {
+            if (Platform.OS === 'web' && e && (e as any).stopPropagation) (e as any).stopPropagation();
+            handleRefreshClick();
+          }}
+          activeOpacity={0.7}
           style={{
             flexDirection: "row",
             alignItems: "center",
-            justifyContent: "space-between",
-            backgroundColor: "#111625",
-            borderRadius: 20,
-            borderWidth: 1.2,
-            borderColor: "rgba(0, 218, 243, 0.22)",
-            paddingHorizontal: 16,
-            paddingVertical: 14,
-            minHeight: 72,
-            marginTop: 4,
-            marginBottom: 8,
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.35,
-            shadowRadius: 12,
-            elevation: 6,
+            gap: 6,
+            backgroundColor: "rgba(0, 218, 243, 0.10)",
+            paddingHorizontal: 13,
+            paddingVertical: 8,
+            borderRadius: 14,
+            borderWidth: 1,
+            borderColor: "rgba(0, 218, 243, 0.35)",
           }}
         >
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-            <View
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: 22,
-                backgroundColor: "rgba(0, 218, 243, 0.12)",
-                borderWidth: 1,
-                borderColor: "rgba(0, 218, 243, 0.3)",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Ionicons name="wallet" size={21} color="#00daf3" />
-            </View>
-            <View>
-              <Text style={{ color: "#8b93a7", fontSize: 10.5, fontWeight: "800", letterSpacing: 0.8, textTransform: "uppercase" }}>
-                {isEN ? "TOTAL BALANCE" : "ጠቅላላ ሂሳብ"}
-              </Text>
-              <Text style={{ color: "#ffffff", fontSize: 20, fontWeight: "900", fontFamily: "Inter, sans-serif", marginTop: 2 }}>
-                ETB {wholeBalance}<Text style={{ color: "#f5b642", fontSize: 15.5 }}>{decimalPart}</Text>
-              </Text>
-            </View>
-          </View>
-
-          <TouchableOpacity
-            onPress={handleRefreshClick}
-            activeOpacity={0.7}
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 6,
-              backgroundColor: "rgba(0, 218, 243, 0.10)",
-              paddingHorizontal: 13,
-              paddingVertical: 8,
-              borderRadius: 14,
-              borderWidth: 1,
-              borderColor: "rgba(0, 218, 243, 0.35)",
-            }}
-          >
-            <Animated.View style={{ transform: [{ rotate: spinDeg }] }}>
-              <SyncIcon size={14} color="#00daf3" />
-            </Animated.View>
-            <Text style={{ color: "#00daf3", fontSize: 12, fontWeight: "800" }}>
-              {isEN ? "Refresh" : "አድስ"}
-            </Text>
-          </TouchableOpacity>
-        </TouchableOpacity>) : (
-        <View style={styles.balanceCardContainer}>
-          <LinearGradient
-            colors={colors.gradCard}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.balanceCardGradient}
-          >
-            <View style={styles.balanceHeaderRow}>
-              <View style={styles.balanceLabelWrap}>
-                <Ionicons name="wallet-outline" size={14} color={colors.textMuted} />
-                <Text style={styles.balanceLabel}>
-                  {isEN ? "TOTAL BALANCE" : "ጠቅላላ ሂሳብ"}
-                </Text>
-              </View>
-
-              <TouchableOpacity
-                onPress={handleRefreshProfile}
-                activeOpacity={0.8}
-                style={styles.refreshBtn}
-              >
-                <Animated.View style={{ transform: [{ rotate: spinDeg }] }}>
-                  <SyncIcon size={13} color="#00daf3" />
-                </Animated.View>
-                <Text style={styles.refreshText}>{isEN ? "Refresh" : "አድስ"}</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.balanceMainRow}>
-              <View style={styles.balanceLeftCol}>
-                <View style={styles.amountDisplayRow}>
-                  <Text style={styles.currencyPrefix}>ETB</Text>
-                  <Text style={styles.wholeAmount}>{wholeBalance}</Text>
-                  <Text style={styles.decimalAmount}>{decimalPart}</Text>
-                </View>
-
-                <View style={styles.changeBadge}>
-                  <Ionicons name="caret-up" size={9} color={colors.successSoft} />
-                  <Text style={styles.changeBadgeText}>+12.5%</Text>
-                  <Text style={styles.changeBadgeSubText}>vs yesterday</Text>
-                </View>
-              </View>
-
-              <View style={styles.walletArtWrap}>
-                <Image
-                  source={require("../../assets/images/3d-wallet.png")}
-                  style={styles.walletArt}
-                />
-              </View>
-            </View>
-          </LinearGradient>
-        </View>
-      )}
+          <Animated.View style={{ transform: [{ rotate: spinDeg }] }}>
+            <SyncIcon size={14} color="#00daf3" />
+          </Animated.View>
+          <Text style={{ color: "#00daf3", fontSize: 12, fontWeight: "800" }}>
+            {isEN ? "Refresh" : "አድስ"}
+          </Text>
+        </TouchableOpacity>
+      </TouchableOpacity>
     </Animated.View>
   );
 });

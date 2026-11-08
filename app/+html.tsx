@@ -48,11 +48,18 @@ export default function HTML({ children }: { children: React.ReactNode }) {
                 font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
               }
               
-              /* Reset input focus borders dynamically without JS layout shifts */
-              input:focus, textarea:focus {
+              /* Reset input focus borders globally to prevent awkward inner borders on React Native Web */
+              input, textarea, select {
                 outline: none !important;
-                box-shadow: 0 0 0 2px rgba(0, 218, 243, 0.4) !important;
-                border-color: #00daf3 !important;
+                -webkit-tap-highlight-color: transparent !important;
+              }
+              input:focus, textarea:focus, select:focus {
+                outline: none !important;
+                box-shadow: none !important;
+                border-color: transparent !important;
+              }
+              *:focus-visible {
+                outline: none !important;
               }
               
               /* Premium scrollbars */

@@ -62,18 +62,24 @@ export default function DesktopHeader({
           activeOpacity={0.85}
           onPress={() => router.push("/(authed)/home/gameplay")}
         >
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
-            <Text style={{ color: "#FF1744", fontSize: isCompact ? 22 : 26, fontWeight: "900", fontFamily: "Space Grotesk, sans-serif" }}>X</Text>
-            <Text style={{ color: "#00BFFF", fontSize: isCompact ? 22 : 26, fontWeight: "900", fontFamily: "Space Grotesk, sans-serif" }}>O</Text>
-            {!isUltraNarrow && (
-              <Text style={{ color: "#FFFFFF", fontSize: isCompact ? 14 : 16, fontWeight: "900", marginLeft: 5, letterSpacing: isCompact ? 1.5 : 2.2, fontFamily: "Space Grotesk, sans-serif" }}>ETHIOPIA</Text>
-            )}
-          </View>
+          {isUltraNarrow ? (
+            <Image
+              source={require("../../assets/brand/PNG/icon/xo-icon-color-transparent-512.png")}
+              style={{ width: 44, height: 32 }}
+              resizeMode="contain"
+            />
+          ) : (
+            <Image
+              source={require("../../assets/brand/PNG/full-mark/xoet-horizontal-color-transparent-512.png")}
+              style={{ width: isCompact ? 108 : 126, height: isCompact ? 36 : 42 }}
+              resizeMode="contain"
+            />
+          )}
         </TouchableOpacity>
 
-        {/* Center: 3-Button Toggle [ SPIN | XO GAME | ? SOON ] — In-flow flex centering to guarantee zero collision */}
-        <View style={s.centerNavWrapper}>
-          <View style={[s.toggleContainer, isCompact && { padding: 4, gap: 4 }]}>
+        {/* Center: 3-Button Toggle [ SPIN | XO GAME | ? SOON ] — Absolute horizontal center locked to viewport & carousel */}
+        <View style={s.centerNavWrapper} pointerEvents="box-none">
+          <View style={[s.toggleContainer, isCompact && { padding: 4, gap: 4 }]} pointerEvents="auto">
             <TouchableOpacity
               onPress={() => handleTabPress("SPIN")}
               style={[
@@ -157,11 +163,12 @@ export default function DesktopHeader({
             </View>
             {!isUltraNarrow && (
               <View>
-                <Text style={[s.profileChipName, isCompact && { fontSize: 11.5, maxWidth: 80 }]} numberOfLines={1}>{user?.username || "Player"}</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 1 }}>
-                  <View style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: '#10B981' }} />
-                  <Text style={{ color: '#8893A7', fontSize: 9, fontWeight: '700' }}>Active</Text>
-                </View>
+                <Text style={[s.profileChipName, isCompact && { fontSize: 11.5, maxWidth: 80 }]} numberOfLines={1}>
+                  {(user as any)?.display_name || user?.username || "Player"}
+                </Text>
+                <Text style={{ color: '#8893A7', fontSize: 9.5, fontWeight: '600' }} numberOfLines={1}>
+                  @{user?.username || "player"}
+                </Text>
               </View>
             )}
           </TouchableOpacity>
@@ -179,6 +186,7 @@ const s = StyleSheet.create({
     borderBottomColor: "#1E293B",
     justifyContent: "center",
     paddingHorizontal: 28,
+    position: "relative",
     zIndex: 100,
     boxShadow: "0 6px 20px rgba(0, 0, 0, 0.45)",
   } as any,
@@ -188,17 +196,25 @@ const s = StyleSheet.create({
     justifyContent: "space-between",
     width: "100%",
     gap: 12,
+    position: "relative",
   },
   logoContainer: {
     flexDirection: "row",
     alignItems: "center",
     flexShrink: 0,
+    zIndex: 20,
   },
   centerNavWrapper: {
-    flex: 1,
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
     alignItems: "center",
     justifyContent: "center",
-  },
+    pointerEvents: "box-none",
+    zIndex: 10,
+  } as any,
   toggleContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -209,6 +225,7 @@ const s = StyleSheet.create({
     borderColor: "#233041",
     gap: 8,
     boxShadow: "inset 0 2px 6px rgba(0, 0, 0, 0.5)",
+    pointerEvents: "auto",
   } as any,
   toggleBtn: {
     flexDirection: "row",

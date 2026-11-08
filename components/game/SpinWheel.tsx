@@ -151,6 +151,8 @@ const SpinWheel = memo(function SpinWheel({
   const hasSpunRef = useRef(false);
   const listenerIdRef = useRef<string | null>(null);
   const spinAnimRef = useRef<Animated.CompositeAnimation | null>(null);
+  const targetAngleRef = useRef<number>(0);
+  const resolvedSliceIdxRef = useRef<number>(-1);
   const [winningSliceFinal, setWinningSliceFinal] = useState<number | null>(null);
 
   useEffect(() => {
@@ -283,6 +285,8 @@ const SpinWheel = memo(function SpinWheel({
       const fullRotations = 8; // fast, satisfying spin
       const finalStopAngle = ((360 - sliceCenterAngle) % 360 + 360) % 360;
       const targetAngle = baseRevs + fullRotations * 360 + finalStopAngle;
+      targetAngleRef.current = targetAngle;
+      resolvedSliceIdxRef.current = resolvedSliceIdx;
 
       const anim = Animated.sequence([
         Animated.timing(rotation, {
@@ -321,6 +325,41 @@ const SpinWheel = memo(function SpinWheel({
       }
     };
   }, [isSpinning, winningSlice, winnerId, status, players, hasStakes, totalStake, angleStep, is5Player, spinDuration, onSpinComplete, slices, rotation]);
+
+  // Tab-switch / background recovery: immediate catch-up when browser returns to tab
+  useEffect(() => {
+    if (Platform.OS !== "web" || typeof document === "undefined") return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        const isEnded = status === "resolved" || status === "paid" || (!isSpinning && status !== "spinning");
+        if (isEnded && hasSpunRef.current) {
+          if (spinAnimRef.current) {
+            spinAnimRef.current.stop();
+            spinAnimRef.current = null;
+          }
+          if (listenerIdRef.current !== null) {
+            rotation.removeListener(listenerIdRef.current);
+            listenerIdRef.current = null;
+          }
+          stopSpinSoundLoop();
+          if (targetAngleRef.current > 0) {
+            rotation.setValue(targetAngleRef.current);
+            currentAngleRef.current = targetAngleRef.current;
+          }
+          if (resolvedSliceIdxRef.current >= 0) {
+            setWinningSliceFinal(resolvedSliceIdxRef.current);
+          }
+          onSpinComplete?.();
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [status, isSpinning, onSpinComplete, rotation]);
 
   // Active winner state: true when spin has completed or status is resolved/paid
   const hasWinner = status === "resolved" || status === "paid" || winningSliceFinal !== null;
@@ -768,63 +807,110 @@ const SpinWheel = memo(function SpinWheel({
                 </RadialGradient>
               </Defs>
 
-              {/* ── CONDITIONAL CENTER HUB: 5-PLAYER PURPLE MEDALLION VS RAIL RED STADIUM PILL ── */}
+              {/* ── CONDITIONAL CENTER HUB: 5-PLAYER LUXURY ROULETTE DISC VS RAIL STADIUM PILL ── */}
               {is5Player ? (
                 <G>
-                  {/* Purple Halo Glow */}
-                  <Circle cx={cx} cy={cy} r={hubRadius * 1.25} fill="url(#purpleHubGlow)" />
+                  {/* Subtle Golden-Amber Halo Glow */}
+                  <Circle cx={cx} cy={cy} r={hubRadius * 1.2} fill="url(#goldRimGrad)" opacity={0.25} />
 
-                  {/* Outer Beveled Gold Rim */}
-                  <Circle cx={cx} cy={cy} r={hubRadius * 1.08} fill="url(#hubGoldGrad)" stroke="#78350f" strokeWidth={1.8} />
+                  {/* Outer Metallic Gold / Brass Bezel Rim */}
+                  <Circle cx={cx} cy={cy} r={hubRadius * 1.06} fill="url(#hubGoldGrad)" stroke="#78350f" strokeWidth={1.5} />
 
-                  {/* Inner Gold Inset Accent Ring */}
-                  <Circle cx={cx} cy={cy} r={hubRadius * 0.98} fill="none" stroke="#fef08a" strokeWidth={1.2} opacity={0.8} />
+                  {/* Precision Engraved Dots on Bezel */}
+                  {Array.from({ length: 12 }).map((_, i) => {
+                    const dotAngle = i * (360 / 12);
+                    const dotPos = polarToCartesian(cx, cy, hubRadius * 1.01, dotAngle);
+                    return (
+                      <Circle key={`hub_dot_${i}`} cx={dotPos.x} cy={dotPos.y} r={1.5} fill="#451a03" />
+                    );
+                  })}
 
-                  {/* Royal Purple Medallion Hub Disc */}
-                  <Circle cx={cx} cy={cy} r={hubRadius * 0.92} fill="url(#purpleHubGrad)" stroke="#fde047" strokeWidth={2} />
+                  {/* Inner Dark Matte Obsidian / Navy Core */}
+                  <Circle cx={cx} cy={cy} r={hubRadius * 0.92} fill="#090e1a" stroke="#ca8a04" strokeWidth={1.2} />
 
-                  {/* Inner Ambient Depth */}
-                  <Circle cx={cx} cy={cy} r={hubRadius * 0.7} fill="#1e1b4b" opacity={0.35} />
+                  {/* Concentric Subtle Roulette Spindle Ring */}
+                  <Circle cx={cx} cy={cy} r={hubRadius * 0.72} fill="none" stroke="rgba(202, 138, 4, 0.35)" strokeWidth={1} strokeDasharray="3 3" />
+                  <Circle cx={cx} cy={cy} r={hubRadius * 0.48} fill="#111827" stroke="#ca8a04" strokeWidth={0.8} />
 
-                  <SvgText
-                    x={cx}
-                    y={cy - (Platform.OS === "web" ? 5 : 6)}
-                    fill="#ffffff"
-                    stroke="#3b0764"
-                    strokeWidth={0.8}
-                    fontSize={Math.max(hubRadius * 0.44, 20)}
-                    fontWeight="900"
-                    fontFamily="Inter, sans-serif"
-                    textAnchor="middle"
-                    alignmentBaseline="middle"
-                    letterSpacing={1.5}
-                  >
-                    {isSpinning || status === "spinning" ? "SPIN!" : "SPIN"}
-                  </SvgText>
-                  <SvgText
-                    x={cx}
-                    y={cy + (Platform.OS === "web" ? 11 : 9)}
-                    fill="#fde047"
-                    stroke="#78350f"
-                    strokeWidth={0.5}
-                    fontSize={Math.max(hubRadius * 0.28, 12)}
-                    fontWeight="900"
-                    fontFamily="Inter, sans-serif"
-                    textAnchor="middle"
-                    alignmentBaseline="middle"
-                    letterSpacing={1.5}
-                  >
-                    TO WIN
-                  </SvgText>
+                  {/* Center Hub Status Display */}
+                  {isSpinning || status === "spinning" ? (
+                    <SvgText
+                      x={cx}
+                      y={cy}
+                      fill="#fde047"
+                      fontSize={Math.max(hubRadius * 0.34, 15)}
+                      fontWeight="900"
+                      fontFamily="Space Grotesk, Inter, sans-serif"
+                      textAnchor="middle"
+                      alignmentBaseline="central"
+                      letterSpacing={1.2}
+                    >
+                      SPINNING
+                    </SvgText>
+                  ) : status === "locked" ? (
+                    <SvgText
+                      x={cx}
+                      y={cy}
+                      fill="#22c55e"
+                      fontSize={Math.max(hubRadius * 0.34, 15)}
+                      fontWeight="900"
+                      fontFamily="Space Grotesk, Inter, sans-serif"
+                      textAnchor="middle"
+                      alignmentBaseline="central"
+                      letterSpacing={1.2}
+                    >
+                      LOCKED
+                    </SvgText>
+                  ) : (
+                    <G>
+                      <SvgText
+                        x={cx}
+                        y={cy - 6}
+                        fill="#ffffff"
+                        fontSize={Math.max(hubRadius * 0.30, 13)}
+                        fontWeight="800"
+                        fontFamily="Space Grotesk, Inter, sans-serif"
+                        textAnchor="middle"
+                        alignmentBaseline="central"
+                        letterSpacing={1.2}
+                      >
+                        5-PLAYER
+                      </SvgText>
+                      <SvgText
+                        x={cx}
+                        y={cy + 8}
+                        fill="#fde047"
+                        fontSize={Math.max(hubRadius * 0.22, 10)}
+                        fontWeight="800"
+                        fontFamily="Inter, sans-serif"
+                        textAnchor="middle"
+                        alignmentBaseline="central"
+                        letterSpacing={0.8}
+                      >
+                        100 ETB
+                      </SvgText>
+                    </G>
+                  )}
                 </G>
               ) : (
-                /* Rail Spin (Exact Mockup Match): Glowing Red Stadium Pill with Timer & Subtitle */
+                /* Rail Spin: Glowing Red Stadium Pill with Refined Sleek Typography */
                 (() => {
                   const pillW = Math.max(r * 0.88, 106);
                   const pillH = Math.max(r * 0.44, 46);
                   const pillX = cx - pillW / 2;
                   const pillY = cy - pillH / 2;
                   const pillR = pillH / 2;
+
+                  const rawText = isSpinning || status === "spinning"
+                    ? "SPIN!"
+                    : status === "locked"
+                    ? "00:00"
+                    : countdownText || (countdown !== undefined ? `00:${String(countdown).padStart(2, "0")}` : "00:11");
+                  
+                  const isWaiting = rawText === "WAITING" || rawText.includes("WAIT");
+                  const displayStr = isWaiting ? "WAITING..." : rawText;
+                  const isLong = displayStr.length > 5;
+
                   return (
                     <G>
                       {/* Red Ambient Glow behind Stadium Pill */}
@@ -856,23 +942,19 @@ const SpinWheel = memo(function SpinWheel({
                         rx={pillR - 2}
                         fill="rgba(255, 255, 255, 0.24)"
                       />
-                      {/* Centered Bold Timer only (BETS CLOSE IN removed per user instruction) */}
+                      {/* Centered Timer / Status with Refined Weight */}
                       <SvgText
                         x={cx}
                         y={cy + 1}
                         fill="#ffffff"
-                        fontSize={Math.max(pillH * 0.48, 20)}
-                        fontWeight="900"
+                        fontSize={isLong ? Math.max(pillH * 0.32, 12) : Math.max(pillH * 0.46, 18)}
+                        fontWeight={isLong ? "700" : "800"}
                         fontFamily="Space Grotesk, Inter, sans-serif"
                         textAnchor="middle"
                         alignmentBaseline="central"
-                        letterSpacing={0.8}
+                        letterSpacing={isLong ? 1.2 : 0.8}
                       >
-                        {isSpinning || status === "spinning"
-                          ? "SPIN!"
-                          : status === "locked"
-                          ? "00:00"
-                          : countdownText || (countdown !== undefined ? `00:${String(countdown).padStart(2, "0")}` : "00:11")}
+                        {displayStr}
                       </SvgText>
                     </G>
                   );

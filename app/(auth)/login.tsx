@@ -370,7 +370,7 @@ export default function LoginScreen() {
                   <View style={styles.desktopBannerFooter}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                       <Image 
-                        source={require("../../assets/images/adaptive-icon.png")} 
+                        source={require("../../assets/brand/PNG/app-icons/xo-app-rounded-square-512.png")} 
                         style={{ width: 30, height: 30, borderRadius: 8 }} 
                         // @ts-ignore
                         {...(Platform.OS === 'web' ? { fetchPriority: "high" } : {})}

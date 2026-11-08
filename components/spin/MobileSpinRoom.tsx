@@ -94,11 +94,13 @@ export const MobileSpinRoom: React.FC<MobileSpinRoomProps> = ({
   const myPlayer = activePlayers.find(
     (p: any) => String(p.userId) === String(user?.id) || p.username === user?.username || p.username === "guest_3"
   );
-  const myStake = myPlayer ? Number(myPlayer.stake || 0) : (round ? 0 : betAmount);
+  const myStake = is5Player
+    ? (myPlayer ? 100 : (round ? 0 : 100))
+    : (myPlayer ? Number(myPlayer.stake || 0) : (round ? 0 : betAmount));
   const totalPotStake = activePlayers.reduce((s: number, p: any) => s + (Number(p.stake) || 0), 0) || 80;
-  const myWinPercent = totalPotStake > 0 && myStake > 0
-    ? Math.round((myStake / totalPotStake) * 100)
-    : 0;
+  const myWinPercent = is5Player
+    ? (activePlayers.length > 0 ? Math.round(100 / activePlayers.length) : 20)
+    : (totalPotStake > 0 && myStake > 0 ? Math.round((myStake / totalPotStake) * 100) : 0);
 
   return (
     <ScrollView
@@ -127,16 +129,16 @@ export const MobileSpinRoom: React.FC<MobileSpinRoomProps> = ({
           style={{
             width: 38,
             height: 38,
-            borderRadius: 19,
-            backgroundColor: "#0c142e",
-            borderWidth: 1.5,
-            borderColor: "rgba(255, 255, 255, 0.12)",
+            borderRadius: 12,
+            backgroundColor: "#111827",
+            borderWidth: 1,
+            borderColor: "#1E293B",
             alignItems: "center",
             justifyContent: "center",
           }}
           activeOpacity={0.75}
         >
-          <Ionicons name="chevron-back" size={20} color="#ffffff" />
+          <Ionicons name="chevron-back" size={20} color="#cbd5e1" />
         </TouchableOpacity>
 
         {/* Center: Side-by-Side Balance Capsule + Language Switcher */}
@@ -148,18 +150,18 @@ export const MobileSpinRoom: React.FC<MobileSpinRoomProps> = ({
               flexDirection: "row",
               alignItems: "center",
               gap: 6,
-              backgroundColor: "#0c142e",
-              borderRadius: 19,
+              backgroundColor: "#111827",
+              borderRadius: 12,
               paddingHorizontal: 12,
               height: 38,
-              borderWidth: 1.5,
-              borderColor: "rgba(239, 68, 68, 0.35)",
+              borderWidth: 1,
+              borderColor: "#1E293B",
             }}
             activeOpacity={0.75}
           >
-            <Ionicons name="wallet-outline" size={15} color="#ef4444" />
+            <Ionicons name="wallet-outline" size={16} color="#00BFFF" />
             <View style={{ alignItems: "flex-start" }}>
-              <Text style={{ color: "#ef4444", fontSize: 7.5, fontWeight: "800", letterSpacing: 0.5, textTransform: "uppercase" }}>
+              <Text style={{ color: "#64748b", fontSize: 7.5, fontWeight: "800", letterSpacing: 0.5, textTransform: "uppercase" }}>
                 BALANCE
               </Text>
               <Text style={{ color: "#ffffff", fontSize: 12, fontWeight: "900", fontFamily: "Space Grotesk, Inter, sans-serif" }}>
@@ -174,16 +176,16 @@ export const MobileSpinRoom: React.FC<MobileSpinRoomProps> = ({
             style={{
               width: 38,
               height: 38,
-              borderRadius: 19,
-              backgroundColor: "#0c142e",
-              borderWidth: 1.5,
-              borderColor: "rgba(239, 68, 68, 0.35)",
+              borderRadius: 12,
+              backgroundColor: "#111827",
+              borderWidth: 1,
+              borderColor: "#1E293B",
               alignItems: "center",
               justifyContent: "center",
             }}
             activeOpacity={0.75}
           >
-            <Ionicons name="globe-outline" size={17} color="#ef4444" />
+            <Ionicons name="globe-outline" size={17} color="#cbd5e1" />
           </TouchableOpacity>
         </View>
 
@@ -193,16 +195,16 @@ export const MobileSpinRoom: React.FC<MobileSpinRoomProps> = ({
           style={{
             width: 38,
             height: 38,
-            borderRadius: 19,
-            backgroundColor: "#0c142e",
-            borderWidth: 1.5,
-            borderColor: micMuted ? "rgba(244, 63, 94, 0.4)" : "rgba(34, 197, 94, 0.4)",
+            borderRadius: 12,
+            backgroundColor: "#111827",
+            borderWidth: 1,
+            borderColor: micMuted ? "rgba(239, 68, 68, 0.4)" : "#1E293B",
             alignItems: "center",
             justifyContent: "center",
           }}
           activeOpacity={0.75}
         >
-          <Ionicons name={micMuted ? "mic-off" : "mic"} size={18} color={micMuted ? "#f43f5e" : "#22c55e"} />
+          <Ionicons name={micMuted ? "mic-off" : "mic"} size={18} color={micMuted ? "#ef4444" : "#cbd5e1"} />
         </TouchableOpacity>
       </View>
 
@@ -235,7 +237,7 @@ export const MobileSpinRoom: React.FC<MobileSpinRoomProps> = ({
           mode={is5Player ? "5_PLAYER" : "RAIL"}
           speakingUserIds={speakingUserIds}
           countdown={countdown}
-          countdownText={countdown > 0 ? formatCountdown(countdown) : (round?.status === "locked" || round?.status === "spinning" ? "00:00" : "01:54")}
+          countdownText={isSpinning || round?.status === "spinning" ? "SPIN!" : (round?.status === "locked" ? "00:00" : (countdown > 0 ? formatCountdown(countdown) : "WAITING"))}
           currentUserId={user?.id}
           flashingUserIds={flashingUserIds}
         />
@@ -248,187 +250,279 @@ export const MobileSpinRoom: React.FC<MobileSpinRoomProps> = ({
 
       {/* Bottom Controls Area */}
       <View style={{ width: "100%", alignItems: "center" }}>
-        <View style={{ width: "100%", gap: 6 }}>
-          {/* Row with 2 Stat Cards: YOUR STAKE & WIN CHANCE */}
+        <View style={{ width: "100%", gap: 8 }}>
+          {/* Row with 2 Stat Cards: YOUR STAKE & WIN CHANCE (Exact Match Image 2) */}
           <View style={{ flexDirection: "row", gap: 8 }}>
             <View style={{
               flex: 1,
-              backgroundColor: "rgba(15, 23, 42, 0.85)",
-              borderRadius: 13,
+              backgroundColor: "#111827",
+              borderRadius: 14,
               borderWidth: 1,
-              borderColor: "rgba(255, 255, 255, 0.08)",
-              paddingVertical: 7,
-              paddingHorizontal: 10,
+              borderColor: "#1E293B",
+              paddingVertical: 9,
+              paddingHorizontal: 12,
             }}>
-              <Text style={{ color: "#64748b", fontSize: 9.5, fontWeight: "800", letterSpacing: 0.5, textTransform: "uppercase" }}>
-                YOUR STAKE
-              </Text>
-              <Text style={{ color: "#ef4444", fontSize: 18, fontWeight: "900", fontFamily: "Space Grotesk, Inter, sans-serif", marginTop: 2 }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                <Text style={{ color: "#64748b", fontSize: 10, fontWeight: "800", letterSpacing: 0.5, textTransform: "uppercase" }}>
+                  Your stake
+                </Text>
+                <View style={{ backgroundColor: "rgba(239, 68, 68, 0.2)", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                  <Text style={{ color: "#ef4444", fontSize: 9, fontWeight: "900" }}>YOU</Text>
+                </View>
+              </View>
+              <Text style={{ color: "#ef4444", fontSize: 20, fontWeight: "900", fontFamily: "Space Grotesk, Inter, sans-serif", marginTop: 3 }}>
                 {myStake} ETB
               </Text>
             </View>
 
             <View style={{
               flex: 1,
-              backgroundColor: "rgba(15, 23, 42, 0.85)",
-              borderRadius: 13,
+              backgroundColor: "#111827",
+              borderRadius: 14,
               borderWidth: 1,
-              borderColor: "rgba(255, 255, 255, 0.08)",
-              paddingVertical: 7,
-              paddingHorizontal: 10,
+              borderColor: "#1E293B",
+              paddingVertical: 9,
+              paddingHorizontal: 12,
             }}>
-              <Text style={{ color: "#64748b", fontSize: 9.5, fontWeight: "800", letterSpacing: 0.5, textTransform: "uppercase" }}>
-                WIN CHANCE
-              </Text>
-              <Text style={{ color: "#ffffff", fontSize: 18, fontWeight: "900", fontFamily: "Space Grotesk, Inter, sans-serif", marginTop: 2 }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                <Text style={{ color: "#64748b", fontSize: 10, fontWeight: "800", letterSpacing: 0.5, textTransform: "uppercase" }}>
+                  Win chance
+                </Text>
+                <Text style={{ color: "#22c55e", fontSize: 10, fontWeight: "800" }}>
+                  → {myWinPercent}%
+                </Text>
+              </View>
+              <Text style={{ color: "#ffffff", fontSize: 20, fontWeight: "900", fontFamily: "Space Grotesk, Inter, sans-serif", marginTop: 3 }}>
                 {myWinPercent}%
               </Text>
             </View>
           </View>
 
-          {/* Quick Chips: +10, +50, +100, +500 */}
-          <View style={{ flexDirection: "row", gap: 6 }}>
-            {[10, 50, 100, 500].map((val) => {
-              const isLocking = round && (round.status !== "waiting" || countdown <= 5);
-              const isSelected = (round ? addAmount : betAmount) === val;
-              return (
+          {/* Controller Area */}
+          {is5Player ? (
+            /* 5-Player Mode: Clean Single View Players Button (No Add to Stake or Stepper) */
+            <View style={{ width: "100%", gap: 10, marginTop: 4 }}>
+              {!myPlayer ? (
+                /* Not Joined: Single Big Join Button */
                 <TouchableOpacity
-                  key={val}
-                  disabled={Boolean(isLocking)}
-                  onPress={() => {
-                    playCoinSound();
-                    if (round) setAddAmount(val);
-                    else setBetAmount(val);
-                  }}
+                  disabled={Boolean(joinLoading || isSpinning || (round && round.players.length >= 5))}
+                  onPress={() => onJoinRoom("5_PLAYER", 100)}
                   style={{
-                    flex: 1,
-                    paddingVertical: 6,
-                    borderRadius: 10,
-                    backgroundColor: "rgba(15, 23, 42, 0.85)",
-                    borderWidth: 1,
-                    borderColor: isSelected ? "#ef4444" : "rgba(255, 255, 255, 0.08)",
+                    width: "100%",
+                    backgroundColor: "#ef4444",
+                    borderRadius: 14,
+                    height: 50,
                     alignItems: "center",
                     justifyContent: "center",
-                    opacity: isLocking ? 0.35 : 1,
+                    shadowColor: "#ef4444",
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.35,
+                    shadowRadius: 10,
+                    elevation: 5,
+                    opacity: Boolean(joinLoading || isSpinning || (round && round.players.length >= 5)) ? 0.6 : 1,
                   }}
+                  activeOpacity={0.85}
                 >
-                  <Text style={{ color: isSelected ? "#ef4444" : "#cbd5e1", fontSize: 12, fontWeight: "900" }}>
-                    +{val}
-                  </Text>
+                  {joinLoading ? (
+                    <ActivityIndicator size="small" color="#ffffff" />
+                  ) : (
+                    <Text style={{ color: "#ffffff", fontSize: 15, fontWeight: "900", letterSpacing: 0.5 }}>
+                      JOIN 5-PLAYER ROOM · 100 ETB
+                    </Text>
+                  )}
                 </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {/* Stepper & ADD TO STAKE Action Button */}
-          <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
+              ) : (
+                /* Once Joined: EXACTLY ONE BUTTON for Players & Odds */
+                <TouchableOpacity
+                  onPress={onOpenMobilePlayersSheet}
+                  style={{
+                    width: "100%",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    paddingHorizontal: 16,
+                    height: 48,
+                    borderRadius: 14,
+                    backgroundColor: "#111827",
+                    borderWidth: 1,
+                    borderColor: "#1E293B",
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 9 }}>
+                    <Ionicons name="people-outline" size={18} color="#ef4444" />
+                    <Text style={{ color: "#ffffff", fontSize: 13.5, fontWeight: "800" }}>
+                      Players in Room ({playersForWheel.length}/5)
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                    <Text style={{ color: "#64748b", fontSize: 12, fontWeight: "600" }}>View odds</Text>
+                    <Ionicons name="chevron-forward" size={15} color="#64748b" />
+                  </View>
+                </TouchableOpacity>
+              )}
+            </View>
+          ) : (
+            /* RAIL Mode: Multi-stake controller box */
             <View style={{
-              flex: 1,
-              flexDirection: "row",
-              alignItems: "center",
-              backgroundColor: "rgba(15, 23, 42, 0.85)",
-              borderRadius: 13,
+              backgroundColor: "#0d1322",
+              borderRadius: 16,
               borderWidth: 1,
-              borderColor: "rgba(255, 255, 255, 0.08)",
-              height: 44,
-              paddingHorizontal: 6,
+              borderColor: "#1E293B",
+              padding: 12,
+              gap: 10,
             }}>
-              <TouchableOpacity
-                onPress={() => {
-                  playCoinSound();
-                  if (round) setAddAmount(prev => Math.max(10, prev - 10));
-                  else setBetAmount(prev => Math.max(10, prev - 10));
-                }}
-                style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: "rgba(255, 255, 255, 0.08)", alignItems: "center", justifyContent: "center" }}
-              >
-                <Ionicons name="remove" size={17} color="#ffffff" />
-              </TouchableOpacity>
-
-              <View style={{ flex: 1, alignItems: "center" }}>
-                <Text style={{ color: "#ffffff", fontSize: 15, fontWeight: "900", fontFamily: "Space Grotesk, Inter, sans-serif" }}>
-                  {round ? `${addAmount} ETB` : `${betAmount} ETB`}
-                </Text>
+              {/* Header: Stake amount & Available Balance */}
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                <Text style={{ color: "#cbd5e1", fontSize: 12, fontWeight: "700" }}>Stake amount</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                  <Text style={{ color: "#64748b", fontSize: 11, fontWeight: "600" }}>Available:</Text>
+                  <Text style={{ color: "#22c55e", fontSize: 12.5, fontWeight: "800" }}>{Math.floor(balance).toLocaleString()} ETB</Text>
+                </View>
               </View>
 
+              {/* Stepper + Quick Chips Row */}
+              <View style={{ flexDirection: "row", gap: 5, alignItems: "center" }}>
+                {/* Stepper [- 100 ETB +] */}
+                <View style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  backgroundColor: "#111827",
+                  borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: "#1E293B",
+                  height: 40, paddingHorizontal: 6,
+                }}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      playCoinSound();
+                      if (round) setAddAmount(prev => Math.max(10, prev - 10));
+                      else setBetAmount(prev => Math.max(10, prev - 10));
+                    }}
+                    style={{ width: 28, height: 28, borderRadius: 6, backgroundColor: "rgba(255, 255, 255, 0.06)", alignItems: "center", justifyContent: "center" }}
+                  >
+                    <Ionicons name="remove" size={14} color="#cbd5e1" />
+                  </TouchableOpacity>
+
+                  <View style={{ paddingHorizontal: 6, alignItems: "center" }}>
+                    <Text style={{ color: "#ffffff", fontSize: 12.5, fontWeight: "900", fontFamily: "Space Grotesk, Inter, sans-serif" }}>
+                      {round ? addAmount : betAmount} <Text style={{ color: "#f59e0b", fontSize: 9.5 }}>ETB</Text>
+                    </Text>
+                  </View>
+
+                  <TouchableOpacity
+                    onPress={() => {
+                      playCoinSound();
+                      if (round) setAddAmount(prev => Math.min(10000, prev + 10));
+                      else setBetAmount(prev => Math.min(10000, prev + 10));
+                    }}
+                    style={{ width: 28, height: 28, borderRadius: 6, backgroundColor: "rgba(255, 255, 255, 0.06)", alignItems: "center", justifyContent: "center" }}
+                  >
+                    <Ionicons name="add" size={14} color="#cbd5e1" />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Quick Increment Chips: +10, +50, +100, +500 */}
+                {[10, 50, 100, 500].map((val) => {
+                  const isLocking = round && (round.status !== "waiting" || countdown <= 5);
+                  return (
+                    <TouchableOpacity
+                      key={val}
+                      disabled={Boolean(isLocking)}
+                      onPress={() => {
+                        playCoinSound();
+                        if (round) {
+                          setAddAmount(prev => Math.min(Math.max(balance, 10000), (prev || 0) + val));
+                        } else {
+                          setBetAmount(prev => Math.min(Math.max(balance, 10000), (prev || 0) + val));
+                        }
+                      }}
+                      style={{
+                        flex: 1,
+                        height: 40,
+                        borderRadius: 10,
+                        backgroundColor: "#111827",
+                        borderWidth: 1,
+                        borderColor: "#1E293B",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        opacity: isLocking ? 0.35 : 1,
+                      }}
+                      activeOpacity={0.75}
+                    >
+                      <Text style={{ color: "#cbd5e1", fontSize: 12, fontWeight: "800", fontFamily: "Space Grotesk, Inter, sans-serif" }}>
+                        +{val}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Full-Width "Add to stake" Action */}
               <TouchableOpacity
+                disabled={Boolean(addLoading || joinLoading || (round && (round.status !== "waiting" || countdown <= 5)))}
                 onPress={() => {
                   playCoinSound();
-                  if (round) setAddAmount(prev => Math.min(10000, prev + 10));
-                  else setBetAmount(prev => Math.min(10000, prev + 10));
+                  if (round) onAddStake(addAmount);
+                  else onJoinRoom("RAIL", betAmount);
                 }}
-                style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: "rgba(255, 255, 255, 0.08)", alignItems: "center", justifyContent: "center" }}
+                style={{
+                  width: "100%",
+                  backgroundColor: "#ef4444",
+                  borderRadius: 12,
+                  height: 46,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  shadowColor: "#ef4444",
+                  shadowOffset: { width: 0, height: 3 },
+                  shadowOpacity: 0.4,
+                  shadowRadius: 8,
+                  elevation: 4,
+                  opacity: Boolean(addLoading || joinLoading || (round && (round.status !== "waiting" || countdown <= 5))) ? 0.6 : 1,
+                }}
+                activeOpacity={0.85}
               >
-                <Ionicons name="add" size={17} color="#ffffff" />
+                {addLoading || joinLoading ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "900", letterSpacing: 0.5 }}>
+                    {round
+                      ? (round.status !== "waiting" || countdown <= 5 ? "LOCKED" : `Add to stake  +${addAmount} ETB`)
+                      : `Add to stake  +${betAmount} ETB`}
+                  </Text>
+                )}
+              </TouchableOpacity>
+
+              {/* View Players Row */}
+              <TouchableOpacity
+                onPress={onOpenMobilePlayersSheet}
+                style={{
+                  width: "100%",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  paddingHorizontal: 12,
+                  height: 38,
+                  borderRadius: 10,
+                  backgroundColor: "#111827",
+                  borderWidth: 1,
+                  borderColor: "#1E293B",
+                }}
+                activeOpacity={0.8}
+              >
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
+                  <Ionicons name="people-outline" size={15} color="#ef4444" />
+                  <Text style={{ color: "#e2e8f0", fontSize: 12, fontWeight: "800" }}>
+                    Players ({playersForWheel.length})
+                  </Text>
+                </View>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                  <Text style={{ color: "#64748b", fontSize: 11, fontWeight: "600" }}>View mics & odds</Text>
+                  <Ionicons name="chevron-forward" size={14} color="#64748b" />
+                </View>
               </TouchableOpacity>
             </View>
-
-            <TouchableOpacity
-              disabled={Boolean(addLoading || joinLoading || (round && (round.status !== "waiting" || countdown <= 5)))}
-              onPress={() => {
-                playCoinSound();
-                if (round) onAddStake(addAmount);
-                else onJoinRoom(is5Player ? "5_PLAYER" : "RAIL", betAmount);
-              }}
-              style={{
-                flex: 1.15,
-                backgroundColor: "#ef4444",
-                borderRadius: 13,
-                height: 44,
-                alignItems: "center",
-                justifyContent: "center",
-                shadowColor: "#ef4444",
-                shadowOffset: { width: 0, height: 3 },
-                shadowOpacity: 0.45,
-                shadowRadius: 8,
-                elevation: 4,
-                opacity: Boolean(addLoading || joinLoading || (round && (round.status !== "waiting" || countdown <= 5))) ? 0.6 : 1,
-              }}
-              activeOpacity={0.85}
-            >
-              {addLoading || joinLoading ? (
-                <ActivityIndicator size="small" color="#ffffff" />
-              ) : (
-                <Text style={{ color: "#ffffff", fontSize: 13.5, fontWeight: "900", letterSpacing: 0.5 }}>
-                  {round
-                    ? (round.status !== "waiting" || countdown <= 5 ? "LOCKED" : "ADD TO STAKE")
-                    : "ADD TO STAKE"}
-                </Text>
-              )}
-            </TouchableOpacity>
-          </View>
-
-          {/* Available Balance Row */}
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 4 }}>
-            <Text style={{ color: "#64748b", fontSize: 11, fontWeight: "600" }}>Available</Text>
-            <Text style={{ color: "#22c55e", fontSize: 13, fontWeight: "800" }}>{balance.toLocaleString()} ETB</Text>
-          </View>
-
-          {/* View Players Bottom Sheet Button */}
-          <TouchableOpacity
-            onPress={onOpenMobilePlayersSheet}
-            style={{
-              width: "100%",
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-              paddingHorizontal: 14,
-              height: 40,
-              borderRadius: 13,
-              backgroundColor: "rgba(15, 23, 42, 0.85)",
-              borderWidth: 1,
-              borderColor: "rgba(255, 255, 255, 0.08)",
-              marginTop: 0,
-            }}
-            activeOpacity={0.8}
-          >
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
-              <Ionicons name="people-outline" size={16} color="#ef4444" />
-              <Text style={{ color: "#e2e8f0", fontSize: 12.5, fontWeight: "800" }}>
-                PLAYERS ({playersForWheel.length})
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={15} color="#94a3b8" />
-          </TouchableOpacity>
+          )}
         </View>
       </View>
     </ScrollView>

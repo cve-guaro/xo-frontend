@@ -14,9 +14,11 @@ type BackgroundMusicContextType = {
 const BackgroundMusicContext = createContext<BackgroundMusicContextType | undefined>(undefined);
 
 export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { token } = useAuth();
-  const [isPlaying, setIsPlaying] = useState(false);
+  const { token, user } = useAuth();
+  const [isPlaying, setIsPlaying] = useState(true);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const isPlayingRef = useRef(true);
+  isPlayingRef.current = isPlaying;
 
   // Lazy audio loader: Only instantiate Audio when actually unmuted/played to save ~2.9MB on initial load
   const getOrCreateAudio = () => {
@@ -33,8 +35,50 @@ export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = 
     return audioRef.current;
   };
 
+  // Initial preference check + auto-unlock on user interaction
   useEffect(() => {
+    let unmounted = false;
+
+    const checkPref = async () => {
+      try {
+        const isMutedLocal = await AsyncStorage.getItem('xoet_music_muted');
+        if (isMutedLocal === 'true') {
+          if (!unmounted) setIsPlaying(false);
+          return;
+        }
+        if (user?.sound_muted === true) {
+          if (!unmounted) setIsPlaying(false);
+          return;
+        }
+      } catch {}
+
+      // If allowed to play, attempt play or wait for first user interaction
+      const tryPlay = () => {
+        if (!isPlayingRef.current) return;
+        const audio = getOrCreateAudio();
+        if (audio && audio.paused) {
+          audio.play().catch(() => {});
+        }
+      };
+
+      tryPlay();
+
+      const unlockHandler = () => {
+        tryPlay();
+        window.removeEventListener('click', unlockHandler);
+        window.removeEventListener('keydown', unlockHandler);
+        window.removeEventListener('touchstart', unlockHandler);
+      };
+
+      window.addEventListener('click', unlockHandler, { once: true });
+      window.addEventListener('keydown', unlockHandler, { once: true });
+      window.addEventListener('touchstart', unlockHandler, { once: true });
+    };
+
+    checkPref();
+
     return () => {
+      unmounted = true;
       if (audioRef.current) {
         audioRef.current.pause();
       }

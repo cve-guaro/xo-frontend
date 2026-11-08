@@ -38,26 +38,30 @@ type ParamPayload = {
 
 const THEME = {
   bgSurface: '#07090e',
-  onSurface: '#ffffff',
-  surfaceContainerLow: '#0d1220',
-  surfaceContainer: '#111625',
-  surfaceVariant: '#161c2e',
-  surfaceBright: '#1e263d',
+  surfaceCard: '#0f1629',
+  surfaceCardHover: '#16203a',
+  surfaceBorder: 'rgba(255, 255, 255, 0.08)',
   primary: '#00daf3',
-  primaryDim: '#00daf3',
-  primaryContainer: '#00daf3',
-  onPrimaryContainer: '#0a0a0f',
-  secondary: '#00daf3',
-  onSurfaceVariant: '#8b93a7',
-  outlineVariant: '#334155',
-  error: '#ff2a5f',
-  errorDim: '#ff2a5f'
+  primaryGlow: 'rgba(0, 218, 243, 0.35)',
+  accentRuby: '#ff3366',
+  accentRubyGlow: 'rgba(255, 51, 102, 0.35)',
+  accentGold: '#f59e0b',
+  accentSuccess: '#10b981',
+  textWhite: '#ffffff',
+  textMuted: '#94a3b8',
+  textSubtle: '#64748b',
 };
 
 const LINES: number[][] = [
   [0, 1, 2], [3, 4, 5], [6, 7, 8],
   [0, 3, 6], [1, 4, 7], [2, 5, 8],
   [0, 4, 8], [2, 4, 6],
+];
+
+const CELL_NAMES = [
+  "Top-Left", "Top-Center", "Top-Right",
+  "Mid-Left", "Center", "Mid-Right",
+  "Bottom-Left", "Bottom-Center", "Bottom-Right",
 ];
 
 // ------------------ Helpers ------------------
@@ -67,9 +71,12 @@ function chunkMoves(moves: Move[]): Move[][] {
   return out;
 }
 
-function computeWinner(board: (SymbolXO | "_")[]): SymbolXO | null {
-  for (const [a, b, c] of LINES) {
-    if (board[a] !== "_" && board[a] === board[b] && board[a] === board[c]) return board[a] as SymbolXO;
+function computeWinnerDetails(board: (SymbolXO | "_")[]): { winner: SymbolXO; line: number[] } | null {
+  for (const line of LINES) {
+    const [a, b, c] = line;
+    if (board[a] !== "_" && board[a] === board[b] && board[a] === board[c]) {
+      return { winner: board[a] as SymbolXO, line };
+    }
   }
   return null;
 }
@@ -86,8 +93,16 @@ function safeParseMoves(maybeJson: string | undefined): Move[] | null {
 
 // ------------------ Memoized Sub-components ------------------
 const RoundTab = memo(function RoundTab({
-  index, active, onPress,
-}: { index: number; active: boolean; onPress: (i: number) => void }) {
+  index,
+  active,
+  outcome,
+  onPress,
+}: {
+  index: number;
+  active: boolean;
+  outcome?: "win" | "loss" | "draw" | null;
+  onPress: (i: number) => void;
+}) {
   return (
     <TouchableOpacity
       onPress={() => {
@@ -98,7 +113,19 @@ const RoundTab = memo(function RoundTab({
       style={[styles.tab, active && styles.tabActive]}
       activeOpacity={0.8}
     >
-      <Text style={[styles.tabText, active && styles.tabTextActive]}>ROUND {index + 1}</Text>
+      <Text style={[styles.tabText, active && styles.tabTextActive]}>
+        ROUND {index + 1}
+      </Text>
+      {outcome === "win" && (
+        <View style={styles.tabBadgeWin}>
+          <Ionicons name="checkmark" size={10} color="#10b981" />
+        </View>
+      )}
+      {outcome === "loss" && (
+        <View style={styles.tabBadgeLoss}>
+          <Ionicons name="close" size={10} color="#ff3366" />
+        </View>
+      )}
     </TouchableOpacity>
   );
 });
@@ -108,11 +135,11 @@ export default function GameViewer() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
-  const layoutWidth = isDesktop ? 640 : width;
-  
-  // Calculate cell dynamically based on screen real estate
-  const paddedWidth = layoutWidth - (isDesktop ? 120 : 64);
-  const CELL = Math.floor(paddedWidth / 3) - 8;
+  const layoutWidth = isDesktop ? 600 : Math.min(width, 480);
+
+  // Dynamic board cell dimensioning
+  const paddedWidth = layoutWidth - (isDesktop ? 100 : 48);
+  const CELL = Math.min(Math.floor(paddedWidth / 3) - 12, 108);
 
   const { user } = useAuth();
   const myId = user?.id ?? null;
@@ -128,13 +155,10 @@ export default function GameViewer() {
       p = p[0].slice(1, -1).split(',');
     }
     return p.map((id, index) => {
-      if (!id || id.length < 10) return id;
+      if (!id || id.length < 10) return id || `Player ${index + 1}`;
       if (id === myId) return "You";
-      
-      // Attempt to map real backend users profile text
       if (index === 0 && pxName) return pxName;
       if (index === 1 && poName) return poName;
-
       return id.slice(0, 6) + "..." + id.slice(-4);
     });
   }, [params.p1, params.p2, pxName, poName, myId]);
@@ -148,30 +172,32 @@ export default function GameViewer() {
   const [round, setRound] = useState(0);
   const [step, setStep] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [speedMultiplier, setSpeedMultiplier] = useState<1 | 2>(1);
 
   const winAnim = useRef(new Animated.Value(0)).current;
 
-  // Track progress natively
-  const len = rounds[round]?.length ?? 0;
-  
+  const currentRoundMoves = rounds[round] ?? [];
+  const len = currentRoundMoves.length;
+
   // Re-sync on round change
   useEffect(() => {
     setStep(0);
     setIsPlaying(false);
   }, [round]);
 
-  // Autoplay Timer Execution Loop
+  // Autoplay Timer Loop with selectable speed
   useEffect(() => {
     if (!isPlaying) return;
     if (step >= len) {
       setIsPlaying(false);
       return;
     }
+    const stepDelay = speedMultiplier === 2 ? 380 : 700;
     const timer = setTimeout(() => {
       setStep(s => Math.min(s + 1, len));
-    }, 700); // 700ms between each autonomous playback step
+    }, stepDelay);
     return () => clearTimeout(timer);
-  }, [isPlaying, step, len]);
+  }, [isPlaying, step, len, speedMultiplier]);
 
   const togglePlay = () => {
     if (step >= len) {
@@ -182,98 +208,116 @@ export default function GameViewer() {
     }
   };
 
+  const toggleSpeed = () => {
+    playTickSound();
+    haptics.tap();
+    setSpeedMultiplier(s => (s === 1 ? 2 : 1));
+  };
+
+  // Build live board up to current step
   const board = useMemo(() => {
     const b: (SymbolXO | "_")[] = Array(9).fill("_");
-    const m = rounds[round] ?? [];
+    const m = currentRoundMoves;
     const upto = Math.min(step, m.length);
     for (let i = 0; i < upto; i++) b[m[i].index] = m[i].symbol;
     return b;
-  }, [rounds, round, step]);
+  }, [currentRoundMoves, step]);
 
-  const finishedWinner = useMemo(() => computeWinner(board), [board]);
+  const winnerInfo = useMemo(() => computeWinnerDetails(board), [board]);
+  const winningLine = winnerInfo?.line ?? null;
+
   const lastMove = useMemo(() => {
-    const m = rounds[round] ?? [];
-    if (!m.length || step <= 0) return null;
-    return m[Math.min(step - 1, m.length - 1)];
-  }, [rounds, round, step]);
+    if (!currentRoundMoves.length || step <= 0) return null;
+    return currentRoundMoves[Math.min(step - 1, currentRoundMoves.length - 1)];
+  }, [currentRoundMoves, step]);
 
   const iWon = useMemo(() => {
-    if (!finishedWinner || !lastMove || !myId) return false;
+    if (!winnerInfo || !lastMove || !myId) return false;
     return lastMove.user === myId;
-  }, [finishedWinner, lastMove, myId]);
+  }, [winnerInfo, lastMove, myId]);
 
   useEffect(() => {
     if (iWon && step === len) {
       winAnim.setValue(0);
       Animated.timing(winAnim, { toValue: 1, duration: 650, useNativeDriver: true }).start();
     }
-  }, [iWon, step, round, rounds, winAnim]);
+  }, [iWon, step, len, winAnim]);
 
   const next = () => { setIsPlaying(false); setStep(s => Math.min(s + 1, len)); };
   const prev = () => { setIsPlaying(false); setStep(s => Math.max(s - 1, 0)); };
   const toStart = () => { setIsPlaying(false); setStep(0); };
   const toEnd = () => { setIsPlaying(false); setStep(len); };
 
-  // If No Moves
+  // Determine outcome for each round
+  const roundOutcomes = useMemo(() => {
+    return rounds.map(rMoves => {
+      const b: (SymbolXO | "_")[] = Array(9).fill("_");
+      for (const m of rMoves) b[m.index] = m.symbol;
+      const wInfo = computeWinnerDetails(b);
+      if (!wInfo) return rMoves.length === 9 ? "draw" : null;
+      const last = rMoves[rMoves.length - 1];
+      if (last && myId) {
+        return last.user === myId ? "win" : "loss";
+      }
+      return null;
+    });
+  }, [rounds, myId]);
+
+  // Match telemetry description
+  const statusDescription = useMemo(() => {
+    if (step === 0) return "Match started · Tap play to watch replay";
+    if (!lastMove) return `Viewing move ${step}`;
+    const actor = lastMove.user === myId ? "You" : (players[1] || "Opponent");
+    const cellName = CELL_NAMES[lastMove.index] || `position ${lastMove.index + 1}`;
+    if (step === len && winnerInfo) {
+      return `Final move: ${actor} won with ${winnerInfo.winner} at ${cellName}!`;
+    }
+    return `Move ${step}: ${actor} placed ${lastMove.symbol} on ${cellName}`;
+  }, [step, len, lastMove, myId, players, winnerInfo]);
+
+  // Fallback if no moves
   if (!movesFromParams || !movesFromParams.length) {
     return (
       <ScreenWrapper>
         <View style={{ flex: 1, backgroundColor: THEME.bgSurface, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
-          {/* Neon Background Blobs for Abyss vibe */}
-          <View style={styles.bgBlobPrimary} />
-          <View style={styles.bgBlobSecondary} />
-
-          <View style={[styles.glassPanelWrapper, { width: '100%', maxWidth: 450, paddingHorizontal: 24, paddingVertical: 40, alignItems: 'center' }]}>
-            <View style={styles.glassBackground} />
-            <LinearGradient
-              colors={['rgba(255, 255, 255, 0.05)', 'transparent']}
-              style={StyleSheet.absoluteFillObject}
-            />
-            
-            <View style={styles.errorIconContainer}>
-              <Ionicons name="eye-off-outline" size={40} color={THEME.primary} />
-            </View>
-
-            <Text style={styles.errorTitle}>MATCH ABORTED</Text>
-            <Text style={styles.errorDescription}>
-              No gameplay telemetry was recorded for this session. This typically occurs when a match is canceled, aborted, or terminated prematurely.
-            </Text>
-
-            <TouchableOpacity 
-              onPress={() => router.back()} 
-              style={styles.premiumBackBtn}
-              activeOpacity={0.8}
-            >
-              <LinearGradient
-                colors={[THEME.primaryContainer, THEME.primaryDim]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.gradientBtn}
-              >
-                <Ionicons name="arrow-back" size={16} color={THEME.onSurface} style={{ marginRight: 8 }} />
-                <Text style={styles.premiumBackText}>RETURN TO DASHBOARD</Text>
-              </LinearGradient>
-            </TouchableOpacity>
+          <View style={styles.errorIconContainer}>
+            <Ionicons name="eye-off-outline" size={38} color={THEME.primary} />
           </View>
+          <Text style={styles.errorTitle}>MATCH ABORTED</Text>
+          <Text style={styles.errorDescription}>
+            No gameplay telemetry was recorded for this session. The match may have concluded or ended before moves were registered.
+          </Text>
+          <TouchableOpacity 
+            onPress={() => router.back()} 
+            style={styles.premiumBackBtn}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={['#00daf3', '#00b4cc']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.gradientBtn}
+            >
+              <Ionicons name="arrow-back" size={16} color="#080f17" style={{ marginRight: 8 }} />
+              <Text style={styles.premiumBackText}>RETURN TO DASHBOARD</Text>
+            </LinearGradient>
+          </TouchableOpacity>
         </View>
       </ScreenWrapper>
     );
   }
 
-  // Active View Render
   return (
     <ScreenWrapper>
-      <View style={{ flex: 1, backgroundColor: '#07090e' }}>
-        <LinearGradient colors={["#07090e", "#0c111e", "#07090e"]} style={StyleSheet.absoluteFillObject} />
-        
-        {/* Neon Background Blobs for Abyss vibe */}
-        <View style={styles.bgBlobPrimary} />
-        <View style={styles.bgBlobSecondary} />
+      <View style={{ flex: 1, backgroundColor: THEME.bgSurface }}>
+        <LinearGradient
+          colors={["#080c16", "#060910", "#080c16"]}
+          style={StyleSheet.absoluteFillObject}
+        />
 
-        <SafeAreaView edges={["left", "right"]} style={{ flex: 1 }}>
-          
-          {/* Top Bar Navigation Add-back */}
-          <View style={[styles.topNavBack, isDesktop && { maxWidth: 800, alignSelf: 'center', width: '100%' }]}>
+        <SafeAreaView edges={["left", "right", "top"]} style={{ flex: 1 }}>
+          {/* Top Bar Navigation & Match Meta */}
+          <View style={[styles.topBar, isDesktop && { maxWidth: 640, alignSelf: 'center', width: '100%' }]}>
             <TouchableOpacity
               onPress={() => {
                 playTickSound();
@@ -285,130 +329,242 @@ export default function GameViewer() {
             >
               <Ionicons name="chevron-back" size={20} color="#ffffff" />
             </TouchableOpacity>
+
+            <View style={styles.matchMetaCenter}>
+              <Text style={styles.matchMetaTitle}>MATCH REPLAY</Text>
+              <Text style={styles.matchMetaSubtitle}>
+                {params.id ? `#${params.id.slice(-6).toUpperCase()}` : 'SESSION'}
+              </Text>
+            </View>
+
+            {/* Staked Bet Badge */}
+            <View style={styles.betPill}>
+              <Ionicons name="cash-outline" size={12} color={THEME.accentGold} />
+              <Text style={styles.betPillText}>
+                {params.bet ? `${params.bet} ETB` : 'FREE'}
+              </Text>
+            </View>
           </View>
 
-          {/* Scrolling Content Arena */}
-          <ScrollView 
-             contentContainerStyle={[styles.scrollContent, isDesktop && { maxWidth: 800, alignSelf: 'center', width: '100%' }]} 
-             showsVerticalScrollIndicator={false}
+          {/* Scrolling Arena */}
+          <ScrollView
+            contentContainerStyle={[styles.scrollContent, isDesktop && { maxWidth: 640, alignSelf: 'center', width: '100%' }]}
+            showsVerticalScrollIndicator={false}
           >
-
-            {/* Players Layout Block */}
-            <View style={styles.playersBlock}>
-                <View style={styles.vaultPill}>
-                    <Ionicons name="person" size={13} color="#00daf3" />
-                    <Text style={styles.vaultText} numberOfLines={1}>{players[0]}</Text>
+            {/* Player VS Arena Card */}
+            <View style={styles.arenaCard}>
+              {/* Player 1 (You) */}
+              <View style={styles.playerColumn}>
+                <View style={[styles.avatarRing, { borderColor: THEME.primary }]}>
+                  <Ionicons name="person" size={18} color={THEME.primary} />
                 </View>
-                <Text style={styles.vsText}>VS</Text>
-                <View style={[styles.vaultPill, { borderColor: 'rgba(255, 42, 95, 0.35)', backgroundColor: 'rgba(255, 42, 95, 0.08)' }]}>
-                    <Ionicons name="skull" size={12} color={THEME.error} />
-                    <Text style={[styles.vaultText, { color: THEME.error }]} numberOfLines={1}>{players[1]}</Text>
+                <Text style={styles.playerName} numberOfLines={1}>{players[0]}</Text>
+                <View style={styles.symbolBadgeX}>
+                  <Text style={styles.symbolBadgeXText}>X</Text>
                 </View>
+              </View>
+
+              {/* VS & Match Outcome */}
+              <View style={styles.vsCenterColumn}>
+                <View style={styles.vsBadge}>
+                  <Text style={styles.vsBadgeText}>VS</Text>
+                </View>
+                {winnerInfo ? (
+                  <View style={[
+                    styles.outcomePill,
+                    { backgroundColor: iWon ? "rgba(16, 185, 129, 0.15)" : "rgba(255, 51, 102, 0.15)",
+                      borderColor: iWon ? "rgba(16, 185, 129, 0.35)" : "rgba(255, 51, 102, 0.35)" }
+                  ]}>
+                    <Text style={[styles.outcomePillText, { color: iWon ? "#10b981" : "#ff3366" }]}>
+                      {iWon ? "VICTORY" : "DEFEAT"}
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={styles.outcomePillNeutral}>
+                    <Text style={styles.outcomePillNeutralText}>ROUND {round + 1}</Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Player 2 (Opponent) */}
+              <View style={styles.playerColumn}>
+                <View style={[styles.avatarRing, { borderColor: THEME.accentRuby }]}>
+                  <Ionicons name="skull" size={18} color={THEME.accentRuby} />
+                </View>
+                <Text style={styles.playerName} numberOfLines={1}>{players[1]}</Text>
+                <View style={styles.symbolBadgeO}>
+                  <Text style={styles.symbolBadgeOText}>O</Text>
+                </View>
+              </View>
             </View>
 
-            {/* Rounds Ribbon */}
-            <View style={styles.tabsWrap}>
-              <FlatList
-                horizontal
-                data={rounds}
-                keyExtractor={(_, i) => String(i)}
-                renderItem={({ index }) => <RoundTab index={index} active={round === index} onPress={setRound} />}
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.tabsContent}
-              />
+            {/* Rounds Selector Tabs */}
+            {rounds.length > 1 && (
+              <View style={styles.roundsWrap}>
+                <FlatList
+                  horizontal
+                  data={rounds}
+                  keyExtractor={(_, i) => String(i)}
+                  renderItem={({ index }) => (
+                    <RoundTab
+                      index={index}
+                      active={round === index}
+                      outcome={roundOutcomes[index]}
+                      onPress={setRound}
+                    />
+                  )}
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.roundsContent}
+                />
+              </View>
+            )}
+
+            {/* High-Tech 3D XO Stadium Grid */}
+            <View style={[styles.stadiumBoard, { width: CELL * 3 + 40, alignSelf: 'center' }]}>
+              <View style={styles.gridContainer}>
+                {[0, 1, 2].map((r) => (
+                  <View key={r} style={styles.gridRow}>
+                    {[0, 1, 2].map((c) => {
+                      const idx = r * 3 + c;
+                      const val = board[idx];
+                      const isLastMove = lastMove?.index === idx && val !== "_";
+                      const isWinningCell = winningLine?.includes(idx);
+
+                      return (
+                        <View
+                          key={idx}
+                          style={[
+                            styles.boardCell,
+                            { width: CELL, height: CELL },
+                            isLastMove && styles.boardCellLastMove,
+                            isWinningCell && styles.boardCellWinning,
+                          ]}
+                        >
+                          {/* Empty Cell Subtle Indicator */}
+                          {val === "_" && (
+                            <View style={styles.emptyDot} />
+                          )}
+
+                          {/* X Mark */}
+                          {val === "X" && (
+                            <View style={styles.markWrapper}>
+                              <Ionicons
+                                name="close"
+                                size={Math.floor(CELL * 0.72)}
+                                color={THEME.primary}
+                                style={styles.xMarkGlow}
+                              />
+                            </View>
+                          )}
+
+                          {/* O Mark */}
+                          {val === "O" && (
+                            <View style={styles.markWrapper}>
+                              <Ionicons
+                                name="radio-button-off"
+                                size={Math.floor(CELL * 0.64)}
+                                color={THEME.accentRuby}
+                                style={styles.oMarkGlow}
+                              />
+                            </View>
+                          )}
+
+                          {/* Active Move Pill Indicator */}
+                          {isLastMove && (
+                            <View style={styles.activeMovePill}>
+                              <Text style={styles.activeMovePillText}>#{step}</Text>
+                            </View>
+                          )}
+                        </View>
+                      );
+                    })}
+                  </View>
+                ))}
+              </View>
+
+              {/* Victory Banner Overlay */}
+              {iWon && step === len && !isPlaying && (
+                <Animated.View
+                  pointerEvents="none"
+                  style={[
+                    styles.victoryOverlay,
+                    {
+                      opacity: winAnim,
+                      transform: [
+                        { scale: winAnim.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1] }) }
+                      ],
+                    },
+                  ]}
+                >
+                  <LinearGradient
+                    colors={["rgba(16, 185, 129, 0.95)", "rgba(5, 150, 105, 0.95)"]}
+                    style={styles.victoryBanner}
+                  >
+                    <Ionicons name="trophy" size={26} color="#ffffff" style={{ marginRight: 8 }} />
+                    <Text style={styles.victoryBannerText}>VICTORY</Text>
+                  </LinearGradient>
+                </Animated.View>
+              )}
             </View>
 
-            {/* Glass Board Section */}
-            <View style={[styles.glassPanelWrapper, { alignSelf: 'center' }]}>
-               <View style={styles.glassBackground} />
-               <View style={styles.glassGradientTop} />
-
-               {/* Grid */}
-               <View style={styles.gridContainer}>
-                  {[0, 1, 2].map((r) => (
-                    <View key={r} style={{ flexDirection: "row", gap: 16 }}>
-                      {[0, 1, 2].map((c) => {
-                         const idx = r * 3 + c;
-                         const v = board[idx];
-                         const isLastMove = lastMove?.index === idx && v !== "_";
-
-                         return (
-                           <View key={idx} style={[
-                              styles.cell, 
-                              { width: CELL, height: CELL },
-                              isLastMove && styles.cellActive
-                           ]}>
-                             {v === "X" && (
-                                <View style={styles.iconContainer}>
-                                  <Ionicons name="close" size={Math.floor(CELL * 0.7)} color={THEME.error} style={styles.xShadow} />
-                                </View>
-                             )}
-                             {v === "O" && (
-                                <View style={styles.iconContainer}>
-                                  <Ionicons name="radio-button-off" size={Math.floor(CELL * 0.65)} color={THEME.secondary} style={styles.secondaryShadow} />
-                                </View>
-                             )}
-
-                             {isLastMove && (
-                                <View style={styles.activeLabelBox}>
-                                   <Text style={styles.activeLabelSuper}>ACTIVE</Text>
-                                   <Text style={styles.activeLabelMain}>MOVE {step}</Text>
-                                </View>
-                             )}
-                           </View>
-                         );
-                      })}
-                    </View>
-                  ))}
-               </View>
-               
-               {/* Win Overlay */}
-               {iWon && step === len && !isPlaying && (
-                 <Animated.View pointerEvents="none" style={[styles.winOverlay, { opacity: winAnim, transform: [{ scale: winAnim.interpolate({ inputRange: [0, 1], outputRange: [0.95, 1] }) }] }]}>
-                   <Text style={[styles.heroTitle, { textShadowColor: THEME.primary, textShadowOffset: { width: 0, height: 4 }, textShadowRadius: 20 }]}>VICTORY</Text>
-                 </Animated.View>
-               )}
-            </View>
-
-            {/* Match Controls Card (Exact Image 2 Specification: Centered "move {step}/{len}", 3 buttons [ < ] [ O ] [ > ]) */}
-            <View style={{
-              width: "100%",
-              maxWidth: isDesktop ? 600 : "100%",
-              alignSelf: "center",
-              backgroundColor: "rgba(14, 20, 36, 0.88)",
-              borderRadius: 24,
-              borderWidth: 1.5,
-              borderColor: "rgba(0, 218, 243, 0.22)",
-              paddingVertical: 22,
-              paddingHorizontal: 20,
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 16,
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: 8 },
-              shadowOpacity: 0.35,
-              shadowRadius: 18,
-            }}>
-              {/* Header: move {step}/{len} */}
-              <Text style={{
-                color: "#ffffff",
-                fontSize: 18,
-                fontWeight: "900",
-                letterSpacing: 1,
-                textTransform: "lowercase",
-              }}>
-                move {step}/{len}
+            {/* Live Telemetry Info Strip */}
+            <View style={styles.telemetryStrip}>
+              <Ionicons name="information-circle-outline" size={14} color={THEME.primary} />
+              <Text style={styles.telemetryText} numberOfLines={1}>
+                {statusDescription}
               </Text>
+            </View>
 
-              {/* 3 Main Action Buttons Row: [ < ] [ O ] [ > ] */}
-              <View style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 28,
-                width: "100%",
-              }}>
-                {/* Left Button: < (Previous Move) */}
+            {/* Playback Console (High-Precision Controls) */}
+            <View style={[styles.consoleCard, isDesktop && { maxWidth: 600, alignSelf: 'center', width: '100%' }]}>
+              {/* Header: Move Count & Speed Toggle */}
+              <View style={styles.consoleHeader}>
+                <View style={styles.moveCounterBox}>
+                  <Text style={styles.moveCounterLabel}>STEP</Text>
+                  <Text style={styles.moveCounterValue}>{step}</Text>
+                  <Text style={styles.moveCounterTotal}>/ {len}</Text>
+                </View>
+
+                {/* Progress Bar Track */}
+                <View style={styles.progressTrackContainer}>
+                  <View style={styles.progressTrackBg}>
+                    <View
+                      style={[
+                        styles.progressTrackFill,
+                        { width: len > 0 ? `${(step / len) * 100}%` : '0%' }
+                      ]}
+                    />
+                  </View>
+                </View>
+
+                {/* Speed Multiplier Pill */}
+                <TouchableOpacity
+                  onPress={toggleSpeed}
+                  style={styles.speedToggleBtn}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.speedToggleText}>{speedMultiplier}x</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* 5 Playback Action Buttons */}
+              <View style={styles.playbackButtonsRow}>
+                {/* 1. Jump to Start */}
+                <TouchableOpacity
+                  onPress={() => {
+                    playTickSound();
+                    haptics.tap();
+                    toStart();
+                  }}
+                  disabled={step <= 0}
+                  style={[styles.stepBtn, step <= 0 && styles.btnDisabled]}
+                  activeOpacity={0.7}
+                  accessibilityLabel="First Move"
+                >
+                  <Ionicons name="play-skip-back" size={18} color="#cbd5e1" />
+                </TouchableOpacity>
+
+                {/* 2. Step Backward */}
                 <TouchableOpacity
                   onPress={() => {
                     playTickSound();
@@ -416,55 +572,33 @@ export default function GameViewer() {
                     prev();
                   }}
                   disabled={step <= 0}
-                  style={{
-                    width: 58,
-                    height: 58,
-                    borderRadius: 18,
-                    backgroundColor: "rgba(255, 255, 255, 0.05)",
-                    borderWidth: 1.5,
-                    borderColor: step <= 0 ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 218, 243, 0.45)",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    opacity: step <= 0 ? 0.4 : 1,
-                  }}
-                  activeOpacity={0.75}
+                  style={[styles.stepBtn, step <= 0 && styles.btnDisabled]}
+                  activeOpacity={0.7}
                   accessibilityLabel="Previous Move"
                 >
-                  <Ionicons name="chevron-back" size={28} color="#ffffff" />
+                  <Ionicons name="chevron-back" size={24} color="#ffffff" />
                 </TouchableOpacity>
 
-                {/* Center Button: O (Play/Pause Toggle) */}
+                {/* 3. Main Glowing Play/Pause Center Action */}
                 <TouchableOpacity
                   onPress={() => {
                     playTickSound(900);
                     haptics.impact();
                     togglePlay();
                   }}
-                  style={{
-                    width: 74,
-                    height: 74,
-                    borderRadius: 37,
-                    backgroundColor: "#00daf3",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    shadowColor: "#00daf3",
-                    shadowOffset: { width: 0, height: 4 },
-                    shadowOpacity: 0.6,
-                    shadowRadius: 16,
-                    elevation: 12,
-                  }}
+                  style={styles.mainPlayBtn}
                   activeOpacity={0.85}
-                  accessibilityLabel="Play or Pause"
+                  accessibilityLabel="Play / Pause"
                 >
                   <Ionicons
                     name={isPlaying ? "pause" : (step === len ? "reload" : "play")}
-                    size={34}
-                    color="#060a14"
+                    size={30}
+                    color="#080f17"
                     style={{ marginLeft: (!isPlaying && step !== len) ? 3 : 0 }}
                   />
                 </TouchableOpacity>
 
-                {/* Right Button: > (Next Move) */}
+                {/* 4. Step Forward */}
                 <TouchableOpacity
                   onPress={() => {
                     playTickSound();
@@ -472,32 +606,36 @@ export default function GameViewer() {
                     next();
                   }}
                   disabled={step >= len}
-                  style={{
-                    width: 58,
-                    height: 58,
-                    borderRadius: 18,
-                    backgroundColor: "rgba(255, 255, 255, 0.05)",
-                    borderWidth: 1.5,
-                    borderColor: step >= len ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 218, 243, 0.45)",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    opacity: step >= len ? 0.4 : 1,
-                  }}
-                  activeOpacity={0.75}
+                  style={[styles.stepBtn, step >= len && styles.btnDisabled]}
+                  activeOpacity={0.7}
                   accessibilityLabel="Next Move"
                 >
-                  <Ionicons name="chevron-forward" size={28} color="#ffffff" />
+                  <Ionicons name="chevron-forward" size={24} color="#ffffff" />
+                </TouchableOpacity>
+
+                {/* 5. Jump to End */}
+                <TouchableOpacity
+                  onPress={() => {
+                    playTickSound();
+                    haptics.tap();
+                    toEnd();
+                  }}
+                  disabled={step >= len}
+                  style={[styles.stepBtn, step >= len && styles.btnDisabled]}
+                  activeOpacity={0.7}
+                  accessibilityLabel="Last Move"
+                >
+                  <Ionicons name="play-skip-forward" size={18} color="#cbd5e1" />
                 </TouchableOpacity>
               </View>
             </View>
 
-            {/* Footer */}
-            <View style={styles.footer}>
-               <Text style={styles.footerMeta}>© 2026 XO ABYSS SYSTEM. ALL RIGHTS RESERVED.</Text>
+            {/* Footer / Branding */}
+            <View style={styles.footerWrap}>
+              <Text style={styles.footerText}>XO ETHIOPIA · VERIFIED MATCH REPLAY</Text>
             </View>
 
-            {/* Bottom Padding for mobile */}
-            <View style={{ height: 40 }} />
+            <View style={{ height: 32 }} />
           </ScrollView>
         </SafeAreaView>
       </View>
@@ -507,406 +645,482 @@ export default function GameViewer() {
 
 // ------------------ Stylesheet ------------------
 const styles = StyleSheet.create({
-  errorContainer: {
-     flex: 1,
-     alignItems: 'center',
-     justifyContent: 'center',
-     backgroundColor: THEME.bgSurface
-  },
-  errorText: {
-     color: THEME.onSurfaceVariant,
-     marginTop: 16,
-     fontSize: 14,
-     fontWeight: '600',
-     letterSpacing: 1,
-     textTransform: 'uppercase'
-  },
-  backBtnError: {
-     marginTop: 24,
-     paddingHorizontal: 24,
-     paddingVertical: 12,
-     backgroundColor: THEME.surfaceVariant,
-     borderRadius: 12,
-     borderWidth: 1,
-     borderColor: 'rgba(68, 68, 107, 0.2)'
-  },
-  errorIconContainer: {
-     width: 80,
-     height: 80,
-     borderRadius: 40,
-     backgroundColor: 'rgba(182, 154, 255, 0.1)',
-     alignItems: 'center',
-     justifyContent: 'center',
-     borderWidth: 1,
-     borderColor: 'rgba(182, 154, 255, 0.2)',
-     marginBottom: 24
-  },
-  errorTitle: {
-     color: THEME.onSurface,
-     fontSize: 20,
-     fontWeight: '900',
-     letterSpacing: 2,
-     marginBottom: 12,
-     textAlign: 'center'
-  },
-  errorDescription: {
-     color: THEME.onSurfaceVariant,
-     fontSize: 13,
-     lineHeight: 20,
-     textAlign: 'center',
-     marginBottom: 32,
-     paddingHorizontal: 16
-  },
-  premiumBackBtn: {
-     width: '100%',
-     borderRadius: 16,
-     overflow: 'hidden',
-     shadowColor: THEME.primary,
-     shadowOpacity: 0.3,
-     shadowRadius: 10,
-     shadowOffset: { width: 0, height: 4 },
-     elevation: 5
-  },
-  gradientBtn: {
-     flexDirection: 'row',
-     alignItems: 'center',
-     justifyContent: 'center',
-     paddingVertical: 16,
-     paddingHorizontal: 24
-  },
-  premiumBackText: {
-     color: THEME.onSurface,
-     fontSize: 12,
-     fontWeight: '900',
-     letterSpacing: 1
-  },
-  
-  // Blobs
-  bgBlobPrimary: {
-     position: 'absolute',
-     top: '5%',
-     left: -50,
-     width: 300,
-     height: 300,
-     backgroundColor: THEME.primary,
-     opacity: 0.15,
-     borderRadius: 999,
-     transform: [{ scale: 1.5 }],
-     ...Platform.select({ web: { filter: 'blur(100px)' } as any })
-  },
-  
-  // Navigation back button
-  topNavBack: {
-     paddingHorizontal: 16,
-     paddingTop: 16,
-     zIndex: 100,
-     alignItems: 'flex-start'
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   backCircle: {
-     width: 44,
-     height: 44,
-     borderRadius: 22,
-     backgroundColor: THEME.surfaceContainer,
-     alignItems: 'center',
-     justifyContent: 'center',
-     borderWidth: 1,
-     borderColor: 'rgba(255, 255, 255, 0.08)'
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#12182b',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  bgBlobSecondary: {
-     position: 'absolute',
-     bottom: '5%',
-     right: -50,
-     width: 300,
-     height: 300,
-     backgroundColor: '#ff4766',
-     opacity: 0.1,
-     borderRadius: 999,
-     transform: [{ scale: 1.5 }],
-     ...Platform.select({ web: { filter: 'blur(120px)' } as any })
+  matchMetaCenter: {
+    alignItems: 'center',
+  },
+  matchMetaTitle: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+  },
+  matchMetaSubtitle: {
+    color: '#00daf3',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    marginTop: 2,
+  },
+  betPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.35)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
+  },
+  betPillText: {
+    color: '#f59e0b',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
 
-  // Layout
   scrollContent: {
-     paddingTop: 48,
-     paddingHorizontal: 16,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    gap: 16,
   },
 
-  heroTitle: {
-     fontSize: 38,
-     fontWeight: '900',
-     color: THEME.onSurface,
-     letterSpacing: -1.5,
-     textAlign: 'center'
+  // Player Arena Card
+  arenaCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#0f1629',
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.35)',
+    elevation: 4,
+  } as any,
+  playerColumn: {
+    alignItems: 'center',
+    width: 90,
+    gap: 6,
+  },
+  avatarRing: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#16203a',
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  playerName: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '800',
+    maxWidth: 88,
+    textAlign: 'center',
+  },
+  symbolBadgeX: {
+    backgroundColor: 'rgba(0, 218, 243, 0.15)',
+    borderWidth: 1,
+    borderColor: '#00daf3',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  symbolBadgeXText: {
+    color: '#00daf3',
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  symbolBadgeO: {
+    backgroundColor: 'rgba(255, 51, 102, 0.15)',
+    borderWidth: 1,
+    borderColor: '#ff3366',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  symbolBadgeOText: {
+    color: '#ff3366',
+    fontSize: 11,
+    fontWeight: '900',
   },
 
-  // Players
-  playersBlock: {
-     flexDirection: 'row',
-     alignItems: 'center',
-     justifyContent: 'center',
-     gap: 12,
-     marginBottom: 24
+  vsCenterColumn: {
+    alignItems: 'center',
+    gap: 6,
   },
-  vsText: {
-     color: THEME.outlineVariant,
-     fontSize: 12,
-     fontWeight: '900',
-     fontStyle: 'italic',
+  vsBadge: {
+    backgroundColor: '#16203a',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
-  vaultPill: {
-     flexDirection: 'row',
-     alignItems: 'center',
-     backgroundColor: THEME.surfaceContainerLow,
-     borderWidth: 1,
-     borderColor: 'rgba(255, 255, 255, 0.08)',
-     paddingHorizontal: 14,
-     paddingVertical: 8,
-     borderRadius: 12,
-     gap: 6,
-     maxWidth: 140
+  vsBadgeText: {
+    color: '#94a3b8',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1,
   },
-  vaultText: {
-     color: THEME.onSurface,
-     fontSize: 11,
-     fontWeight: '800',
-     letterSpacing: 0.5
+  outcomePill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  outcomePillText: {
+    fontSize: 10.5,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+  outcomePillNeutral: {
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  outcomePillNeutralText: {
+    color: '#cbd5e1',
+    fontSize: 10,
+    fontWeight: '700',
   },
 
-  // Tabs
-  tabsWrap: {
-     height: 48,
-     marginBottom: 32,
-     justifyContent: 'center'
+  // Rounds Tab Strip
+  roundsWrap: {
+    height: 38,
+    justifyContent: 'center',
   },
-  tabsContent: {
-     alignItems: 'center',
-     justifyContent: 'center',
-     gap: 12,
-     paddingHorizontal: 16,
-     flexGrow: 1
+  roundsContent: {
+    alignItems: 'center',
+    gap: 10,
   },
   tab: {
-     paddingHorizontal: 18,
-     paddingVertical: 10,
-     borderRadius: 999,
-     borderWidth: 1,
-     borderColor: 'rgba(0, 218, 243, 0.35)',
-     backgroundColor: THEME.surfaceContainerLow
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: '#0f1629',
   },
   tabActive: {
-     backgroundColor: 'rgba(0, 218, 243, 0.16)',
-     borderColor: THEME.primaryDim
+    backgroundColor: 'rgba(0, 218, 243, 0.15)',
+    borderColor: '#00daf3',
   },
   tabText: {
-     color: THEME.onSurfaceVariant,
-     fontSize: 11,
-     fontWeight: '800',
-     letterSpacing: 1
+    color: '#94a3b8',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.8,
   },
   tabTextActive: {
-     color: THEME.onSurface
+    color: '#ffffff',
+  },
+  tabBadgeWin: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabBadgeLoss: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: 'rgba(255, 51, 102, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
-  // Glass Board
-  glassPanelWrapper: {
-     position: 'relative',
-     padding: 24,
-     borderRadius: 28,
-     overflow: 'hidden',
-     borderWidth: 1,
-     borderColor: 'rgba(255, 255, 255, 0.08)',
-     shadowColor: '#000',
-     shadowOpacity: 0.3,
-     shadowRadius: 30,
-     shadowOffset: { width: 0, height: 20 },
-     elevation: 20,
-     marginBottom: 32
-  },
-  glassBackground: {
-     ...StyleSheet.absoluteFillObject,
-     backgroundColor: '#111625',
-  },
-  glassGradientTop: {
-     position: 'absolute',
-     top: 0,
-     left: 0,
-     right: 0,
-     height: '50%',
-     backgroundColor: 'rgba(0, 218, 243, 0.05)'
-  },
+  // Stadium XO Board
+  stadiumBoard: {
+    position: 'relative',
+    backgroundColor: '#0c1221',
+    borderRadius: 28,
+    borderWidth: 1.5,
+    borderColor: 'rgba(0, 218, 243, 0.2)',
+    padding: 16,
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
+    elevation: 8,
+  } as any,
   gridContainer: {
-     gap: 16,
-     alignItems: 'center',
-     justifyContent: 'center'
+    gap: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  cell: {
-     backgroundColor: THEME.surfaceContainer,
-     borderRadius: 20,
-     borderWidth: 1,
-     borderColor: 'rgba(255, 255, 255, 0.05)',
-     alignItems: 'center',
-     justifyContent: 'center',
-     shadowColor: '#000',
-     shadowOpacity: 0.2,
-     shadowRadius: 10,
-     elevation: 5
+  gridRow: {
+    flexDirection: 'row',
+    gap: 10,
   },
-  cellActive: {
-     backgroundColor: THEME.surfaceVariant,
-     transform: [{ scale: 1.05 }],
-     borderWidth: 2,
-     borderColor: THEME.primary,
-     shadowColor: THEME.primary,
-     shadowOpacity: 0.3,
-     shadowRadius: 15,
-     zIndex: 10
+  boardCell: {
+    backgroundColor: '#121a30',
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    overflow: 'hidden',
   },
-  iconContainer: {
-     alignItems: 'center',
-     justifyContent: 'center',
-     ...StyleSheet.absoluteFillObject
+  boardCellLastMove: {
+    borderColor: '#00daf3',
+    backgroundColor: '#162442',
+    boxShadow: '0 0 16px rgba(0, 218, 243, 0.35)',
+  } as any,
+  boardCellWinning: {
+    borderColor: '#10b981',
+    backgroundColor: 'rgba(16, 185, 129, 0.18)',
+    boxShadow: '0 0 18px rgba(16, 185, 129, 0.45)',
+  } as any,
+  emptyDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
-  xShadow: {
-     textShadowColor: '#ff4766',
-     textShadowOffset: { width: 0, height: 0 },
-     textShadowRadius: 15
+  markWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  secondaryShadow: {
-     textShadowColor: '#00daf3',
-     textShadowOffset: { width: 0, height: 0 },
-     textShadowRadius: 15
+  xMarkGlow: {
+    textShadowColor: '#00daf3',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 16,
   },
-  activeLabelBox: {
-     position: 'absolute',
-     alignItems: 'center',
-     justifyContent: 'center'
+  oMarkGlow: {
+    textShadowColor: '#ff3366',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 16,
   },
-  activeLabelSuper: {
-     fontSize: 9,
-     color: THEME.primaryDim,
-     fontWeight: '900',
-     letterSpacing: 2,
-     textTransform: 'uppercase',
-     marginBottom: 2
+  activeMovePill: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    backgroundColor: 'rgba(0, 218, 243, 0.25)',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 6,
   },
-  activeLabelMain: {
-     fontSize: 16,
-     color: THEME.onSurface,
-     fontWeight: '900',
-     letterSpacing: 1
-  },
-
-  winOverlay: {
-     ...StyleSheet.absoluteFillObject,
-     alignItems: 'center',
-     justifyContent: 'center',
-     backgroundColor: 'rgba(12, 12, 31, 0.85)',
-     borderRadius: 28,
-     zIndex: 20,
+  activeMovePillText: {
+    color: '#00daf3',
+    fontSize: 9,
+    fontWeight: '900',
   },
 
-  // Match Controls
-  controlsBar: {
-     flexDirection: Platform.OS === 'web' && Dimensions.get('window').width >= 768 ? 'row' : 'column',
-     alignItems: 'center',
-     justifyContent: 'space-between',
-     backgroundColor: THEME.surfaceContainer,
-     borderRadius: 32,
-     borderWidth: 1,
-     borderColor: 'rgba(255, 255, 255, 0.05)',
-     paddingHorizontal: 32,
-     paddingVertical: 24,
-     gap: 24
+  victoryOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
   },
-  controlSectionLeft: {
-     flexDirection: 'row',
-     alignItems: 'center',
-     gap: 16
+  victoryBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 999,
+    boxShadow: '0 6px 24px rgba(16, 185, 129, 0.5)',
+  } as any,
+  victoryBannerText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '900',
+    letterSpacing: 2,
   },
-  progressCircle: {
-     width: 48,
-     height: 48,
-     borderRadius: 24,
-     backgroundColor: THEME.surfaceContainerLow,
-     borderWidth: 1,
-     borderColor: 'rgba(0, 218, 243, 0.35)',
-     alignItems: 'center',
-     justifyContent: 'center'
+
+  // Telemetry Strip
+  telemetryStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(0, 218, 243, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 218, 243, 0.2)',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 12,
   },
-  progressCircleLabel: {
-     color: THEME.primary,
-     fontSize: 18,
-     fontWeight: '900'
+  telemetryText: {
+    color: '#cbd5e1',
+    fontSize: 11.5,
+    fontWeight: '700',
   },
-  controlSuperText: {
-     fontSize: 10,
-     color: THEME.onSurfaceVariant,
-     fontWeight: '800',
-     letterSpacing: 2,
-     textTransform: 'uppercase',
-     marginBottom: 2
+
+  // Playback Console
+  consoleCard: {
+    backgroundColor: '#0f1629',
+    borderRadius: 24,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    paddingVertical: 18,
+    paddingHorizontal: 20,
+    gap: 16,
+    boxShadow: '0 8px 30px rgba(0, 0, 0, 0.45)',
+    elevation: 6,
+  } as any,
+  consoleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
-  controlMainText: {
-     fontSize: 13,
-     color: THEME.onSurface,
-     fontWeight: '800'
+  moveCounterBox: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
   },
-  playbackCenter: {
-     flexDirection: 'row',
-     alignItems: 'center',
-     gap: 12
+  moveCounterLabel: {
+    color: '#94a3b8',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1,
   },
-  iconBtn: {
-     width: 44, height: 44, alignItems: 'center', justifyContent: 'center',
-     borderRadius: 20,
-     backgroundColor: THEME.surfaceVariant, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)'
+  moveCounterValue: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '900',
   },
-  playBtnMain: {
-     width: 64,
-     height: 64,
-     borderRadius: 32,
-     backgroundColor: THEME.primaryContainer,
-     alignItems: 'center',
-     justifyContent: 'center',
-     shadowColor: THEME.primary,
-     shadowOpacity: 0.6,
-     shadowRadius: 20,
-     shadowOffset: { width: 0, height: 8 },
-     elevation: 15
+  moveCounterTotal: {
+    color: '#64748b',
+    fontSize: 12,
+    fontWeight: '700',
   },
-  controlSectionRight: {
-     flexDirection: 'row',
-     alignItems: 'center',
-     gap: 8
+  progressTrackContainer: {
+    flex: 1,
+    paddingHorizontal: 8,
   },
-  analyzeBtn: {
-     paddingHorizontal: 24,
-     paddingVertical: 14,
-     backgroundColor: THEME.surfaceVariant,
-     borderRadius: 14,
-     borderWidth: 1,
-     borderColor: 'rgba(0, 218, 243, 0.35)'
+  progressTrackBg: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    overflow: 'hidden',
   },
-  analyzeText: {
-     color: THEME.onSurface,
-     fontSize: 11,
-     fontWeight: '900',
-     letterSpacing: 1.5
+  progressTrackFill: {
+    height: '100%',
+    backgroundColor: '#00daf3',
+    borderRadius: 3,
   },
+  speedToggleBtn: {
+    backgroundColor: '#16203a',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  speedToggleText: {
+    color: '#00daf3',
+    fontSize: 11,
+    fontWeight: '900',
+  },
+
+  playbackButtonsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 14,
+  },
+  stepBtn: {
+    width: 46,
+    height: 46,
+    borderRadius: 16,
+    backgroundColor: '#16203a',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  btnDisabled: {
+    opacity: 0.35,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  mainPlayBtn: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#00daf3',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: '0 4px 20px rgba(0, 218, 243, 0.65)',
+    elevation: 8,
+  } as any,
 
   // Footer
-  footer: {
-     marginTop: 48,
-     alignItems: 'center',
-     paddingBottom: 24,
-     borderTopWidth: 1,
-     borderTopColor: 'rgba(68, 68, 107, 0.1)',
-     paddingTop: 32
+  footerWrap: {
+    alignItems: 'center',
+    paddingVertical: 12,
   },
-  footerMeta: {
-     fontSize: 10,
-     color: 'rgba(168, 167, 212, 0.4)',
-     fontWeight: '800',
-     letterSpacing: 2
-  }
+  footerText: {
+    color: '#475569',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+  },
+
+  // Error State
+  errorIconContainer: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: 'rgba(0, 218, 243, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: 'rgba(0, 218, 243, 0.25)',
+    marginBottom: 20,
+  },
+  errorTitle: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '900',
+    letterSpacing: 1.5,
+    marginBottom: 10,
+  },
+  errorDescription: {
+    color: '#94a3b8',
+    fontSize: 12.5,
+    lineHeight: 18,
+    textAlign: 'center',
+    marginBottom: 28,
+    maxWidth: 320,
+  },
+  premiumBackBtn: {
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  gradientBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+  },
+  premiumBackText: {
+    color: '#080f17',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
 });

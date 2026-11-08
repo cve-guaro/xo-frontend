@@ -358,7 +358,7 @@ export const RailSpinDesktopRoom: React.FC<RailSpinDesktopRoomProps> = ({
 
           <View style={{ position: "relative", alignItems: "center", justifyContent: "center", marginTop: 6 }}>
             <SpinWheel
-              size={Math.min(screenW * 0.35, 420)}
+              size={Math.min(screenW * 0.36, 460)}
               players={playersList}
               isSpinning={Boolean(screenState === "spinning" || round?.status === "spinning" || isSpinning)}
               winningSlice={winningSlice}

@@ -330,7 +330,6 @@ export default function LeaderboardScreen() {
             user={user}
             balance={Number(user?.available_balance || 0)}
             currentScreen="leaderboard"
-            style={{ width: 280 }}
             refreshProfile={refreshProfile}
             setDepositVisible={setDepositVisible}
             setWithdrawVisible={setWithdrawVisible}
@@ -1332,9 +1331,7 @@ const s = StyleSheet.create({
     gap: 20,
     alignItems: "stretch",
     overflow: "hidden",
-    ...(Platform.OS === "web" ? {
-      zoom: 1.10,
-    } as any : {}),
+    // zoom removed for proper responsive layout
   },
   stickySidebarScrollLeft: {
     width: 280,
@@ -1343,13 +1340,7 @@ const s = StyleSheet.create({
     flexGrow: 0,
     flexShrink: 0,
   },
-  stickySidebarScrollRight: {
-    width: 320,
-    height: "100%",
-    maxHeight: "100%",
-    flexGrow: 0,
-    flexShrink: 0,
-  },
+  stickySidebarScrollRight: { width: 300, maxWidth: "35%", height: "100%", maxHeight: "100%", flexGrow: 0, flexShrink: 1 },
   centerScrollContainer: {
     flex: 1,
     height: "100%",
@@ -1488,9 +1479,9 @@ const s = StyleSheet.create({
   logoutBtnText: { color: "rgba(255,255,255,0.4)", fontSize: 12, fontWeight: "800", letterSpacing: 0.8, fontFamily: "Inter, sans-serif" },
 
   // Center column
-  centerColumn: { flex: 1, gap: 20 },
-  titleRowContainer: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
-  mainTitle: { color: "#fff", fontSize: 36, fontWeight: "900", letterSpacing: -0.5, fontFamily: "Inter, sans-serif" },
+  centerColumn: { flex: 1, minWidth: 0, gap: 16 },
+  titleRowContainer: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 6 },
+  mainTitle: { color: "#fff", fontSize: 26, fontWeight: "900", letterSpacing: -0.5, fontFamily: "Inter, sans-serif", flexShrink: 1, minWidth: 0 },
   subTitle: { color: "#8b93a7", fontSize: 13, fontWeight: "600", marginTop: 4, fontFamily: "Inter, sans-serif" },
 
   // Dropdown filter styles
