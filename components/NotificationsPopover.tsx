@@ -14,6 +14,7 @@ import {
   Modal,
   Pressable,
   TextInput,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/authContext';
@@ -91,6 +92,58 @@ export default function NotificationsPopover({
   const [unreadCount, setUnreadCount] = useState(0);
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Animate UI Spring Physics Entrance
+  const fadeAnim = React.useRef(new Animated.Value(0)).current;
+  const slideAnim = React.useRef(new Animated.Value(isMobile ? 320 : -16)).current;
+  const scaleAnim = React.useRef(new Animated.Value(0.95)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: Platform.OS !== 'web',
+        }),
+        Animated.spring(slideAnim, {
+          toValue: 0,
+          damping: 22,
+          stiffness: 240,
+          mass: 0.8,
+          useNativeDriver: Platform.OS !== 'web',
+        }),
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          damping: 22,
+          stiffness: 240,
+          mass: 0.8,
+          useNativeDriver: Platform.OS !== 'web',
+        }),
+      ]).start();
+    } else {
+      fadeAnim.setValue(0);
+      slideAnim.setValue(isMobile ? 320 : -16);
+      scaleAnim.setValue(0.95);
+    }
+  }, [visible, isMobile]);
+
+  const handleClose = useCallback(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 160,
+        useNativeDriver: Platform.OS !== 'web',
+      }),
+      Animated.timing(slideAnim, {
+        toValue: isMobile ? 320 : -16,
+        duration: 180,
+        useNativeDriver: Platform.OS !== 'web',
+      }),
+    ]).start(() => {
+      onClose();
+    });
+  }, [isMobile, onClose]);
 
   const fetchNotifications = useCallback(async (showRefresh = false) => {
     if (!visible) return;
@@ -234,13 +287,22 @@ export default function NotificationsPopover({
     <Modal
       visible={visible}
       transparent
-      animationType={isMobile ? "slide" : "fade"}
-      onRequestClose={onClose}
+      animationType="none"
+      onRequestClose={handleClose}
     >
-      <Pressable style={[s.overlay, isMobile && s.overlayMobile]} onPress={onClose}>
-        <Pressable
-          style={[s.popoverCard, isMobile ? s.mobileCard : s.desktopCard]}
-          onPress={(e) => e.stopPropagation()}
+      <Pressable style={[s.overlay, isMobile && s.overlayMobile]} onPress={handleClose}>
+        <Animated.View
+          style={[
+            s.popoverCard,
+            isMobile ? s.mobileCard : s.desktopCard,
+            {
+              opacity: fadeAnim,
+              transform: isMobile
+                ? [{ translateY: slideAnim }]
+                : [{ translateY: slideAnim }, { scale: scaleAnim }],
+            },
+          ]}
+          onStartShouldSetResponder={() => true}
         >
           {/* Top Grab Handle (Mobile Sheet) */}
           {isMobile && <View style={s.bottomSheetHandle} />}
@@ -251,7 +313,7 @@ export default function NotificationsPopover({
               <TouchableOpacity
                 onPress={() => {
                   haptics.tap();
-                  onClose();
+                  handleClose();
                 }}
                 style={s.closeCircle}
                 activeOpacity={0.7}
@@ -272,17 +334,17 @@ export default function NotificationsPopover({
           {/* Search & Filter Tabs Row */}
           <View style={s.searchRow}>
             <View style={s.searchWrap}>
-              <Ionicons name="search-outline" size={15} color="#8b93a7" style={{ marginRight: 6 }} />
+              <Ionicons name="search-outline" size={15} color="#94a3b8" style={{ marginRight: 6 }} />
               <TextInput
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 placeholder={isEN ? "Search updates..." : "ፈልግ..."}
-                placeholderTextColor="#64748b"
+                placeholderTextColor="#94a3b8"
                 style={s.searchInput}
               />
               {searchQuery ? (
                 <TouchableOpacity onPress={() => setSearchQuery('')}>
-                  <Ionicons name="close-circle" size={15} color="#8b93a7" />
+                  <Ionicons name="close-circle" size={15} color="#94a3b8" />
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -360,7 +422,7 @@ export default function NotificationsPopover({
               )}
             </ScrollView>
           )}
-        </Pressable>
+        </Animated.View>
       </Pressable>
     </Modal>
   );
@@ -444,15 +506,15 @@ const s = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   popoverCard: {
-    backgroundColor: '#0a0e1a',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: '#080F17',
+    borderWidth: 1.5,
+    borderColor: '#1E293B',
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.6,
-    shadowRadius: 28,
-    elevation: 20,
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.75,
+    shadowRadius: 36,
+    elevation: 24,
   },
   mobileCard: {
     width: '100%',
@@ -462,14 +524,15 @@ const s = StyleSheet.create({
     borderTopRightRadius: 28,
     borderBottomLeftRadius: 0,
     borderBottomRightRadius: 0,
-    padding: 18,
+    borderBottomWidth: 0,
+    padding: 20,
   },
   desktopCard: {
     position: 'absolute',
-    top: 64,
-    right: 32,
+    top: 68,
+    right: 28,
     width: 440,
-    height: 620,
+    height: 610,
     borderRadius: 24,
     padding: 20,
   },
@@ -477,7 +540,7 @@ const s = StyleSheet.create({
     width: 38,
     height: 4.5,
     borderRadius: 2.5,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
     alignSelf: 'center',
     marginBottom: 14,
   },
@@ -496,9 +559,9 @@ const s = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: '#121625',
+    backgroundColor: '#0F172A',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: '#1E293B',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -534,12 +597,12 @@ const s = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#111625',
+    backgroundColor: '#0F172A',
     borderRadius: 14,
     paddingHorizontal: 12,
     height: 38,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.07)',
+    borderColor: '#1E293B',
   },
   searchInput: {
     flex: 1,
@@ -555,21 +618,21 @@ const s = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 12,
-    backgroundColor: '#111625',
+    backgroundColor: '#0F172A',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.07)',
+    borderColor: '#1E293B',
   },
   tabPillActive: {
     backgroundColor: '#00daf3',
     borderColor: '#00daf3',
   },
   tabText: {
-    color: '#8b93a7',
+    color: '#94a3b8',
     fontSize: 11.5,
     fontWeight: '700',
   },
   tabTextActive: {
-    color: '#07090e',
+    color: '#080F17',
     fontWeight: '900',
   },
   listContainer: {
@@ -579,7 +642,7 @@ const s = StyleSheet.create({
     marginBottom: 16,
   },
   groupHeaderTitle: {
-    color: '#8b93a7',
+    color: '#94a3b8',
     fontSize: 11,
     fontWeight: '800',
     marginBottom: 8,
@@ -588,12 +651,12 @@ const s = StyleSheet.create({
     letterSpacing: 0.8,
   },
   groupCardContainer: {
-    backgroundColor: '#111625',
+    backgroundColor: '#0F172A',
     borderRadius: 18,
     paddingHorizontal: 14,
     paddingVertical: 2,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
+    borderColor: '#1E293B',
   },
   itemRow: {
     flexDirection: 'row',
@@ -602,7 +665,7 @@ const s = StyleSheet.create({
   },
   itemBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomColor: '#1E293B',
   },
   avatarCircle: {
     width: 40,
@@ -624,7 +687,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: '#111625',
+    borderColor: '#0F172A',
   },
   itemContent: {
     flex: 1,
@@ -636,9 +699,9 @@ const s = StyleSheet.create({
     marginBottom: 2,
   },
   itemTitle: {
-    color: '#cbd5e1',
+    color: '#FFFFFF',
     fontSize: 13.5,
-    fontWeight: '600',
+    fontWeight: '700',
     flex: 1,
   },
   itemTitleUnread: {
@@ -646,19 +709,20 @@ const s = StyleSheet.create({
     color: '#FFFFFF',
   },
   unreadDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    backgroundColor: '#00daf3',
+    width: 7.5,
+    height: 7.5,
+    borderRadius: 4,
+    backgroundColor: '#ef4444',
     marginLeft: 6,
-  },
+    boxShadow: '0 0 6px rgba(239, 68, 68, 0.7)',
+  } as any,
   itemMessage: {
-    color: '#8b93a7',
+    color: '#CBD5E1',
     fontSize: 12,
     lineHeight: 17,
   },
   itemTime: {
-    color: '#64748b',
+    color: '#94a3b8',
     fontSize: 10,
     fontWeight: '600',
     marginTop: 4,
@@ -673,9 +737,9 @@ const s = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: '#111625',
+    backgroundColor: '#0F172A',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: '#1E293B',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
@@ -687,7 +751,7 @@ const s = StyleSheet.create({
     marginBottom: 4,
   },
   emptySubtitle: {
-    color: '#8b93a7',
+    color: '#94a3b8',
     fontSize: 12,
     textAlign: 'center',
     lineHeight: 18,

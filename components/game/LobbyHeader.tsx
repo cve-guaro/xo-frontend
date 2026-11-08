@@ -19,6 +19,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Notification01 } from "../animate-ui/icons/hugeicons/notification-01";
+import { SyncIcon } from "../SvgIcons";
 import { colors, type, radius, space, metrics, elevation } from "../../theme/tokens";
 import { haptics } from "../../lib/haptcs";
 import { playTickSound, playNotificationSound } from "../../lib/pinTickAudio";
@@ -61,7 +62,6 @@ export const LobbyHeader = memo(function LobbyHeader({
 
   const handleRefreshClick = () => {
     haptics.tap();
-    playTickSound();
     spinValue.setValue(0);
     Animated.timing(spinValue, {
       toValue: 1,
@@ -69,7 +69,6 @@ export const LobbyHeader = memo(function LobbyHeader({
       useNativeDriver: Platform.OS !== "web",
     }).start(({ finished }) => {
       if (finished) {
-        try { playNotificationSound(); } catch {}
         haptics.tap();
         setRefreshToastVisible(true);
         setTimeout(() => setRefreshToastVisible(false), 2400);
@@ -230,7 +229,7 @@ export const LobbyHeader = memo(function LobbyHeader({
             }}
           >
             <Animated.View style={{ transform: [{ rotate: spinDeg }] }}>
-              <Ionicons name="refresh" size={14} color="#00daf3" />
+              <SyncIcon size={14} color="#00daf3" />
             </Animated.View>
             <Text style={{ color: "#00daf3", fontSize: 12, fontWeight: "800" }}>
               {isEN ? "Refresh" : "አድስ"}
@@ -257,7 +256,9 @@ export const LobbyHeader = memo(function LobbyHeader({
                 activeOpacity={0.8}
                 style={styles.refreshBtn}
               >
-                <Ionicons name="refresh" size={12} color={colors.textMuted} />
+                <Animated.View style={{ transform: [{ rotate: spinDeg }] }}>
+                  <SyncIcon size={13} color="#00daf3" />
+                </Animated.View>
                 <Text style={styles.refreshText}>{isEN ? "Refresh" : "አድስ"}</Text>
               </TouchableOpacity>
             </View>

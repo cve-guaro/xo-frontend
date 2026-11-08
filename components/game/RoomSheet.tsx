@@ -444,54 +444,53 @@ const RoomSheet = memo(function RoomSheet({
                   </TouchableOpacity>
                 </View>
 
-                {/* 2x2 Stakes Grid (Diagram Specification: Floating lift animation when selected) */}
-                <View style={styles.stakesGrid}>
-                  {STAKE_PRESETS.map((item) => {
-                    const isSelected = selectedStake === item.amount;
-                    const isInsufficient = balance < item.amount;
+                {/* 2x2 Stakes Grid: Structured Rows with flex:1 to guarantee responsive 2x2 layout */}
+                <View style={{ gap: 10, marginBottom: 16 }}>
+                  {[0, 2].map((startIdx) => (
+                    <View key={startIdx} style={{ flexDirection: "row", gap: 10 }}>
+                      {STAKE_PRESETS.slice(startIdx, startIdx + 2).map((item) => {
+                        const isSelected = selectedStake === item.amount;
+                        const isInsufficient = balance < item.amount;
 
-                    return (
-                      <TouchableOpacity
-                        key={item.amount}
-                        activeOpacity={0.85}
-                        onPress={() => {
-                          try { playTickSound(); } catch {}
-                          haptics.tap();
-                          setSelectedStake(item.amount);
-                        }}
-                        style={[
-                          styles.stakeCard,
-                          isSelected && styles.stakeCardSelected,
-                          isInsufficient && styles.stakeCardInsufficient,
-                        ]}
-                      >
-                        <View style={styles.stakeCardContent}>
-                          <View style={{ flexDirection: "row", alignItems: "baseline", gap: 3 }}>
-                            <Text style={[styles.stakeAmountText, isSelected && styles.stakeAmountTextSelected]}>
-                              {item.amount}
-                            </Text>
-                            <Text style={[styles.stakeUnitText, isSelected && styles.stakeUnitTextSelected]}>
-                              Birr
-                            </Text>
-                          </View>
-                          <Text style={[styles.stakeFeeText, isSelected && styles.stakeFeeTextSelected]}>
-                            Commission 20% / 30s
-                          </Text>
-                        </View>
+                        return (
+                          <TouchableOpacity
+                            key={item.amount}
+                            activeOpacity={0.85}
+                            onPress={() => {
+                              try { playTickSound(); } catch {}
+                              haptics.tap();
+                              setSelectedStake(item.amount);
+                            }}
+                            style={[
+                              styles.stakeCard,
+                              isSelected && styles.stakeCardSelected,
+                              isInsufficient && styles.stakeCardInsufficient,
+                            ]}
+                          >
+                            <View style={styles.stakeCardContent}>
+                              <View style={{ flexDirection: "row", alignItems: "baseline", gap: 3 }}>
+                                <Text style={[styles.stakeAmountText, isSelected && styles.stakeAmountTextSelected]}>
+                                  {item.amount}
+                                </Text>
+                                <Text style={[styles.stakeUnitText, isSelected && styles.stakeUnitTextSelected]}>
+                                  Birr
+                                </Text>
+                              </View>
+                              <Text style={[styles.stakeFeeText, isSelected && styles.stakeFeeTextSelected]}>
+                                Commission 20% / 30s
+                              </Text>
+                            </View>
 
-                        {/* Image 4 Specification: 3D under-box base narrower than card */}
-                        {isSelected && (
-                          <View style={styles.card3DBase} pointerEvents="none" />
-                        )}
-
-                        {isSelected && (
-                          <View style={styles.selectedTick}>
-                            <Ionicons name="checkmark" size={12} color="#080F17" />
-                          </View>
-                        )}
-                      </TouchableOpacity>
-                    );
-                  })}
+                            {isSelected && (
+                              <View style={styles.selectedTick}>
+                                <Ionicons name="checkmark" size={12} color="#FFFFFF" />
+                              </View>
+                            )}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  ))}
                 </View>
 
                 {/* Available Balance Row */}
@@ -868,43 +867,27 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   stakeCard: {
-    width: "48%",
+    flex: 1,
     backgroundColor: "rgba(255, 255, 255, 0.03)",
     borderRadius: 16,
     borderWidth: 1.5,
     borderColor: "rgba(255, 255, 255, 0.08)",
     paddingVertical: 18,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
     ...(Platform.OS === "web" ? {
-      transition: "all 250ms cubic-bezier(0.16, 1, 0.3, 1)",
+      transition: "all 200ms ease",
       cursor: "pointer",
     } as any : {}),
   },
   stakeCardSelected: {
-    backgroundColor: "rgba(0, 218, 243, 0.14)",
-    borderColor: "#00daf3",
+    backgroundColor: "rgba(0, 191, 255, 0.12)",
+    borderColor: "#00BFFF",
     borderWidth: 2,
-    transform: [{ translateY: -6 }],
-    boxShadow: "0 6px 0 #0088b3, 0 12px 24px rgba(0, 218, 243, 0.35)",
+    boxShadow: "0 0 20px rgba(0, 191, 255, 0.3)",
   } as any,
-  card3DBase: {
-    position: "absolute",
-    bottom: -6,
-    left: 0,
-    right: 0,
-    height: 12,
-    backgroundColor: "#0088b3",
-    borderBottomLeftRadius: 16,
-    borderBottomRightRadius: 16,
-    borderBottomWidth: 2,
-    borderLeftWidth: 2,
-    borderRightWidth: 2,
-    borderColor: "#00daf3",
-    zIndex: -1,
-  },
   stakeCardInsufficient: {
     opacity: 0.5,
   },
@@ -918,7 +901,7 @@ const styles = StyleSheet.create({
     fontFamily: "Space Grotesk, sans-serif",
   },
   stakeAmountTextSelected: {
-    color: "#00daf3",
+    color: "#00BFFF",
   },
   stakeUnitText: {
     color: "#8893a7",
@@ -926,7 +909,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   stakeUnitTextSelected: {
-    color: "#00daf3",
+    color: "#00BFFF",
   },
   stakeFeeText: {
     color: "#8893a7",
@@ -936,19 +919,20 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   stakeFeeTextSelected: {
-    color: "#99f6e4",
+    color: "#BAE6FD",
   },
   selectedTick: {
     position: "absolute",
     top: 8,
     right: 8,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: "#00daf3",
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#00BFFF",
     alignItems: "center",
     justifyContent: "center",
-  },
+    boxShadow: "0 2px 8px rgba(0, 191, 255, 0.4)",
+  } as any,
 
   // Balance Row
   balanceRow: {

@@ -681,11 +681,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
   const playClickSound = async () => {
-    if (!user || !user.sound_muted) {
-      try {
-        playTickSound();
-      } catch (_) {}
-    }
+    // Audio reserved strictly for incoming notifications and match events; generic clicks remain silent
   };
 
   // Load saved language on boot
@@ -1526,12 +1522,12 @@ const styles = StyleSheet.create({
   alertContent: {
     width: '100%',
     maxWidth: 380,
-    backgroundColor: '#0c0c1f',
+    backgroundColor: '#080F17',
     borderRadius: 24,
     padding: 32,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(68,68,107,0.3)',
+    borderWidth: 1.5,
+    borderColor: '#1E293B',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.5,
@@ -1554,7 +1550,7 @@ const styles = StyleSheet.create({
     textAlign: 'center'
   },
   alertMessage: {
-    color: '#a8a7d4',
+    color: '#CBD5E1',
     fontSize: 15,
     textAlign: 'center',
     lineHeight: 22,

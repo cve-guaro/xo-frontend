@@ -4,6 +4,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Animated, Easing, Platform } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { SyncIcon } from "../SvgIcons";
 import { Home01, Time01, Trophy01, Wallet01, User01, Shield01 } from "../animate-ui/icons/hugeicons/sidebar-icons";
 import { haptics } from "../../lib/haptcs";
 import { playTickSound } from "../../lib/pinTickAudio";
@@ -42,7 +43,7 @@ export default function DesktopSidebar({
     haptics.tap();
     Animated.timing(refreshSpinAnim, {
       toValue: 1,
-      duration: 650,
+      duration: 400,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: Platform.OS !== "web",
     }).start(() => refreshSpinAnim.setValue(0));
@@ -109,7 +110,7 @@ export default function DesktopSidebar({
             </View>
             <TouchableOpacity
               onPress={handleRefreshClick}
-              style={[s.tokenPlusBtn, { backgroundColor: "#00BFFF" }]}
+              style={[s.tokenPlusBtn, { backgroundColor: "#0091EA", boxShadow: "0 2px 10px rgba(0, 145, 234, 0.4)" } as any]}
               activeOpacity={0.8}
             >
               <Animated.View
@@ -124,22 +125,21 @@ export default function DesktopSidebar({
                   ],
                 }}
               >
-                <Ionicons name="refresh" size={13} color="#080F17" />
+                <SyncIcon size={14} color="#FFFFFF" />
               </Animated.View>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Navigation Links — Modern, Consistent, Sleek */}
+        {/* Navigation Links — Solid Blue Pill on Active, Solid White Text & Icon */}
         <View style={s.card}>
           <TouchableOpacity
             onPress={() => handleNavClick("home")}
             style={[s.navItem, currentScreen === "home" && s.navItemActive]}
-            activeOpacity={0.8}
+            activeOpacity={0.85}
           >
-            {currentScreen === "home" && <View style={s.navItemActiveBar} />}
-            <View style={[s.navIconShell, currentScreen === "home" && s.navIconShellActive]}>
-              <Home01 size={18} color={currentScreen === "home" ? "#00BFFF" : "#8893A7"} animateOnHover />
+            <View style={s.navIconShell}>
+              <Home01 size={20} color={currentScreen === "home" ? "#FFFFFF" : "#8893A7"} solid={currentScreen === "home"} animateOnHover />
             </View>
             <Text style={[s.navText, currentScreen === "home" && s.navTextActive]}>Home</Text>
           </TouchableOpacity>
@@ -147,11 +147,10 @@ export default function DesktopSidebar({
           <TouchableOpacity
             onPress={() => handleNavClick("history")}
             style={[s.navItem, currentScreen === "history" && s.navItemActive]}
-            activeOpacity={0.8}
+            activeOpacity={0.85}
           >
-            {currentScreen === "history" && <View style={s.navItemActiveBar} />}
-            <View style={[s.navIconShell, currentScreen === "history" && s.navIconShellActive]}>
-              <Time01 size={18} color={currentScreen === "history" ? "#00BFFF" : "#8893A7"} animateOnHover />
+            <View style={s.navIconShell}>
+              <Time01 size={20} color={currentScreen === "history" ? "#FFFFFF" : "#8893A7"} solid={currentScreen === "history"} animateOnHover />
             </View>
             <Text style={[s.navText, currentScreen === "history" && s.navTextActive]}>History</Text>
           </TouchableOpacity>
@@ -159,11 +158,10 @@ export default function DesktopSidebar({
           <TouchableOpacity
             onPress={() => handleNavClick("leaderboard")}
             style={[s.navItem, currentScreen === "leaderboard" && s.navItemActive]}
-            activeOpacity={0.8}
+            activeOpacity={0.85}
           >
-            {currentScreen === "leaderboard" && <View style={s.navItemActiveBar} />}
-            <View style={[s.navIconShell, currentScreen === "leaderboard" && s.navIconShellActive]}>
-              <Trophy01 size={18} color={currentScreen === "leaderboard" ? "#00BFFF" : "#8893A7"} animateOnHover />
+            <View style={s.navIconShell}>
+              <Trophy01 size={20} color={currentScreen === "leaderboard" ? "#FFFFFF" : "#8893A7"} solid={currentScreen === "leaderboard"} animateOnHover />
             </View>
             <Text style={[s.navText, currentScreen === "leaderboard" && s.navTextActive]}>Leaderboard</Text>
           </TouchableOpacity>
@@ -171,11 +169,10 @@ export default function DesktopSidebar({
           <TouchableOpacity
             onPress={() => handleNavClick("transactions")}
             style={[s.navItem, currentScreen === "transactions" && s.navItemActive]}
-            activeOpacity={0.8}
+            activeOpacity={0.85}
           >
-            {currentScreen === "transactions" && <View style={s.navItemActiveBar} />}
-            <View style={[s.navIconShell, currentScreen === "transactions" && s.navIconShellActive]}>
-              <Wallet01 size={18} color={currentScreen === "transactions" ? "#00BFFF" : "#8893A7"} animateOnHover />
+            <View style={s.navIconShell}>
+              <Wallet01 size={20} color={currentScreen === "transactions" ? "#FFFFFF" : "#8893A7"} solid={currentScreen === "transactions"} animateOnHover />
             </View>
             <Text style={[s.navText, currentScreen === "transactions" && s.navTextActive]}>Transactions</Text>
           </TouchableOpacity>
@@ -183,11 +180,10 @@ export default function DesktopSidebar({
           <TouchableOpacity
             onPress={() => handleNavClick("profile")}
             style={[s.navItem, currentScreen === "profile" && s.navItemActive]}
-            activeOpacity={0.8}
+            activeOpacity={0.85}
           >
-            {currentScreen === "profile" && <View style={s.navItemActiveBar} />}
-            <View style={[s.navIconShell, currentScreen === "profile" && s.navIconShellActive]}>
-              <User01 size={18} color={currentScreen === "profile" ? "#00BFFF" : "#8893A7"} animateOnHover />
+            <View style={s.navIconShell}>
+              <User01 size={20} color={currentScreen === "profile" ? "#FFFFFF" : "#8893A7"} solid={currentScreen === "profile"} animateOnHover />
             </View>
             <Text style={[s.navText, currentScreen === "profile" && s.navTextActive]}>Profile</Text>
           </TouchableOpacity>
@@ -196,11 +192,10 @@ export default function DesktopSidebar({
             <TouchableOpacity
               onPress={() => handleNavClick("admin")}
               style={[s.navItem, currentScreen === "admin" && s.navItemActive]}
-              activeOpacity={0.8}
+              activeOpacity={0.85}
             >
-              {currentScreen === "admin" && <View style={s.navItemActiveBar} />}
-              <View style={[s.navIconShell, currentScreen === "admin" && s.navIconShellActive]}>
-                <Shield01 size={18} color={currentScreen === "admin" ? "#00BFFF" : "#8893A7"} animateOnHover />
+              <View style={s.navIconShell}>
+                <Shield01 size={20} color={currentScreen === "admin" ? "#FFFFFF" : "#8893A7"} solid={currentScreen === "admin"} animateOnHover />
               </View>
               <Text style={[s.navText, currentScreen === "admin" && s.navTextActive]}>Admin Center</Text>
             </TouchableOpacity>
@@ -339,47 +334,40 @@ const s = StyleSheet.create({
   navItem: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingVertical: 11,
+    paddingHorizontal: 14,
     borderRadius: 14,
-    marginBottom: 5,
+    marginBottom: 6,
     position: "relative",
   },
   navItemActive: {
-    backgroundColor: "rgba(0, 191, 255, 0.12)",
-  },
+    backgroundColor: "#0091EA",
+    boxShadow: "0 4px 16px rgba(0, 145, 234, 0.45)",
+  } as any,
   navIconShell: {
-    width: 32,
-    height: 32,
-    borderRadius: 9,
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
+    width: 28,
+    height: 28,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 12,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.05)",
+    marginRight: 10,
+    backgroundColor: "transparent",
+    borderWidth: 0,
   },
   navIconShellActive: {
-    backgroundColor: "rgba(0, 191, 255, 0.16)",
-    borderColor: "rgba(0, 191, 255, 0.4)",
+    backgroundColor: "transparent",
+    borderWidth: 0,
   },
   navItemActiveBar: {
-    position: "absolute",
-    left: 0,
-    top: 8,
-    bottom: 8,
-    width: 4,
-    borderRadius: 2,
-    backgroundColor: "#00BFFF",
+    display: "none",
   },
   navText: {
-    color: "#8893A7",
+    color: "#94A3B8",
     fontSize: 14.5,
     fontWeight: "700",
     fontFamily: "Inter, sans-serif",
   },
   navTextActive: {
-    color: "#00BFFF",
+    color: "#FFFFFF",
     fontWeight: "900",
   },
   sectionTitleSmall: {

@@ -1,7 +1,7 @@
 // components/game/DesktopLayout.tsx
 // Full desktop/tablet layout for the XOET gaming platform.
 // Redesigned strictly per Image 1 & 2 carousel wireframe and Image 4 Brand Identity.
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import {
   View,
   Text,
@@ -11,11 +11,22 @@ import {
   Platform,
   Image,
   Animated,
-  PanResponder,
   useWindowDimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import {
+  Carousel,
+  type CarouselItemAnimation,
+  type CarouselRef,
+  Pagination,
+} from "react-native-reanimated-carousel";
+import {
+  Easing,
+  Extrapolation,
+  interpolate,
+  useSharedValue,
+} from "react-native-reanimated";
 
 import { WebDepositModal, WebWithdrawModal } from "../../components/WebModals";
 import ProfileEditModal from "../../components/ProfileEditModal";
@@ -28,10 +39,10 @@ import type { RoomConfig, SheetStep } from "./gameplayConstants";
 import { haptics } from "../../lib/haptcs";
 import { playTickSound } from "../../lib/pinTickAudio";
 
-const spinBgRedImg = require("../../assets/images/spin-background-red-desktop.png");
-const xoBgBlueImg = require("../../assets/images/xo-background-blue.png");
-const spinCardBordImg = require("../../assets/images/spin-card bord.png");
-const xoCardBordImg = require("../../assets/images/xo-card bord.png");
+const spinBgRedImg = require("../../assets/images/spin-background-red-desktop.webp");
+const xoBgBlueImg = require("../../assets/images/xo-background-blue.webp");
+const spinCardBordImg = require("../../assets/images/spin-card bord.webp");
+const xoCardBordImg = require("../../assets/images/xo-card bord.webp");
 
 type LeaderboardEntry = {
   id?: string;
@@ -120,86 +131,66 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
   // Carousel order
   const { width: winW } = useWindowDimensions();
   const isTabletLayout = winW < 1200;
-  const tabs: DesktopTabType[] = ["XO_GAME", "SPIN", "COMING_SOON"];
+  const showMultiCards = winW >= 1520;
+  const tabs: DesktopTabType[] = ["SPIN", "XO_GAME", "COMING_SOON"];
   const [spinBetModalVisible, setSpinBetModalVisible] = useState(false);
   const [sheetInitialView, setSheetInitialView] = useState<"STAKES" | "FRIENDS">("STAKES");
-    const slideAnim = useRef(new Animated.Value(0)).current;
 
-  const triggerSlide = (direction: "left" | "right") => {
-    slideAnim.setValue(direction === "left" ? 40 : -40);
-    Animated.spring(slideAnim, {
-      toValue: 0,
-      tension: 65,
-      friction: 8.5,
-      useNativeDriver: Platform.OS !== "web",
-    }).start();
-  };
+  const carouselRef = useRef<CarouselRef>(null);
+  const initialIndex = tabs.indexOf(selectedTab) >= 0 ? tabs.indexOf(selectedTab) : 1;
+  const [index, setIndex] = useState(initialIndex);
+  const progress = useSharedValue(initialIndex);
+
+  // Dynamic layout measurement for Desktop Center Column
+  const [centerWidth, setCenterWidth] = useState(
+    isTabletLayout ? Math.min(winW - 270, 720) : Math.min(winW - 680, 840)
+  );
+  useEffect(() => {
+    const calculated = isTabletLayout ? Math.min(winW - 270, 720) : Math.min(winW - 680, 840);
+    setCenterWidth(Math.max(calculated, 420));
+  }, [winW, isTabletLayout]);
+
+  const itemSize = Math.min(Math.max(centerWidth * 0.65, 340), 420);
+  const cardWidth = Math.min(itemSize, 400);
+
+  // Synchronize carousel when selectedTab changes externally (e.g. from DesktopHeader)
+  useEffect(() => {
+    const targetIdx = tabs.indexOf(selectedTab);
+    if (targetIdx >= 0 && targetIdx !== index) {
+      carouselRef.current?.scrollTo({ index: targetIdx, animated: true });
+      setIndex(targetIdx);
+    }
+  }, [selectedTab]);
 
   const handlePrevCard = () => {
     try { playTickSound(); } catch {}
     haptics.tap();
-    triggerSlide("right");
-    const currIdx = tabs.indexOf(selectedTab);
-    const prevIdx = (currIdx - 1 + tabs.length) % tabs.length;
-    setSelectedTab(tabs[prevIdx]);
+    carouselRef.current?.prev({ animated: true });
   };
 
   const handleNextCard = () => {
     try { playTickSound(); } catch {}
     haptics.tap();
-    triggerSlide("left");
-    const currIdx = tabs.indexOf(selectedTab);
-    const nextIdx = (currIdx + 1) % tabs.length;
-    setSelectedTab(tabs[nextIdx]);
+    carouselRef.current?.next({ animated: true });
   };
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (_, gestureState) => Math.abs(gestureState.dx) > 12,
-      onPanResponderMove: (_, gestureState) => {
-        slideAnim.setValue(gestureState.dx * 0.55);
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        const dx = gestureState.dx;
-        const vx = gestureState.vx;
-        if (dx < -55 || vx < -0.35) {
-          handleNextCard();
-        } else if (dx > 55 || vx > 0.35) {
-          handlePrevCard();
-        } else {
-          Animated.spring(slideAnim, {
-            toValue: 0,
-            tension: 70,
-            friction: 8.5,
-            useNativeDriver: Platform.OS !== "web",
-          }).start();
-        }
-      },
-      onPanResponderTerminate: () => {
-        Animated.spring(slideAnim, {
-          toValue: 0,
-          tension: 70,
-          friction: 8.5,
-          useNativeDriver: Platform.OS !== "web",
-        }).start();
-      },
-    })
-  ).current;
-
-  // 3-Card 3D Coverflow Cycling: Left (small) - Center (BIG Active) - Right (small)
-  const visibleCards = useMemo(() => {
-    const centerIdx = tabs.indexOf(selectedTab);
-    const safeCenterIdx = centerIdx >= 0 ? centerIdx : 1;
-    const prevIdx = (safeCenterIdx - 1 + tabs.length) % tabs.length;
-    const nextIdx = (safeCenterIdx + 1) % tabs.length;
-
-    return [
-      { tab: tabs[prevIdx], position: "left" as const },
-      { tab: tabs[safeCenterIdx], position: "center" as const },
-      { tab: tabs[nextIdx], position: "right" as const },
-    ];
-  }, [selectedTab]);
+  // 3D Card Sliding Animation matching the user's requested specification
+  const itemAnimation = useCallback<CarouselItemAnimation>(
+    (value) => {
+      "worklet";
+      const d = Math.abs(value);
+      return {
+        transform: [
+          { translateX: value * itemSize + (centerWidth - itemSize) / 2 },
+          { translateY: interpolate(d, [0, 1], [0, 16], Extrapolation.CLAMP) },
+          { scale: interpolate(d, [0, 1], [1, 0.88], Extrapolation.CLAMP) },
+        ],
+        zIndex: Math.round(100 - d * 10),
+        opacity: interpolate(d, [0, 1], [1, 0.60], Extrapolation.CLAMP),
+      };
+    },
+    [centerWidth, itemSize]
+  );
 
   // Render single card according to its Coverflow position
   const renderCoverflowCard = (tab: DesktopTabType, position: "left" | "center" | "right") => {
@@ -210,10 +201,11 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
     const handleCardPress = () => {
       try { playTickSound(); } catch {}
       haptics.tap();
-      if (isLeft) {
-        handlePrevCard();
-      } else if (isRight) {
-        handleNextCard();
+      if (!isCenter) {
+        const targetIdx = tabs.indexOf(tab);
+        carouselRef.current?.scrollTo({ index: targetIdx, animated: true });
+        setIndex(targetIdx);
+        setSelectedTab(tab);
       }
     };
 
@@ -249,7 +241,15 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
 
           {/* Artwork */}
           <View style={[s.cardArtWrapper, isCenter ? s.cardArtWrapperCenter : s.cardArtWrapperSide]}>
-            <Image source={xoCardBordImg} style={{ width: "95%", height: "95%" }} resizeMode="contain" />
+            <Image
+              source={xoCardBordImg}
+              style={{
+                width: "100%",
+                height: "100%",
+                maxWidth: isCenter ? 280 : 180,
+              }}
+              resizeMode="contain"
+            />
           </View>
 
           {/* Title & Subtitle */}
@@ -315,7 +315,15 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
 
           {/* Artwork */}
           <View style={[s.cardArtWrapper, isCenter ? s.cardArtWrapperCenter : s.cardArtWrapperSide]}>
-            <Image source={spinCardBordImg} style={{ width: "95%", height: "95%" }} resizeMode="contain" />
+            <Image
+              source={spinCardBordImg}
+              style={{
+                width: "100%",
+                height: "100%",
+                maxWidth: isCenter ? 280 : 180,
+              }}
+              resizeMode="contain"
+            />
           </View>
 
           {/* Title & Subtitle */}
@@ -428,17 +436,7 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
           }}
           style={s.extraShelfBtn}
         >
-          <View style={s.extraShelfHeader}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Ionicons name="people" size={13} color="#FF1744" />
-              <Text style={s.extraShelfLabel}>5 PLAYERS</Text>
-            </View>
-            <View style={s.liveDotRow}>
-              <View style={[s.liveDot, { backgroundColor: '#10B981' }]} />
-              <Text style={s.liveDotText}>REAL TIME</Text>
-            </View>
-          </View>
-          <View style={s.extraShelfCard}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <View style={s.avatarGroup}>
               <View style={[s.shelfAvatar, { backgroundColor: '#DC2626', alignItems: 'center', justifyContent: 'center' }]}>
                 <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>1</Text>
@@ -453,10 +451,10 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
                 <Text style={s.shelfAvatarPlusText}>+2</Text>
               </View>
             </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text style={s.shelfActionText}>5 Players Room</Text>
-              <Ionicons name="chevron-forward" size={15} color="#FF1744" />
-            </View>
+            <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '700' }}>5 Players Room</Text>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <Ionicons name="chevron-forward" size={15} color="#FF1744" />
           </View>
         </TouchableOpacity>
       );
@@ -477,27 +475,15 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
           }}
           style={s.extraShelfBtn}
         >
-          <View style={s.extraShelfHeader}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Ionicons name="people" size={13} color="#00BFFF" />
-              <Text style={s.extraShelfLabel}>FRIEND PLAY</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <View style={s.shelfIconCircle}>
+              <Ionicons name="people" size={14} color="#00BFFF" />
             </View>
-            <View style={s.liveDotRow}>
-              <View style={[s.liveDot, { backgroundColor: '#00BFFF' }]} />
-              <Text style={[s.liveDotText, { color: '#00BFFF' }]}>1V1 DUEL</Text>
-            </View>
+            <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '700' }}>Play with Friends</Text>
           </View>
-          <View style={s.extraShelfCard}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <View style={s.shelfIconCircle}>
-                <Ionicons name="person-add" size={13} color="#00BFFF" />
-              </View>
-              <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '700' }}>Play with Friends</Text>
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <Text style={[s.shelfActionText, { color: '#00BFFF' }]}>Invite</Text>
-              <Ionicons name="chevron-forward" size={14} color="#00BFFF" />
-            </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <Text style={[s.shelfActionText, { color: '#00BFFF', fontSize: 12 }]}>Invite</Text>
+            <Ionicons name="chevron-forward" size={14} color="#00BFFF" />
           </View>
         </TouchableOpacity>
       );
@@ -518,27 +504,15 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
         }}
         style={s.extraShelfBtn}
       >
-        <View style={s.extraShelfHeader}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Ionicons name="trophy" size={13} color="#F5B642" />
-            <Text style={s.extraShelfLabel}>TOURNAMENTS</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <View style={[s.shelfIconCircle, { backgroundColor: 'rgba(245, 182, 66, 0.15)', borderColor: 'rgba(245, 182, 66, 0.35)' }]}>
+            <Ionicons name="flash" size={13} color="#F5B642" />
           </View>
-          <View style={s.liveDotRow}>
-            <View style={[s.liveDot, { backgroundColor: '#F5B642' }]} />
-            <Text style={[s.liveDotText, { color: '#F5B642' }]}>IN LAB</Text>
-          </View>
+          <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '700' }}>Next-Gen Battles</Text>
         </View>
-        <View style={s.extraShelfCard}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <View style={[s.shelfIconCircle, { backgroundColor: 'rgba(245, 182, 66, 0.15)', borderColor: 'rgba(245, 182, 66, 0.35)' }]}>
-              <Ionicons name="flash" size={13} color="#F5B642" />
-            </View>
-            <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '700' }}>Next-Gen Battles</Text>
-          </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <Text style={[s.shelfActionText, { color: '#F5B642' }]}>View Rules</Text>
-            <Ionicons name="chevron-forward" size={14} color="#F5B642" />
-          </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <Text style={[s.shelfActionText, { color: '#F5B642', fontSize: 12 }]}>View Rules</Text>
+          <Ionicons name="chevron-forward" size={14} color="#F5B642" />
         </View>
       </TouchableOpacity>
     );
@@ -672,9 +646,18 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
                   const rankColor = champ.rank === 1 ? "#F5B642" : champ.rank === 2 ? "#00BFFF" : champ.rank === 3 ? "#FF1744" : "#8893A7";
                   return (
                     <View key={champ.rank} style={s.leaderboardRow}>
-                      {/* Rank Badge */}
-                      <View style={[s.rankNumberBadge, { borderColor: rankColor === '#8893A7' ? '#233041' : rankColor }]}>
-                        <Text style={[s.rankNumberText, { color: rankColor }]}>#{champ.rank}</Text>
+                      {/* Rank Badge — Solid Bold Pill for Top Ranks */}
+                      <View style={[
+                        s.rankNumberBadge,
+                        champ.rank === 1 && { backgroundColor: "#F59E0B", borderColor: "#F59E0B" },
+                        champ.rank === 2 && { backgroundColor: "#00DAF3", borderColor: "#00DAF3" },
+                        champ.rank === 3 && { backgroundColor: "#F97316", borderColor: "#F97316" },
+                        champ.rank > 3 && { backgroundColor: "#1e293b", borderColor: "#334155" },
+                      ]}>
+                        <Text style={[
+                          s.rankNumberText,
+                          { color: champ.rank <= 3 ? "#080F17" : "#94a3b8" }
+                        ]}>#{champ.rank}</Text>
                       </View>
 
                       {/* Avatar & Username */}
@@ -773,10 +756,17 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
         );
 
         const renderCenterContent = () => (
-          <View style={s.centerColumn}>
+          <View
+            style={s.centerColumn}
+            onLayout={(e) => {
+              const w = e.nativeEvent.layout.width;
+              if (w > 100 && Math.abs(w - centerWidth) > 10) {
+                setCenterWidth(w);
+              }
+            }}
+          >
             {/* Carousel Container with Overlaid Arrows */}
             <View style={s.carouselWrapper}>
-              
               {/* Left Navigation Arrow */}
               <TouchableOpacity
                 onPress={handlePrevCard}
@@ -784,7 +774,7 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
                 activeOpacity={0.85}
                 accessibilityLabel="Previous Card"
               >
-                <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+                <Ionicons name="chevron-back" size={22} color="#00daf3" />
               </TouchableOpacity>
 
               {/* Right Navigation Arrow */}
@@ -794,66 +784,69 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
                 activeOpacity={0.85}
                 accessibilityLabel="Next Card"
               >
-                <Ionicons name="chevron-forward" size={24} color="#FFFFFF" />
+                <Ionicons name="chevron-forward" size={22} color="#00daf3" />
               </TouchableOpacity>
 
-              {/* 3 Game Columns: Left (scale 0.75) - Center (1.0 BIG active) - Right (scale 0.75) */}
-              <Animated.View style={[s.threeCardsRow, { transform: [{ translateX: slideAnim }] }]}>
-                {visibleCards.map(({ tab, position }) => {
-                  const isCenter = position === "center";
-                  return (
-                    <View
-                      key={tab}
-                      style={[
-                        s.coverflowColumn,
-                        isCenter ? s.coverflowColumnCenter : s.coverflowColumnSide,
-                      ]}
-                    >
-                      {/* 1. Main Game Card */}
-                      {renderCoverflowCard(tab, position)}
-
-                      {/* 2. Feature Shelf directly underneath card matching its exact width */}
-                      <View style={[s.outerShelfWrapper, !isCenter && { opacity: 0.85 }]}>
-                        {renderOuterShelf(tab, isCenter)}
+              {/* Reanimated 3D Carousel (Matching Phone Animation Specification) */}
+              <View style={{ width: "100%", height: 630, alignItems: "center" }}>
+                <Carousel
+                  ref={carouselRef}
+                  loop={true}
+                  defaultIndex={initialIndex}
+                  data={tabs}
+                  style={{ width: centerWidth, height: 630 }}
+                  itemSize={itemSize}
+                  itemAnimation={itemAnimation}
+                  animation={{
+                    type: "timing",
+                    duration: 400,
+                    easing: Easing.out(Easing.poly(4)),
+                  }}
+                  progress={progress}
+                  onSnapToItem={(rawIdx) => {
+                    const idx = ((rawIdx % tabs.length) + tabs.length) % tabs.length;
+                    setIndex(idx);
+                    const newTab = tabs[idx];
+                    if (newTab !== selectedTab) {
+                      try { playTickSound(); } catch {}
+                      haptics.impact();
+                      setSelectedTab(newTab);
+                    }
+                  }}
+                  renderItem={({ item, index: itemIdx }) => {
+                    const isCenter = index === itemIdx;
+                    return (
+                      <View style={{ width: cardWidth, alignItems: "center" }}>
+                        {renderCoverflowCard(item, isCenter ? "center" : "left")}
+                        <View style={s.outerShelfWrapper}>
+                          {renderOuterShelf(item, isCenter)}
+                        </View>
                       </View>
-                    </View>
-                  );
-                })}
-              </Animated.View>
-
-              {/* Bottom Pagination Indicators */}
-              <View style={s.indicatorsRow}>
-                <TouchableOpacity
-                  onPress={() => setSelectedTab("XO_GAME")}
-                  style={[
-                    s.indicatorPill,
-                    {
-                      backgroundColor: selectedTab === "XO_GAME" ? "#00BFFF" : "#233041",
-                      width: selectedTab === "XO_GAME" ? 28 : 10,
-                    }
-                  ]}
-                />
-                <TouchableOpacity
-                  onPress={() => setSelectedTab("SPIN")}
-                  style={[
-                    s.indicatorPill,
-                    {
-                      backgroundColor: selectedTab === "SPIN" ? "#FF1744" : "#233041",
-                      width: selectedTab === "SPIN" ? 28 : 10,
-                    }
-                  ]}
-                />
-                <TouchableOpacity
-                  onPress={() => setSelectedTab("COMING_SOON")}
-                  style={[
-                    s.indicatorPill,
-                    {
-                      backgroundColor: selectedTab === "COMING_SOON" ? "#8893A7" : "#233041",
-                      width: selectedTab === "COMING_SOON" ? 28 : 10,
-                    }
-                  ]}
+                    );
+                  }}
                 />
               </View>
+
+              {/* Bottom Pagination Indicators */}
+              <Pagination
+                count={tabs.length}
+                progress={progress}
+                containerStyle={{ gap: 8, marginTop: 14, marginBottom: 12, alignSelf: "center" }}
+                dotStyle={{ width: 8, height: 7, borderRadius: 4, backgroundColor: "rgba(255, 255, 255, 0.25)" }}
+                activeDotStyle={{
+                  width: 24,
+                  height: 7,
+                  borderRadius: 4,
+                  backgroundColor: index === 0 ? "#FF1744" : index === 1 ? "#00BFFF" : "#8893A7",
+                }}
+                onPress={(i) => {
+                  try { playTickSound(); } catch {}
+                  haptics.tap();
+                  carouselRef.current?.scrollTo({ index: i, animated: true });
+                  setIndex(i);
+                  setSelectedTab(tabs[i]);
+                }}
+              />
             </View>
 
             {/* ── FULL-WIDTH WELCOME BONUS CLAIMED CARD (Per User Request) ── */}
@@ -971,36 +964,36 @@ const s = StyleSheet.create({
   },
   carouselArrowLeft: {
     position: "absolute",
-    left: 8,
+    left: 14,
     top: "34%",
-    marginTop: -24,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "rgba(0, 191, 255, 0.95)",
+    marginTop: -22,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(8, 16, 32, 0.92)",
     borderWidth: 1.5,
-    borderColor: "#FFFFFF",
+    borderColor: "rgba(0, 218, 243, 0.65)",
     alignItems: "center",
     justifyContent: "center",
-    zIndex: 35,
-    boxShadow: "0 6px 20px rgba(0, 191, 255, 0.6)",
+    zIndex: 120,
+    boxShadow: "0 4px 14px rgba(0, 218, 243, 0.25)",
     cursor: "pointer",
   } as any,
   carouselArrowRight: {
     position: "absolute",
-    right: 8,
+    right: 14,
     top: "34%",
-    marginTop: -24,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "rgba(0, 191, 255, 0.95)",
+    marginTop: -22,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(8, 16, 32, 0.92)",
     borderWidth: 1.5,
-    borderColor: "#FFFFFF",
+    borderColor: "rgba(0, 218, 243, 0.65)",
     alignItems: "center",
     justifyContent: "center",
-    zIndex: 35,
-    boxShadow: "0 6px 20px rgba(0, 191, 255, 0.6)",
+    zIndex: 120,
+    boxShadow: "0 4px 14px rgba(0, 218, 243, 0.25)",
     cursor: "pointer",
   } as any,
   threeCardsRow: {
@@ -1017,10 +1010,14 @@ const s = StyleSheet.create({
   } as any,
   coverflowColumnCenter: {
     flex: 1.0,
+    minWidth: 320,
+    maxWidth: 440,
     zIndex: 10,
   },
   coverflowColumnSide: {
     flex: 0.75,
+    minWidth: 200,
+    maxWidth: 260,
     zIndex: 2,
     cursor: "pointer",
   } as any,
@@ -1139,16 +1136,21 @@ const s = StyleSheet.create({
   extraShelfBtn: {
     width: "100%",
     marginTop: 12,
-    backgroundColor: "rgba(8, 15, 23, 0.8)",
+    backgroundColor: "rgba(15, 23, 42, 0.85)",
     borderRadius: 16,
     borderWidth: 1.2,
-    borderColor: "#233041",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     zIndex: 2,
-    transition: "all 200ms ease",
-    cursor: "pointer",
-  } as any,
+    ...(Platform.OS === "web" ? {
+      transition: "all 200ms ease",
+      cursor: "pointer",
+    } as any : {}),
+  },
   extraShelfHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1182,6 +1184,8 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    flexWrap: "wrap",
+    gap: 6,
   },
   avatarGroup: {
     flexDirection: "row",
@@ -1364,10 +1368,10 @@ const s = StyleSheet.create({
   leaderboardRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#080F17",
+    backgroundColor: "rgba(8, 15, 23, 0.75)",
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: "#233041",
+    borderColor: "rgba(255, 255, 255, 0.06)",
     padding: 8,
     paddingHorizontal: 10,
     gap: 10,

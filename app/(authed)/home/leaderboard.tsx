@@ -155,6 +155,15 @@ export default function LeaderboardScreen() {
   // Weekly metadata states
   const [weeklyPrizes, setWeeklyPrizes] = useState<{ rank: number; amount: number }[]>([]);
   const [secondsRemaining, setSecondsRemaining] = useState(0);
+
+  // Active 1s countdown timer for weekly leaderboard reset
+  useEffect(() => {
+    if (secondsRemaining <= 0) return;
+    const timer = setInterval(() => {
+      setSecondsRemaining(prev => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [secondsRemaining > 0]);
   const [previousWeekWin, setPreviousWeekWin] = useState<PreviousWeekWin>(null);
   const [showCongrats, setShowCongrats] = useState(false);
   const [totalParticipants, setTotalParticipants] = useState(1200);
@@ -262,25 +271,24 @@ export default function LeaderboardScreen() {
     }
   };
 
-  // Podium Positions Calculation
+  // Podium Positions Calculation: Real Live Data Only (Zero Mock Fallbacks)
   const podiumData = useMemo(() => {
-    const defaultPodium = [
-      { id: "2", username: "Abram Mango", wins: 72, total: 100, rank: 2, isMe: false, avatar: null },
-      { id: "1", username: "Kianna Tori", wins: 60, total: 85, rank: 1, isMe: false, avatar: null },
-      { id: "3", username: "Alfonso Labin", wins: 63, total: 89, rank: 3, isMe: false, avatar: null },
-    ];
-    if (top3.length === 0) return defaultPodium;
-    // Map Top 3 to Podium Positions: [2nd, 1st, 3rd]
+    // Map Top 3 to Podium Positions: [2nd (Left), 1st (Center), 3rd (Right)]
     const first = top3[0] || null;
     const second = top3[1] || null;
     const third = top3[2] || null;
 
     return [
-      second || defaultPodium[0],
-      first || defaultPodium[1],
-      third || defaultPodium[2],
+      second ? { ...second, rank: 2 } : null,
+      first ? { ...first, rank: 1 } : null,
+      third ? { ...third, rank: 3 } : null,
     ];
   }, [top3]);
+
+  // Top 1, 2, 3 players for podiums (shared across Desktop and Mobile, hoisted before early returns)
+  const top1 = podiumData.find(p => p?.rank === 1) ?? podiumData[1];
+  const top2 = podiumData.find(p => p?.rank === 2) ?? podiumData[0];
+  const top3User = podiumData.find(p => p?.rank === 3) ?? podiumData[2];
 
   // First place prize value
   const topPrize = weeklyPrizes.find(p => p.rank === 1)?.amount || 500;
@@ -401,48 +409,172 @@ export default function LeaderboardScreen() {
                   </View>
                 </View>
 
-                {/* PODIUM VISUAL */}
-                <View style={s.podiumRow}>
-                  {podiumData.map((item, idx) => {
-                    const isWinner = item.rank === 1;
-                    const isThird = item.rank === 3;
-                    const blockH = isWinner ? 110 : (isThird ? 75 : 90);
-                    const blockColor = isWinner ? "#111827" : "#111827";
-                    const winAmt = (item as any).winAmount !== undefined && (item as any).winAmount !== null ? (item as any).winAmount : item.wins * 50;
-                    const winnings = `${item.wins} Wins`;
-                    const initials = item.username ? item.username.slice(0, 2).toUpperCase() : "ME";
-
-                    return (
-                      <View key={item.id || idx} style={s.podiumSpotContainer}>
-                        {/* Crown/Trophy above first place */}
-                        {isWinner && (
-                          <View style={s.crownFloatingIcon}>
-                            <Ionicons name="ribbon" size={24} color="#f5b642" />
-                          </View>
+                {/* PODIUM VISUAL: 3 Circular Rings matching Image 1 (Rank 2 Left, Rank 1 Center, Rank 3 Right) */}
+                <View style={{
+                  flexDirection: "row",
+                  alignItems: "flex-end",
+                  justifyContent: "center",
+                  gap: 36,
+                  marginTop: 12,
+                  marginBottom: 36,
+                  paddingVertical: 24,
+                  backgroundColor: "rgba(14, 20, 36, 0.55)",
+                  borderRadius: 24,
+                  borderWidth: 1,
+                  borderColor: "rgba(255, 255, 255, 0.06)",
+                }}>
+                  {/* Rank 2 (Left Medium Circle) */}
+                  <View style={{ alignItems: "center", width: 140 }}>
+                    <View style={{ position: "relative", alignItems: "center" }}>
+                      <View style={{
+                        width: 96,
+                        height: 96,
+                        borderRadius: 48,
+                        backgroundColor: "#161d31",
+                        borderWidth: 3,
+                        borderColor: "#94a3b8",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        overflow: "hidden",
+                      }}>
+                        {top2?.avatar ? (
+                          <Image source={{ uri: top2.avatar }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
+                        ) : (
+                          <Text style={{ color: "#94a3b8", fontSize: 28, fontWeight: "900" }}>
+                            {top2?.username ? top2.username.charAt(0).toUpperCase() : "--"}
+                          </Text>
                         )}
-
-                        {/* Player details above block */}
-                        <View style={s.podiumPlayerDetails}>
-                          <View style={[s.podiumAvatarCircle, { borderColor: isWinner ? "#f5b642" : "#1f2540" }]}>
-                            {item.avatar ? (
-                              <Image source={{ uri: item.avatar }} style={s.podiumAvatarImg} />
-                            ) : (
-                              <Text style={s.podiumAvatarText}>{initials}</Text>
-                            )}
-                          </View>
-                          <Text style={s.podiumPlayerName} numberOfLines={1}>{item.username}</Text>
-                          <View style={s.podiumPrizePill}>
-                            <Text style={s.podiumPrizeText}>{winnings}</Text>
-                          </View>
-                        </View>
-
-                        {/* Raised 3D block */}
-                        <View style={[s.podiumBlock, { height: blockH, backgroundColor: blockColor, borderColor: isWinner ? "#F5B642" : "#233041", borderWidth: isWinner ? 2 : 1 }]}>
-                          <Text style={[s.podiumNumberText, { fontSize: 32 }]}>{item.rank}</Text>
-                        </View>
                       </View>
-                    );
-                  })}
+                      {/* Badge 2 intersecting bottom */}
+                      <View style={{
+                        position: "absolute",
+                        bottom: -12,
+                        width: 32,
+                        height: 32,
+                        borderRadius: 16,
+                        backgroundColor: "#ffffff",
+                        borderWidth: 2,
+                        borderColor: "#94a3b8",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        shadowColor: "#000",
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.35,
+                        shadowRadius: 5,
+                      }}>
+                        <Text style={{ color: "#000000", fontSize: 15, fontWeight: "900" }}>2</Text>
+                      </View>
+                    </View>
+                    <Text numberOfLines={1} style={{ color: "#ffffff", fontSize: 16, fontWeight: "800", marginTop: 18 }}>
+                      {top2?.username || "Open Slot"}
+                    </Text>
+                    <Text style={{ color: "#00daf3", fontSize: 13, fontWeight: "800", marginTop: 3 }}>
+                      {top2 ? `${top2.wins ?? 0} win` : "--"}
+                    </Text>
+                  </View>
+
+                  {/* Rank 1 (Center Large Circle — Tallest / Biggest) */}
+                  <View style={{ alignItems: "center", width: 160, marginBottom: 14 }}>
+                    {/* Crown / Trophy Floating Accent */}
+                    <Ionicons name="trophy" size={28} color="#f5b642" style={{ marginBottom: 6 }} />
+                    <View style={{ position: "relative", alignItems: "center" }}>
+                      <View style={{
+                        width: 120,
+                        height: 120,
+                        borderRadius: 60,
+                        backgroundColor: "#1e1b18",
+                        borderWidth: 4,
+                        borderColor: "#f5b642",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        overflow: "hidden",
+                        boxShadow: "0 0 25px rgba(245, 158, 11, 0.4)",
+                      } as any}>
+                        {top1?.avatar ? (
+                          <Image source={{ uri: top1.avatar }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
+                        ) : (
+                          <Text style={{ color: "#f59e0b", fontSize: 36, fontWeight: "900" }}>
+                            {top1?.username ? top1.username.charAt(0).toUpperCase() : "--"}
+                          </Text>
+                        )}
+                      </View>
+                      {/* Badge 1 intersecting bottom */}
+                      <View style={{
+                        position: "absolute",
+                        bottom: -14,
+                        width: 36,
+                        height: 36,
+                        borderRadius: 18,
+                        backgroundColor: "#f5b642",
+                        borderWidth: 2.5,
+                        borderColor: "#ffffff",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        shadowColor: "#000",
+                        shadowOffset: { width: 0, height: 3 },
+                        shadowOpacity: 0.45,
+                        shadowRadius: 6,
+                      }}>
+                        <Text style={{ color: "#000000", fontSize: 17, fontWeight: "900" }}>1</Text>
+                      </View>
+                    </View>
+                    <Text numberOfLines={1} style={{ color: "#ffffff", fontSize: 18, fontWeight: "900", marginTop: 20 }}>
+                      {top1?.username || "Open Slot"}
+                    </Text>
+                    <Text style={{ color: "#f59e0b", fontSize: 14, fontWeight: "900", marginTop: 3 }}>
+                      {top1 ? `${top1.wins ?? 0} win` : "--"}
+                    </Text>
+                  </View>
+
+                  {/* Rank 3 (Right Medium Circle) */}
+                  <View style={{ alignItems: "center", width: 140 }}>
+                    <View style={{ position: "relative", alignItems: "center" }}>
+                      <View style={{
+                        width: 96,
+                        height: 96,
+                        borderRadius: 48,
+                        backgroundColor: "#1c1815",
+                        borderWidth: 3,
+                        borderColor: "#f97316",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        overflow: "hidden",
+                      }}>
+                        {top3User?.avatar ? (
+                          <Image source={{ uri: top3User.avatar }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
+                        ) : (
+                          <Text style={{ color: "#f97316", fontSize: 28, fontWeight: "900" }}>
+                            {top3User?.username ? top3User.username.charAt(0).toUpperCase() : "--"}
+                          </Text>
+                        )}
+                      </View>
+                      {/* Badge 3 intersecting bottom */}
+                      <View style={{
+                        position: "absolute",
+                        bottom: -12,
+                        width: 32,
+                        height: 32,
+                        borderRadius: 16,
+                        backgroundColor: "#ffffff",
+                        borderWidth: 2,
+                        borderColor: "#f97316",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        shadowColor: "#000",
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.35,
+                        shadowRadius: 5,
+                      }}>
+                        <Text style={{ color: "#000000", fontSize: 15, fontWeight: "900" }}>3</Text>
+                      </View>
+                    </View>
+                    <Text numberOfLines={1} style={{ color: "#ffffff", fontSize: 16, fontWeight: "800", marginTop: 18 }}>
+                      {top3User?.username || "Open Slot"}
+                    </Text>
+                    <Text style={{ color: "#f97316", fontSize: 13, fontWeight: "800", marginTop: 3 }}>
+                      {top3User ? `${top3User.wins ?? 0} win` : "--"}
+                    </Text>
+                  </View>
                 </View>
 
                 {/* LEADERBOARD LIST CARD */}
@@ -580,18 +712,7 @@ export default function LeaderboardScreen() {
   const minutes = Math.floor((secondsRemaining % 3600) / 60);
   const seconds = secondsRemaining % 60;
 
-  const top1 = podiumData.find(p => p.rank === 1) || podiumData[1];
-  const top2 = podiumData.find(p => p.rank === 2) || podiumData[0];
-  const top3User = podiumData.find(p => p.rank === 3) || podiumData[2];
-
-  // Rest of players (ranks 4+)
-  const restPlayers = useMemo(() => {
-    const list = leaderboard.filter(p => p.rank > 3);
-    if (myRank && myRank.rank > 3 && !list.some(p => p.id === myRank.id || p.username === myRank.username)) {
-      list.push(myRank);
-    }
-    return list;
-  }, [leaderboard, myRank]);
+  
 
   return (
     <View style={s.rootContainer}>
@@ -687,7 +808,7 @@ export default function LeaderboardScreen() {
         paddingBottom: 16,
         zIndex: 40,
       }}>
-        {/* ── TOP 3 PODIUM CIRCLES (Exact Image 3 Spec: Pure Circles, Rank Intersecting Bottom, No Blocks) ── */}
+        {/* ── TOP 3 PODIUM CIRCLES (Matching PC Layout: 3 Pure Circles, Rank Intersecting Bottom, Open Slot Support) ── */}
         <View style={{
           flexDirection: "row",
           alignItems: "flex-end",
@@ -697,166 +818,160 @@ export default function LeaderboardScreen() {
           marginBottom: 24,
         }}>
           {/* Rank 2 (Left Medium Circle) */}
-          {top2 && (
-            <View style={{ alignItems: "center", width: 96 }}>
-              <View style={{ position: "relative", alignItems: "center" }}>
-                <View style={{
-                  width: 72,
-                  height: 72,
-                  borderRadius: 36,
-                  backgroundColor: "#161d31",
-                  borderWidth: 3,
-                  borderColor: "#94a3b8",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  overflow: "hidden",
-                }}>
-                  {top2.avatar ? (
-                    <Image source={{ uri: top2.avatar }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
-                  ) : (
-                    <Text style={{ color: "#94a3b8", fontSize: 20, fontWeight: "900" }}>
-                      {(top2.username || "P").charAt(0).toUpperCase()}
-                    </Text>
-                  )}
-                </View>
-                {/* Badge 2 intersecting bottom (Image 3) */}
-                <View style={{
-                  position: "absolute",
-                  bottom: -10,
-                  width: 24,
-                  height: 24,
-                  borderRadius: 12,
-                  backgroundColor: "#ffffff",
-                  borderWidth: 2,
-                  borderColor: "#94a3b8",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  shadowColor: "#000",
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.3,
-                  shadowRadius: 4,
-                }}>
-                  <Text style={{ color: "#000000", fontSize: 12, fontWeight: "900" }}>2</Text>
-                </View>
+          <View style={{ alignItems: "center", width: 96 }}>
+            <View style={{ position: "relative", alignItems: "center" }}>
+              <View style={{
+                width: 72,
+                height: 72,
+                borderRadius: 36,
+                backgroundColor: "#161d31",
+                borderWidth: 3,
+                borderColor: "#94a3b8",
+                alignItems: "center",
+                justifyContent: "center",
+                overflow: "hidden",
+              }}>
+                {top2?.avatar ? (
+                  <Image source={{ uri: top2.avatar }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
+                ) : (
+                  <Text style={{ color: "#94a3b8", fontSize: 20, fontWeight: "900" }}>
+                    {top2?.username ? top2.username.charAt(0).toUpperCase() : "--"}
+                  </Text>
+                )}
               </View>
-
-              <Text numberOfLines={1} style={{ color: "#ffffff", fontSize: 13, fontWeight: "800", marginTop: 14 }}>
-                {top2.username || "Player"}
-              </Text>
-              <Text style={{ color: "#f59e0b", fontSize: 11, fontWeight: "800", marginTop: 2 }}>
-                {top2.wins || 40} win
-              </Text>
+              {/* Badge 2 intersecting bottom */}
+              <View style={{
+                position: "absolute",
+                bottom: -10,
+                width: 24,
+                height: 24,
+                borderRadius: 12,
+                backgroundColor: "#ffffff",
+                borderWidth: 2,
+                borderColor: "#94a3b8",
+                alignItems: "center",
+                justifyContent: "center",
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.3,
+                shadowRadius: 4,
+              }}>
+                <Text style={{ color: "#000000", fontSize: 12, fontWeight: "900" }}>2</Text>
+              </View>
             </View>
-          )}
+
+            <Text numberOfLines={1} style={{ color: "#ffffff", fontSize: 13, fontWeight: "800", marginTop: 14 }}>
+              {top2?.username || "Open Slot"}
+            </Text>
+            <Text style={{ color: "#00daf3", fontSize: 11, fontWeight: "800", marginTop: 2 }}>
+              {top2 ? `${top2.wins ?? 0} win` : "--"}
+            </Text>
+          </View>
 
           {/* Rank 1 (Center Large Circle — Tallest / Biggest) */}
-          {top1 && (
-            <View style={{ alignItems: "center", width: 112, marginBottom: 8 }}>
-              {/* Crown Floating Accent */}
-              <Ionicons name="trophy" size={22} color="#f59e0b" style={{ marginBottom: 4 }} />
-              <View style={{ position: "relative", alignItems: "center" }}>
-                <View style={{
-                  width: 90,
-                  height: 90,
-                  borderRadius: 45,
-                  backgroundColor: "#1e1b18",
-                  borderWidth: 3.5,
-                  borderColor: "#f59e0b",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  overflow: "hidden",
-                  boxShadow: "0 0 20px rgba(245, 158, 11, 0.35)",
-                } as any}>
-                  {top1.avatar ? (
-                    <Image source={{ uri: top1.avatar }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
-                  ) : (
-                    <Text style={{ color: "#f59e0b", fontSize: 26, fontWeight: "900" }}>
-                      {(top1.username || "P").charAt(0).toUpperCase()}
-                    </Text>
-                  )}
-                </View>
-                {/* Badge 1 intersecting bottom (Image 3) */}
-                <View style={{
-                  position: "absolute",
-                  bottom: -12,
-                  width: 28,
-                  height: 28,
-                  borderRadius: 14,
-                  backgroundColor: "#f59e0b",
-                  borderWidth: 2,
-                  borderColor: "#ffffff",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  shadowColor: "#000",
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.4,
-                  shadowRadius: 5,
-                }}>
-                  <Text style={{ color: "#000000", fontSize: 14, fontWeight: "900" }}>1</Text>
-                </View>
+          <View style={{ alignItems: "center", width: 112, marginBottom: 8 }}>
+            {/* Crown Floating Accent */}
+            <Ionicons name="trophy" size={22} color="#f5b642" style={{ marginBottom: 4 }} />
+            <View style={{ position: "relative", alignItems: "center" }}>
+              <View style={{
+                width: 90,
+                height: 90,
+                borderRadius: 45,
+                backgroundColor: "#1e1b18",
+                borderWidth: 3.5,
+                borderColor: "#f5b642",
+                alignItems: "center",
+                justifyContent: "center",
+                overflow: "hidden",
+                boxShadow: "0 0 20px rgba(245, 158, 11, 0.35)",
+              } as any}>
+                {top1?.avatar ? (
+                  <Image source={{ uri: top1.avatar }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
+                ) : (
+                  <Text style={{ color: "#f59e0b", fontSize: 26, fontWeight: "900" }}>
+                    {top1?.username ? top1.username.charAt(0).toUpperCase() : "--"}
+                  </Text>
+                )}
               </View>
-
-              <Text numberOfLines={1} style={{ color: "#ffffff", fontSize: 14.5, fontWeight: "900", marginTop: 16 }}>
-                {top1.username || "Winner"}
-              </Text>
-              <Text style={{ color: "#f59e0b", fontSize: 12, fontWeight: "900", marginTop: 2 }}>
-                {top1.wins || 100} win
-              </Text>
+              {/* Badge 1 intersecting bottom */}
+              <View style={{
+                position: "absolute",
+                bottom: -12,
+                width: 28,
+                height: 28,
+                borderRadius: 14,
+                backgroundColor: "#f5b642",
+                borderWidth: 2,
+                borderColor: "#ffffff",
+                alignItems: "center",
+                justifyContent: "center",
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.4,
+                shadowRadius: 5,
+              }}>
+                <Text style={{ color: "#000000", fontSize: 14, fontWeight: "900" }}>1</Text>
+              </View>
             </View>
-          )}
+
+            <Text numberOfLines={1} style={{ color: "#ffffff", fontSize: 14.5, fontWeight: "900", marginTop: 16 }}>
+              {top1?.username || "Open Slot"}
+            </Text>
+            <Text style={{ color: "#f59e0b", fontSize: 12, fontWeight: "900", marginTop: 2 }}>
+              {top1 ? `${top1.wins ?? 0} win` : "--"}
+            </Text>
+          </View>
 
           {/* Rank 3 (Right Medium Circle) */}
-          {top3User && (
-            <View style={{ alignItems: "center", width: 96 }}>
-              <View style={{ position: "relative", alignItems: "center" }}>
-                <View style={{
-                  width: 72,
-                  height: 72,
-                  borderRadius: 36,
-                  backgroundColor: "#1c1815",
-                  borderWidth: 3,
-                  borderColor: "#f97316",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  overflow: "hidden",
-                }}>
-                  {top3User.avatar ? (
-                    <Image source={{ uri: top3User.avatar }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
-                  ) : (
-                    <Text style={{ color: "#f97316", fontSize: 20, fontWeight: "900" }}>
-                      {(top3User.username || "P").charAt(0).toUpperCase()}
-                    </Text>
-                  )}
-                </View>
-                {/* Badge 3 intersecting bottom (Image 3) */}
-                <View style={{
-                  position: "absolute",
-                  bottom: -10,
-                  width: 24,
-                  height: 24,
-                  borderRadius: 12,
-                  backgroundColor: "#ffffff",
-                  borderWidth: 2,
-                  borderColor: "#f97316",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  shadowColor: "#000",
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.3,
-                  shadowRadius: 4,
-                }}>
-                  <Text style={{ color: "#000000", fontSize: 12, fontWeight: "900" }}>3</Text>
-                </View>
+          <View style={{ alignItems: "center", width: 96 }}>
+            <View style={{ position: "relative", alignItems: "center" }}>
+              <View style={{
+                width: 72,
+                height: 72,
+                borderRadius: 36,
+                backgroundColor: "#1c1815",
+                borderWidth: 3,
+                borderColor: "#f97316",
+                alignItems: "center",
+                justifyContent: "center",
+                overflow: "hidden",
+              }}>
+                {top3User?.avatar ? (
+                  <Image source={{ uri: top3User.avatar }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
+                ) : (
+                  <Text style={{ color: "#f97316", fontSize: 20, fontWeight: "900" }}>
+                    {top3User?.username ? top3User.username.charAt(0).toUpperCase() : "--"}
+                  </Text>
+                )}
               </View>
-
-              <Text numberOfLines={1} style={{ color: "#ffffff", fontSize: 13, fontWeight: "800", marginTop: 14 }}>
-                {top3User.username || "Player"}
-              </Text>
-              <Text style={{ color: "#f59e0b", fontSize: 11, fontWeight: "800", marginTop: 2 }}>
-                {top3User.wins || 20} win
-              </Text>
+              {/* Badge 3 intersecting bottom */}
+              <View style={{
+                position: "absolute",
+                bottom: -10,
+                width: 24,
+                height: 24,
+                borderRadius: 12,
+                backgroundColor: "#ffffff",
+                borderWidth: 2,
+                borderColor: "#f97316",
+                alignItems: "center",
+                justifyContent: "center",
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.3,
+                shadowRadius: 4,
+              }}>
+                <Text style={{ color: "#000000", fontSize: 12, fontWeight: "900" }}>3</Text>
+              </View>
             </View>
-          )}
+
+            <Text numberOfLines={1} style={{ color: "#ffffff", fontSize: 13, fontWeight: "800", marginTop: 14 }}>
+              {top3User?.username || "Open Slot"}
+            </Text>
+            <Text style={{ color: "#f97316", fontSize: 11, fontWeight: "800", marginTop: 2 }}>
+              {top3User ? `${top3User.wins ?? 0} win` : "--"}
+            </Text>
+          </View>
         </View>
       </View>
 
@@ -867,126 +982,138 @@ export default function LeaderboardScreen() {
         contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 130 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── RANKED ROWS (Exact Image 3 Spec: Curved Capsule Cards for Rank 4+) ── */}
+        {/* ── RANKED ROWS (Displays all contenders matching PC Leaderboard data) ── */}
         <View style={{ gap: 10, width: "100%" }}>
-          {(restPlayers.length > 0 ? restPlayers : Array.from({ length: 6 }).map((_, i) => ({
-            id: `mock_${i + 4}`,
-            username: `Player_${i + 4}`,
-            wins: 15 - i * 2,
-            rank: i + 4,
-            isMe: false,
-            avatar: null,
-          }))).map((item) => {
-            return (
-              <View
-                key={item.id}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  backgroundColor: (item.isMe || item.username === user?.username || item.id === user?.id) ? "rgba(0, 191, 255, 0.12)" : "rgba(14, 20, 36, 0.8)",
-                  borderRadius: 24, // Curved capsule edges matching Image 3 wireframe
-                  borderWidth: 1.2,
-                  borderColor: (item.isMe || item.username === user?.username || item.id === user?.id) ? "#00BFFF" : "rgba(255, 255, 255, 0.08)",
-                  paddingHorizontal: 18,
-                  paddingVertical: 12,
-                  shadowColor: "#000",
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.2,
-                  shadowRadius: 4,
-                }}
-              >
-                {/* Left: Rank Badge + Avatar + Name */}
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-                  <View style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 16,
-                    backgroundColor: "rgba(255, 255, 255, 0.06)",
-                    borderWidth: 1,
-                    borderColor: "rgba(255, 255, 255, 0.12)",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}>
-                    <Text style={{ color: "#94a3b8", fontSize: 12, fontWeight: "900" }}>#{item.rank}</Text>
-                  </View>
+          {leaderboard.length === 0 ? (
+            <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 32, gap: 8 }}>
+              <Ionicons name="trophy-outline" size={28} color="rgba(255,255,255,0.2)" />
+              <Text style={{ color: "#64748b", fontSize: 12.5, textAlign: "center", fontStyle: "italic" }}>
+                {"No rankings available yet.\nPlay matches to claim rank #1!"}
+              </Text>
+            </View>
+          ) : (
+            leaderboard.map((item) => {
+              const isTop3 = item.rank <= 3;
+              const badgeBg = item.rank === 1 ? "rgba(245, 158, 11, 0.2)" : (item.rank === 2 ? "rgba(148, 163, 184, 0.2)" : (item.rank === 3 ? "rgba(249, 115, 22, 0.2)" : "rgba(255, 255, 255, 0.06)"));
+              const badgeBorder = item.rank === 1 ? "#f59e0b" : (item.rank === 2 ? "#94a3b8" : (item.rank === 3 ? "#f97316" : "rgba(255, 255, 255, 0.12)"));
+              const badgeTextCol = item.rank === 1 ? "#f59e0b" : (item.rank === 2 ? "#cbd5e1" : (item.rank === 3 ? "#f97316" : "#94a3b8"));
+              const isMe = item.isMe || item.username === user?.username || item.id === user?.id;
 
-                  <View style={{
-                    width: 38,
-                    height: 38,
-                    borderRadius: 19,
-                    backgroundColor: "#1e293b",
+              return (
+                <View
+                  key={item.id}
+                  style={{
+                    flexDirection: "row",
                     alignItems: "center",
-                    justifyContent: "center",
-                  }}>
-                    {item.avatar ? (
-                      <Image source={{ uri: item.avatar }} style={{ width: "100%", height: "100%", borderRadius: 19 }} resizeMode="cover" />
-                    ) : (
-                      <Text style={{ color: "#cbd5e1", fontSize: 14, fontWeight: "800" }}>
-                        {(item.username || "P").charAt(0).toUpperCase()}
+                    justifyContent: "space-between",
+                    backgroundColor: isMe ? "rgba(0, 191, 255, 0.12)" : "rgba(14, 20, 36, 0.8)",
+                    borderRadius: 24, // Curved capsule edges matching Image 3 wireframe
+                    borderWidth: 1.2,
+                    borderColor: isMe ? "#00BFFF" : "rgba(255, 255, 255, 0.08)",
+                    paddingHorizontal: 18,
+                    paddingVertical: 12,
+                    shadowColor: "#000",
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.2,
+                    shadowRadius: 4,
+                  }}
+                >
+                  {/* Left: Rank Badge + Avatar + Name */}
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                    <View style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 16,
+                      backgroundColor: badgeBg,
+                      borderWidth: 1,
+                      borderColor: badgeBorder,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}>
+                      <Text style={{ color: badgeTextCol, fontSize: 12, fontWeight: "900" }}>#{item.rank}</Text>
+                    </View>
+
+                    <View style={{
+                      width: 38,
+                      height: 38,
+                      borderRadius: 19,
+                      backgroundColor: "#1e293b",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}>
+                      {item.avatar ? (
+                        <Image source={{ uri: item.avatar }} style={{ width: "100%", height: "100%", borderRadius: 19 }} resizeMode="cover" />
+                      ) : (
+                        <Text style={{ color: "#cbd5e1", fontSize: 14, fontWeight: "800" }}>
+                          {(item.username || "P").charAt(0).toUpperCase()}
+                        </Text>
+                      )}
+                    </View>
+
+                    <View>
+                      <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "800" }}>
+                        {item.username} {isMe ? "(You)" : ""}
                       </Text>
-                    )}
+                      <Text style={{ color: "#64748b", fontSize: 11, fontWeight: "600", marginTop: 1 }}>
+                        Win Battles won: {item.wins} / {item.total || Math.round(item.wins * 1.5)}
+                      </Text>
+                    </View>
                   </View>
 
-                  <View>
-                    <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "800" }}>{item.username} {(item.isMe || item.username === user?.username || item.id === user?.id) ? "(You)" : ""}</Text>
-                    <Text style={{ color: "#64748b", fontSize: 11, fontWeight: "600", marginTop: 1 }}>
-                      {item.wins} matches won
+                  {/* Right: Wins Highlight */}
+                  <View style={{
+                    paddingHorizontal: 12,
+                    paddingVertical: 5,
+                    borderRadius: 12,
+                    backgroundColor: "rgba(245, 158, 11, 0.12)",
+                    borderWidth: 1,
+                    borderColor: "rgba(245, 158, 11, 0.3)",
+                  }}>
+                    <Text style={{ color: "#f59e0b", fontSize: 12, fontWeight: "900" }}>
+                      {item.wins} Wins
                     </Text>
                   </View>
                 </View>
-
-                {/* Right: Wins Highlight */}
-                <View style={{
-                  paddingHorizontal: 12,
-                  paddingVertical: 5,
-                  borderRadius: 12,
-                  backgroundColor: "rgba(245, 158, 11, 0.12)",
-                  borderWidth: 1,
-                  borderColor: "rgba(245, 158, 11, 0.3)",
-                }}>
-                  <Text style={{ color: "#f59e0b", fontSize: 12, fontWeight: "900" }}>
-                    {item.wins} win
-                  </Text>
-                </View>
-              </View>
-            );
-          })}
+              );
+            })
+          )}
         </View>
       </ScrollView>
 
-      {/* ── FLOATING DOWN ARROW JUMP BUTTON (Always visible on screen, smoothly jumps to your rank e.g. #35) ── */}
-      <TouchableOpacity
-        onPress={() => {
-          if (myRank && myRank.rank > 3) {
-            const idx = restPlayers.findIndex(p => p.id === myRank.id || p.username === myRank.username);
-            const scrollY = idx >= 0 ? idx * 72 : 600;
-            mobileScrollRef.current?.scrollTo({ y: scrollY, animated: true });
-          } else {
-            mobileScrollRef.current?.scrollToEnd({ animated: true });
-          }
-        }}
-        style={{
-          position: "absolute",
-          bottom: 74,
-          alignSelf: "center",
-          width: 44,
-          height: 44,
-          borderRadius: 22,
-          backgroundColor: "#ffffff",
-          alignItems: "center",
-          justifyContent: "center",
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.45,
-          shadowRadius: 8,
-          elevation: 8,
-          zIndex: 90,
-        }}
-        activeOpacity={0.85}
-      >
-        <Ionicons name="arrow-down" size={22} color="#000000" />
-      </TouchableOpacity>
+      {/* ── FLOATING DOWN ARROW JUMP BUTTON (Contextual: only shown when user is ranked #4+ and out of podium view) ── */}
+      {Boolean(myRank && myRank.rank > 3) && (
+        <TouchableOpacity
+          onPress={() => {
+            if (myRank) {
+              const idx = leaderboard.findIndex(p => p.id === myRank.id || p.username === myRank.username);
+              const scrollY = idx >= 0 ? idx * 72 : 0;
+              mobileScrollRef.current?.scrollTo({ y: scrollY, animated: true });
+            } else {
+              mobileScrollRef.current?.scrollToEnd({ animated: true });
+            }
+          }}
+          style={{
+            position: "absolute",
+            bottom: 74,
+            alignSelf: "center",
+            width: 44,
+            height: 44,
+            borderRadius: 22,
+            backgroundColor: "#ffffff",
+            alignItems: "center",
+            justifyContent: "center",
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.45,
+            shadowRadius: 8,
+            elevation: 8,
+            zIndex: 90,
+          }}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="arrow-down" size={22} color="#000000" />
+        </TouchableOpacity>
+      )}
 
       {/* ── Fixed Bottom Navigation Bar (Image 3: Home, History, Rank [Active Pill], Wallet, Profile) ── */}
       <View style={{

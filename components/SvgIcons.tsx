@@ -114,3 +114,12 @@ export const ChatBubbleIcon = ({ size = 20, color = "#7c3aed" }: IconProps) => (
   </Svg>
 );
 
+
+export const SyncIcon = ({ size = 20, color = "#00daf3" }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.3} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M21 2v6h-6" />
+    <Path d="M3 22v-6h6" />
+    <Path d="M21 8A10 10 0 0 0 4.6 6.3L3 8" />
+    <Path d="M3 16a10 10 0 0 0 16.4 1.7L21 16" />
+  </Svg>
+);

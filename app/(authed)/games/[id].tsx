@@ -370,70 +370,125 @@ export default function GameViewer() {
                )}
             </View>
 
-            {/* Match Controls (Arena Nav) */}
-            <View style={[styles.controlsBar, { flexDirection: isDesktop ? 'row' : 'column' }]}>
-               <View style={styles.controlSectionLeft}>
-                  <View style={styles.progressCircle}>
-                     <Text style={styles.progressCircleLabel}>{step}</Text>
-                  </View>
-                  <View>
-                     <Text style={styles.controlSuperText}>PROGRESS</Text>
-                     <Text style={styles.controlMainText}>Move {step} / {len}</Text>
-                  </View>
-               </View>
+            {/* Match Controls Card (Exact Image 2 Specification: Centered "move {step}/{len}", 3 buttons [ < ] [ O ] [ > ]) */}
+            <View style={{
+              width: "100%",
+              maxWidth: isDesktop ? 600 : "100%",
+              alignSelf: "center",
+              backgroundColor: "rgba(14, 20, 36, 0.88)",
+              borderRadius: 24,
+              borderWidth: 1.5,
+              borderColor: "rgba(0, 218, 243, 0.22)",
+              paddingVertical: 22,
+              paddingHorizontal: 20,
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 16,
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 8 },
+              shadowOpacity: 0.35,
+              shadowRadius: 18,
+            }}>
+              {/* Header: move {step}/{len} */}
+              <Text style={{
+                color: "#ffffff",
+                fontSize: 18,
+                fontWeight: "900",
+                letterSpacing: 1,
+                textTransform: "lowercase",
+              }}>
+                move {step}/{len}
+              </Text>
 
-               <View style={styles.playbackCenter}>
-                  <TouchableOpacity
-                    onPress={() => {
-                      playTickSound();
-                      haptics.tap();
-                      prev();
-                    }}
-                    style={styles.iconBtn}
-                    activeOpacity={0.7}
-                  >
-                     <Ionicons name="play-back" size={20} color="#ffffff" />
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity
-                    onPress={() => {
-                      playTickSound(900);
-                      haptics.impact();
-                      togglePlay();
-                    }}
-                    style={styles.playBtnMain}
-                    activeOpacity={0.85}
-                  >
-                     <Ionicons name={isPlaying ? "pause" : (step === len ? "reload" : "play")} size={28} color="#060a14" style={{ marginLeft: (!isPlaying && step !== len) ? 3 : 0 }} />
-                  </TouchableOpacity>
+              {/* 3 Main Action Buttons Row: [ < ] [ O ] [ > ] */}
+              <View style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 28,
+                width: "100%",
+              }}>
+                {/* Left Button: < (Previous Move) */}
+                <TouchableOpacity
+                  onPress={() => {
+                    playTickSound();
+                    haptics.tap();
+                    prev();
+                  }}
+                  disabled={step <= 0}
+                  style={{
+                    width: 58,
+                    height: 58,
+                    borderRadius: 18,
+                    backgroundColor: "rgba(255, 255, 255, 0.05)",
+                    borderWidth: 1.5,
+                    borderColor: step <= 0 ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 218, 243, 0.45)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    opacity: step <= 0 ? 0.4 : 1,
+                  }}
+                  activeOpacity={0.75}
+                  accessibilityLabel="Previous Move"
+                >
+                  <Ionicons name="chevron-back" size={28} color="#ffffff" />
+                </TouchableOpacity>
 
-                  <TouchableOpacity
-                    onPress={() => {
-                      playTickSound();
-                      haptics.tap();
-                      toEnd();
-                    }}
-                    style={styles.iconBtn}
-                    activeOpacity={0.7}
-                  >
-                     <Ionicons name="play-forward" size={20} color="#ffffff" />
-                  </TouchableOpacity>
-               </View>
+                {/* Center Button: O (Play/Pause Toggle) */}
+                <TouchableOpacity
+                  onPress={() => {
+                    playTickSound(900);
+                    haptics.impact();
+                    togglePlay();
+                  }}
+                  style={{
+                    width: 74,
+                    height: 74,
+                    borderRadius: 37,
+                    backgroundColor: "#00daf3",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    shadowColor: "#00daf3",
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.6,
+                    shadowRadius: 16,
+                    elevation: 12,
+                  }}
+                  activeOpacity={0.85}
+                  accessibilityLabel="Play or Pause"
+                >
+                  <Ionicons
+                    name={isPlaying ? "pause" : (step === len ? "reload" : "play")}
+                    size={34}
+                    color="#060a14"
+                    style={{ marginLeft: (!isPlaying && step !== len) ? 3 : 0 }}
+                  />
+                </TouchableOpacity>
 
-               <View style={styles.controlSectionRight}>
-                  {/* Pseudo buttons to match the HTML layout aesthetic */}
-                  <TouchableOpacity
-                    onPress={() => {
-                      playTickSound();
-                      haptics.tap();
-                      toStart();
-                    }}
-                    style={styles.analyzeBtn}
-                    activeOpacity={0.8}
-                  >
-                     <Text style={[styles.analyzeText, { color: '#00daf3' }]}>RESTART</Text>
-                  </TouchableOpacity>
-               </View>
+                {/* Right Button: > (Next Move) */}
+                <TouchableOpacity
+                  onPress={() => {
+                    playTickSound();
+                    haptics.tap();
+                    next();
+                  }}
+                  disabled={step >= len}
+                  style={{
+                    width: 58,
+                    height: 58,
+                    borderRadius: 18,
+                    backgroundColor: "rgba(255, 255, 255, 0.05)",
+                    borderWidth: 1.5,
+                    borderColor: step >= len ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 218, 243, 0.45)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    opacity: step >= len ? 0.4 : 1,
+                  }}
+                  activeOpacity={0.75}
+                  accessibilityLabel="Next Move"
+                >
+                  <Ionicons name="chevron-forward" size={28} color="#ffffff" />
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Footer */}

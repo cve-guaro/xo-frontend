@@ -2,7 +2,7 @@ import { motion } from '../theme/tokens';
 // components/GlobalToast.tsx — Sleek Toast Component (Matching Image 5 & XOET Brand Theme)
 import React, { useEffect, useRef, memo } from 'react';
 import { View, Text, StyleSheet, Animated, Easing, TouchableOpacity, Platform } from 'react-native';
-import { CheckmarkCircleIcon, AlertCircleIcon, InfoIcon, WarningIcon, CloseIcon } from './SvgIcons';
+import { CheckmarkCircleIcon, AlertCircleIcon, InfoIcon, WarningIcon, CloseIcon, SyncIcon } from './SvgIcons';
 import { useToast, ToastItem, ToastVariant } from '../context/ToastContext';
 import { playNotificationChime, playTickSound } from '../lib/pinTickAudio';
 
@@ -13,34 +13,44 @@ const VARIANT_CONFIG: Record<ToastVariant, {
   bgColor: string;
   borderColor: string;
   glowColor: string;
+  textColor: string;
+  messageColor: string;
 }> = {
   success: {
     icon: CheckmarkCircleIcon,
     color: '#10b981', // Emerald
-    bgColor: '#111625',
-    borderColor: 'rgba(16, 185, 129, 0.35)',
-    glowColor: 'rgba(16, 185, 129, 0.15)',
+    bgColor: '#081412',
+    borderColor: 'rgba(16, 185, 129, 0.45)',
+    glowColor: 'rgba(16, 185, 129, 0.20)',
+    textColor: '#ffffff',
+    messageColor: '#a7f3d0',
   },
   error: {
     icon: AlertCircleIcon,
     color: '#ff2a5f', // Coral Red
-    bgColor: '#111625',
-    borderColor: 'rgba(255, 42, 95, 0.35)',
-    glowColor: 'rgba(255, 42, 95, 0.15)',
+    bgColor: '#160b12',
+    borderColor: 'rgba(255, 42, 95, 0.45)',
+    glowColor: 'rgba(255, 42, 95, 0.20)',
+    textColor: '#ffffff',
+    messageColor: '#fecdd3',
   },
   info: {
     icon: InfoIcon,
     color: '#00daf3', // Cyan
-    bgColor: '#111625',
-    borderColor: 'rgba(0, 218, 243, 0.35)',
-    glowColor: 'rgba(0, 218, 243, 0.15)',
+    bgColor: '#08131e',
+    borderColor: 'rgba(0, 218, 243, 0.45)',
+    glowColor: 'rgba(0, 218, 243, 0.20)',
+    textColor: '#ffffff',
+    messageColor: '#bae6fd',
   },
   warning: {
     icon: WarningIcon,
     color: '#f59e0b', // Amber
-    bgColor: '#111625',
-    borderColor: 'rgba(245, 158, 11, 0.35)',
-    glowColor: 'rgba(245, 158, 11, 0.15)',
+    bgColor: '#161208',
+    borderColor: 'rgba(245, 158, 11, 0.45)',
+    glowColor: 'rgba(245, 158, 11, 0.20)',
+    textColor: '#ffffff',
+    messageColor: '#fde68a',
   },
 };
 
@@ -57,7 +67,23 @@ const SingleToast = memo(function SingleToast({
   const translateY = useRef(new Animated.Value(-60)).current;
   const opacity = useRef(new Animated.Value(0)).current;
   const scale = useRef(new Animated.Value(0.92)).current;
-  const cfg = VARIANT_CONFIG[item.variant] || VARIANT_CONFIG.info;
+
+  // Dynamic styling based on message and notification context
+  const isBalanceNotification =
+    (item.title && (item.title.toLowerCase().includes('balance') || item.title.includes('ሂሳብ'))) ||
+    (item.message && (item.message.toLowerCase().includes('balance') || item.message.includes('ሂሳብ')));
+
+  const cfg = isBalanceNotification
+    ? {
+        icon: SyncIcon,
+        color: '#00daf3',
+        bgColor: '#071524',
+        borderColor: 'rgba(0, 218, 243, 0.55)',
+        glowColor: 'rgba(0, 218, 243, 0.22)',
+        textColor: '#ffffff',
+        messageColor: '#bae6fd',
+      }
+    : VARIANT_CONFIG[item.variant] || VARIANT_CONFIG.info;
 
   useEffect(() => {
     // Notification chime on toast appearance
@@ -115,10 +141,11 @@ const SingleToast = memo(function SingleToast({
         {
           backgroundColor: cfg.bgColor,
           borderColor: cfg.borderColor,
+          boxShadow: `0 8px 24px ${cfg.glowColor}`,
           transform: [{ translateY }, { scale }],
           opacity,
           marginTop: index > 0 ? 8 : 0,
-        },
+        } as any,
       ]}
     >
       <TouchableOpacity
@@ -126,18 +153,25 @@ const SingleToast = memo(function SingleToast({
         activeOpacity={0.85}
         onPress={() => onDismiss(item.id)}
       >
-        {/* Left circular badge matching Image 5 */}
+        {/* Left circular badge */}
         <View style={[styles.iconWrap, { backgroundColor: cfg.glowColor }]}>
           <cfg.icon size={18} color={cfg.color} />
         </View>
 
         {/* Text Container */}
         <View style={styles.textWrap}>
-          <Text style={styles.toastTitle} numberOfLines={1}>
-            {item.title}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={[styles.toastTitle, { color: cfg.textColor }]} numberOfLines={1}>
+              {item.title}
+            </Text>
+            {isBalanceNotification && (
+              <View style={{ backgroundColor: 'rgba(0, 218, 243, 0.18)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                <Text style={{ color: '#00daf3', fontSize: 9.5, fontWeight: '900', letterSpacing: 0.6 }}>SYNCED</Text>
+              </View>
+            )}
+          </View>
           {!!item.message && (
-            <Text style={styles.toastMessage} numberOfLines={2}>
+            <Text style={[styles.toastMessage, { color: cfg.messageColor }]} numberOfLines={2}>
               {item.message}
             </Text>
           )}
@@ -145,7 +179,7 @@ const SingleToast = memo(function SingleToast({
 
         {/* Dismiss '✕' button */}
         <View style={styles.closeWrap}>
-          <CloseIcon size={14} color="#8b93a7" />
+          <CloseIcon size={14} color="#94a3b8" />
         </View>
       </TouchableOpacity>
     </Animated.View>

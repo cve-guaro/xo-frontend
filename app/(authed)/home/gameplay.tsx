@@ -18,6 +18,8 @@ import NotificationsPopover from "../../../components/NotificationsPopover";
 import SpinWheel from "../../../components/game/SpinWheel";
 import { playTickSound, playNotificationChime } from "../../../lib/pinTickAudio";
 import WelcomeBonusModal from "../../../components/WelcomeBonusModal";
+import { GameCoverCarousel } from "../../../components/gameplay/GameCoverCarousel";
+import { MobileStakeModal } from "../../../components/gameplay/MobileStakeModal";
 import { LinearGradient } from "expo-linear-gradient";
 import Svg, { Circle, Path, G, Text as SvgText, Defs, RadialGradient, Stop, LinearGradient as SvgLinearGradient } from "react-native-svg";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -48,10 +50,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useBackgroundMusic } from "../../../context/BackgroundMusicProvider";
 import { useToast } from "../../../context/ToastContext";
 
-const spinCardBordImg = require("../../../assets/images/spin-card bord.png");
-const spinBgRedImg = require("../../../assets/images/spin-background-red.png");
-const xoBgBlueImg = require("../../../assets/images/xo-background-blue.png");
-const xoCardBordImg = require("../../../assets/images/xo-card bord.png");
+const spinCardBordImg = require("../../../assets/images/spin-card bord.webp");
+const spinBgRedImg = require("../../../assets/images/spin-background-red.webp");
+const xoBgBlueImg = require("../../../assets/images/xo-background-blue.webp");
+const xoCardBordImg = require("../../../assets/images/xo-card bord.webp");
 
 // Player badge palette for live rooms
 const PLAYER_BADGE_COLORS = ["#FF1744", "#00DAF3", "#7C3AED", "#10B981", "#F59E0B"];
@@ -240,7 +242,7 @@ let hasShownPromoThisSession = false;
 export default function Landing() {
   const router = useRouter();
   const { width } = useWindowDimensions();
-  const isDesktop = Platform.OS === "web" && width >= 768;
+  const isDesktop = Platform.OS === "web" && width >= 1024;
 
   // Infinite slow rotation animation for home screen wheels
   const idleSpinAnim = useRef(new Animated.Value(0)).current;
@@ -444,10 +446,40 @@ export default function Landing() {
   const [hasClaimedWelcomeBonus, setHasClaimedWelcomeBonus] = useState(false);
   const mobileCarouselRef = useRef<ScrollView>(null);
   const scrollSyncTimeout = useRef<any>(null);
+  const dragStartIdxRef = useRef<number>(activeGameMode === "xo" ? 1 : 0);
+  const dragStartXRef = useRef<number>(0);
 
   useEffect(() => {
-    if (selectedTab !== "COMING_SOON") setSelectedTab(activeGameMode === "xo" ? "XO_GAME" : "SPIN");
+    if (selectedTab !== "COMING_SOON") {
+      const newTab = activeGameMode === "xo" ? "XO_GAME" : "SPIN";
+      if (newTab !== selectedTab) {
+        setSelectedTab(newTab);
+        const cardWidth = Math.min(width * 0.84, 330);
+        const cardInterval = cardWidth + 14;
+        const targetX = newTab === "SPIN" ? 0 : cardInterval;
+        mobileCarouselRef.current?.scrollTo({
+          x: targetX,
+          animated: true,
+        });
+      }
+    }
   }, [activeGameMode]);
+
+  // Initial mount alignment to selectedTab
+  useEffect(() => {
+    const cardWidth = Math.min(width * 0.84, 330);
+    const cardInterval = cardWidth + 14;
+    const initialIdx = selectedTab === "SPIN" ? 0 : selectedTab === "XO_GAME" ? 1 : 2;
+    if (initialIdx > 0) {
+      const t = setTimeout(() => {
+        mobileCarouselRef.current?.scrollTo({
+          x: initialIdx * cardInterval,
+          animated: false,
+        });
+      }, 70);
+      return () => clearTimeout(t);
+    }
+  }, []);
   const [spinMode, setSpinMode] = useState<"5_PLAYER" | "RAIL">("5_PLAYER");
   const [showMobileStakeModal, setShowMobileStakeModal] = useState(false);
   const [mobileStakeInput, setMobileStakeInput] = useState("50");
@@ -1214,7 +1246,7 @@ export default function Landing() {
         <ScrollView
           showsVerticalScrollIndicator={false}
           style={{ flex: 1, width: "100%" }}
-          contentContainerStyle={[styles.scroll, { flexGrow: 1, paddingBottom: 72 }]}
+          contentContainerStyle={[styles.scroll, { flexGrow: 1, paddingBottom: 110 }]}
           keyboardShouldPersistTaps="handled"
         >
 
@@ -1239,876 +1271,47 @@ export default function Landing() {
 
           {/* 2. Mode Switcher Tabs (SPIN vs XO vs COMING SOON) */}
           {(() => {
-            const cardWidth = Math.min(width * 0.84, 330);
-            const cardGap = 14;
-            const cardInterval = cardWidth + cardGap;
-            const sideSpacer = Math.max(16, (width - cardWidth) / 2);
-
             const isBonusClaimed = Boolean(
               hasClaimedWelcomeBonus ||
               ((user as any)?.claimed_giveaway_version && Number((user as any).claimed_giveaway_version) > 0) ||
               (Platform.OS === 'web' && typeof window !== 'undefined' && window.sessionStorage?.getItem('xoet_bonus_claimed') === 'true')
             );
 
-            // Interpolations for 3 cards
-            const spinCardScale = scrollX.interpolate({
-              inputRange: [-cardInterval, 0, cardInterval],
-              outputRange: [0.88, 1.0, 0.88],
-              extrapolate: 'clamp',
-            });
-            const spinCardOpacity = scrollX.interpolate({
-              inputRange: [-cardInterval, 0, cardInterval],
-              outputRange: [0.65, 1.0, 0.65],
-              extrapolate: 'clamp',
-            });
-
-            const xoCardScale = scrollX.interpolate({
-              inputRange: [0, cardInterval, cardInterval * 2],
-              outputRange: [0.88, 1.0, 0.88],
-              extrapolate: 'clamp',
-            });
-            const xoCardOpacity = scrollX.interpolate({
-              inputRange: [0, cardInterval, cardInterval * 2],
-              outputRange: [0.65, 1.0, 0.65],
-              extrapolate: 'clamp',
-            });
-
-            const soonCardScale = scrollX.interpolate({
-              inputRange: [cardInterval, cardInterval * 2, cardInterval * 3],
-              outputRange: [0.88, 1.0, 0.88],
-              extrapolate: 'clamp',
-            });
-            const soonCardOpacity = scrollX.interpolate({
-              inputRange: [cardInterval, cardInterval * 2, cardInterval * 3],
-              outputRange: [0.65, 1.0, 0.65],
-              extrapolate: 'clamp',
-            });
-
-            // 3-dot Pill Pagination
-            const dot0Width = scrollX.interpolate({
-              inputRange: [0, cardInterval],
-              outputRange: [24, 8],
-              extrapolate: 'clamp',
-            });
-            const dot0Opacity = scrollX.interpolate({
-              inputRange: [0, cardInterval],
-              outputRange: [1, 0.35],
-              extrapolate: 'clamp',
-            });
-
-            const dot1Width = scrollX.interpolate({
-              inputRange: [0, cardInterval, cardInterval * 2],
-              outputRange: [8, 24, 8],
-              extrapolate: 'clamp',
-            });
-            const dot1Opacity = scrollX.interpolate({
-              inputRange: [0, cardInterval, cardInterval * 2],
-              outputRange: [0.35, 1, 0.35],
-              extrapolate: 'clamp',
-            });
-
-            const dot2Width = scrollX.interpolate({
-              inputRange: [cardInterval, cardInterval * 2],
-              outputRange: [8, 24],
-              extrapolate: 'clamp',
-            });
-            const dot2Opacity = scrollX.interpolate({
-              inputRange: [cardInterval, cardInterval * 2],
-              outputRange: [0.35, 1],
-              extrapolate: 'clamp',
-            });
-
-            const handleTabPress = (tab: "SPIN" | "XO_GAME" | "COMING_SOON") => {
-              try { playTickSound(); } catch {}
-              haptics.tap();
-              setSelectedTab(tab);
-              if (tab === "SPIN") {
-                setActiveGameMode("spin");
-              } else {
-                setActiveGameMode("xo");
-              }
-              router.setParams({ tab });
-              const targetX = tab === "SPIN" ? 0 : tab === "XO_GAME" ? cardInterval : cardInterval * 2;
-              mobileCarouselRef.current?.scrollTo({
-                x: targetX,
-                animated: true,
-              });
-            };
-
             // Top 3 champions for the weekly showcase
             const champions = [
               {
                 rank: 1,
                 username: weeklyLeaderboard[0]?.username || "Dawit_K",
-                avatar: weeklyLeaderboard[0]?.avatar,
-                prize: weeklyPrizes[0]?.amount || 500,
-                color: "#f5b642",
-                badge: "👑 1st",
-                bg: "rgba(245, 182, 66, 0.12)",
-                border: "rgba(245, 182, 66, 0.45)",
+                prize: 5000,
               },
               {
                 rank: 2,
-                username: weeklyLeaderboard[1]?.username || "Abebe_M",
-                avatar: weeklyLeaderboard[1]?.avatar,
-                prize: weeklyPrizes[1]?.amount || 300,
-                color: "#cbd5e1",
-                badge: "🥈 2nd",
-                bg: "rgba(203, 213, 225, 0.1)",
-                border: "rgba(203, 213, 225, 0.35)",
+                username: weeklyLeaderboard[1]?.username || "Sara_M",
+                prize: 3000,
               },
               {
                 rank: 3,
-                username: weeklyLeaderboard[2]?.username || "Helen_T",
-                avatar: weeklyLeaderboard[2]?.avatar,
-                prize: weeklyPrizes[2]?.amount || 200,
-                color: "#fb923c",
-                badge: "🥉 3rd",
-                bg: "rgba(251, 146, 60, 0.1)",
-                border: "rgba(251, 146, 60, 0.35)",
+                username: weeklyLeaderboard[2]?.username || "Abebe_B",
+                prize: 1500,
               },
             ];
 
             return (
-              <View style={{ width: "100%" }}>
-                {/* 3 Top Mode Tabs */}
-                <View style={{
-                  flexDirection: "row",
-                  backgroundColor: "rgba(15, 20, 35, 0.75)",
-                  borderRadius: 16,
-                  padding: 4,
-                  borderWidth: 1,
-                  borderColor: "rgba(255, 255, 255, 0.08)",
-                  marginTop: 10,
-                  marginBottom: 16,
-                  gap: 4,
-                }}>
-                  {/* SPIN TAB */}
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    onPress={() => handleTabPress("SPIN")}
-                    style={{
-                      flex: 1,
-                      flexDirection: "row",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 6,
-                      paddingVertical: 10,
-                      borderRadius: 12,
-                      backgroundColor: selectedTab === "SPIN" ? "rgba(255, 42, 95, 0.22)" : "transparent",
-                      borderWidth: selectedTab === "SPIN" ? 1 : 0,
-                      borderColor: selectedTab === "SPIN" ? "#ff2a5f" : "transparent",
-                    }}
-                  >
-                    <Ionicons name="aperture-outline" size={15} color={selectedTab === "SPIN" ? "#ff2a5f" : "#94a3b8"} />
-                    <Text style={{
-                      fontSize: 12.5,
-                      fontWeight: "800",
-                      letterSpacing: 0.6,
-                      color: selectedTab === "SPIN" ? "#ffffff" : "#94a3b8",
-                    }}>
-                      SPIN
-                    </Text>
-                  </TouchableOpacity>
-
-                  {/* XO TAB */}
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    onPress={() => handleTabPress("XO_GAME")}
-                    style={{
-                      flex: 1,
-                      flexDirection: "row",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 6,
-                      paddingVertical: 10,
-                      borderRadius: 12,
-                      backgroundColor: selectedTab === "XO_GAME" ? "rgba(0, 218, 243, 0.22)" : "transparent",
-                      borderWidth: selectedTab === "XO_GAME" ? 1 : 0,
-                      borderColor: selectedTab === "XO_GAME" ? "#00daf3" : "transparent",
-                    }}
-                  >
-                    <Ionicons name="grid-outline" size={15} color={selectedTab === "XO_GAME" ? "#00daf3" : "#94a3b8"} />
-                    <Text style={{
-                      fontSize: 12.5,
-                      fontWeight: "800",
-                      letterSpacing: 0.6,
-                      color: selectedTab === "XO_GAME" ? "#ffffff" : "#94a3b8",
-                    }}>
-                      XO
-                    </Text>
-                  </TouchableOpacity>
-
-                  {/* COMING SOON TAB */}
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    onPress={() => handleTabPress("COMING_SOON")}
-                    style={{
-                      flex: 1.25,
-                      flexDirection: "row",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 5,
-                      paddingVertical: 10,
-                      borderRadius: 12,
-                      backgroundColor: selectedTab === "COMING_SOON" ? "rgba(148, 163, 184, 0.2)" : "transparent",
-                      borderWidth: selectedTab === "COMING_SOON" ? 1 : 0,
-                      borderColor: selectedTab === "COMING_SOON" ? "#94a3b8" : "transparent",
-                    }}
-                  >
-                    <Ionicons name="help-circle-outline" size={15} color={selectedTab === "COMING_SOON" ? "#cbd5e1" : "#94a3b8"} />
-                    <Text style={{
-                      fontSize: 11.5,
-                      fontWeight: "800",
-                      letterSpacing: 0.5,
-                      color: selectedTab === "COMING_SOON" ? "#ffffff" : "#94a3b8",
-                    }}>
-                      ? SOON
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* 3. Motion Carousel with Edge-to-Edge Container for Symmetrical Centering */}
-                <View style={{ width: width, marginHorizontal: -14, overflow: "visible" }}>
-                  {/* @ts-ignore */}
-                  <Animated.ScrollView
-                    ref={mobileCarouselRef as any}
-                    horizontal
-                    pagingEnabled={false}
-                    snapToInterval={cardInterval}
-                    snapToAlignment="start"
-                    decelerationRate="fast"
-                    showsHorizontalScrollIndicator={false}
-                    scrollEventThrottle={16}
-                    disableIntervalMomentum={true}
-                    onScroll={Animated.event(
-                      [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-                      {
-                        useNativeDriver: false,
-                        listener: (e: any) => {
-                          const offsetX = e?.nativeEvent?.contentOffset?.x ?? 0;
-                          const targetIdx = Math.max(0, Math.min(2, Math.round(offsetX / cardInterval)));
-                          const newTab = targetIdx === 0 ? "SPIN" : targetIdx === 1 ? "XO_GAME" : "COMING_SOON";
-                          if (scrollSyncTimeout.current) clearTimeout(scrollSyncTimeout.current);
-                          scrollSyncTimeout.current = setTimeout(() => {
-                            if (newTab !== selectedTab) {
-                              try { playTickSound(); } catch {}
-                              haptics.impact();
-                              setSelectedTab(newTab);
-                              setActiveGameMode(targetIdx === 0 ? "spin" : "xo");
-                            }
-                          }, 45);
-                        }
-                      }
-                    )}
-                    contentContainerStyle={{
-                      paddingHorizontal: sideSpacer,
-                      gap: cardGap,
-                      paddingVertical: 6,
-                      alignItems: "center",
-                    }}
-                    onScrollEndDrag={(e) => {
-                      const offsetX = e.nativeEvent.contentOffset.x;
-                      const targetIdx = Math.max(0, Math.min(2, Math.round(offsetX / cardInterval)));
-                      const newTab = targetIdx === 0 ? "SPIN" : targetIdx === 1 ? "XO_GAME" : "COMING_SOON";
-                      if (newTab !== selectedTab) {
-                        try { playTickSound(); } catch {}
-                        haptics.impact();
-                        setSelectedTab(newTab);
-                        setActiveGameMode(targetIdx === 0 ? "spin" : "xo");
-                        router.setParams({ tab: newTab });
-                      }
-                    }}
-                    onMomentumScrollEnd={(e) => {
-                      const offsetX = e.nativeEvent.contentOffset.x;
-                      const targetIdx = Math.max(0, Math.min(2, Math.round(offsetX / cardInterval)));
-                      const newTab = targetIdx === 0 ? "SPIN" : targetIdx === 1 ? "XO_GAME" : "COMING_SOON";
-                      if (newTab !== selectedTab) {
-                        try { playTickSound(); } catch {}
-                        haptics.impact();
-                        setSelectedTab(newTab);
-                        setActiveGameMode(targetIdx === 0 ? "spin" : "xo");
-                        router.setParams({ tab: newTab });
-                      }
-                    }}>
-                    {/* ── CARD 0: SPIN CARD (Red Neon Theme) ── */}
-                    <Animated.View style={{ width: cardWidth, alignItems: "center", transform: [{ scale: spinCardScale }], opacity: spinCardOpacity }}>
-                      <View
-                        style={{
-                          width: "100%",
-                          backgroundColor: "#110714",
-                          borderRadius: 26,
-                          borderWidth: 1.5,
-                          borderColor: "rgba(255, 42, 95, 0.65)",
-                          padding: 16,
-                          paddingTop: 14,
-                          position: "relative",
-                          overflow: "hidden",
-                        }}
-                      >
-                        {/* Background Artwork Image */}
-                        <Image
-                          source={spinBgRedImg}
-                          style={[StyleSheet.absoluteFillObject, { width: "100%", height: "100%", opacity: 0.95 }]}
-                          resizeMode="cover"
-                        />
-
-                        {/* Top Badge Row */}
-                        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", width: "100%", marginBottom: 8 }}>
-                          <View style={{
-                            flexDirection: "row",
-                            alignItems: "center",
-                            gap: 6,
-                            backgroundColor: "rgba(255, 42, 95, 0.18)",
-                            borderWidth: 1,
-                            borderColor: "rgba(255, 42, 95, 0.5)",
-                            borderRadius: 14,
-                            paddingHorizontal: 10,
-                            paddingVertical: 5,
-                          }}>
-                            <Ionicons name="aperture" size={13} color="#ff2a5f" />
-                            <Text style={{ color: "#ffffff", fontSize: 11, fontWeight: "900", letterSpacing: 0.8 }}>
-                              SPIN
-                            </Text>
-                          </View>
-
-                          <View style={{
-                            flexDirection: "row",
-                            alignItems: "center",
-                            gap: 5,
-                            backgroundColor: "rgba(255, 42, 95, 0.18)",
-                            borderWidth: 1,
-                            borderColor: "rgba(255, 42, 95, 0.5)",
-                            borderRadius: 14,
-                            paddingHorizontal: 10,
-                            paddingVertical: 5,
-                          }}>
-                            <Ionicons name="flame" size={13} color="#ff2a5f" />
-                            <Text style={{ color: "#ff2a5f", fontSize: 10.5, fontWeight: "900", letterSpacing: 0.8 }}>
-                              POPULAR
-                            </Text>
-                          </View>
-                        </View>
-
-                        {/* Artwork Image: spin-card bord.png */}
-                        <View style={{ width: "100%", height: 245, alignItems: "center", justifyContent: "center", marginVertical: 4 }}>
-                          <Image
-                            source={spinCardBordImg}
-                            style={{ width: "100%", height: "100%" }}
-                            resizeMode="contain"
-                          />
-                        </View>
-
-                        {/* Headline & Subtitle */}
-                        <View style={{ alignItems: "center", marginTop: 4, marginBottom: 14 }}>
-                          <Text style={{ color: "#ffffff", fontSize: 32, fontWeight: "900", fontFamily: "Inter, sans-serif", letterSpacing: 0.5 }}>
-                            SPIN <Text style={{ color: "#ff2a5f" }}>&</Text> WIN
-                          </Text>
-                          <Text style={{ color: "rgba(255, 255, 255, 0.72)", fontSize: 12.5, fontWeight: "600", marginTop: 4 }}>
-                            {isEN ? "Big prizes are waiting for you!" : "ትላልቅ ሽልማቶች ይጠብቁዎታል!"}
-                          </Text>
-                        </View>
-
-                        {/* Inner Card Button: [ ▶ REAL SPIN ] */}
-                        <TouchableOpacity
-                          activeOpacity={0.85}
-                          onPress={() => {
-                            haptics.impact();
-                            setSpinBetModalVisible(true);
-                          }}
-                          style={{
-                            width: "100%",
-                            height: 50,
-                            borderRadius: 16,
-                            overflow: "hidden",
-                            shadowColor: "#ff2a5f",
-                            shadowOffset: { width: 0, height: 4 },
-                            shadowOpacity: 0.6,
-                            shadowRadius: 14,
-                            elevation: 8,
-                          }}
-                        >
-                          <LinearGradient
-                            colors={["#ff2a5f", "#d90429"]}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
-                            style={{
-                              flex: 1,
-                              flexDirection: "row",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              gap: 8,
-                            }}
-                          >
-                            <Ionicons name="play" size={18} color="#ffffff" />
-                            <Text style={{ color: "#ffffff", fontSize: 15, fontWeight: "900", letterSpacing: 0.8, fontFamily: "Inter, sans-serif" }}>
-                              REAL SPIN
-                            </Text>
-                          </LinearGradient>
-                        </TouchableOpacity>
-                      </View>
-
-                      {/* Status: 5 PLAYERS • REAL TIME */}
-                      <View style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        width: "100%",
-                        paddingHorizontal: 12,
-                        marginTop: 14,
-                        marginBottom: 10,
-                      }}>
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                          <Ionicons name="people" size={13} color="#ff2a5f" />
-                          <Text style={{ color: "#ff2a5f", fontSize: 11, fontWeight: "800", letterSpacing: 0.8 }}>
-                            5 PLAYERS
-                          </Text>
-                        </View>
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-                          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: "#10b981" }} />
-                          <Text style={{ color: "#94a3b8", fontSize: 11, fontWeight: "800", letterSpacing: 0.8 }}>
-                            REAL TIME
-                          </Text>
-                        </View>
-                      </View>
-
-                      {/* Outer Button: [ 4 Users + 1 Empty Slot | 5 Players Room > ] */}
-                      <TouchableOpacity
-                        activeOpacity={0.8}
-                        onPress={() => {
-                          haptics.impact();
-                          router.push({
-                            pathname: "/(authed)/home/spin",
-                            params: { mode: "5_PLAYER" },
-                          } as any);
-                        }}
-                        style={{
-                          width: "100%",
-                          flexDirection: "row",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          backgroundColor: "rgba(22, 16, 32, 0.85)",
-                          borderRadius: 20,
-                          borderWidth: 1.2,
-                          borderColor: "rgba(255, 42, 95, 0.35)",
-                          paddingVertical: 10,
-                          paddingHorizontal: 14,
-                        }}
-                      >
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: -6 }}>
-                          {["#FF1744", "#00DAF3", "#7C3AED", "#10B981"].map((c, i) => (
-                            <View key={i} style={{ width: 26, height: 26, borderRadius: 13, borderWidth: 1.5, borderColor: "#ff2a5f", backgroundColor: c, alignItems: "center", justifyContent: "center" }}>
-                              <Text style={{ color: "#ffffff", fontSize: 10, fontWeight: "900" }}>P{i+1}</Text>
-                            </View>
-                          ))}
-                          <View style={{ width: 26, height: 26, borderRadius: 13, borderWidth: 1.5, borderColor: "rgba(255, 42, 95, 0.6)", backgroundColor: "rgba(255, 42, 95, 0.2)", alignItems: "center", justifyContent: "center", borderStyle: "dashed" }}>
-                            <Ionicons name="add" size={13} color="#ff2a5f" />
-                          </View>
-                        </View>
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                          <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "800", letterSpacing: 0.4 }}>
-                            {isEN ? "5 Players Room" : "የ 5 ተጫዋች ክፍል"}
-                          </Text>
-                          <Ionicons name="chevron-forward" size={14} color="#ff2a5f" />
-                        </View>
-                      </TouchableOpacity>
-                    </Animated.View>
-
-                    {/* ── CARD 1: XO CARD (Cyan Neon Theme) ── */}
-                    <Animated.View style={{ width: cardWidth, alignItems: "center", transform: [{ scale: xoCardScale }], opacity: xoCardOpacity }}>
-                      <View
-                        style={{
-                          width: "100%",
-                          backgroundColor: "#07121c",
-                          borderRadius: 26,
-                          borderWidth: 1.5,
-                          borderColor: "rgba(0, 218, 243, 0.65)",
-                          padding: 16,
-                          paddingTop: 14,
-                          position: "relative",
-                          overflow: "hidden",
-                        }}
-                      >
-                        {/* Background Artwork Image */}
-                        <Image
-                          source={xoBgBlueImg}
-                          style={[StyleSheet.absoluteFillObject, { width: "100%", height: "100%", opacity: 0.95 }]}
-                          resizeMode="cover"
-                        />
-
-                        {/* Top Badge Row */}
-                        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", width: "100%", marginBottom: 8 }}>
-                          <View style={{
-                            flexDirection: "row",
-                            alignItems: "center",
-                            gap: 6,
-                            backgroundColor: "rgba(0, 218, 243, 0.18)",
-                            borderWidth: 1,
-                            borderColor: "rgba(0, 218, 243, 0.5)",
-                            borderRadius: 14,
-                            paddingHorizontal: 10,
-                            paddingVertical: 5,
-                          }}>
-                            <Ionicons name="grid" size={13} color="#00daf3" />
-                            <Text style={{ color: "#ffffff", fontSize: 11, fontWeight: "900", letterSpacing: 0.8 }}>
-                              XO
-                            </Text>
-                          </View>
-
-                          <View style={{
-                            flexDirection: "row",
-                            alignItems: "center",
-                            gap: 5,
-                            backgroundColor: "rgba(0, 218, 243, 0.18)",
-                            borderWidth: 1,
-                            borderColor: "rgba(0, 218, 243, 0.5)",
-                            borderRadius: 14,
-                            paddingHorizontal: 10,
-                            paddingVertical: 5,
-                          }}>
-                            <Ionicons name="star" size={13} color="#00daf3" />
-                            <Text style={{ color: "#00daf3", fontSize: 10.5, fontWeight: "900", letterSpacing: 0.8 }}>
-                              CLASSIC
-                            </Text>
-                          </View>
-                        </View>
-
-                        {/* Artwork Image: xo-card bord.png */}
-                        <View style={{ width: "100%", height: 245, alignItems: "center", justifyContent: "center", marginVertical: 4 }}>
-                          <Image
-                            source={xoCardBordImg}
-                            style={{ width: "100%", height: "100%" }}
-                            resizeMode="contain"
-                          />
-                        </View>
-
-                        {/* Headline & Subtitle */}
-                        <View style={{ alignItems: "center", marginTop: 4, marginBottom: 14 }}>
-                          <Text style={{ color: "#ffffff", fontSize: 32, fontWeight: "900", fontFamily: "Inter, sans-serif", letterSpacing: 0.5 }}>
-                            XO BATTLE
-                          </Text>
-                          <Text style={{ color: "rgba(255, 255, 255, 0.72)", fontSize: 12.5, fontWeight: "600", marginTop: 4 }}>
-                            {isEN ? "Think. Move. Win." : "አስብ። ተንቀሳቀስ። አሸንፍ።"}
-                          </Text>
-                        </View>
-
-                        {/* Inner Card Button: [ ▶ PLAY NOW ] */}
-                        <TouchableOpacity
-                          activeOpacity={0.85}
-                          onPress={() => {
-                            haptics.impact();
-                            openRoomSheet();
-                          }}
-                          style={{
-                            width: "100%",
-                            height: 50,
-                            borderRadius: 16,
-                            overflow: "hidden",
-                            shadowColor: "#00daf3",
-                            shadowOffset: { width: 0, height: 4 },
-                            shadowOpacity: 0.6,
-                            shadowRadius: 14,
-                            elevation: 8,
-                          }}
-                        >
-                          <LinearGradient
-                            colors={["#00daf3", "#0284c7"]}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
-                            style={{
-                              flex: 1,
-                              flexDirection: "row",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              gap: 8,
-                            }}
-                          >
-                            <Ionicons name="play" size={18} color="#ffffff" />
-                            <Text style={{ color: "#ffffff", fontSize: 15, fontWeight: "900", letterSpacing: 0.8, fontFamily: "Inter, sans-serif" }}>
-                              PLAY NOW
-                            </Text>
-                          </LinearGradient>
-                        </TouchableOpacity>
-                      </View>
-
-                      {/* Status: 2 PLAYERS • REAL TIME */}
-                      <View style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        width: "100%",
-                        paddingHorizontal: 12,
-                        marginTop: 14,
-                        marginBottom: 10,
-                      }}>
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                          <Ionicons name="people" size={13} color="#00daf3" />
-                          <Text style={{ color: "#00daf3", fontSize: 11, fontWeight: "800", letterSpacing: 0.8 }}>
-                            2 PLAYERS
-                          </Text>
-                        </View>
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-                          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: "#10b981" }} />
-                          <Text style={{ color: "#94a3b8", fontSize: 11, fontWeight: "800", letterSpacing: 0.8 }}>
-                            REAL TIME
-                          </Text>
-                        </View>
-                      </View>
-
-                      {/* Outer Button: [ 👥 PLAY WITH FRIEND > ] */}
-                      <TouchableOpacity
-                        activeOpacity={0.8}
-                        onPress={() => {
-                          haptics.impact();
-                          openRoomSheet("FRIENDS");
-                        }}
-                        style={{
-                          width: "100%",
-                          flexDirection: "row",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          backgroundColor: "rgba(18, 24, 44, 0.7)",
-                          borderRadius: 20,
-                          borderWidth: 1.2,
-                          borderColor: "rgba(0, 218, 243, 0.25)",
-                          paddingVertical: 12,
-                          paddingHorizontal: 16,
-                        }}
-                      >
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                          <Ionicons name="people-outline" size={17} color="#00daf3" />
-                          <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "800", letterSpacing: 0.4 }}>
-                            {isEN ? "PLAY WITH FRIEND" : "ከጓደኛ ጋር ይጫወቱ"}
-                          </Text>
-                        </View>
-                        <Ionicons name="chevron-forward" size={15} color="#94a3b8" />
-                      </TouchableOpacity>
-                    </Animated.View>
-
-                    {/* ── CARD 2: COMING SOON CARD (Slate Cyber Theme) ── */}
-                    <Animated.View style={{ width: cardWidth, alignItems: "center", transform: [{ scale: soonCardScale }], opacity: soonCardOpacity }}>
-                      <View
-                        style={{
-                          width: "100%",
-                          backgroundColor: "#0d111c",
-                          borderRadius: 26,
-                          borderWidth: 1.5,
-                          borderColor: "rgba(100, 116, 139, 0.5)",
-                          padding: 16,
-                          paddingTop: 14,
-                          position: "relative",
-                          overflow: "hidden",
-                        }}
-                      >
-                        {/* Top Badge Row */}
-                        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", width: "100%", marginBottom: 8 }}>
-                          <View style={{
-                            flexDirection: "row",
-                            alignItems: "center",
-                            gap: 6,
-                            backgroundColor: "rgba(148, 163, 184, 0.18)",
-                            borderWidth: 1,
-                            borderColor: "rgba(148, 163, 184, 0.4)",
-                            borderRadius: 14,
-                            paddingHorizontal: 10,
-                            paddingVertical: 5,
-                          }}>
-                            <Ionicons name="help-circle" size={13} color="#94a3b8" />
-                            <Text style={{ color: "#ffffff", fontSize: 11, fontWeight: "900", letterSpacing: 0.8 }}>
-                              NEW ARENA
-                            </Text>
-                          </View>
-
-                          <View style={{
-                            flexDirection: "row",
-                            alignItems: "center",
-                            gap: 5,
-                            backgroundColor: "rgba(245, 158, 11, 0.15)",
-                            borderWidth: 1,
-                            borderColor: "rgba(245, 158, 11, 0.4)",
-                            borderRadius: 14,
-                            paddingHorizontal: 10,
-                            paddingVertical: 5,
-                          }}>
-                            <Ionicons name="flask" size={13} color="#f59e0b" />
-                            <Text style={{ color: "#f59e0b", fontSize: 10.5, fontWeight: "900", letterSpacing: 0.8 }}>
-                              IN LAB
-                            </Text>
-                          </View>
-                        </View>
-
-                        {/* Mystery Portal Graphic */}
-                        <View style={{ width: "100%", height: 245, alignItems: "center", justifyContent: "center", marginVertical: 4 }}>
-                          <View style={{
-                            width: 140,
-                            height: 140,
-                            borderRadius: 70,
-                            backgroundColor: "rgba(30, 41, 59, 0.6)",
-                            borderWidth: 2,
-                            borderColor: "rgba(148, 163, 184, 0.35)",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            position: "relative",
-                          }}>
-                            <View style={{
-                              position: "absolute",
-                              width: 164,
-                              height: 164,
-                              borderRadius: 82,
-                              borderWidth: 1,
-                              borderColor: "rgba(148, 163, 184, 0.15)",
-                              borderStyle: "dashed",
-                            }} />
-                            <Ionicons name="sparkles" size={56} color="#94a3b8" />
-                            <View style={{
-                              position: "absolute",
-                              bottom: -8,
-                              backgroundColor: "#1e293b",
-                              paddingHorizontal: 12,
-                              paddingVertical: 3,
-                              borderRadius: 10,
-                              borderWidth: 1,
-                              borderColor: "#475569",
-                            }}>
-                              <Text style={{ color: "#cbd5e1", fontSize: 9.5, fontWeight: "900", letterSpacing: 1 }}>
-                                UPCOMING
-                              </Text>
-                            </View>
-                          </View>
-                        </View>
-
-                        {/* Headline & Subtitle */}
-                        <View style={{ alignItems: "center", marginTop: 4, marginBottom: 14 }}>
-                          <Text style={{ color: "#ffffff", fontSize: 32, fontWeight: "900", fontFamily: "Inter, sans-serif", letterSpacing: 0.5 }}>
-                            NEW ARENA
-                          </Text>
-                          <Text style={{ color: "rgba(255, 255, 255, 0.72)", fontSize: 12.5, fontWeight: "600", marginTop: 4 }}>
-                            {isEN ? "Next multiplayer mode in development" : "አዲስ የጨዋታ አይነት በቅርቡ ይለቀቃል"}
-                          </Text>
-                        </View>
-
-                        {/* Inner Card Button: [ 🔒 COMING SOON ] */}
-                        <View
-                          style={{
-                            width: "100%",
-                            height: 50,
-                            borderRadius: 16,
-                            overflow: "hidden",
-                            backgroundColor: "rgba(30, 41, 59, 0.8)",
-                            borderWidth: 1,
-                            borderColor: "rgba(148, 163, 184, 0.3)",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            flexDirection: "row",
-                            gap: 8,
-                          }}
-                        >
-                          <Ionicons name="lock-closed" size={17} color="#94a3b8" />
-                          <Text style={{ color: "#94a3b8", fontSize: 14, fontWeight: "900", letterSpacing: 0.8, fontFamily: "Inter, sans-serif" }}>
-                            COMING SOON
-                          </Text>
-                        </View>
-                      </View>
-
-                      {/* Status: 4 PLAYERS • NEXT EXPANSION */}
-                      <View style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        width: "100%",
-                        paddingHorizontal: 12,
-                        marginTop: 14,
-                        marginBottom: 10,
-                      }}>
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                          <Ionicons name="people" size={13} color="#94a3b8" />
-                          <Text style={{ color: "#94a3b8", fontSize: 11, fontWeight: "800", letterSpacing: 0.8 }}>
-                            4 PLAYERS
-                          </Text>
-                        </View>
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-                          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: "#f59e0b" }} />
-                          <Text style={{ color: "#94a3b8", fontSize: 11, fontWeight: "800", letterSpacing: 0.8 }}>
-                            NEXT EXPANSION
-                          </Text>
-                        </View>
-                      </View>
-
-                      {/* Outer Button: [ ⏳ Stay Tuned for Release ] */}
-                      <View
-                        style={{
-                          width: "100%",
-                          flexDirection: "row",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          backgroundColor: "rgba(18, 24, 44, 0.5)",
-                          borderRadius: 20,
-                          borderWidth: 1.2,
-                          borderColor: "rgba(148, 163, 184, 0.25)",
-                          paddingVertical: 12,
-                          paddingHorizontal: 16,
-                        }}
-                      >
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                          <Ionicons name="time-outline" size={17} color="#94a3b8" />
-                          <Text style={{ color: "#94a3b8", fontSize: 13, fontWeight: "800", letterSpacing: 0.4 }}>
-                            {isEN ? "Stay Tuned for Release" : "በቅርብ ይጠብቁን"}
-                          </Text>
-                        </View>
-                        <Ionicons name="lock-closed" size={14} color="#64748b" />
-                      </View>
-                    </Animated.View>
-                  </Animated.ScrollView>
-                </View>
-
-                {/* Motion Carousel 3 Pill-Style Pagination Dots */}
-                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 14, marginBottom: 12 }}>
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    onPress={() => handleTabPress("SPIN")}
-                    style={{ padding: 4 }}
-                  >
-                    <Animated.View
-                      style={{
-                        height: 7,
-                        borderRadius: 4,
-                        width: dot0Width,
-                        backgroundColor: "#ff2a5f",
-                        opacity: dot0Opacity,
-                      }}
-                    />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    onPress={() => handleTabPress("XO_GAME")}
-                    style={{ padding: 4 }}
-                  >
-                    <Animated.View
-                      style={{
-                        height: 7,
-                        borderRadius: 4,
-                        width: dot1Width,
-                        backgroundColor: "#00daf3",
-                        opacity: dot1Opacity,
-                      }}
-                    />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    onPress={() => handleTabPress("COMING_SOON")}
-                    style={{ padding: 4 }}
-                  >
-                    <Animated.View
-                      style={{
-                        height: 7,
-                        borderRadius: 4,
-                        width: dot2Width,
-                        backgroundColor: "#94a3b8",
-                        opacity: dot2Opacity,
-                      }}
-                    />
-                  </TouchableOpacity>
-                </View>
+              <View style={{ width: "100%", alignItems: "center" }}>
+                <GameCoverCarousel
+                  width={width}
+                  scrollX={scrollX}
+                  mobileCarouselRef={mobileCarouselRef}
+                  isEN={isEN}
+                  selectedTab={selectedTab}
+                  playTickSound={playTickSound}
+                  haptics={haptics}
+                  setSelectedTab={setSelectedTab}
+                  setActiveGameMode={setActiveGameMode}
+                  router={router}
+                  setSpinBetModalVisible={setSpinBetModalVisible}
+                  openRoomSheet={openRoomSheet}
+                />
 
                 {/* Welcome Bonus Mini Card (10 ETB Giveaway) with Claimed/Unclaimed State */}
                 <TouchableOpacity
@@ -2344,117 +1547,16 @@ export default function Landing() {
         <RulesModal visible={rulesVisible} onClose={() => setRulesVisible(false)} language={language} />
 
         {/* Mobile Rail Spin Stake Selector Modal */}
-        <Modal visible={showMobileStakeModal} transparent animationType="slide">
-          <View style={{
-            flex: 1,
-            justifyContent: "flex-end",
-            backgroundColor: "rgba(6, 9, 22, 0.75)"
-          }}>
-            <View style={{
-              backgroundColor: "#0d0e1a",
-              borderTopLeftRadius: 24,
-              borderTopRightRadius: 24,
-              borderWidth: 1,
-              borderColor: "#1e2340",
-              padding: 24,
-              paddingBottom: Platform.OS === "ios" ? 40 : 24,
-            }}>
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
-                <Text style={{ color: "#fff", fontSize: 18, fontWeight: "900", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" }}>
-                  {isEN ? "CHOOSE YOUR WAGER" : "የእንጨት መጠን ይምረጡ"}
-                </Text>
-                <TouchableOpacity onPress={() => setShowMobileStakeModal(false)}>
-                  <Ionicons name="close" size={24} color="#8b93a7" />
-                </TouchableOpacity>
-              </View>
-
-              {spinError && (
-                <Text style={{ color: "#ef4444", fontSize: 13, fontWeight: "700", textAlign: "center", marginBottom: 12 }}>
-                  {spinError}
-                </Text>
-              )}
-
-              {/* Current Balance */}
-              <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 16 }}>
-                <Text style={{ color: "#8b93a7", fontSize: 12, fontWeight: "700", fontFamily: "Inter, sans-serif" }}>
-                  {isEN ? "AVAILABLE BALANCE:" : "ያለዎት ቀሪ ሂሳብ:"}
-                </Text>
-                <Text style={{ color: "#22d3ee", fontSize: 13, fontWeight: "900", fontFamily: "Inter, sans-serif" }}>
-                  ETB {balance.toLocaleString()}
-                </Text>
-              </View>
-
-              {/* Stepper +/- */}
-              <View style={{
-                flexDirection: "row",
-                alignItems: "center",
-                backgroundColor: "#141829",
-                borderRadius: 12,
-                padding: 4,
-                marginBottom: 16,
-                borderWidth: 1,
-                borderColor: "#1e2340"
-              }}>
-                <TouchableOpacity
-                  onPress={() => setMobileStakeInput(prev => String(Math.max(10, Number(prev) - 10)))}
-                  style={{ width: 44, height: 44, backgroundColor: "#1e2340", borderRadius: 10, alignItems: "center", justifyContent: "center" }}
-                >
-                  <Ionicons name="remove" size={20} color="#fff" />
-                </TouchableOpacity>
-                
-                <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-                  <Text style={{ color: "#fff", fontSize: 18, fontWeight: "900", fontFamily: "Inter, sans-serif" }}>{mobileStakeInput} ETB</Text>
-                </View>
-
-                <TouchableOpacity
-                  onPress={() => setMobileStakeInput(prev => String(Number(prev) + 10))}
-                  style={{ width: 44, height: 44, backgroundColor: "#1e2340", borderRadius: 10, alignItems: "center", justifyContent: "center" }}
-                >
-                  <Ionicons name="add" size={20} color="#fff" />
-                </TouchableOpacity>
-              </View>
-
-              {/* Presets */}
-              <View style={{ flexDirection: "row", gap: 8, marginBottom: 20 }}>
-                {[10, 50, 100, 500].map(val => (
-                  <TouchableOpacity
-                    key={val}
-                    onPress={() => setMobileStakeInput(String(val))}
-                    style={{
-                      flex: 1,
-                      paddingVertical: 10,
-                      backgroundColor: "#141829",
-                      borderRadius: 10,
-                      borderWidth: 1,
-                      borderColor: mobileStakeInput === String(val) ? "#22d3ee" : "#1e2340",
-                      alignItems: "center"
-                    }}
-                  >
-                    <Text style={{ color: mobileStakeInput === String(val) ? "#22d3ee" : "#8b93a7", fontSize: 12, fontWeight: "800", fontFamily: "Inter, sans-serif" }}>
-                      {val}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              {/* Confirm button */}
-              <TouchableOpacity
-                onPress={() => handleConfirmMobileRailSpin(Number(mobileStakeInput))}
-                style={{
-                  backgroundColor: "#22d3ee",
-                  borderRadius: 14,
-                  paddingVertical: 14,
-                  alignItems: "center",
-                  justifyContent: "center"
-                }}
-              >
-                <Text style={{ color: "#0d0e1a", fontSize: 14, fontWeight: "900", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" }}>
-                  {isEN ? "CONFIRM & JOIN" : "አረጋግጥ እና ጀምር"}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
+        <MobileStakeModal
+          visible={showMobileStakeModal}
+          onClose={() => setShowMobileStakeModal(false)}
+          isEN={isEN}
+          spinError={spinError}
+          balance={balance}
+          mobileStakeInput={mobileStakeInput}
+          setMobileStakeInput={setMobileStakeInput}
+          onConfirm={(stake) => handleConfirmMobileRailSpin(stake)}
+        />
 
         {Platform.OS === 'web' && (
           <>

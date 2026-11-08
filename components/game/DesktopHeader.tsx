@@ -2,13 +2,11 @@
 // Unified desktop header for XOET gaming platform.
 // Strictly conforms to XOET Visual System (Deep Navy, Slate, Gray Blue, Signal Red, Electric Blue, White).
 import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Image, Platform } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Image, Platform, useWindowDimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Notification01 } from "../animate-ui/icons/hugeicons/notification-01";
 import { haptics } from "../../lib/haptcs";
 import { playTickSound } from "../../lib/pinTickAudio";
-
-
 
 export type DesktopTabType = "SPIN" | "XO_GAME" | "COMING_SOON";
 
@@ -39,6 +37,11 @@ export default function DesktopHeader({
   setNotificationsVisible = () => {},
   router,
 }: DesktopHeaderProps) {
+  const { width } = useWindowDimensions();
+  const isCompact = width < 1400;
+  const isNarrow = width < 1180;
+  const isUltraNarrow = width < 1060;
+
   const handleTabPress = (tab: DesktopTabType) => {
     try { playTickSound(); } catch {}
     haptics.tap();
@@ -51,7 +54,7 @@ export default function DesktopHeader({
   };
 
   return (
-    <View style={s.header}>
+    <View style={[s.header, isCompact && { paddingHorizontal: 16, height: 74 }]}>
       <View style={s.headerContentWrapper}>
         {/* Brand Logo: Clean & Punchy X O ETHIOPIA */}
         <TouchableOpacity
@@ -60,64 +63,84 @@ export default function DesktopHeader({
           onPress={() => router.push("/(authed)/home/gameplay")}
         >
           <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
-            <Text style={{ color: "#FF1744", fontSize: 26, fontWeight: "900", fontFamily: "Space Grotesk, sans-serif" }}>X</Text>
-            <Text style={{ color: "#00BFFF", fontSize: 26, fontWeight: "900", fontFamily: "Space Grotesk, sans-serif" }}>O</Text>
-            <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "900", marginLeft: 6, letterSpacing: 2.2, fontFamily: "Space Grotesk, sans-serif" }}>ETHIOPIA</Text>
+            <Text style={{ color: "#FF1744", fontSize: isCompact ? 22 : 26, fontWeight: "900", fontFamily: "Space Grotesk, sans-serif" }}>X</Text>
+            <Text style={{ color: "#00BFFF", fontSize: isCompact ? 22 : 26, fontWeight: "900", fontFamily: "Space Grotesk, sans-serif" }}>O</Text>
+            {!isUltraNarrow && (
+              <Text style={{ color: "#FFFFFF", fontSize: isCompact ? 14 : 16, fontWeight: "900", marginLeft: 5, letterSpacing: isCompact ? 1.5 : 2.2, fontFamily: "Space Grotesk, sans-serif" }}>ETHIOPIA</Text>
+            )}
           </View>
         </TouchableOpacity>
 
-        {/* Center: 3-Button Toggle [ SPIN | XO GAME | ? SOON ] — Dead Center Horizontally */}
-        <View style={s.centerNavWrapper} pointerEvents="box-none">
-          <View style={s.toggleContainer}>
+        {/* Center: 3-Button Toggle [ SPIN | XO GAME | ? SOON ] — In-flow flex centering to guarantee zero collision */}
+        <View style={s.centerNavWrapper}>
+          <View style={[s.toggleContainer, isCompact && { padding: 4, gap: 4 }]}>
             <TouchableOpacity
               onPress={() => handleTabPress("SPIN")}
-              style={[s.toggleBtn, selectedTab === "SPIN" && s.toggleBtnActiveSpin]}
+              style={[
+                s.toggleBtn,
+                selectedTab === "SPIN" && s.toggleBtnActiveSpin,
+                isCompact && { paddingVertical: 7, paddingHorizontal: isNarrow ? 10 : 14 }
+              ]}
               activeOpacity={0.85}
             >
-              <Ionicons name="aperture" size={16} color={selectedTab === "SPIN" ? "#FFFFFF" : "#8893A7"} style={{ marginRight: 7 }} />
-              <Text style={[s.toggleBtnText, selectedTab === "SPIN" && s.toggleBtnTextActive]}>SPIN</Text>
+              <Ionicons name="aperture" size={isCompact ? 14 : 16} color={selectedTab === "SPIN" ? "#FFFFFF" : "#8893A7"} style={{ marginRight: isNarrow ? 4 : 6 }} />
+              <Text style={[s.toggleBtnText, selectedTab === "SPIN" && s.toggleBtnTextActive, isCompact && { fontSize: 11.5 }]}>SPIN</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={() => handleTabPress("XO_GAME")}
-              style={[s.toggleBtn, selectedTab === "XO_GAME" && s.toggleBtnActiveXo]}
+              style={[
+                s.toggleBtn,
+                selectedTab === "XO_GAME" && s.toggleBtnActiveXo,
+                isCompact && { paddingVertical: 7, paddingHorizontal: isNarrow ? 10 : 14 }
+              ]}
               activeOpacity={0.85}
             >
-              <Ionicons name="grid" size={16} color={selectedTab === "XO_GAME" ? "#FFFFFF" : "#8893A7"} style={{ marginRight: 7 }} />
-              <Text style={[s.toggleBtnText, selectedTab === "XO_GAME" && s.toggleBtnTextActive]}>XO GAME</Text>
+              <Ionicons name="grid" size={isCompact ? 14 : 16} color={selectedTab === "XO_GAME" ? "#FFFFFF" : "#8893A7"} style={{ marginRight: isNarrow ? 4 : 6 }} />
+              <Text style={[s.toggleBtnText, selectedTab === "XO_GAME" && s.toggleBtnTextActive, isCompact && { fontSize: 11.5 }]}>
+                {isNarrow ? "XO" : "XO GAME"}
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={() => handleTabPress("COMING_SOON")}
-              style={[s.toggleBtn, selectedTab === "COMING_SOON" && s.toggleBtnActiveSoon]}
+              style={[
+                s.toggleBtn,
+                selectedTab === "COMING_SOON" && s.toggleBtnActiveSoon,
+                isCompact && { paddingVertical: 7, paddingHorizontal: isNarrow ? 10 : 14 }
+              ]}
               activeOpacity={0.85}
             >
-              <Ionicons name="help-circle" size={16} color={selectedTab === "COMING_SOON" ? "#FFFFFF" : "#8893A7"} style={{ marginRight: 7 }} />
-              <Text style={[s.toggleBtnText, selectedTab === "COMING_SOON" && s.toggleBtnTextActive]}>? SOON</Text>
+              <Ionicons name="help-circle" size={isCompact ? 14 : 16} color={selectedTab === "COMING_SOON" ? "#FFFFFF" : "#8893A7"} style={{ marginRight: isNarrow ? 4 : 6 }} />
+              <Text style={[s.toggleBtnText, selectedTab === "COMING_SOON" && s.toggleBtnTextActive, isCompact && { fontSize: 11.5 }]}>
+                {isNarrow ? "SOON" : "? SOON"}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Right Utility Cluster (VIP Program Removed) */}
-        <View style={s.utilityCluster}>
-          <TouchableOpacity onPress={() => setPwaModalVisible(true)} style={s.utilityBtn} activeOpacity={0.8}>
-            <Ionicons name="cloud-download-outline" size={17} color="#CBD5E1" />
-            <Text style={s.utilityBtnText}>APP</Text>
+        {/* Right Utility Cluster */}
+        <View style={[s.utilityCluster, isCompact && { gap: 6 }]}>
+          {!isNarrow && (
+            <TouchableOpacity onPress={() => setPwaModalVisible(true)} style={[s.utilityBtn, isCompact && { paddingHorizontal: 10, paddingVertical: 6 }]} activeOpacity={0.8}>
+              <Ionicons name="cloud-download-outline" size={isCompact ? 15 : 17} color="#CBD5E1" />
+              <Text style={[s.utilityBtnText, isCompact && { fontSize: 11 }]}>APP</Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity onPress={handleLanguageToggle} style={[s.utilityBtn, isCompact && { paddingHorizontal: 8, paddingVertical: 6 }]} activeOpacity={0.8}>
+            <Ionicons name="globe-outline" size={isCompact ? 14 : 16} color="#CBD5E1" />
+            {!isUltraNarrow && <Text style={[s.utilityBtnText, isCompact && { fontSize: 11 }]}>{language.toUpperCase()}</Text>}
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={handleLanguageToggle} style={s.utilityBtn} activeOpacity={0.8}>
-            <Ionicons name="globe-outline" size={16} color="#CBD5E1" />
-            <Text style={s.utilityBtnText}>{language.toUpperCase()}</Text>
+          <TouchableOpacity onPress={onToggleSound} style={[s.utilityBtn, isCompact && { paddingHorizontal: 8, paddingVertical: 6 }]} activeOpacity={0.8}>
+            <Ionicons name={bgMusicPlaying ? "volume-medium-outline" : "volume-mute-outline"} size={isCompact ? 15 : 17} color="#CBD5E1" />
+            {!isNarrow && <Text style={[s.utilityBtnText, isCompact && { fontSize: 11 }]}>{bgMusicPlaying ? "SOUND" : "MUTED"}</Text>}
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={onToggleSound} style={s.utilityBtn} activeOpacity={0.8}>
-            <Ionicons name={bgMusicPlaying ? "volume-medium-outline" : "volume-mute-outline"} size={17} color="#CBD5E1" />
-            <Text style={s.utilityBtnText}>{bgMusicPlaying ? "SOUND" : "MUTED"}</Text>
-          </TouchableOpacity>
-
-          <View style={s.bellBtn}>
+          <View style={[s.bellBtn, isCompact && { width: 36, height: 36, borderRadius: 12 }]}>
             <Notification01
-              size={20}
+              size={isCompact ? 17 : 20}
               color="#CBD5E1"
               animateOnHover
               unreadCount={unreadCount}
@@ -125,20 +148,22 @@ export default function DesktopHeader({
             />
           </View>
 
-          {/* Profile Chip — Clean without VIP badge */}
-          <TouchableOpacity onPress={() => router.push("/(authed)/home/account")} style={s.profileChip} activeOpacity={0.8}>
-            <View style={s.profileChipAvatar}>
-              <Text style={s.profileChipAvatarText}>
+          {/* Profile Chip */}
+          <TouchableOpacity onPress={() => router.push("/(authed)/home/account")} style={[s.profileChip, isCompact && { paddingHorizontal: 8, paddingVertical: 4, gap: 6 }]} activeOpacity={0.8}>
+            <View style={[s.profileChipAvatar, isCompact && { width: 28, height: 28, borderRadius: 14 }]}>
+              <Text style={[s.profileChipAvatarText, isCompact && { fontSize: 11 }]}>
                 {user?.username ? user.username.slice(0, 2).toUpperCase() : "ME"}
               </Text>
             </View>
-            <View>
-              <Text style={s.profileChipName}>{user?.username || "Player"}</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 1 }}>
-                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#10B981' }} />
-                <Text style={{ color: '#8893A7', fontSize: 10, fontWeight: '700' }}>Active</Text>
+            {!isUltraNarrow && (
+              <View>
+                <Text style={[s.profileChipName, isCompact && { fontSize: 11.5, maxWidth: 80 }]} numberOfLines={1}>{user?.username || "Player"}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 1 }}>
+                  <View style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: '#10B981' }} />
+                  <Text style={{ color: '#8893A7', fontSize: 9, fontWeight: '700' }}>Active</Text>
+                </View>
               </View>
-            </View>
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -162,21 +187,17 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     width: "100%",
-    position: "relative",
+    gap: 12,
   },
   logoContainer: {
     flexDirection: "row",
     alignItems: "center",
-    zIndex: 20,
+    flexShrink: 0,
   },
   centerNavWrapper: {
-    position: "absolute",
-    left: 0,
-    right: 0,
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    zIndex: 10,
-    pointerEvents: "box-none" as any,
   },
   toggleContainer: {
     flexDirection: "row",

@@ -1,5 +1,6 @@
 import { SocketProvider, useSocket, useSocketActions, useSocketState } from "../../context/socketContext";
 import { Ionicons } from "@expo/vector-icons";
+import { SyncIcon } from "../../components/SvgIcons";
 import { Redirect, Slot, useRouter, usePathname } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View, Platform, useWindowDimensions, Text, TouchableOpacity, Animated, Easing, StyleSheet, Image, Linking, Modal } from "react-native";
@@ -626,7 +627,7 @@ export default function AuthedLayout() {
                     )}
                   </View>
                   <TouchableOpacity onPress={() => refreshProfile?.()} style={{ marginLeft: 4 }}>
-                    <Ionicons name="refresh" size={13} color="#00daf3" />
+                    <SyncIcon size={13} color="#00daf3" />
                   </TouchableOpacity>
                 </View>
 

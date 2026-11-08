@@ -12,6 +12,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  Pressable,
   View,
   useWindowDimensions,
   Image,
@@ -386,7 +387,7 @@ export default function GamesHistory() {
 
                   {/* Filter Dropdown */}
                   {gameType === 'xo' && (
-                    <View style={{ zIndex: 100 }}>
+                    <View style={{ position: "relative", zIndex: 1000 }}>
                       <TouchableOpacity onPress={() => setDropdownOpen(!dropdownOpen)} style={s.filterDropdown} activeOpacity={0.85}>
                         <Ionicons name="funnel-outline" size={14} color="#8b93a7" style={{ marginRight: 6 }} />
                         <Text style={s.filterDropdownText}>
@@ -395,17 +396,42 @@ export default function GamesHistory() {
                         <Ionicons name={dropdownOpen ? "chevron-up" : "chevron-down"} size={14} color="#8b93a7" />
                       </TouchableOpacity>
                       {dropdownOpen && (
-                        <View style={s.dropdownMenu}>
-                          <TouchableOpacity onPress={() => { setFilter("all"); setDropdownOpen(false); setCurrentPage(1); }} style={s.dropdownItem}>
-                            <Text style={s.dropdownItemText}>All Games</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity onPress={() => { setFilter("win"); setDropdownOpen(false); setCurrentPage(1); }} style={s.dropdownItem}>
-                            <Text style={s.dropdownItemText}>Victory</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity onPress={() => { setFilter("loss"); setDropdownOpen(false); setCurrentPage(1); }} style={s.dropdownItem}>
-                            <Text style={s.dropdownItemText}>Defeat</Text>
-                          </TouchableOpacity>
-                        </View>
+                        <>
+                          <Pressable
+                            onPress={() => setDropdownOpen(false)}
+                            style={{
+                              position: Platform.OS === "web" ? ("fixed" as any) : "absolute",
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              zIndex: 999,
+                            }}
+                          />
+                          <View style={s.dropdownMenu}>
+                            <TouchableOpacity
+                              onPress={() => { setFilter("all"); setDropdownOpen(false); setCurrentPage(1); }}
+                              style={[s.dropdownItem, filter === "all" && s.dropdownItemActive]}
+                            >
+                              <Text style={[s.dropdownItemText, filter === "all" && s.dropdownItemTextActive]}>All Games</Text>
+                              {filter === "all" && <Ionicons name="checkmark" size={14} color="#00BFFF" />}
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              onPress={() => { setFilter("win"); setDropdownOpen(false); setCurrentPage(1); }}
+                              style={[s.dropdownItem, filter === "win" && s.dropdownItemActive]}
+                            >
+                              <Text style={[s.dropdownItemText, filter === "win" && s.dropdownItemTextActive]}>Victory</Text>
+                              {filter === "win" && <Ionicons name="checkmark" size={14} color="#22c55e" />}
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              onPress={() => { setFilter("loss"); setDropdownOpen(false); setCurrentPage(1); }}
+                              style={[s.dropdownItem, filter === "loss" && s.dropdownItemActive]}
+                            >
+                              <Text style={[s.dropdownItemText, filter === "loss" && s.dropdownItemTextActive]}>Defeat</Text>
+                              {filter === "loss" && <Ionicons name="checkmark" size={14} color="#ef4444" />}
+                            </TouchableOpacity>
+                          </View>
+                        </>
                       )}
                     </View>
                   )}
@@ -1424,7 +1450,14 @@ const s = StyleSheet.create({
 
   // Center column
   centerColumn: { flex: 1, gap: 20 },
-  titleRowContainer: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
+  titleRowContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+    position: "relative",
+    zIndex: 1000,
+  },
   mainTitle: { color: "#00BFFF", fontSize: 36, fontWeight: "900", letterSpacing: -0.5, fontFamily: "Inter, sans-serif" },
   subTitle: { color: "#8b93a7", fontSize: 13, fontWeight: "600", marginTop: 4, fontFamily: "Inter, sans-serif" },
 
@@ -1439,27 +1472,41 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     gap: 8,
-  },
+    cursor: "pointer",
+  } as any,
   filterDropdownText: { color: "#fff", fontSize: 13, fontWeight: "700", fontFamily: "Inter, sans-serif" },
   dropdownMenu: {
     position: "absolute",
-    top: 50,
+    top: 52,
     right: 0,
-    backgroundColor: "#0d1220",
+    backgroundColor: "#0F172A",
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: "#233041",
-    width: 140,
+    borderColor: "#1E293B",
+    width: 155,
     padding: 6,
-    zIndex: 1000,
+    zIndex: 1001,
     ...(Platform.OS === "web" ? {
-      boxShadow: "0 10px 30px rgba(0, 0, 0, 0.6)",
+      boxShadow: "0 10px 30px rgba(0, 0, 0, 0.7)",
     } as any : {
       elevation: 20,
     }),
   },
-  dropdownItem: { paddingVertical: 10, paddingHorizontal: 12, borderRadius: 8 },
-  dropdownItemText: { color: "#fff", fontSize: 12, fontWeight: "600", fontFamily: "Inter, sans-serif" },
+  dropdownItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    marginBottom: 2,
+    cursor: "pointer",
+  } as any,
+  dropdownItemActive: {
+    backgroundColor: "rgba(0, 191, 255, 0.12)",
+  },
+  dropdownItemText: { color: "#94A3B8", fontSize: 13, fontWeight: "700", fontFamily: "Inter, sans-serif" },
+  dropdownItemTextActive: { color: "#FFFFFF", fontWeight: "800" },
 
   // Stats Card Grid
   statsGrid: { flexDirection: "row", gap: 16 },

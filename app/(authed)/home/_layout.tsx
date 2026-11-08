@@ -3,6 +3,7 @@ import { House, ClockCounterClockwise, Trophy, UserCircle, Wallet } from "phosph
 import { Redirect, Tabs, useRouter, usePathname, useGlobalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { Pressable, View, Platform, useWindowDimensions, Text, Image, TouchableOpacity, StyleSheet , LayoutAnimation } from 'react-native';
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../../../context/authContext";
 import { haptics } from "../../../lib/haptcs";
 import { playTickSound } from "../../../lib/pinTickAudio";
@@ -83,6 +84,7 @@ export default function AuthedLayout() {
   const isInGameRoom = pathname.includes('/spin') || pathname.includes('/room') || pathname.includes('/waiting');
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === "web" && width >= 768;
+  const insets = useSafeAreaInsets();
 
   const getTabTitle = useCallback(
     (routeName: string) => {
@@ -197,8 +199,8 @@ export default function AuthedLayout() {
             backgroundColor: '#080F17', // Matching Brand Identity Deep Navy
             borderTopWidth: 1,
             borderTopColor: 'rgba(35, 48, 65, 0.7)',
-            paddingBottom: Platform.OS === 'ios' ? 24 : 10,
-            paddingTop: 8,
+            paddingBottom: Math.max(insets.bottom + 10, Platform.OS === 'ios' ? 32 : 24),
+            paddingTop: 10,
             borderRadius: 0,
           }}>
             <View style={{

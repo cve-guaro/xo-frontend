@@ -18,8 +18,9 @@ export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = 
   const [isPlaying, setIsPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
+  // Lazy audio loader: Only instantiate Audio when actually unmuted/played to save ~2.9MB on initial load
+  const getOrCreateAudio = () => {
+    if (!audioRef.current && typeof window !== 'undefined') {
       try {
         const audio = new Audio('/sounds/background.mp3');
         audio.loop = true;
@@ -29,6 +30,10 @@ export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = 
         console.warn("Failed to initialize background music on web:", e);
       }
     }
+    return audioRef.current;
+  };
+
+  useEffect(() => {
     return () => {
       if (audioRef.current) {
         audioRef.current.pause();
@@ -56,13 +61,14 @@ export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = 
     setIsPlaying(nextState);
     AsyncStorage.setItem('xoet_music_muted', nextState ? 'false' : 'true').catch(() => {});
     
-    if (audioRef.current) {
+    const audio = getOrCreateAudio();
+    if (audio) {
       if (nextState) {
-        audioRef.current.play().catch(err => {
+        audio.play().catch(err => {
           console.warn("Audio playback blocked by browser autoplay rules:", err);
         });
       } else {
-        audioRef.current.pause();
+        audio.pause();
       }
     }
 
