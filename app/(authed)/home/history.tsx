@@ -1364,7 +1364,7 @@ const s = StyleSheet.create({
   emptyStateText: { color: "rgba(255,255,255,0.4)", fontWeight: "bold", fontSize: 13, fontFamily: "Inter, sans-serif" },
 
   // Right sidebar details panel
-  rightSidebar: { width: 320 },
+  rightSidebar: { width: "100%", maxWidth: 300 },
   leaderboardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
   leaderboardTitle: { color: "#fff", fontSize: 15, fontWeight: "800", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" },
   detailBadgeText: { fontSize: 15, fontWeight: "900", letterSpacing: 0.5, fontFamily: "Inter, sans-serif" },

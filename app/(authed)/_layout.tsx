@@ -12,6 +12,7 @@ import { playTickSound } from "../../lib/pinTickAudio";
 import { useBackgroundMusic } from "../../context/BackgroundMusicProvider";
 import { API_URL } from "../../config";
 import { useToast } from "../../context/ToastContext";
+import { BREAKPOINTS } from "../../constants/breakpoints";
 
 // Lazy load heavy components on web to optimize bundle size, evaluations, and TBT
 const WebDepositModal = Platform.OS === 'web'
@@ -313,8 +314,8 @@ export default function AuthedLayout() {
   const router = useRouter();
   const pathname = usePathname();
   const { width } = useWindowDimensions();
-  const isDesktop = Platform.OS === "web" && width >= 1024;
-  const isTablet = Platform.OS === "web" && width >= 768 && width < 1024;
+  const isDesktop = Platform.OS === "web" && width >= BREAKPOINTS.DESKTOP;
+  const isTablet = Platform.OS === "web" && width >= BREAKPOINTS.TABLET && width < BREAKPOINTS.DESKTOP;
   const isGameplayRoute = pathname.includes("/home/gameplay") || pathname === "/home";
   const isHistoryRoute = pathname.includes("/home/history") || pathname === "/games";
   const isLeaderboardRoute = pathname.includes("/home/leaderboard");
@@ -327,7 +328,7 @@ export default function AuthedLayout() {
   const showLeftSidebar = (isDesktop || isTablet) && !isHistoryRoute && !isLeaderboardRoute && !isAccountRoute && !isSpinRoute && !isAdminRoute && !isTransactionsRoute && !isGameRoute;
   const isAccountPage = pathname.includes("/home/account");
   const isMissingProfile = user ? (!user.username || !user.display_name) : false;
-  const isMobile = width < 768;
+  const isMobile = width < BREAKPOINTS.TABLET;
   const showResponsiveLayout = Platform.OS === 'web' && (isDesktop || isTablet);
 
   const [depositVisible, setDepositVisible] = useState(false);

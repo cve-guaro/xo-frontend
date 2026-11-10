@@ -9,6 +9,7 @@ import { haptics } from "../../../lib/haptcs";
 import { playTickSound } from "../../../lib/pinTickAudio";
 import { WebPressable } from "../../../components/WebPressable";
 import { BlurView } from "expo-blur";
+import { BREAKPOINTS } from "../../../constants/breakpoints";
 
 const TAB_H = Platform.OS === "ios" ? 90 : 82;
 
@@ -83,7 +84,7 @@ export default function AuthedLayout() {
   const isSpinMode = activeGameMode === 'spin';
   const isInGameRoom = pathname.includes('/spin') || pathname.includes('/room') || pathname.includes('/waiting');
   const { width } = useWindowDimensions();
-  const isDesktop = Platform.OS === "web" && width >= 768;
+  const isDesktop = Platform.OS === "web" && width >= BREAKPOINTS.TABLET;
   const insets = useSafeAreaInsets();
 
   const getTabTitle = useCallback(
@@ -199,7 +200,7 @@ export default function AuthedLayout() {
             backgroundColor: '#080F17', // Matching Brand Identity Deep Navy
             borderTopWidth: 1,
             borderTopColor: 'rgba(35, 48, 65, 0.7)',
-            paddingBottom: Math.max(insets.bottom + 10, Platform.OS === 'ios' ? 32 : 24),
+            paddingBottom: Platform.OS === 'web' ? 6 : Math.max(insets.bottom, 6),
             paddingTop: 10,
             borderRadius: 0,
           }}>

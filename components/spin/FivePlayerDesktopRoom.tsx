@@ -88,10 +88,19 @@ export const FivePlayerDesktopRoom: React.FC<FivePlayerDesktopRoomProps> = ({
   const myWinChance = totalPot > 0 && myStake > 0
     ? Math.round((myStake / totalPot) * 100)
     : (activePlayers.length ? Math.round(100 / Math.max(1, activePlayers.length)) : 20);
+
+  // Responsive desktop scale for spacious arena
+  const isWide = screenW >= 1440;
+  const roomMaxWidth = isWide ? 1060 : 880;
+  const wheelBoxW = isWide ? 480 : 440;
+  const wheelSize = isWide ? 440 : 420;
+  const rightBoxW = isWide ? 420 : 380;
+  const roomGap = isWide ? 44 : 32;
+
   return (
-    <View style={{ width: "100%", gap: 16 }}>
+    <View style={{ width: "100%", maxWidth: roomMaxWidth, alignSelf: "center", gap: 20 }}>
       {/* Top Subheader Bar */}
-      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
           <TouchableOpacity
             onPress={onLeaveRoom}
@@ -159,83 +168,13 @@ export const FivePlayerDesktopRoom: React.FC<FivePlayerDesktopRoomProps> = ({
         </View>
       </View>
 
-      {/* Top Stake & Percentage Live Header (Per User Request) */}
-      <View style={{ flexDirection: "row", gap: 12, width: "100%", marginBottom: 4 }}>
-        {/* User Stake */}
-        <View style={{
-          flex: 1,
-          backgroundColor: "#111827",
-          borderRadius: 14,
-          borderWidth: 1,
-          borderColor: "#1E293B",
-          paddingVertical: 10,
-          paddingHorizontal: 16,
-        }}>
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-            <Text style={{ color: "#64748b", fontSize: 10, fontWeight: "800", letterSpacing: 0.5, textTransform: "uppercase" }}>
-              Your Bet
-            </Text>
-            <View style={{ backgroundColor: "rgba(255, 23, 68, 0.2)", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
-              <Text style={{ color: "#ef4444", fontSize: 9, fontWeight: "900" }}>YOU</Text>
-            </View>
-          </View>
-          <Text style={{ color: "#ef4444", fontSize: 20, fontWeight: "900", fontFamily: "Space Grotesk, Inter, sans-serif", marginTop: 3 }}>
-            {myStake > 0 ? `${myStake} ETB` : (isJoined ? "100 ETB" : "Not Joined")}
-          </Text>
-        </View>
-
-        {/* Live Win Percentage */}
-        <View style={{
-          flex: 1,
-          backgroundColor: "#111827",
-          borderRadius: 14,
-          borderWidth: 1,
-          borderColor: "#1E293B",
-          paddingVertical: 10,
-          paddingHorizontal: 16,
-        }}>
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-            <Text style={{ color: "#64748b", fontSize: 10, fontWeight: "800", letterSpacing: 0.5, textTransform: "uppercase" }}>
-              Win Chance
-            </Text>
-            <Text style={{ color: "#22c55e", fontSize: 10, fontWeight: "800" }}>
-              → {isJoined ? `${myWinChance}%` : "--"}
-            </Text>
-          </View>
-          <Text style={{ color: "#ffffff", fontSize: 20, fontWeight: "900", fontFamily: "Space Grotesk, Inter, sans-serif", marginTop: 3 }}>
-            {isJoined ? `${myWinChance}%` : "--"}
-          </Text>
-        </View>
-
-        {/* Room Total Pot */}
-        <View style={{
-          flex: 1,
-          backgroundColor: "#111827",
-          borderRadius: 14,
-          borderWidth: 1,
-          borderColor: "#1E293B",
-          paddingVertical: 10,
-          paddingHorizontal: 16,
-        }}>
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-            <Text style={{ color: "#64748b", fontSize: 10, fontWeight: "800", letterSpacing: 0.5, textTransform: "uppercase" }}>
-              Total Pot
-            </Text>
-            <Ionicons name="trophy" size={13} color="#f59e0b" />
-          </View>
-          <Text style={{ color: "#f59e0b", fontSize: 20, fontWeight: "900", fontFamily: "Space Grotesk, Inter, sans-serif", marginTop: 3 }}>
-            {totalPot} ETB
-          </Text>
-        </View>
-      </View>
-
-      {/* Main Area: Wheel on Left, Room Players on Right */}
-      <View style={{ flexDirection: "row", gap: 20, alignItems: "stretch" }}>
+      {/* Main Area: Wheel on Left, Room Players + Bet Bar on Right (Unified Compact Arena) */}
+      <View style={{ flexDirection: "row", gap: roomGap, alignItems: "center", justifyContent: "center" }}>
         {/* Left: Wheel + Action Buttons */}
-        <View style={{ flex: 1.6, alignItems: "center", justifyContent: "center" }}>
+        <View style={{ width: wheelBoxW, alignItems: "center", justifyContent: "center" }}>
           <View style={{ position: "relative", alignItems: "center", justifyContent: "center" }}>
             <SpinWheel
-              size={Math.min(screenW * 0.32, 390)}
+              size={wheelSize}
               players={round ? round.players : previewPlayers}
               isSpinning={Boolean(screenState === "spinning" || round?.status === "spinning" || isSpinning)}
               winningSlice={winningSlice}
@@ -329,8 +268,33 @@ export const FivePlayerDesktopRoom: React.FC<FivePlayerDesktopRoomProps> = ({
           </View>
         </View>
 
-        {/* Right: Room Players List (Height Balanced with Wheel) */}
-        <View style={{ flex: 1.1, minWidth: 320, justifyContent: "center" }}>
+        {/* Right: Bet Bar + Room Players List (Exact Width Match & Edge Alignment) */}
+        <View style={{ width: rightBoxW, justifyContent: "center", gap: 12 }}>
+          {/* Compact Bet Information Bar (Exactly Matches Room Players Width Below) */}
+          <View style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            backgroundColor: "#111827",
+            borderRadius: 14,
+            borderWidth: 1,
+            borderColor: "#1E293B",
+            paddingVertical: 12,
+            paddingHorizontal: 16,
+            width: "100%",
+          }}>
+            <Text style={{ color: "#94a3b8", fontSize: 13, fontWeight: "600" }}>
+              Your Bet · <Text style={{ color: "#ffffff", fontWeight: "900" }}>{myStake > 0 ? `${myStake} ETB` : "100 ETB"}</Text>
+            </Text>
+            <Text style={{ color: "#94a3b8", fontSize: 13, fontWeight: "600" }}>
+              Pot · <Text style={{ color: "#facc15", fontWeight: "900" }}>500 ETB</Text>
+            </Text>
+            <Text style={{ color: "#94a3b8", fontSize: 13, fontWeight: "600" }}>
+              Prize · <Text style={{ color: "#22c55e", fontWeight: "900" }}>400 ETB</Text>
+            </Text>
+          </View>
+
+          {/* Room Players Panel */}
           <View
             style={{
               backgroundColor: "rgba(10, 16, 36, 0.85)",
@@ -338,11 +302,12 @@ export const FivePlayerDesktopRoom: React.FC<FivePlayerDesktopRoomProps> = ({
               padding: 20,
               borderWidth: 1,
               borderColor: "rgba(59, 130, 246, 0.2)",
-              minHeight: 430,
-              justifyContent: "space-between",
+              justifyContent: "flex-start",
+              gap: 16,
+              width: "100%",
             }}
           >
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                 <Ionicons name="people" size={18} color="#94a3b8" />
                 <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "900", letterSpacing: 0.5 }}>
@@ -393,67 +358,50 @@ export const FivePlayerDesktopRoom: React.FC<FivePlayerDesktopRoomProps> = ({
               </View>
             </View>
 
-            {/* Active Room Players Only (Per User Request) */}
-            <View style={{ gap: 10 }}>
-              {activePlayers.length === 0 ? (
-                <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 36, gap: 8 }}>
-                  <Ionicons name="people-outline" size={32} color="#64748b" />
-                  <Text style={{ color: "#94a3b8", fontSize: 13, fontWeight: "600" }}>
-                    No players in the room yet. Be the first to join!
-                  </Text>
-                </View>
-              ) : (
-                activePlayers.map((player: any, idx: number) => {
+            {/* 5 Player Slots (Always Top-Down: Slot 1 on top, never pinned to bottom) */}
+            <View style={{ gap: 10, width: "100%" }}>
+              {[0, 1, 2, 3, 4].map((slotIdx) => {
+                const player = activePlayers[slotIdx];
+                if (player) {
                   const isSelf = String(player?.userId) === String(user?.id);
                   const isSelfHost = String(activePlayers[0]?.userId) === String(user?.id);
 
                   return (
                     <View
-                      key={player?.userId || idx}
+                      key={player?.userId || slotIdx}
                       style={{
                         flexDirection: "row",
                         alignItems: "center",
                         justifyContent: "space-between",
-                        backgroundColor: isSelf ? "rgba(255, 23, 68, 0.12)" : "rgba(30, 41, 59, 0.6)",
-                        borderRadius: 14,
-                        paddingVertical: 12,
+                        backgroundColor: isSelf ? "rgba(255, 23, 68, 0.08)" : "rgba(30, 41, 59, 0.5)",
+                        borderRadius: 12,
+                        paddingVertical: 10,
                         paddingHorizontal: 14,
                         borderWidth: 1,
                         borderColor: isSelf
-                          ? "#FF1744"
-                          : "rgba(255, 23, 68, 0.3)",
+                          ? "rgba(255, 23, 68, 0.35)"
+                          : "rgba(255, 255, 255, 0.08)",
                       }}
                     >
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
                         <View
                           style={{
-                            width: 28,
-                            height: 28,
-                            borderRadius: 14,
-                            backgroundColor: isSelf ? "#FF1744" : "#991B1B",
+                            width: 26,
+                            height: 26,
+                            borderRadius: 13,
+                            backgroundColor: isSelf ? "#FF1744" : "#475569",
                             alignItems: "center",
                             justifyContent: "center",
                           }}
                         >
-                          <Text style={{ color: "#ffffff", fontSize: 12, fontWeight: "900" }}>{idx + 1}</Text>
+                          <Text style={{ color: "#ffffff", fontSize: 11, fontWeight: "900" }}>{slotIdx + 1}</Text>
                         </View>
-                        <View
-                          style={{
-                            width: 34,
-                            height: 34,
-                            borderRadius: 17,
-                            backgroundColor: "rgba(255, 255, 255, 0.08)",
-                            alignItems: "center",
-                            justifyContent: "center",
-                          }}
-                        >
-                          <Ionicons name="person" size={16} color="#ffffff" />
-                        </View>
+                        <Ionicons name="person" size={15} color="#94a3b8" />
                         <View>
                           <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "700" }}>
-                            {isSelf ? "You" : (player.username || `Player ${idx + 1}`)}
+                            {player.username || (isSelf ? (user?.username || "You") : `Player ${slotIdx + 1}`)} {isSelf ? "(You)" : ""}
                           </Text>
-                          <Text style={{ color: "#FF5A6E", fontSize: 11, fontWeight: "600", marginTop: 1 }}>
+                          <Text style={{ color: "#94a3b8", fontSize: 11, fontWeight: "600", marginTop: 1 }}>
                             {player.stake || 100} ETB
                           </Text>
                         </View>
@@ -481,8 +429,44 @@ export const FivePlayerDesktopRoom: React.FC<FivePlayerDesktopRoomProps> = ({
                       />
                     </View>
                   );
-                })
-              )}
+                }
+
+                // Empty Waiting Slot (Slots 2-5)
+                return (
+                  <View
+                    key={`empty_${slotIdx}`}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 10,
+                      backgroundColor: "transparent",
+                      borderRadius: 12,
+                      paddingVertical: 9,
+                      paddingHorizontal: 14,
+                      borderWidth: 1,
+                      borderStyle: "dashed",
+                      borderColor: "rgba(255, 255, 255, 0.08)",
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: 26,
+                        height: 26,
+                        borderRadius: 13,
+                        backgroundColor: "rgba(255, 255, 255, 0.04)",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Text style={{ color: "#64748b", fontSize: 11, fontWeight: "800" }}>{slotIdx + 1}</Text>
+                    </View>
+                    <Ionicons name="person-outline" size={14} color="#64748b" />
+                    <Text style={{ color: "#64748b", fontSize: 12, fontWeight: "600" }}>
+                      {language === "am" ? "ተጫዋች በመጠበቅ ላይ..." : "Waiting for player..."}
+                    </Text>
+                  </View>
+                );
+              })}
             </View>
           </View>
         </View>

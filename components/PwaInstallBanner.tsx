@@ -115,7 +115,7 @@ export function PwaInstallBanner() {
     setShowBanner(false);
   };
 
-  if (!showBanner || isPwaInstalled) return null;
+  if (!showBanner || isPwaInstalled || isDesktop) return null;
 
   return (
     <View style={isDesktop ? styles.desktopContainer : styles.mobileContainer}>

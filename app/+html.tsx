@@ -41,10 +41,12 @@ export default function HTML({ children }: { children: React.ReactNode }) {
         <style
           dangerouslySetInnerHTML={{
             __html: `
-              html, body {
+              html, body, #root {
                 background-color: #060614;
                 margin: 0;
                 padding: 0;
+                max-width: 100vw !important;
+                overflow-x: hidden !important;
                 font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
               }
               

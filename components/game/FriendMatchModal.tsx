@@ -55,8 +55,8 @@ export default function FriendMatchModal({ visible, onClose, onSendInvite, invit
     if (!selectedBet || !target || cooldown > 0) return;
     onSendInvite(username.trim(), selectedBet);
 
-    // Start 5-second cooldown
-    setCooldown(45);
+    // Short 3-second debounce to prevent accidental double-tap while allowing repeated challenges
+    setCooldown(3);
     if (cooldownRef.current) clearInterval(cooldownRef.current);
     cooldownRef.current = setInterval(() => {
       setCooldown(prev => {
@@ -235,9 +235,16 @@ export default function FriendMatchModal({ visible, onClose, onSendInvite, invit
                 <Text style={s.offlineHint}>{isEN ? "⚠️ Player is currently in a game — they'll see your invite after" : "⚠️ ተጫዋቹ በአሁኑ ጊዜ በጨዋታ ላይ ነው — ከጨዋታው በኋላ ግብዣዎን ያያል"}</Text>
               )}
               {wasDeclined && (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, backgroundColor: 'rgba(248,113,113,0.1)', borderRadius: 12, marginTop: 10, borderWidth: 1, borderColor: 'rgba(248,113,113,0.2)' }}>
-                  <Ionicons name="close-circle" size={18} color="#f87171" />
-                  <Text style={{ color: '#f87171', fontSize: 13, fontWeight: '800' }}>{inviteResult?.declinedByUsername || target?.username || 'Your friend'} {t("declined_invite")}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, backgroundColor: 'rgba(248,113,113,0.12)', borderRadius: 12, marginTop: 12, borderWidth: 1, borderColor: 'rgba(248,113,113,0.35)' }}>
+                  <Ionicons name="close-circle" size={22} color="#f87171" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: '#f87171', fontSize: 13, fontWeight: '800' }}>
+                      {inviteResult?.declinedByUsername || target?.username || (isEN ? 'Opponent' : 'ተጋባዡ')} {isEN ? "did not accept / declined your challenge" : "ግብዣዎን አልተቀበለም"}
+                    </Text>
+                    <Text style={{ color: '#fda4af', fontSize: 11.5, fontWeight: '600', marginTop: 2 }}>
+                      {isEN ? "You can challenge them again or choose another bet." : "እንደገና መጋበዝ ወይም ሌላ መጠን መምረጥ ይችላሉ።"}
+                    </Text>
+                  </View>
                 </View>
               )}
             </View>

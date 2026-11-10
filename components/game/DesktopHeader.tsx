@@ -37,10 +37,11 @@ export default function DesktopHeader({
   setNotificationsVisible = () => {},
   router,
 }: DesktopHeaderProps) {
-  const { width } = useWindowDimensions();
-  const isCompact = width < 1400;
-  const isNarrow = width < 1180;
-  const isUltraNarrow = width < 1060;
+  const { width, height } = useWindowDimensions();
+  const isShortScreen = height < 500;
+  const isCompact = width < 1440;
+  const isNarrow = width < 1380;
+  const isUltraNarrow = width < 1180;
 
   const handleTabPress = (tab: DesktopTabType) => {
     try { playTickSound(); } catch {}
@@ -54,7 +55,11 @@ export default function DesktopHeader({
   };
 
   return (
-    <View style={[s.header, isCompact && { paddingHorizontal: 16, height: 74 }]}>
+    <View style={[
+      s.header,
+      isCompact && { paddingHorizontal: 16, height: 74 },
+      isShortScreen && { height: 50, paddingHorizontal: 12 }
+    ]}>
       <View style={s.headerContentWrapper}>
         {/* Brand Logo: Clean & Punchy X O ETHIOPIA */}
         <TouchableOpacity
@@ -62,19 +67,11 @@ export default function DesktopHeader({
           activeOpacity={0.85}
           onPress={() => router.push("/(authed)/home/gameplay")}
         >
-          {isUltraNarrow ? (
-            <Image
-              source={require("../../assets/brand/PNG/icon/xo-icon-color-transparent-512.png")}
-              style={{ width: 44, height: 32 }}
-              resizeMode="contain"
-            />
-          ) : (
-            <Image
-              source={require("../../assets/brand/PNG/full-mark/xoet-horizontal-color-transparent-512.png")}
-              style={{ width: isCompact ? 108 : 126, height: isCompact ? 36 : 42 }}
-              resizeMode="contain"
-            />
-          )}
+          <Image
+            source={require("../../assets/brand/PNG/full-mark/xoet-horizontal-color-dark-background-512.png")}
+            style={{ width: isShortScreen ? 60 : (isCompact ? 72 : 82), height: isShortScreen ? 18 : (isCompact ? 22 : 25) }}
+            resizeMode="contain"
+          />
         </TouchableOpacity>
 
         {/* Center: 3-Button Toggle [ SPIN | XO GAME | ? SOON ] — Absolute horizontal center locked to viewport & carousel */}
@@ -188,6 +185,9 @@ const s = StyleSheet.create({
     paddingHorizontal: 28,
     position: "relative",
     zIndex: 100,
+    width: "100%",
+    maxWidth: "100%",
+    overflow: "hidden",
     boxShadow: "0 6px 20px rgba(0, 0, 0, 0.45)",
   } as any,
   headerContentWrapper: {
@@ -195,6 +195,8 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     width: "100%",
+    maxWidth: "100%",
+    overflow: "hidden",
     gap: 12,
     position: "relative",
   },
@@ -265,6 +267,7 @@ const s = StyleSheet.create({
     alignItems: "center",
     gap: 10,
     zIndex: 20,
+    flexShrink: 0,
   },
   utilityBtn: {
     flexDirection: "row",

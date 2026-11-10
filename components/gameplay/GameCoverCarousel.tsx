@@ -6,6 +6,7 @@ import {
   Image,
   StyleSheet,
   Platform,
+  useWindowDimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -59,7 +60,16 @@ export const GameCoverCarousel: React.FC<GameCoverCarouselProps> = ({
   setSpinBetModalVisible,
   openRoomSheet,
 }) => {
-  const itemSize = Math.min(width * 0.78, 315);
+  const { height: winH } = useWindowDimensions();
+  const isCompactHeight = winH < 780;
+  const carouselHeight = isCompactHeight ? 485 : 575;
+  const artHeight = isCompactHeight ? 200 : 265;
+  const soonArtHeight = isCompactHeight ? 185 : 245;
+  const headlineFontSize = isCompactHeight ? 26 : 32;
+  const cardPadding = isCompactHeight ? 12 : 16;
+
+  const safeWidth = Math.max(width || 360, 320);
+  const itemSize = Math.min(safeWidth * 0.78, 315);
   const cardWidth = Math.min(itemSize, 305);
 
   const carouselRef = useRef<CarouselRef>(null);
@@ -67,10 +77,17 @@ export const GameCoverCarousel: React.FC<GameCoverCarouselProps> = ({
   const [index, setIndex] = useState(initialIndex);
   const progress = useSharedValue(initialIndex);
 
-  // Expose scrollTo to parent ref for external compatibility
+  // Expose scrollTo to parent ref for external compatibility with defensive bounds
   useImperativeHandle(mobileCarouselRef as any, () => ({
     scrollTo: (opts: any) => {
-      const idx = opts?.index ?? (opts?.x != null ? Math.round(opts.x / itemSize) : 0);
+      let idx = 0;
+      if (typeof opts?.index === "number" && !isNaN(opts.index) && isFinite(opts.index)) {
+        idx = opts.index;
+      } else if (typeof opts?.x === "number" && itemSize > 0) {
+        idx = Math.round(opts.x / itemSize);
+      }
+      if (isNaN(idx) || !isFinite(idx)) idx = 0;
+      idx = Math.max(0, Math.min(CARDS.length - 1, idx));
       carouselRef.current?.scrollTo({ index: idx, animated: opts?.animated !== false });
       setIndex(idx);
     },
@@ -85,7 +102,7 @@ export const GameCoverCarousel: React.FC<GameCoverCarouselProps> = ({
     }
   }, [selectedTab]);
 
-  // Guaranteed initial alignment to selectedTab on mount
+  // Guaranteed initial alignment to selectedTab on mount (prevents intermediate void offset)
   useEffect(() => {
     const targetIdx = selectedTab === "SPIN" ? 0 : selectedTab === "XO_GAME" ? 1 : 2;
     const timer = setTimeout(() => {
@@ -133,8 +150,8 @@ export const GameCoverCarousel: React.FC<GameCoverCarouselProps> = ({
           borderRadius: 26,
           borderWidth: 1.5,
           borderColor: "rgba(255, 42, 95, 0.65)",
-          padding: 16,
-          paddingTop: 14,
+          padding: cardPadding,
+          paddingTop: isCompactHeight ? 10 : 14,
           position: "relative",
           overflow: "hidden",
         }}
@@ -146,7 +163,7 @@ export const GameCoverCarousel: React.FC<GameCoverCarouselProps> = ({
         />
 
         {/* Top Badge Row */}
-        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", width: "100%", marginBottom: 8 }}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", width: "100%", marginBottom: isCompactHeight ? 4 : 8 }}>
           <View style={{
             flexDirection: "row",
             alignItems: "center",
@@ -183,7 +200,7 @@ export const GameCoverCarousel: React.FC<GameCoverCarouselProps> = ({
         </View>
 
         {/* Artwork Image: spin-card bord.webp */}
-        <View style={{ width: "100%", height: 265, alignItems: "center", justifyContent: "center", marginVertical: 4 }}>
+        <View style={{ width: "100%", height: artHeight, alignItems: "center", justifyContent: "center", marginVertical: isCompactHeight ? 2 : 4 }}>
           <Image
             source={spinCardBordImg}
             style={{ width: "100%", height: "100%" }}
@@ -192,11 +209,11 @@ export const GameCoverCarousel: React.FC<GameCoverCarouselProps> = ({
         </View>
 
         {/* Headline & Subtitle */}
-        <View style={{ alignItems: "center", marginTop: 4, marginBottom: 14 }}>
-          <Text style={{ color: "#ffffff", fontSize: 32, fontWeight: "900", fontFamily: "Inter, sans-serif", letterSpacing: 0.5 }}>
+        <View style={{ alignItems: "center", marginTop: isCompactHeight ? 2 : 4, marginBottom: isCompactHeight ? 8 : 14 }}>
+          <Text style={{ color: "#ffffff", fontSize: headlineFontSize, fontWeight: "900", fontFamily: "Inter, sans-serif", letterSpacing: 0.5 }}>
             SPIN <Text style={{ color: "#ff2a5f" }}>&</Text> WIN
           </Text>
-          <Text style={{ color: "rgba(255, 255, 255, 0.72)", fontSize: 12.5, fontWeight: "600", marginTop: 4 }}>
+          <Text style={{ color: "rgba(255, 255, 255, 0.72)", fontSize: isCompactHeight ? 11.5 : 12.5, fontWeight: "600", marginTop: 2 }}>
             {isEN ? "Big prizes are waiting!" : "ትላልቅ ሽልማቶች ይጠብቁዎታል!"}
           </Text>
         </View>
@@ -312,8 +329,8 @@ export const GameCoverCarousel: React.FC<GameCoverCarouselProps> = ({
           borderRadius: 26,
           borderWidth: 1.5,
           borderColor: "rgba(0, 218, 243, 0.65)",
-          padding: 16,
-          paddingTop: 14,
+          padding: cardPadding,
+          paddingTop: isCompactHeight ? 10 : 14,
           position: "relative",
           overflow: "hidden",
         }}
@@ -325,7 +342,7 @@ export const GameCoverCarousel: React.FC<GameCoverCarouselProps> = ({
         />
 
         {/* Top Badge Row */}
-        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", width: "100%", marginBottom: 8 }}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", width: "100%", marginBottom: isCompactHeight ? 4 : 8 }}>
           <View style={{
             flexDirection: "row",
             alignItems: "center",
@@ -362,7 +379,7 @@ export const GameCoverCarousel: React.FC<GameCoverCarouselProps> = ({
         </View>
 
         {/* Artwork Image: xo-card bord.webp */}
-        <View style={{ width: "100%", height: 265, alignItems: "center", justifyContent: "center", marginVertical: 4 }}>
+        <View style={{ width: "100%", height: artHeight, alignItems: "center", justifyContent: "center", marginVertical: isCompactHeight ? 2 : 4 }}>
           <Image
             source={xoCardBordImg}
             style={{ width: "100%", height: "100%" }}
@@ -371,11 +388,11 @@ export const GameCoverCarousel: React.FC<GameCoverCarouselProps> = ({
         </View>
 
         {/* Headline & Subtitle */}
-        <View style={{ alignItems: "center", marginTop: 4, marginBottom: 14 }}>
-          <Text style={{ color: "#ffffff", fontSize: 32, fontWeight: "900", fontFamily: "Inter, sans-serif", letterSpacing: 0.5 }}>
+        <View style={{ alignItems: "center", marginTop: isCompactHeight ? 2 : 4, marginBottom: isCompactHeight ? 8 : 14 }}>
+          <Text style={{ color: "#ffffff", fontSize: headlineFontSize, fontWeight: "900", fontFamily: "Inter, sans-serif", letterSpacing: 0.5 }}>
             XO BATTLE
           </Text>
-          <Text style={{ color: "rgba(255, 255, 255, 0.72)", fontSize: 12.5, fontWeight: "600", marginTop: 4 }}>
+          <Text style={{ color: "rgba(255, 255, 255, 0.72)", fontSize: isCompactHeight ? 11.5 : 12.5, fontWeight: "600", marginTop: 2 }}>
             {isEN ? "Think. Move. Win." : "አስብ። ተንቀሳቀስ። አሸንፍ።"}
           </Text>
         </View>
@@ -479,14 +496,14 @@ export const GameCoverCarousel: React.FC<GameCoverCarouselProps> = ({
           borderRadius: 26,
           borderWidth: 1.5,
           borderColor: "rgba(148, 163, 184, 0.35)",
-          padding: 16,
-          paddingTop: 14,
+          padding: cardPadding,
+          paddingTop: isCompactHeight ? 10 : 14,
           position: "relative",
           overflow: "hidden",
         }}
       >
         {/* Top Badge Row */}
-        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", width: "100%", marginBottom: 8 }}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", width: "100%", marginBottom: isCompactHeight ? 4 : 8 }}>
           <View style={{
             flexDirection: "row",
             alignItems: "center",
@@ -523,11 +540,11 @@ export const GameCoverCarousel: React.FC<GameCoverCarouselProps> = ({
         </View>
 
         {/* Mystery Portal Graphic */}
-        <View style={{ width: "100%", height: 245, alignItems: "center", justifyContent: "center", marginVertical: 4 }}>
+        <View style={{ width: "100%", height: soonArtHeight, alignItems: "center", justifyContent: "center", marginVertical: isCompactHeight ? 2 : 4 }}>
           <View style={{
-            width: 140,
-            height: 140,
-            borderRadius: 70,
+            width: isCompactHeight ? 116 : 140,
+            height: isCompactHeight ? 116 : 140,
+            borderRadius: isCompactHeight ? 58 : 70,
             backgroundColor: "rgba(30, 41, 59, 0.6)",
             borderWidth: 2,
             borderColor: "rgba(148, 163, 184, 0.35)",
@@ -537,14 +554,14 @@ export const GameCoverCarousel: React.FC<GameCoverCarouselProps> = ({
           }}>
             <View style={{
               position: "absolute",
-              width: 164,
-              height: 164,
-              borderRadius: 82,
+              width: isCompactHeight ? 134 : 164,
+              height: isCompactHeight ? 134 : 164,
+              borderRadius: isCompactHeight ? 67 : 82,
               borderWidth: 1,
               borderColor: "rgba(148, 163, 184, 0.15)",
               borderStyle: "dashed",
             }} />
-            <Ionicons name="sparkles" size={56} color="#94a3b8" />
+            <Ionicons name="sparkles" size={isCompactHeight ? 44 : 56} color="#94a3b8" />
             <View style={{
               position: "absolute",
               bottom: -8,
@@ -563,11 +580,11 @@ export const GameCoverCarousel: React.FC<GameCoverCarouselProps> = ({
         </View>
 
         {/* Headline & Subtitle */}
-        <View style={{ alignItems: "center", marginTop: 4, marginBottom: 14 }}>
-          <Text style={{ color: "#ffffff", fontSize: 32, fontWeight: "900", fontFamily: "Inter, sans-serif", letterSpacing: 0.5 }}>
+        <View style={{ alignItems: "center", marginTop: isCompactHeight ? 2 : 4, marginBottom: isCompactHeight ? 8 : 14 }}>
+          <Text style={{ color: "#ffffff", fontSize: headlineFontSize, fontWeight: "900", fontFamily: "Inter, sans-serif", letterSpacing: 0.5 }}>
             NEW ARENA
           </Text>
-          <Text style={{ color: "rgba(255, 255, 255, 0.72)", fontSize: 12.5, fontWeight: "600", marginTop: 4 }}>
+          <Text style={{ color: "rgba(255, 255, 255, 0.72)", fontSize: isCompactHeight ? 11.5 : 12.5, fontWeight: "600", marginTop: 2 }}>
             {isEN ? "Next multiplayer mode in development" : "አዲስ የጨዋታ አይነት በቅርቡ ይለቀቃል"}
           </Text>
         </View>
@@ -705,13 +722,14 @@ export const GameCoverCarousel: React.FC<GameCoverCarouselProps> = ({
       </View>
 
       {/* Reanimated Carousel with 3D Item Animation */}
-      <View style={{ width: "100%", height: 575, marginTop: 4, alignItems: "center" }}>
+      <View style={{ width: "100%", height: carouselHeight, marginTop: 4, alignItems: "center" }}>
         <Carousel
           ref={carouselRef}
-          loop={true}
+          loop={false}
+          renderWindowSize={3}
           defaultIndex={initialIndex}
           data={CARDS}
-          style={{ width, height: 575 }}
+          style={{ width: safeWidth, height: carouselHeight }}
           itemSize={itemSize}
           itemAnimation={itemAnimation}
           animation={{
@@ -721,7 +739,7 @@ export const GameCoverCarousel: React.FC<GameCoverCarouselProps> = ({
           }}
           progress={progress}
           onSnapToItem={(rawIdx) => {
-            const idx = ((rawIdx % CARDS.length) + CARDS.length) % CARDS.length;
+            const idx = Math.max(0, Math.min(CARDS.length - 1, rawIdx));
             setIndex(idx);
             const newTab = CARDS[idx];
             if (newTab !== selectedTab) {

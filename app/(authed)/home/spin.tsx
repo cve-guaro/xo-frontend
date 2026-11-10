@@ -2395,13 +2395,12 @@ const ds = StyleSheet.create({
   body: { flex: 1 },
   bodyContent: {
     paddingHorizontal: 24,
-    paddingVertical: 20,
+    paddingTop: 14,
+    paddingBottom: 24,
     maxWidth: 1600,
     alignSelf: "center",
     width: "100%",
-    ...(Platform.OS === "web" ? {
-      zoom: 1.25,
-    } as any : {}),
+    justifyContent: "flex-start",
   },
   mainRow: { flexDirection: "row", gap: 24 },
   // ── Left sidebar ──

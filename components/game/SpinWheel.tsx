@@ -515,11 +515,13 @@ const SpinWheel = memo(function SpinWheel({
               const cleanUsername = String(rawPlayerName).trim().slice(0, 10).toLowerCase();
               const rawStake = Number((player as any)?.stake || 100);
               
-              const percentStr = (player as any)?.percent 
-                ? `${(player as any).percent}%`
-                : (totalStake > 0 && (player as any)?.stake)
-                ? `${Math.round(((player as any).stake / totalStake) * 100)}%`
-                : (is5Player ? "20%" : `${Math.round(100 / playerCount)}%`);
+              const percentStr = is5Player
+                ? "20%"
+                : ((player as any)?.percent 
+                  ? `${(player as any).percent}%`
+                  : (totalStake > 0 && (player as any)?.stake)
+                  ? `${Math.round(((player as any).stake / totalStake) * 100)}%`
+                  : `${Math.round(100 / playerCount)}%`);
 
               const isWinningSlice = Boolean(hasWinner && activeWinningSlice === idx);
               const sliceOpacity = hasWinner ? (isWinningSlice ? 1.0 : 0.22) : 1.0;
@@ -562,40 +564,20 @@ const SpinWheel = memo(function SpinWheel({
                     />
                   )}
 
-                  {/* Slices Content: 5-Player Empty Seat vs Filled Player (Exact Image 2 Match) */}
+                  {/* Slices Content: 5-Player Empty Seat vs Filled Player */}
                   {isEmptySeat ? (
                     <G transform={`translate(${centerPos.x}, ${centerPos.y}) rotate(${rot})`}>
-                      {/* Avatar placeholder circle */}
-                      <Circle cx={0} cy={-12} r={Math.min(size * 0.046, 14)} fill="rgba(255, 255, 255, 0.08)" stroke="#475569" strokeWidth={1} />
-                      <Circle cx={0} cy={-15} r={Math.min(size * 0.016, 5)} fill="#94a3b8" />
-                      <Path d="M -6.5 -7 A 6.5 4.5 0 0 1 6.5 -7 Z" fill="#94a3b8" />
-
-                      {/* Line 1: Empty */}
                       <SvgText
                         x={0}
-                        y={8}
-                        fill="#cbd5e1"
-                        fontSize={Math.min(size * 0.035, 11)}
-                        fontWeight="800"
-                        fontFamily="Inter, sans-serif"
-                        textAnchor="middle"
-                        alignmentBaseline="middle"
-                      >
-                        Empty
-                      </SvgText>
-
-                      {/* Line 2: -- */}
-                      <SvgText
-                        x={0}
-                        y={20}
+                        y={0}
                         fill="#64748b"
-                        fontSize={Math.min(size * 0.032, 10)}
+                        fontSize={Math.min(size * 0.034, 11)}
                         fontWeight="700"
                         fontFamily="Inter, sans-serif"
                         textAnchor="middle"
                         alignmentBaseline="middle"
                       >
-                        --
+                        Empty
                       </SvgText>
                     </G>
                   ) : is5Player ? (
@@ -641,20 +623,6 @@ const SpinWheel = memo(function SpinWheel({
                         alignmentBaseline="middle"
                       >
                         {rawStake} ETB
-                      </SvgText>
-
-                      {/* Line 3: 20% */}
-                      <SvgText
-                        x={0}
-                        y={29}
-                        fill="#fca5a5"
-                        fontSize={Math.min(size * 0.030, 9.5)}
-                        fontWeight="800"
-                        fontFamily="Inter, sans-serif"
-                        textAnchor="middle"
-                        alignmentBaseline="middle"
-                      >
-                        {percentStr}
                       </SvgText>
                     </G>
                   ) : (
@@ -723,34 +691,10 @@ const SpinWheel = memo(function SpinWheel({
           {/* Outer Bezel Rim */}
           {is5Player ? (
             <>
-              {/* Inner Circular Gold Perimeter Ring */}
-              <Circle cx={cx} cy={cy} r={r} stroke="#ca8a04" strokeWidth={2.5} fill="none" />
-
-              {/* Brushed Golden-Amber Outer Wheel Bezel */}
-              <Circle cx={cx} cy={cy} r={r * 1.05} stroke="url(#goldRimGrad)" strokeWidth={size * 0.075} fill="none" />
-              <Circle cx={cx} cy={cy} r={r * 1.09} fill="none" stroke="#ca8a04" strokeWidth={1.5} />
-
-              {/* 16 Alternating Large & Small Glowing Bulbs on the Golden Rim */}
-              <G>
-                {Array.from({ length: 16 }).map((_, i) => {
-                  const angle = i * (360 / 16);
-                  const pos = polarToCartesian(cx, cy, r * 1.05, angle);
-                  const isMajor = i % 2 === 0;
-                  return (
-                    <G key={i}>
-                      {isMajor ? (
-                        <>
-                          <Circle cx={pos.x} cy={pos.y} r={size * 0.024} fill="#fde047" opacity={0.5} />
-                          <Circle cx={pos.x} cy={pos.y} r={size * 0.012} fill="#f59e0b" />
-                          <Circle cx={pos.x} cy={pos.y} r={size * 0.007} fill="#ffffff" />
-                        </>
-                      ) : (
-                        <Circle cx={pos.x} cy={pos.y} r={size * 0.007} fill="#fde68a" />
-                      )}
-                    </G>
-                  );
-                })}
-              </G>
+              {/* Clean, Restrained Amber Outer Wheel Bezel */}
+              <Circle cx={cx} cy={cy} r={r} stroke="#ca8a04" strokeWidth={2} fill="none" />
+              <Circle cx={cx} cy={cy} r={r * 1.035} stroke="#1e293b" strokeWidth={size * 0.025} fill="none" />
+              <Circle cx={cx} cy={cy} r={r * 1.05} stroke="#ca8a04" strokeWidth={1.2} fill="none" />
             </>
           ) : (
             <>
@@ -810,27 +754,8 @@ const SpinWheel = memo(function SpinWheel({
               {/* ── CONDITIONAL CENTER HUB: 5-PLAYER LUXURY ROULETTE DISC VS RAIL STADIUM PILL ── */}
               {is5Player ? (
                 <G>
-                  {/* Subtle Golden-Amber Halo Glow */}
-                  <Circle cx={cx} cy={cy} r={hubRadius * 1.2} fill="url(#goldRimGrad)" opacity={0.25} />
-
-                  {/* Outer Metallic Gold / Brass Bezel Rim */}
-                  <Circle cx={cx} cy={cy} r={hubRadius * 1.06} fill="url(#hubGoldGrad)" stroke="#78350f" strokeWidth={1.5} />
-
-                  {/* Precision Engraved Dots on Bezel */}
-                  {Array.from({ length: 12 }).map((_, i) => {
-                    const dotAngle = i * (360 / 12);
-                    const dotPos = polarToCartesian(cx, cy, hubRadius * 1.01, dotAngle);
-                    return (
-                      <Circle key={`hub_dot_${i}`} cx={dotPos.x} cy={dotPos.y} r={1.5} fill="#451a03" />
-                    );
-                  })}
-
-                  {/* Inner Dark Matte Obsidian / Navy Core */}
-                  <Circle cx={cx} cy={cy} r={hubRadius * 0.92} fill="#090e1a" stroke="#ca8a04" strokeWidth={1.2} />
-
-                  {/* Concentric Subtle Roulette Spindle Ring */}
-                  <Circle cx={cx} cy={cy} r={hubRadius * 0.72} fill="none" stroke="rgba(202, 138, 4, 0.35)" strokeWidth={1} strokeDasharray="3 3" />
-                  <Circle cx={cx} cy={cy} r={hubRadius * 0.48} fill="#111827" stroke="#ca8a04" strokeWidth={0.8} />
+                  {/* Clean Dark Obsidian Disc with Restrained Amber Rim */}
+                  <Circle cx={cx} cy={cy} r={hubRadius} fill="#090e1a" stroke="#ca8a04" strokeWidth={2} />
 
                   {/* Center Hub Status Display */}
                   {isSpinning || status === "spinning" ? (
@@ -865,14 +790,14 @@ const SpinWheel = memo(function SpinWheel({
                     <G>
                       <SvgText
                         x={cx}
-                        y={cy - 6}
+                        y={cy - 7}
                         fill="#ffffff"
-                        fontSize={Math.max(hubRadius * 0.30, 13)}
+                        fontSize={Math.max(hubRadius * 0.28, 12)}
                         fontWeight="800"
                         fontFamily="Space Grotesk, Inter, sans-serif"
                         textAnchor="middle"
                         alignmentBaseline="central"
-                        letterSpacing={1.2}
+                        letterSpacing={1}
                       >
                         5-PLAYER
                       </SvgText>
@@ -880,12 +805,11 @@ const SpinWheel = memo(function SpinWheel({
                         x={cx}
                         y={cy + 8}
                         fill="#fde047"
-                        fontSize={Math.max(hubRadius * 0.22, 10)}
-                        fontWeight="800"
-                        fontFamily="Inter, sans-serif"
+                        fontSize={Math.max(hubRadius * 0.24, 11)}
+                        fontWeight="900"
+                        fontFamily="Space Grotesk, Inter, sans-serif"
                         textAnchor="middle"
                         alignmentBaseline="central"
-                        letterSpacing={0.8}
                       >
                         100 ETB
                       </SvgText>

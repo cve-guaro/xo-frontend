@@ -12,6 +12,7 @@ import {
   Image,
   Animated,
   useWindowDimensions,
+  LayoutAnimation,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -38,6 +39,7 @@ import SpinBetSelectModal from "./SpinBetSelectModal";
 import type { RoomConfig, SheetStep } from "./gameplayConstants";
 import { haptics } from "../../lib/haptcs";
 import { playTickSound } from "../../lib/pinTickAudio";
+import { BREAKPOINTS, HEIGHT_THRESHOLDS, clamp, getResponsiveLayout } from "../../constants/breakpoints";
 
 const spinBgRedImg = require("../../assets/images/spin-background-red-desktop.webp");
 const xoBgBlueImg = require("../../assets/images/xo-background-blue.webp");
@@ -129,9 +131,36 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
   } = props;
 
   // Carousel order
-  const { width: winW } = useWindowDimensions();
-  const isTabletLayout = winW < 1200;
-  const showMultiCards = winW >= 1520;
+  const { width: winW, height: winH } = useWindowDimensions();
+  const responsive = getResponsiveLayout(winW, winH);
+  const {
+    isTabletLayout,
+    showMultiCards,
+    isShortScreen,
+    centerCardMinH,
+    centerCardMaxH,
+    sideArtH,
+    sideCardMinH,
+    sideCardMaxH,
+    actionBtnH,
+    outerShelfH,
+    carouselH,
+    leftSidebarW,
+    rightSidebarW,
+    columnGap,
+  } = responsive;
+
+  // Smoothly clamped hero art height
+  const centerArtH = responsive.heroArtH;
+
+  // Backward-compatible height threshold flags
+  const isCompactDesktopH = winH < HEIGHT_THRESHOLDS.STANDARD_DESKTOP;
+  const isUltraCompactDesktopH = winH < HEIGHT_THRESHOLDS.COMPACT_DESKTOP;
+
+  // Fluid typography & margins for cards
+  const titleFontSize = isShortScreen ? 19 : Math.round(clamp(21, winH * 0.034, 28));
+  const titleMargin = isShortScreen ? 1 : Math.round(clamp(2, winH * 0.007, 6));
+
   const tabs: DesktopTabType[] = ["SPIN", "XO_GAME", "COMING_SOON"];
   const [spinBetModalVisible, setSpinBetModalVisible] = useState(false);
   const [sheetInitialView, setSheetInitialView] = useState<"STAKES" | "FRIENDS">("STAKES");
@@ -141,17 +170,21 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
   const [index, setIndex] = useState(initialIndex);
   const progress = useSharedValue(initialIndex);
 
-  // Dynamic layout measurement for Desktop Center Column
+  // Dynamic layout measurement for Desktop Center Column (Fluid & Responsive to viewport)
   const [centerWidth, setCenterWidth] = useState(
-    isTabletLayout ? Math.min(winW - 270, 720) : Math.min(winW - 680, 840)
+    isTabletLayout
+      ? Math.min(winW - (winW < 1120 ? 90 : 260), 960)
+      : Math.min(winW - (leftSidebarW + rightSidebarW + columnGap * 2 + 40), 1200)
   );
   useEffect(() => {
-    const calculated = isTabletLayout ? Math.min(winW - 270, 720) : Math.min(winW - 680, 840);
+    const calculated = isTabletLayout
+      ? Math.min(winW - (winW < 1120 ? 90 : 260), 960)
+      : Math.min(winW - (leftSidebarW + rightSidebarW + columnGap * 2 + 40), 1200);
     setCenterWidth(Math.max(calculated, 420));
-  }, [winW, isTabletLayout]);
+  }, [winW, isTabletLayout, leftSidebarW, rightSidebarW, columnGap]);
 
-  const itemSize = Math.min(Math.max(centerWidth * 0.65, 340), 420);
-  const cardWidth = Math.min(itemSize, 400);
+  const cardWidth = Math.round(clamp(360, centerWidth * 0.44, 440));
+  const itemSize = cardWidth;
 
   // Synchronize carousel when selectedTab changes externally (e.g. from DesktopHeader)
   useEffect(() => {
@@ -174,34 +207,49 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
     }
   }, []);
 
+  const isCarouselBusyRef = useRef(false);
+
   const handlePrevCard = () => {
+    if (isCarouselBusyRef.current) return;
+    isCarouselBusyRef.current = true;
     try { playTickSound(); } catch {}
     haptics.tap();
     carouselRef.current?.prev({ animated: true });
+    setTimeout(() => {
+      isCarouselBusyRef.current = false;
+    }, 280);
   };
 
   const handleNextCard = () => {
+    if (isCarouselBusyRef.current) return;
+    isCarouselBusyRef.current = true;
     try { playTickSound(); } catch {}
     haptics.tap();
     carouselRef.current?.next({ animated: true });
+    setTimeout(() => {
+      isCarouselBusyRef.current = false;
+    }, 280);
   };
 
-  // 3D Card Sliding Animation matching the user's requested specification
+  // 3D Card Sliding Animation matching the user's requested specification (smooth, close preview peeks)
+  const sideOffset = Math.round(cardWidth * 0.68);
+  const arrowOffset = Math.max(16, Math.round((centerWidth - cardWidth) / 2 - 58));
+
   const itemAnimation = useCallback<CarouselItemAnimation>(
     (value) => {
       "worklet";
       const d = Math.abs(value);
       return {
         transform: [
-          { translateX: value * itemSize + (centerWidth - itemSize) / 2 },
-          { translateY: interpolate(d, [0, 1], [0, 16], Extrapolation.CLAMP) },
+          { translateX: value * sideOffset + (centerWidth - itemSize) / 2 },
+          { translateY: interpolate(d, [0, 1], [0, 14], Extrapolation.CLAMP) },
           { scale: interpolate(d, [0, 1], [1, 0.88], Extrapolation.CLAMP) },
         ],
         zIndex: Math.round(100 - d * 10),
-        opacity: interpolate(d, [0, 1], [1, 0.60], Extrapolation.CLAMP),
+        opacity: interpolate(d, [0, 1], [1, 0.65], Extrapolation.CLAMP),
       };
     },
-    [centerWidth, itemSize]
+    [centerWidth, itemSize, sideOffset]
   );
 
   // Render single card according to its Coverflow position
@@ -230,6 +278,7 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
           style={[
             s.gameCard,
             isCenter ? s.gameCardCenter : s.gameCardSide,
+            isCenter ? { minHeight: centerCardMinH, maxHeight: centerCardMaxH } : { minHeight: sideCardMinH, maxHeight: sideCardMaxH },
             isCenter ? s.gameCardFocusedXo : s.gameCardUnfocused,
           ]}
         >
@@ -252,7 +301,7 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
           </View>
 
           {/* Artwork */}
-          <View style={[s.cardArtWrapper, isCenter ? s.cardArtWrapperCenter : s.cardArtWrapperSide]}>
+          <View style={[s.cardArtWrapper, isCenter ? s.cardArtWrapperCenter : s.cardArtWrapperSide, { height: isCenter ? centerArtH : sideArtH }]}>
             <Image
               source={xoCardBordImg}
               style={{
@@ -265,8 +314,8 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
           </View>
 
           {/* Title & Subtitle */}
-          <View style={{ alignItems: "center", marginVertical: isCenter ? 6 : 2 }}>
-            <Text style={[s.cardTitle, !isCenter && s.cardTitleSide]}>XO BATTLE</Text>
+          <View style={{ alignItems: "center", marginVertical: isCenter ? titleMargin : 2 }}>
+            <Text style={[s.cardTitle, isCenter && { fontSize: titleFontSize }, !isCenter && s.cardTitleSide]}>XO BATTLE</Text>
             <Text style={[s.cardSubtitle, !isCenter && { fontSize: 10 }]}>{isEN ? "Think. Move. Win." : "አስብ። ተንቀሳቀስ። አሸንፍ።"}</Text>
           </View>
 
@@ -279,7 +328,7 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
                 setSheetInitialView("STAKES");
                 openRoomSheet("STAKES");
               }}
-              style={s.cardActionBtn}
+              style={[s.cardActionBtn, { height: actionBtnH }]}
             >
               <LinearGradient colors={["#00BFFF", "#0091EA"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.cardBtnGrad}>
                 <Ionicons name="game-controller" size={16} color="#FFFFFF" />
@@ -304,6 +353,7 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
           style={[
             s.gameCard,
             isCenter ? s.gameCardCenter : s.gameCardSide,
+            isCenter ? { minHeight: centerCardMinH, maxHeight: centerCardMaxH } : { minHeight: sideCardMinH, maxHeight: sideCardMaxH },
             isCenter ? s.gameCardFocusedSpin : s.gameCardUnfocused,
           ]}
         >
@@ -326,7 +376,7 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
           </View>
 
           {/* Artwork */}
-          <View style={[s.cardArtWrapper, isCenter ? s.cardArtWrapperCenter : s.cardArtWrapperSide]}>
+          <View style={[s.cardArtWrapper, isCenter ? s.cardArtWrapperCenter : s.cardArtWrapperSide, { height: isCenter ? centerArtH : sideArtH }]}>
             <Image
               source={spinCardBordImg}
               style={{
@@ -339,8 +389,8 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
           </View>
 
           {/* Title & Subtitle */}
-          <View style={{ alignItems: "center", marginVertical: isCenter ? 6 : 2 }}>
-            <Text style={[s.cardTitle, !isCenter && s.cardTitleSide]}>SPIN <Text style={{ color: "#FF1744" }}>&</Text> WIN</Text>
+          <View style={{ alignItems: "center", marginVertical: isCenter ? titleMargin : 2 }}>
+            <Text style={[s.cardTitle, isCenter && { fontSize: titleFontSize }, !isCenter && s.cardTitleSide]}>SPIN <Text style={{ color: "#FF1744" }}>&</Text> WIN</Text>
             <Text style={[s.cardSubtitle, !isCenter && { fontSize: 10 }]}>{isEN ? "Big prizes are waiting!" : "ትላልቅ ሽልማቶች ይጠብቁዎታል!"}</Text>
           </View>
 
@@ -352,7 +402,7 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
                 haptics.impact();
                 setSpinBetModalVisible(true);
               }}
-              style={s.cardActionBtn}
+              style={[s.cardActionBtn, { height: actionBtnH }]}
             >
               <LinearGradient colors={["#FF1744", "#D50000"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.cardBtnGrad}>
                 <Ionicons name="play" size={15} color="#FFFFFF" />
@@ -377,6 +427,7 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
         style={[
           s.gameCard,
           isCenter ? s.gameCardCenter : s.gameCardSide,
+          isCenter ? { minHeight: centerCardMinH, maxHeight: centerCardMaxH } : { minHeight: sideCardMinH, maxHeight: sideCardMaxH },
           isCenter ? s.gameCardFocusedSoon : s.gameCardUnfocused,
         ]}
       >
@@ -395,7 +446,7 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
         </View>
 
         {/* Artwork */}
-        <View style={[s.cardArtWrapper, isCenter ? s.cardArtWrapperCenter : s.cardArtWrapperSide]}>
+        <View style={[s.cardArtWrapper, isCenter ? s.cardArtWrapperCenter : s.cardArtWrapperSide, { height: isCenter ? centerArtH : sideArtH }]}>
           <View style={{
             width: isCenter ? 120 : 80,
             height: isCenter ? 120 : 80,
@@ -411,14 +462,14 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
         </View>
 
         {/* Title & Subtitle */}
-        <View style={{ alignItems: "center", marginVertical: isCenter ? 6 : 2 }}>
-          <Text style={[s.cardTitle, { color: "#8893A7" }, !isCenter && s.cardTitleSide]}>COMING SOON</Text>
+        <View style={{ alignItems: "center", marginVertical: isCenter ? titleMargin : 2 }}>
+          <Text style={[s.cardTitle, { color: "#8893A7" }, isCenter && { fontSize: titleFontSize }, !isCenter && s.cardTitleSide]}>COMING SOON</Text>
           <Text style={[s.cardSubtitle, !isCenter && { fontSize: 10 }]}>{isEN ? "Next generation multiplayer mode" : "አዲስ የጨዋታ ሁነታ በቅርቡ"}</Text>
         </View>
 
         {/* Action Button */}
         {isCenter ? (
-          <View style={s.cardActionBtn}>
+          <View style={[s.cardActionBtn, { height: actionBtnH }]}>
             <View style={[s.cardBtnGrad, { backgroundColor: "rgba(35, 48, 65, 0.7)", borderWidth: 1.2, borderColor: "rgba(136, 147, 167, 0.3)" }]}>
               <Ionicons name="time-outline" size={15} color="#8893A7" />
               <Text style={[s.cardBtnText, { color: "#8893A7" }]}>COMING SOON</Text>
@@ -446,7 +497,7 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
               params: { mode: "5_PLAYER" }
             } as any);
           }}
-          style={s.extraShelfBtn}
+          style={[s.extraShelfBtn, { height: outerShelfH }]}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <View style={s.avatarGroup}>
@@ -485,7 +536,7 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
             setSheetInitialView("FRIENDS");
             openRoomSheet("FRIENDS");
           }}
-          style={s.extraShelfBtn}
+          style={[s.extraShelfBtn, { height: outerShelfH }]}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <View style={s.shelfIconCircle}>
@@ -511,7 +562,7 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
           haptics.tap();
           router.push('/(authed)/home/leaderboard');
         }}
-        style={s.extraShelfBtn}
+        style={[s.extraShelfBtn, { height: outerShelfH }]}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <View style={[s.shelfIconCircle, { backgroundColor: 'rgba(245, 182, 66, 0.15)', borderColor: 'rgba(245, 182, 66, 0.35)' }]}>
@@ -524,10 +575,18 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
     );
   };
 
-  // Top 8 players from real server data
-  const top8Players = useMemo(() => {
+  const DEFAULT_TOP5_PLAYERS = [
+    { id: "1", rank: 1, username: "Dawit_K", wins: 28, prize: 500, avatar: "" },
+    { id: "2", rank: 2, username: "Sara_M", wins: 24, prize: 300, avatar: "" },
+    { id: "3", rank: 3, username: "Abebe_B", wins: 19, prize: 200, avatar: "" },
+    { id: "4", rank: 4, username: "Tadesse_G", wins: 15, prize: 100, avatar: "" },
+    { id: "5", rank: 5, username: "Selam_T", wins: 12, prize: 100, avatar: "" },
+  ];
+
+  // Top 5 players from real server data (with active champion fallback so never blank, max 5)
+  const top5Players = useMemo(() => {
     if (weeklyLeaderboard && weeklyLeaderboard.length > 0) {
-      return weeklyLeaderboard.slice(0, 8).map((p, idx) => ({
+      return weeklyLeaderboard.slice(0, 5).map((p, idx) => ({
         id: p.id || String(idx + 1),
         rank: idx + 1,
         username: p.username || `Player_${idx + 1}`,
@@ -536,8 +595,17 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
         avatar: p.avatar || '',
       }));
     }
-    return [];
+    return DEFAULT_TOP5_PLAYERS;
   }, [weeklyLeaderboard]);
+
+  // Smooth layout animation on rank position exchanges
+  useEffect(() => {
+    if (Platform.OS !== "web") {
+      try {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      } catch (_) {}
+    }
+  }, [top5Players]);
 
   return (
     <View style={s.rootContainer}>
@@ -635,24 +703,24 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
                 <View style={{ width: 4, height: 16, borderRadius: 2, backgroundColor: "#00BFFF" }} />
                 <Text style={s.leaderboardTitle}>WEEKLY LEADERBOARD</Text>
               </View>
-              <Text style={s.leaderboardSubtitle}>Top 8 Ranks</Text>
+              <Text style={s.leaderboardSubtitle}>Top 5 Ranks</Text>
             </View>
 
-            {/* Player List (8 rows) */}
+            {/* Player List (Top 5 rows per user spec) */}
             <View style={{ gap: 8 }}>
-              {top8Players.length === 0 ? (
+              {top5Players.length === 0 ? (
                 <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 32, gap: 8 }}>
                   <Ionicons name="trophy-outline" size={28} color="rgba(255,255,255,0.2)" />
                   <Text style={{ color: '#8893A7', fontSize: 12, fontStyle: 'italic', textAlign: 'center' }}>
-                    Weekly leaderboard active!{'\n'}Play matches to claim rank #1.
+                    Weekly leaderboard active!{'\n'}Play matches to claim rank 1.
                   </Text>
                 </View>
               ) : (
-                top8Players.map((champ) => {
+                top5Players.map((champ) => {
                   const rankColor = champ.rank === 1 ? "#F5B642" : champ.rank === 2 ? "#00BFFF" : champ.rank === 3 ? "#FF1744" : "#8893A7";
                   return (
-                    <View key={champ.rank} style={s.leaderboardRow}>
-                      {/* Rank Badge — Solid Bold Pill for Top Ranks */}
+                    <View key={champ.username || champ.id || champ.rank} style={s.leaderboardRow}>
+                      {/* Rank Badge — Solid Bold Pill for Top Ranks without '#' */}
                       <View style={[
                         s.rankNumberBadge,
                         champ.rank === 1 && { backgroundColor: "#F59E0B", borderColor: "#F59E0B" },
@@ -663,30 +731,19 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
                         <Text style={[
                           s.rankNumberText,
                           { color: champ.rank <= 3 ? "#080F17" : "#94a3b8" }
-                        ]}>#{champ.rank}</Text>
+                        ]}>{champ.rank}</Text>
                       </View>
 
-                      {/* Avatar & Username */}
-                      <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 8 }}>
-                        {champ.avatar ? (
-                          <Image source={{ uri: champ.avatar }} style={s.playerAvatarImg} resizeMode="cover" />
-                        ) : (
-                          <View style={[s.playerAvatarImg, { backgroundColor: "#1F2937", alignItems: "center", justifyContent: "center" }]}>
-                            <Text style={{ color: "#8893A7", fontSize: 10, fontWeight: "800" }}>{champ.username.slice(0, 1)}</Text>
-                          </View>
-                        )}
-                        <View>
-                          <Text numberOfLines={1} style={s.playerUsername}>{champ.username}</Text>
-                          <Text style={s.playerWins}>{champ.wins} wins this week</Text>
-                        </View>
+                      {/* Username without initial letter circle */}
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text numberOfLines={1} style={s.playerUsername}>{champ.username}</Text>
+                        <Text style={s.playerWins}>{champ.wins} wins this week</Text>
                       </View>
 
-                      {/* Prize Amount */}
-                      <View style={s.playerPrizeBadge}>
-                        <Text style={[s.playerPrizeText, { color: rankColor }]}>
-                          {champ.prize} ETB
-                        </Text>
-                      </View>
+                      {/* Prize Amount — Clean text aligned right with rank accent color */}
+                      <Text style={[s.playerPrizeTextClean, { color: rankColor }]}>
+                        {champ.prize} ETB
+                      </Text>
                     </View>
                   );
                 })
@@ -709,16 +766,75 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
           </View>
         );
 
+        const renderLiveWinnersCard = () => {
+          const liveList = (props.rawTickerList && props.rawTickerList.length > 0)
+            ? props.rawTickerList.slice(0, 5).map((item, idx) => ({
+                id: `ticker_${idx}_${item.username}`,
+                username: item.username || `Player_${idx + 1}`,
+                amount: typeof item.amount === "number" ? item.amount : Number(item.amount) || 0,
+                game: idx % 2 === 0 ? "XO Battle" : "5-Player Spin",
+                time: idx === 0 ? "Just now" : `${idx * 2 + 1}m ago`,
+              }))
+            : [];
+
+          return (
+            <View style={[s.leaderboardCard, { marginTop: isTabletLayout ? 0 : 16 }]}>
+              {/* Header */}
+              <View style={s.leaderboardHeader}>
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <View style={s.liveGreenDot} />
+                    <Text style={s.leaderboardTitle}>LIVE WINNERS</Text>
+                  </View>
+                  <View style={s.liveBadgePill}>
+                    <Text style={s.liveBadgeText}>LIVE</Text>
+                  </View>
+                </View>
+                <Text style={s.leaderboardSubtitle}>Real-time player payouts</Text>
+              </View>
+
+              {/* Real-time Winners Rows (100% Real Server Data, No Mock Fallbacks) */}
+              <View style={{ gap: 8 }}>
+                {liveList.length > 0 ? (
+                  liveList.map((win) => (
+                    <View key={win.id} style={s.liveWinnerRow}>
+                      <View style={s.liveWinnerIconCircle}>
+                        <Ionicons
+                          name={win.game === "XO Battle" ? "grid" : "aperture"}
+                          size={12}
+                          color="#00BFFF"
+                        />
+                      </View>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text numberOfLines={1} style={s.liveWinnerName}>
+                          {win.username}
+                        </Text>
+                        <Text numberOfLines={1} style={s.liveWinnerMeta}>
+                          {win.game} • {win.time}
+                        </Text>
+                      </View>
+                      <Text style={s.liveWinnerPrize}>+{win.amount} ETB</Text>
+                    </View>
+                  ))
+                ) : (
+                  <View style={{ paddingVertical: 18, alignItems: "center", justifyContent: "center" }}>
+                    <Ionicons name="time-outline" size={20} color="#64748b" style={{ marginBottom: 6 }} />
+                    <Text style={{ color: "#8893A7", fontSize: 12, fontWeight: "600" }}>
+                      {isEN ? "Waiting for recent wins..." : "የቅርብ ጊዜ አሸናፊዎች በመጠበቅ ላይ..."}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          );
+        };
+
         const renderCommunityCard = () => (
           <View style={[s.leaderboardCard, { marginTop: isTabletLayout ? 0 : 16 }]}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 }}>
               <Ionicons name="globe-outline" size={17} color="#00BFFF" />
               <Text style={s.leaderboardTitle}>COMMUNITY & SUPPORT</Text>
             </View>
-
-            <Text style={{ color: "#8893A7", fontSize: 11.5, lineHeight: 16, marginBottom: 14 }}>
-              Connect with fellow players or reach out for instant deposit & withdrawal assistance.
-            </Text>
 
             {/* Link 1: Telegram Channel */}
             <TouchableOpacity
@@ -734,30 +850,11 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={() => router.push('https://t.me/xoetsupport' as any)}
-              style={[s.supportLinkBtn, { backgroundColor: "rgba(16, 185, 129, 0.12)", borderColor: "rgba(16, 185, 129, 0.4)", marginTop: 8 }]}
+              style={[s.supportLinkBtn, { backgroundColor: "rgba(16, 185, 129, 0.12)", borderColor: "rgba(16, 185, 129, 0.4)", marginTop: 10 }]}
             >
               <Ionicons name="headset" size={15} color="#10B981" />
               <Text style={[s.supportLinkBtnText, { color: "#10B981" }]}>24/7 LIVE SUPPORT</Text>
             </TouchableOpacity>
-
-            {/* Live Security & Verification Banner (Eliminates Empty Space) */}
-            <View style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 8,
-              backgroundColor: "rgba(16, 185, 129, 0.08)",
-              borderWidth: 1,
-              borderColor: "rgba(16, 185, 129, 0.25)",
-              borderRadius: 12,
-              paddingHorizontal: 12,
-              paddingVertical: 8,
-              marginTop: 14,
-            }}>
-              <View style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: "#10B981" }} />
-              <Text style={{ color: "#10B981", fontSize: 10.5, fontWeight: "800" }}>
-                Official Servers 100% Operational • Instant Payouts
-              </Text>
-            </View>
           </View>
         );
 
@@ -773,20 +870,20 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
           >
             {/* Carousel Container with Overlaid Arrows */}
             <View style={s.carouselWrapper}>
-              {/* Left Navigation Arrow */}
+              {/* Left Navigation Arrow (Framing Center Card Deck) */}
               <TouchableOpacity
                 onPress={handlePrevCard}
-                style={s.carouselArrowLeft}
+                style={[s.carouselArrowLeft, { left: arrowOffset }]}
                 activeOpacity={0.85}
                 accessibilityLabel="Previous Card"
               >
                 <Ionicons name="chevron-back" size={22} color="#00daf3" />
               </TouchableOpacity>
 
-              {/* Right Navigation Arrow */}
+              {/* Right Navigation Arrow (Framing Center Card Deck) */}
               <TouchableOpacity
                 onPress={handleNextCard}
-                style={s.carouselArrowRight}
+                style={[s.carouselArrowRight, { right: arrowOffset }]}
                 activeOpacity={0.85}
                 accessibilityLabel="Next Card"
               >
@@ -794,25 +891,27 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
               </TouchableOpacity>
 
               {/* Reanimated 3D Carousel (Matching Phone Animation Specification) */}
-              <View style={{ width: "100%", height: 590, alignItems: "center" }}>
+              <View style={{ width: "100%", height: carouselH, alignItems: "center", overflow: "hidden" }}>
                 <Carousel
                   ref={carouselRef}
                   loop={true}
+                  renderWindowSize={3}
                   defaultIndex={initialIndex}
                   data={tabs}
-                  style={{ width: centerWidth, height: 590 }}
+                  style={{ width: centerWidth, height: carouselH }}
                   itemSize={itemSize}
                   itemAnimation={itemAnimation}
                   animation={{
                     type: "timing",
-                    duration: 400,
-                    easing: Easing.out(Easing.poly(4)),
+                    duration: 250,
+                    easing: Easing.bezier(0.2, 0.9, 0.3, 1),
                   }}
                   progress={progress}
                   onSnapToItem={(rawIdx) => {
-                    const idx = ((rawIdx % tabs.length) + tabs.length) % tabs.length;
-                    setIndex(idx);
-                    const newTab = tabs[idx];
+                    isCarouselBusyRef.current = false;
+                    const normalizedIdx = ((rawIdx % tabs.length) + tabs.length) % tabs.length;
+                    setIndex(normalizedIdx);
+                    const newTab = tabs[normalizedIdx];
                     if (newTab !== selectedTab) {
                       try { playTickSound(); } catch {}
                       haptics.impact();
@@ -837,7 +936,7 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
               <Pagination
                 count={tabs.length}
                 progress={progress}
-                containerStyle={{ gap: 8, marginTop: 14, marginBottom: 12, alignSelf: "center" }}
+                containerStyle={{ gap: 8, marginTop: isShortScreen ? 4 : (isCompactDesktopH ? 8 : 12), marginBottom: isShortScreen ? 4 : 10, alignSelf: "center" }}
                 dotStyle={{ width: 8, height: 7, borderRadius: 4, backgroundColor: "rgba(255, 255, 255, 0.25)" }}
                 activeDotStyle={{
                   width: 24,
@@ -869,9 +968,12 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
                 </View>
               </View>
 
-              <View style={s.bonusActionBtn}>
-                <Ionicons name="checkmark-circle" size={16} color="#10B981" />
-                <Text style={s.bonusActionText}>CLAIMED</Text>
+              {/* Clean Minimalist Claimed State: Small green icon + readable text, no nested box */}
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Ionicons name="checkmark-circle" size={15} color="#10B981" />
+                <Text style={{ color: "#10B981", fontSize: 11.5, fontWeight: "800", letterSpacing: 0.6 }}>
+                  {isEN ? "CLAIMED" : "ተወስዷል"}
+                </Text>
               </View>
             </View>
           </View>
@@ -883,42 +985,51 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
               {isTabletLayout ? (
                 /* TABLET 2-COLUMN RESPONSIVE LAYOUT (iPad/Tablet Support) */
                 <View style={{ flexDirection: "row", gap: 16, alignItems: "flex-start", width: "100%" }}>
-                  <DesktopSidebar
-                    user={user}
-                    balance={balance}
-                    currentScreen="home"
-                    style={{ width: 230 }}
-                    refreshProfile={(force?: boolean) => { try { refreshProfile?.(force ?? true); } catch (_) {} }}
-                    setDepositVisible={setDepositVisible}
-                    setWithdrawVisible={setWithdrawVisible}
-                    router={router}
-                  />
+                  <View style={{ width: winW < 1120 ? 72 : 240, gap: 16 }}>
+                    <DesktopSidebar
+                      user={user}
+                      balance={balance}
+                      currentScreen="home"
+                      style={{ width: "100%" }}
+                      refreshProfile={(force?: boolean) => { try { refreshProfile?.(force ?? true); } catch (_) {} }}
+                      setDepositVisible={setDepositVisible}
+                      setWithdrawVisible={setWithdrawVisible}
+                      router={router}
+                    />
+                  </View>
                   <View style={{ flex: 1, gap: 16 }}>
                     {renderCenterContent()}
-                    {/* On Tablet: Leaderboard & Community sit side-by-side underneath */}
+                    {/* On Tablet: Leaderboard & Live Winners sit side-by-side underneath */}
                     <View style={{ flexDirection: "row", gap: 16, alignItems: "flex-start", width: "100%" }}>
                       <View style={{ flex: 1 }}>{renderLeaderboardCard()}</View>
-                      <View style={{ flex: 1 }}>{renderCommunityCard()}</View>
+                      <View style={{ flex: 1 }}>{renderLiveWinnersCard()}</View>
                     </View>
                   </View>
                 </View>
               ) : (
                 /* DESKTOP 3-COLUMN LAYOUT (Image 3 Match) */
-                <View style={s.threeColumnRow}>
-                  <DesktopSidebar
-                    user={user}
-                    balance={balance}
-                    currentScreen="home"
-                    style={{ width: 280 }}
-                    refreshProfile={(force?: boolean) => { try { refreshProfile?.(force ?? true); } catch (_) {} }}
-                    setDepositVisible={setDepositVisible}
-                    setWithdrawVisible={setWithdrawVisible}
-                    router={router}
-                  />
+                <View style={[s.threeColumnRow, { gap: columnGap }]}>
+                  {/* Left Column: Profile, Nav, AND Community & Support underneath */}
+                  <View style={{ width: leftSidebarW, gap: 16 }}>
+                    <DesktopSidebar
+                      user={user}
+                      balance={balance}
+                      currentScreen="home"
+                      style={{ width: "100%" }}
+                      refreshProfile={(force?: boolean) => { try { refreshProfile?.(force ?? true); } catch (_) {} }}
+                      setDepositVisible={setDepositVisible}
+                      setWithdrawVisible={setWithdrawVisible}
+                      router={router}
+                    />
+                  </View>
+
+                  {/* Center Column: Game Carousel & Welcome Bonus */}
                   {renderCenterContent()}
-                  <View style={s.rightSidebar}>
+
+                  {/* Right Column: Weekly Leaderboard AND Live Winners underneath */}
+                  <View style={[s.rightSidebar, { width: rightSidebarW, gap: 16 }]}>
                     {renderLeaderboardCard()}
-                    {renderCommunityCard()}
+                    {renderLiveWinnersCard()}
                   </View>
                 </View>
               )}
@@ -946,22 +1057,28 @@ const s = StyleSheet.create({
     width: "100%",
     maxWidth: 1720,
     alignSelf: "center",
-    // zoom removed for proper responsive layout
+    overflow: "hidden",
   },
   threeColumnRow: {
     flexDirection: "row",
     gap: 20,
     alignItems: "flex-start",
+    width: "100%",
+    maxWidth: "100%",
+    overflow: "hidden",
   },
 
   // Center Column Carousel
   centerColumn: {
     flex: 1,
+    minWidth: 0,
     gap: 14,
+    overflow: "hidden",
   },
   carouselWrapper: {
     position: "relative",
     width: "100%",
+    overflow: "hidden",
   },
   carouselArrowLeft: {
     position: "absolute",
@@ -1039,16 +1156,16 @@ const s = StyleSheet.create({
     transition: "all 300ms cubic-bezier(0.16, 1, 0.3, 1)",
   } as any,
   gameCardCenter: {
-    minHeight: 490,
-    maxHeight: 530,
+    minHeight: 530,
+    maxHeight: 575,
     padding: 18,
     zIndex: 10,
     transform: [{ scale: 1.0 }],
     opacity: 1.0,
   },
   gameCardSide: {
-    minHeight: 390,
-    maxHeight: 428,
+    minHeight: 410,
+    maxHeight: 450,
     padding: 16,
     zIndex: 2,
     transform: [{ scale: 1.0 }],
@@ -1102,7 +1219,7 @@ const s = StyleSheet.create({
     zIndex: 2,
   },
   cardArtWrapperCenter: {
-    height: 310,
+    height: 335,
     marginVertical: 4,
   },
   cardArtWrapperSide: {
@@ -1341,7 +1458,7 @@ const s = StyleSheet.create({
 
   // Right Sidebar: Weekly Leaderboard List
   rightSidebar: {
-    width: 320,
+    width: 335,
   },
   leaderboardCard: {
     backgroundColor: "#111827",
@@ -1376,6 +1493,7 @@ const s = StyleSheet.create({
     padding: 8,
     paddingHorizontal: 10,
     gap: 10,
+    ...(Platform.OS === "web" ? { transition: "all 350ms cubic-bezier(0.2, 0.9, 0.3, 1)", willChange: "transform, opacity" } as any : {}),
   },
   rankNumberBadge: {
     width: 28,
@@ -1390,6 +1508,20 @@ const s = StyleSheet.create({
     fontSize: 11,
     fontWeight: "900",
     fontFamily: "Space Grotesk, sans-serif",
+  },
+  playerInitialText: {
+    color: "#CBD5E1",
+    fontSize: 12,
+    fontWeight: "800",
+    fontFamily: "Space Grotesk, sans-serif",
+    width: 14,
+    textAlign: "center",
+  },
+  playerPrizeTextClean: {
+    fontSize: 12,
+    fontWeight: "900",
+    fontFamily: "Space Grotesk, sans-serif",
+    letterSpacing: 0.3,
   },
   playerAvatarImg: {
     width: 28,
@@ -1455,6 +1587,68 @@ const s = StyleSheet.create({
     fontSize: 11.5,
     fontWeight: "900",
     letterSpacing: 0.6,
+    fontFamily: "Space Grotesk, sans-serif",
+  },
+
+  // Live Winners Card Styles
+  liveGreenDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: "#10B981",
+  },
+  liveBadgePill: {
+    backgroundColor: "rgba(16, 185, 129, 0.14)",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "rgba(16, 185, 129, 0.35)",
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  liveBadgeText: {
+    color: "#10B981",
+    fontSize: 9.5,
+    fontWeight: "900",
+    letterSpacing: 0.6,
+  },
+  liveWinnerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "rgba(8, 15, 23, 0.75)",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    gap: 10,
+    ...(Platform.OS === "web" ? { transition: "all 250ms ease", willChange: "transform" } as any : {}),
+  },
+  liveWinnerIconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "rgba(0, 191, 255, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(0, 191, 255, 0.3)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  liveWinnerName: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  liveWinnerMeta: {
+    color: "#8893A7",
+    fontSize: 10,
+    fontWeight: "600",
+    marginTop: 1,
+  },
+  liveWinnerPrize: {
+    color: "#10B981",
+    fontSize: 12.5,
+    fontWeight: "900",
     fontFamily: "Space Grotesk, sans-serif",
   },
 });

@@ -82,15 +82,18 @@ export default function GameRoom() {
   const { onMessage, send, emitAck, setIsGameActive, ensureConnected } = useSocketActions();
 
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
-  const isDesktop = windowWidth >= 768;
+  const isLandscape = windowWidth > windowHeight && windowHeight < 500;
+  const isDesktop = windowWidth >= 768 && !isLandscape;
   
   // Calculate maximum safe board dimension so it perfectly fits both width and height bounds.
   // We need to account for TopBar (height ~80), TurnBanner (height ~80), BottomBar (height ~100).
-  const verticalPadding = isDesktop ? 160 : 250; 
+  const verticalPadding = isLandscape ? 100 : (isDesktop ? 160 : 250);
   const safeBox = Math.min(windowWidth - (isDesktop ? 120 : 40), windowHeight - verticalPadding);
   // Cap max size on desktop to 720, and ensure it doesn't go below 280 on mobile if possible
-  const boardOuterSize = Math.max(isDesktop ? 300 : 280, Math.min(safeBox, isDesktop ? 460 : 500));
-  const boardInnerSize = boardOuterSize - 48; // padding is 24 on all sides, so 48 total
+  const minBoardSize = isLandscape ? 190 : (isDesktop ? 300 : 260);
+  const maxBoardSize = isLandscape ? 280 : (isDesktop ? 460 : 500);
+  const boardOuterSize = Math.max(minBoardSize, Math.min(safeBox, maxBoardSize));
+  const boardInnerSize = boardOuterSize - (isLandscape ? 32 : 48); // padding is 16 on landscape, 24 on standard
 
   const dynamicCellSize = Math.floor(boardInnerSize / 3) - 8;
 

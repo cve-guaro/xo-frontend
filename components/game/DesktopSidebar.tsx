@@ -85,7 +85,7 @@ export default function DesktopSidebar({
   };
 
   return (
-    <View style={[s.leftSidebar, isRail && s.leftSidebarRail, style]}>
+    <View style={[s.leftSidebar, style, isRail && s.leftSidebarRail, isRail && { width: 72 }]}>
       <View style={{ gap: isRail ? 10 : 16, alignItems: isRail ? "center" : "stretch" }}>
         {/* Profile & Available Balance Card */}
         <View style={[s.card, isRail && s.cardRail]}>
@@ -110,30 +110,35 @@ export default function DesktopSidebar({
                     {user?.username ? user.username.slice(0, 1).toUpperCase() : "A"}
                   </Text>
                 </View>
-                <View>
-                  <Text style={s.userCardName} numberOfLines={1}>
-                    {(user as any)?.display_name || user?.username || "Player"}
-                  </Text>
-                  <Text style={{ color: "#8893A7", fontSize: 11, fontWeight: "600", marginTop: 1 }} numberOfLines={1}>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                    <Text style={s.userCardName} numberOfLines={1}>
+                      {(user as any)?.display_name || user?.username || "Player"}
+                    </Text>
+                    <View style={s.onlineRow}>
+                      <View style={s.onlineDot} />
+                      <Text style={s.onlineText}>Online</Text>
+                    </View>
+                  </View>
+                  <Text style={{ color: "#8893A7", fontSize: 11, fontWeight: "600", marginTop: 2 }} numberOfLines={1}>
                     @{user?.username || "player"}
                   </Text>
-                  <View style={s.onlineRow}>
-                    <View style={s.onlineDot} />
-                    <Text style={s.onlineText}>Online</Text>
-                  </View>
                 </View>
               </View>
 
-              <View style={s.tokensRow}>
-                <View style={{ flex: 1, justifyContent: "center" }}>
-                  <Text style={[s.tokenVal, { color: "#FFFFFF" }]} numberOfLines={1}>
+              {/* Direct Integrated Wallet Balance (No Oversized Inner Box) */}
+              <View style={{ marginTop: 12, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                <View>
+                  <Text style={{ color: "#8893A7", fontSize: 10, fontWeight: "800", letterSpacing: 0.8, textTransform: "uppercase" }}>
+                    Wallet Balance
+                  </Text>
+                  <Text style={{ color: "#FFFFFF", fontSize: 20, fontWeight: "900", fontFamily: "Space Grotesk, sans-serif", marginTop: 2 }}>
                     {showBalance ? `ETB ${balance.toLocaleString()}` : "ETB ••••••••"}
                   </Text>
-                  <Text style={s.tokenLabel}>Wallet balance</Text>
                 </View>
 
-                {/* Right controls: Eye toggle on top, refresh right under eye */}
-                <View style={{ alignItems: "center", gap: 6, paddingLeft: 6 }}>
+                {/* Inline Controls: Eye toggle + Refresh Spinner */}
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                   <TouchableOpacity
                     onPress={() => {
                       haptics.tap();
@@ -146,7 +151,7 @@ export default function DesktopSidebar({
                   >
                     <Ionicons
                       name={showBalance ? "eye-outline" : "eye-off-outline"}
-                      size={18}
+                      size={16}
                       color="#8893A7"
                     />
                   </TouchableOpacity>
@@ -176,7 +181,10 @@ export default function DesktopSidebar({
                 </View>
               </View>
 
-              {/* Two Pill Action Buttons: [ ↙ Deposit ] and [ ↗ Withdraw ] */}
+              {/* Subtle Hairline Divider */}
+              <View style={{ height: 1, backgroundColor: "rgba(255, 255, 255, 0.08)", marginVertical: 12 }} />
+
+              {/* Bottom Section: Dedicated Wallet Action Pills */}
               <View style={s.balancePillsRow}>
                 <TouchableOpacity
                   onPress={() => {
@@ -184,11 +192,11 @@ export default function DesktopSidebar({
                     setDepositVisible(true);
                   }}
                   style={s.depositPill}
-                  activeOpacity={0.85}
+                  activeOpacity={0.8}
                   accessibilityRole="button"
                   accessibilityLabel="Deposit funds"
                 >
-                  <Ionicons name="arrow-down" size={13} color="#10B981" style={{ transform: [{ rotate: "45deg" }] }} />
+                  <Ionicons name="arrow-down-circle-outline" size={15} color="#10B981" />
                   <Text style={s.depositPillText}>Deposit</Text>
                 </TouchableOpacity>
 
@@ -198,11 +206,11 @@ export default function DesktopSidebar({
                     setWithdrawVisible(true);
                   }}
                   style={s.withdrawPill}
-                  activeOpacity={0.85}
+                  activeOpacity={0.8}
                   accessibilityRole="button"
                   accessibilityLabel="Withdraw funds"
                 >
-                  <Ionicons name="arrow-up" size={13} color="#FF1744" style={{ transform: [{ rotate: "45deg" }] }} />
+                  <Ionicons name="arrow-up-circle-outline" size={15} color="#FF1744" />
                   <Text style={s.withdrawPillText}>Withdraw</Text>
                 </TouchableOpacity>
               </View>
@@ -247,69 +255,55 @@ export default function DesktopSidebar({
           })}
         </View>
 
-        {/* Wallet Info & Quick Fund Actions */}
+        {/* Community & Support Card — Always Present Under Navigation Across Every Page */}
         {!isRail ? (
           <View style={s.card}>
-            <Text style={s.sectionTitleSmall}>WALLET</Text>
-            <View style={s.walletRow}>
-              <Text style={s.walletLabel}>Deposit</Text>
-              <Text style={[s.walletValSmall, { color: "#10B981" }]}>
-                + {todayStats.deposits.toLocaleString()} ETB
-              </Text>
-            </View>
-            <View style={s.walletRow}>
-              <Text style={s.walletLabel}>Withdraw</Text>
-              <Text style={[s.walletValSmall, { color: "#FF1744" }]}>
-                - {todayStats.withdrawals.toLocaleString()} ETB
-              </Text>
-            </View>
-            <View style={s.walletRow}>
-              <Text style={s.walletLabel}>Transactions</Text>
-              <Text style={s.walletValSecond}>
-                {todayStats.count} today
-              </Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 }}>
+              <Ionicons name="globe-outline" size={17} color="#00BFFF" />
+              <Text style={s.communityTitle}>COMMUNITY & SUPPORT</Text>
             </View>
 
-            <View style={s.walletButtons}>
-              <TouchableOpacity
-                onPress={() => setDepositVisible(true)}
-                style={[s.walletBtnSmall, { borderColor: "#00BFFF", backgroundColor: "rgba(0, 191, 255, 0.08)" }]}
-                activeOpacity={0.8}
-                accessibilityRole="button"
-                accessibilityLabel="Deposit"
-              >
-                <Text numberOfLines={1} style={[s.walletBtnTextSmall, { color: "#00BFFF" }]}>DEPOSIT</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => setWithdrawVisible(true)}
-                style={[s.walletBtnSmall, { borderColor: "#FF1744", backgroundColor: "rgba(255, 23, 68, 0.08)" }]}
-                activeOpacity={0.8}
-                accessibilityRole="button"
-                accessibilityLabel="Withdraw"
-              >
-                <Text numberOfLines={1} style={[s.walletBtnTextSmall, { color: "#FF1744" }]}>WITHDRAW</Text>
-              </TouchableOpacity>
-            </View>
+            {/* Link 1: Telegram Channel */}
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => router?.push?.("https://t.me/xoethiopia" as any)}
+              style={[s.supportLinkBtn, { backgroundColor: "rgba(0, 191, 255, 0.12)", borderColor: "rgba(0, 191, 255, 0.4)" }]}
+              accessibilityLabel="Join Telegram Channel"
+            >
+              <Ionicons name="paper-plane" size={15} color="#00BFFF" />
+              <Text style={[s.supportLinkBtnText, { color: "#00BFFF" }]}>JOIN TELEGRAM CHANNEL</Text>
+            </TouchableOpacity>
+
+            {/* Link 2: 24/7 Live Support */}
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => router?.push?.("https://t.me/xoetsupport" as any)}
+              style={[s.supportLinkBtn, { backgroundColor: "rgba(16, 185, 129, 0.12)", borderColor: "rgba(16, 185, 129, 0.4)", marginTop: 10 }]}
+              accessibilityLabel="24/7 Live Support"
+            >
+              <Ionicons name="headset" size={15} color="#10B981" />
+              <Text style={[s.supportLinkBtnText, { color: "#10B981" }]}>24/7 LIVE SUPPORT</Text>
+            </TouchableOpacity>
           </View>
         ) : (
-          <View style={[s.card, s.cardRail, { gap: 8 }]}>
+          /* Rail Mode (72px) — Icon-only responsive compact action pills */
+          <View style={[s.card, s.cardRail, { gap: 10, paddingVertical: 12 }]}>
             <TouchableOpacity
-              onPress={() => setDepositVisible(true)}
-              style={[s.railActionBtn, { borderColor: "#00BFFF", backgroundColor: "rgba(0, 191, 255, 0.12)" }]}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityLabel="Deposit"
+              activeOpacity={0.85}
+              onPress={() => router?.push?.("https://t.me/xoethiopia" as any)}
+              style={[s.supportRailBtn, { backgroundColor: "rgba(0, 191, 255, 0.14)", borderColor: "rgba(0, 191, 255, 0.45)" }]}
+              accessibilityLabel="Join Telegram Channel"
             >
-              <Ionicons name="add" size={18} color="#00BFFF" />
+              <Ionicons name="paper-plane" size={17} color="#00BFFF" />
             </TouchableOpacity>
+
             <TouchableOpacity
-              onPress={() => setWithdrawVisible(true)}
-              style={[s.railActionBtn, { borderColor: "#FF1744", backgroundColor: "rgba(255, 23, 68, 0.12)" }]}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityLabel="Withdraw"
+              activeOpacity={0.85}
+              onPress={() => router?.push?.("https://t.me/xoetsupport" as any)}
+              style={[s.supportRailBtn, { backgroundColor: "rgba(16, 185, 129, 0.14)", borderColor: "rgba(16, 185, 129, 0.45)" }]}
+              accessibilityLabel="24/7 Live Support"
             >
-              <Ionicons name="arrow-down" size={16} color="#FF1744" />
+              <Ionicons name="headset" size={17} color="#10B981" />
             </TouchableOpacity>
           </View>
         )}
@@ -320,7 +314,7 @@ export default function DesktopSidebar({
 
 const s = StyleSheet.create({
   leftSidebar: {
-    width: 270,
+    width: 300,
   },
   leftSidebarRail: {
     width: 72,
@@ -394,24 +388,29 @@ const s = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 15,
     fontWeight: "900",
-    maxWidth: 170,
+    flexShrink: 1,
     fontFamily: "Space Grotesk, sans-serif",
   },
   onlineRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    marginTop: 4,
+    gap: 5,
+    backgroundColor: "rgba(16, 185, 129, 0.10)",
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "rgba(16, 185, 129, 0.25)",
   },
   onlineDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
     backgroundColor: "#10B981",
   },
   onlineText: {
-    color: "#94A3B8",
-    fontSize: 11.5,
+    color: "#10B981",
+    fontSize: 10.5,
     fontWeight: "700",
   },
   tokensRow: {
@@ -601,5 +600,38 @@ const s = StyleSheet.create({
     fontSize: 12.5,
     fontWeight: "800",
     fontFamily: "Space Grotesk, sans-serif",
+  },
+  communityTitle: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "900",
+    fontFamily: "Space Grotesk, sans-serif",
+    letterSpacing: 0.8,
+  },
+  supportLinkBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderRadius: 14,
+    paddingVertical: 12,
+    borderWidth: 1.2,
+    ...(Platform.OS === "web" ? { cursor: "pointer", transition: "all 150ms ease" } as any : {}),
+  },
+  supportLinkBtnText: {
+    fontSize: 11.5,
+    fontWeight: "900",
+    letterSpacing: 0.6,
+    fontFamily: "Space Grotesk, sans-serif",
+  },
+  supportRailBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.2,
+    alignSelf: "center",
+    ...(Platform.OS === "web" ? { cursor: "pointer", transition: "all 150ms ease" } as any : {}),
   },
 });

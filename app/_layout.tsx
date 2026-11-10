@@ -197,6 +197,11 @@ function RootLayout() {
   useEffect(() => {
     if (Platform.OS === 'web') {
       document.title = "XO Ethiopia - Play Tic-Tac-Toe for Real Money";
+
+      // Ensure standard 100% natural browser zoom
+      if (typeof document !== 'undefined') {
+        document.body.style.zoom = '1.0';
+      }
     }
 
     if (Platform.OS === 'web' && 'serviceWorker' in navigator) {

@@ -42,37 +42,36 @@ export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = 
     const checkPref = async () => {
       try {
         const isMutedLocal = await AsyncStorage.getItem('xoet_music_muted');
+        // Only mute if explicitly stored as 'true' by a manual toggle
         if (isMutedLocal === 'true') {
-          if (!unmounted) setIsPlaying(false);
-          return;
-        }
-        if (user?.sound_muted === true) {
           if (!unmounted) setIsPlaying(false);
           return;
         }
       } catch {}
 
-      // If allowed to play, attempt play or wait for first user interaction
-      const tryPlay = () => {
+      // If allowed to play, attempt immediate play and bind persistent unlock listeners
+      const unlockAndPlay = () => {
         if (!isPlayingRef.current) return;
         const audio = getOrCreateAudio();
         if (audio && audio.paused) {
-          audio.play().catch(() => {});
+          audio.play().then(() => {
+            if (!unmounted) setIsPlaying(true);
+            window.removeEventListener('click', unlockAndPlay);
+            window.removeEventListener('keydown', unlockAndPlay);
+            window.removeEventListener('touchstart', unlockAndPlay);
+            window.removeEventListener('pointerdown', unlockAndPlay);
+          }).catch(() => {
+            // Pending user interaction gesture
+          });
         }
       };
 
-      tryPlay();
+      unlockAndPlay();
 
-      const unlockHandler = () => {
-        tryPlay();
-        window.removeEventListener('click', unlockHandler);
-        window.removeEventListener('keydown', unlockHandler);
-        window.removeEventListener('touchstart', unlockHandler);
-      };
-
-      window.addEventListener('click', unlockHandler, { once: true });
-      window.addEventListener('keydown', unlockHandler, { once: true });
-      window.addEventListener('touchstart', unlockHandler, { once: true });
+      window.addEventListener('click', unlockAndPlay);
+      window.addEventListener('keydown', unlockAndPlay);
+      window.addEventListener('touchstart', unlockAndPlay);
+      window.addEventListener('pointerdown', unlockAndPlay);
     };
 
     checkPref();
@@ -125,10 +124,18 @@ export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = 
     }
   };
 
+  const unlockAudio = async () => {
+    if (!isPlayingRef.current) return;
+    const audio = getOrCreateAudio();
+    if (audio && audio.paused) {
+      await audio.play().catch(() => {});
+    }
+  };
+
   const noopAsync = async () => {};
 
   return (
-    <BackgroundMusicContext.Provider value={{ isPlaying, toggleMusic, muteMusic, setVolume: noopAsync, unlockAudio: noopAsync }}>
+    <BackgroundMusicContext.Provider value={{ isPlaying, toggleMusic, muteMusic, setVolume: noopAsync, unlockAudio }}>
       {children}
     </BackgroundMusicContext.Provider>
   );

@@ -20,6 +20,7 @@ import { playTickSound, playNotificationChime } from "../../../lib/pinTickAudio"
 import WelcomeBonusModal from "../../../components/WelcomeBonusModal";
 import { GameCoverCarousel } from "../../../components/gameplay/GameCoverCarousel";
 import { MobileStakeModal } from "../../../components/gameplay/MobileStakeModal";
+import { BREAKPOINTS } from "../../../constants/breakpoints";
 import { LinearGradient } from "expo-linear-gradient";
 import Svg, { Circle, Path, G, Text as SvgText, Defs, RadialGradient, Stop, LinearGradient as SvgLinearGradient } from "react-native-svg";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -242,7 +243,7 @@ let hasShownPromoThisSession = false;
 export default function Landing() {
   const router = useRouter();
   const { width } = useWindowDimensions();
-  const isDesktop = Platform.OS === "web" && width >= 1024;
+  const isDesktop = Platform.OS === "web" && width >= BREAKPOINTS.DESKTOP;
 
   // Infinite slow rotation animation for home screen wheels
   const idleSpinAnim = useRef(new Animated.Value(0)).current;
@@ -312,7 +313,7 @@ export default function Landing() {
       console.error('[Landing] fetch ticker error:', e);
     }
   }, []);
-  const isTablet = Platform.OS === "web" && width >= 768 && width < 1024;
+  const isTablet = Platform.OS === "web" && width >= BREAKPOINTS.TABLET && width < BREAKPOINTS.DESKTOP;
   const isLargeScreen = isDesktop || isTablet;
   const { ensureConnected, findMatch, cancelFind, isSearching, onMessage, send } = useSocket();
   const { user, token, booting, refreshProfile, language, switchLanguage, t, showAlert, fixUrl, activeGameMode, setActiveGameMode } = useAuth();
@@ -454,32 +455,9 @@ export default function Landing() {
       const newTab = activeGameMode === "xo" ? "XO_GAME" : "SPIN";
       if (newTab !== selectedTab) {
         setSelectedTab(newTab);
-        const cardWidth = Math.min(width * 0.84, 330);
-        const cardInterval = cardWidth + 14;
-        const targetX = newTab === "SPIN" ? 0 : cardInterval;
-        mobileCarouselRef.current?.scrollTo({
-          x: targetX,
-          animated: true,
-        });
       }
     }
   }, [activeGameMode]);
-
-  // Initial mount alignment to selectedTab
-  useEffect(() => {
-    const cardWidth = Math.min(width * 0.84, 330);
-    const cardInterval = cardWidth + 14;
-    const initialIdx = selectedTab === "SPIN" ? 0 : selectedTab === "XO_GAME" ? 1 : 2;
-    if (initialIdx > 0) {
-      const t = setTimeout(() => {
-        mobileCarouselRef.current?.scrollTo({
-          x: initialIdx * cardInterval,
-          animated: false,
-        });
-      }, 70);
-      return () => clearTimeout(t);
-    }
-  }, []);
   const [spinMode, setSpinMode] = useState<"5_PLAYER" | "RAIL">("5_PLAYER");
   const [showMobileStakeModal, setShowMobileStakeModal] = useState(false);
   const [mobileStakeInput, setMobileStakeInput] = useState("50");
@@ -608,8 +586,11 @@ export default function Landing() {
       if (msg.type === 'friend_invite_result') {
         setInviteResult(msg.payload);
       } else if (msg.type === 'friend_invite_declined') {
-        const declinedBy = msg.payload?.byUsername || 'Your friend';
-        toast.info(`${declinedBy} declined your challenge!`);
+        const declinedBy = msg.payload?.byUsername || (language === "am" ? 'ተጋባዡ' : 'Your friend');
+        toast.error(
+          `${declinedBy} ${language === "am" ? "ግብዣዎን አልተቀበለም" : "did not accept your challenge"}`,
+          language === "am" ? "እንደገና መጋበዝ ወይም ሌላ መጠን መምረጥ ይችላሉ" : "You can challenge them again or choose another bet"
+        );
         // Update inviteResult so FriendMatchModal shows the decline clearly
         setInviteResult((prev: any) => ({ ...prev, declined: true, declinedByUsername: declinedBy }));
       }

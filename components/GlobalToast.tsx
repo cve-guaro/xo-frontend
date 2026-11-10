@@ -203,12 +203,13 @@ export default function GlobalToastContainer() {
 // ─── Styles (Matching Image 5) ────────────────────────────────
 const styles = StyleSheet.create({
   container: {
-    position: 'absolute',
+    position: (Platform.OS === 'web' ? 'fixed' : 'absolute') as any,
     top: Platform.OS === 'web' ? 16 : 48,
     left: 16,
     right: 16,
-    zIndex: 999999,
+    zIndex: 99999999,
     alignItems: 'center',
+    pointerEvents: 'box-none',
   } as any,
   toastCard: {
     width: '100%',
