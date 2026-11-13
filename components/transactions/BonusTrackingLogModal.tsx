@@ -1,4 +1,4 @@
-import React, { memo, useState } from "react";
+import React, { memo, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -12,6 +12,8 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { API_URL } from "../../config";
 import { useAuth } from "../../context/authContext";
+import { haptics } from "../../lib/haptcs";
+import { playTickSound } from "../../lib/pinTickAudio";
 
 export interface BonusTrackingLogModalProps {
   visible: boolean;
@@ -47,6 +49,7 @@ export const BonusTrackingLogModal = memo(function BonusTrackingLogModal({
   const isEN = language === "en";
   const [code, setCode] = useState("");
   const [redeeming, setRedeeming] = useState(false);
+  const codeInputRef = useRef<TextInput>(null);
 
   const redeemCode = async () => {
     if (!code.trim()) return;
@@ -115,6 +118,7 @@ export const BonusTrackingLogModal = memo(function BonusTrackingLogModal({
           {/* Gift Code Input */}
           <View style={modalStyles.codeInputContainer}>
             <TextInput
+              ref={codeInputRef}
               style={modalStyles.codeInput}
               placeholder={isEN ? "ENTER GIFT CODE" : "የስጦታ ኮድ ያስገቡ"}
               placeholderTextColor="rgba(0,242,255,0.4)"
@@ -135,7 +139,15 @@ export const BonusTrackingLogModal = memo(function BonusTrackingLogModal({
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity onPress={() => {}} style={modalStyles.claimLink}>
+          <TouchableOpacity
+            onPress={() => {
+              try { playTickSound(); } catch {}
+              haptics.tap();
+              codeInputRef.current?.focus();
+            }}
+            activeOpacity={0.7}
+            style={modalStyles.claimLink}
+          >
             <Text style={modalStyles.claimLinkText}>
               {isEN ? "HAVE A VOUCHER? CLAIM IT HERE" : "ቦቸር አለህ? እዚህ ይክፈሉ"}
             </Text>

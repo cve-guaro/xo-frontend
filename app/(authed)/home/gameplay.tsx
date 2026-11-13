@@ -1222,6 +1222,8 @@ export default function Landing() {
           onAccept={handleGlobalRematchAccept}
           onDecline={handleGlobalRematchDecline}
         />
+        <PromotionPopup config={promoConfig} visible={showPromo} onClose={() => setShowPromo(false)} />
+        <PwaInstallModal visible={pwaModalVisible} onClose={() => setPwaModalVisible(false)} />
         {exitModalVisible && <ExitModal language={language} onCancel={cancelExit} onConfirm={confirmExit} />}
       </View>
     );
