@@ -4,14 +4,17 @@ node_modules/
 # Expo
 .expo/
 dist/
+.kilo/
 web-build/
 expo-env.d.ts
 
-# Environment — NEVER commit secrets
+# Environment & Backups — NEVER commit secrets
 .env
+.env*
 .env.*
 .env.local
 .env*.local
+*.backup
 
 # Native
 *.orig.*
