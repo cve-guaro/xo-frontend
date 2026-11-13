@@ -443,7 +443,9 @@ export default function Landing() {
   const [inviteResult, setInviteResult] = useState<any>(null);
   const [rulesVisible, setRulesVisible] = useState(false);
   const params = useLocalSearchParams();
-  const [selectedTab, setSelectedTab] = useState<"SPIN" | "XO_GAME" | "COMING_SOON">(activeGameMode === "xo" ? "XO_GAME" : "SPIN");
+  const [selectedTab, setSelectedTab] = useState<"SPIN" | "XO_GAME" | "RPS" | "COMING_SOON">(
+    activeGameMode === "xo" ? "XO_GAME" : "SPIN"
+  );
   const [hasClaimedWelcomeBonus, setHasClaimedWelcomeBonus] = useState(false);
   const mobileCarouselRef = useRef<ScrollView>(null);
   const scrollSyncTimeout = useRef<any>(null);
@@ -451,7 +453,7 @@ export default function Landing() {
   const dragStartXRef = useRef<number>(0);
 
   useEffect(() => {
-    if (selectedTab !== "COMING_SOON") {
+    if (selectedTab !== "COMING_SOON" && selectedTab !== "RPS") {
       const newTab = activeGameMode === "xo" ? "XO_GAME" : "SPIN";
       if (newTab !== selectedTab) {
         setSelectedTab(newTab);

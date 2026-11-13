@@ -14,7 +14,7 @@ import {
   useWindowDimensions,
   LayoutAnimation,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import {
   Carousel,
@@ -161,7 +161,7 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
   const titleFontSize = isShortScreen ? 19 : Math.round(clamp(21, winH * 0.034, 28));
   const titleMargin = isShortScreen ? 1 : Math.round(clamp(2, winH * 0.007, 6));
 
-  const tabs: DesktopTabType[] = ["SPIN", "XO_GAME", "COMING_SOON"];
+  const tabs: DesktopTabType[] = ["SPIN", "XO_GAME", "RPS"];
   const [spinBetModalVisible, setSpinBetModalVisible] = useState(false);
   const [sheetInitialView, setSheetInitialView] = useState<"STAKES" | "FRIENDS">("STAKES");
 
@@ -418,63 +418,125 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
       );
     }
 
-    // COMING_SOON
+    // RPS / COMING_SOON
     return (
       <TouchableOpacity
-        key="COMING_SOON"
+        key="RPS"
         activeOpacity={isCenter ? 0.95 : 0.75}
         onPress={handleCardPress}
         style={[
           s.gameCard,
           isCenter ? s.gameCardCenter : s.gameCardSide,
           isCenter ? { minHeight: centerCardMinH, maxHeight: centerCardMaxH } : { minHeight: sideCardMinH, maxHeight: sideCardMaxH },
-          isCenter ? s.gameCardFocusedSoon : s.gameCardUnfocused,
+          isCenter ? ({ borderColor: "rgba(245, 158, 11, 0.75)", boxShadow: "0 8px 32px rgba(245, 158, 11, 0.35)" } as any) : s.gameCardUnfocused,
         ]}
       >
-        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: "#111827", opacity: isCenter ? 1.0 : 0.7 }]} />
+        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: "#120d24", opacity: isCenter ? 1.0 : 0.7 }]} />
 
         {/* Badges */}
         <View style={s.cardBadgeRow}>
-          <View style={[s.badgePill, { backgroundColor: "rgba(136, 147, 167, 0.18)", borderColor: "rgba(136, 147, 167, 0.4)" }]}>
-            <Ionicons name="help-circle" size={isCenter ? 11 : 9} color="#8893A7" />
-            <Text style={[s.badgeText, { color: "#FFFFFF" }, !isCenter && { fontSize: 8.5 }]}>NEW ARENA</Text>
+          <View style={[s.badgePill, { backgroundColor: "rgba(245, 158, 11, 0.18)", borderColor: "rgba(245, 158, 11, 0.4)" }]}>
+            <FontAwesome5 name="hand-scissors" size={isCenter ? 11 : 9} color="#f59e0b" />
+            <Text style={[s.badgeText, { color: "#FFFFFF" }, !isCenter && { fontSize: 8.5 }]}>RPS ARENA</Text>
           </View>
-          <View style={[s.badgePill, { backgroundColor: "rgba(245, 182, 66, 0.15)", borderColor: "rgba(245, 182, 66, 0.4)" }]}>
-            <Ionicons name="flask" size={isCenter ? 11 : 9} color="#F5B642" />
-            <Text style={[s.badgeText, { color: "#F5B642" }, !isCenter && { fontSize: 8.5 }]}>IN LAB</Text>
+          <View style={[s.badgePill, { backgroundColor: "rgba(245, 158, 11, 0.15)", borderColor: "rgba(245, 158, 11, 0.4)" }]}>
+            <Ionicons name="flash" size={isCenter ? 11 : 9} color="#f59e0b" />
+            <Text style={[s.badgeText, { color: "#f59e0b" }, !isCenter && { fontSize: 8.5 }]}>1V1 BATTLE</Text>
           </View>
         </View>
 
         {/* Artwork */}
         <View style={[s.cardArtWrapper, isCenter ? s.cardArtWrapperCenter : s.cardArtWrapperSide, { height: isCenter ? centerArtH : sideArtH }]}>
           <View style={{
-            width: isCenter ? 120 : 80,
-            height: isCenter ? 120 : 80,
-            borderRadius: isCenter ? 60 : 40,
-            backgroundColor: "rgba(35, 48, 65, 0.6)",
-            borderWidth: 2,
-            borderColor: "#233041",
+            width: isCenter ? 210 : 130,
+            height: isCenter ? 110 : 70,
+            borderRadius: 20,
+            backgroundColor: "rgba(26, 18, 48, 0.75)",
+            borderWidth: 1.5,
+            borderColor: "rgba(245, 158, 11, 0.35)",
+            flexDirection: "row",
             alignItems: "center",
-            justifyContent: "center",
+            justifyContent: "space-evenly",
+            paddingHorizontal: 8,
           }}>
-            <Ionicons name="time" size={isCenter ? 54 : 36} color="#8893A7" />
+            <View style={{ alignItems: "center", gap: 3 }}>
+              <View style={{
+                width: isCenter ? 44 : 28,
+                height: isCenter ? 44 : 28,
+                borderRadius: isCenter ? 22 : 14,
+                backgroundColor: "rgba(255, 42, 95, 0.18)",
+                borderWidth: 1.2,
+                borderColor: "#ff2a5f",
+                alignItems: "center",
+                justifyContent: "center",
+              }}>
+                <FontAwesome5 name="hand-rock" size={isCenter ? 18 : 12} color="#ff2a5f" />
+              </View>
+              {isCenter && <Text style={{ color: "#cbd5e1", fontSize: 9.5, fontWeight: "800" }}>ROCK</Text>}
+            </View>
+
+            <View style={{ alignItems: "center", gap: 3 }}>
+              <View style={{
+                width: isCenter ? 44 : 28,
+                height: isCenter ? 44 : 28,
+                borderRadius: isCenter ? 22 : 14,
+                backgroundColor: "rgba(0, 218, 243, 0.18)",
+                borderWidth: 1.2,
+                borderColor: "#00daf3",
+                alignItems: "center",
+                justifyContent: "center",
+              }}>
+                <FontAwesome5 name="hand-paper" size={isCenter ? 18 : 12} color="#00daf3" />
+              </View>
+              {isCenter && <Text style={{ color: "#cbd5e1", fontSize: 9.5, fontWeight: "800" }}>PAPER</Text>}
+            </View>
+
+            <View style={{ alignItems: "center", gap: 3 }}>
+              <View style={{
+                width: isCenter ? 44 : 28,
+                height: isCenter ? 44 : 28,
+                borderRadius: isCenter ? 22 : 14,
+                backgroundColor: "rgba(245, 158, 11, 0.18)",
+                borderWidth: 1.2,
+                borderColor: "#f59e0b",
+                alignItems: "center",
+                justifyContent: "center",
+              }}>
+                <FontAwesome5 name="hand-scissors" size={isCenter ? 18 : 12} color="#f59e0b" />
+              </View>
+              {isCenter && <Text style={{ color: "#cbd5e1", fontSize: 9.5, fontWeight: "800" }}>SCISSORS</Text>}
+            </View>
           </View>
         </View>
 
         {/* Title & Subtitle */}
         <View style={{ alignItems: "center", marginVertical: isCenter ? titleMargin : 2 }}>
-          <Text style={[s.cardTitle, { color: "#8893A7" }, isCenter && { fontSize: titleFontSize }, !isCenter && s.cardTitleSide]}>COMING SOON</Text>
-          <Text style={[s.cardSubtitle, !isCenter && { fontSize: 10 }]}>{isEN ? "Next generation multiplayer mode" : "አዲስ የጨዋታ ሁነታ በቅርቡ"}</Text>
+          <Text style={[s.cardTitle, { color: "#ffffff" }, isCenter && { fontSize: titleFontSize }, !isCenter && s.cardTitleSide]}>RPS BATTLE</Text>
+          <Text style={[s.cardSubtitle, !isCenter && { fontSize: 10 }]}>{isEN ? "Rock • Paper • Scissors" : "ሮክ • ፔፐር • ሲዘርስ"}</Text>
         </View>
 
         {/* Action Button */}
         {isCenter ? (
-          <View style={[s.cardActionBtn, { height: actionBtnH }]}>
-            <View style={[s.cardBtnGrad, { backgroundColor: "rgba(35, 48, 65, 0.7)", borderWidth: 1.2, borderColor: "rgba(136, 147, 167, 0.3)" }]}>
-              <Ionicons name="time-outline" size={15} color="#8893A7" />
-              <Text style={[s.cardBtnText, { color: "#8893A7" }]}>COMING SOON</Text>
-            </View>
-          </View>
+          <TouchableOpacity
+            activeOpacity={0.88}
+            onPress={() => {
+              haptics.impact();
+              router.push("/(authed)/games/rps");
+            }}
+            style={[s.cardActionBtn, { height: actionBtnH }]}
+          >
+            <LinearGradient
+              colors={["#f59e0b", "#d97706"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={s.cardBtnGrad}
+            >
+              <Ionicons name="play" size={17} color="#ffffff" />
+              <Text style={[s.cardBtnText, { color: "#ffffff" }]}>
+                {isEN ? "PLAY NOW" : "አሁን ተጫወት"}
+              </Text>
+            </LinearGradient>
+          </TouchableOpacity>
         ) : (
           <View style={s.cardSideHint}>
             <Text style={s.cardSideHintText}>CLICK TO EXPAND</Text>
@@ -485,7 +547,7 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
   };
 
   // Outer Secondary Shelf (Per User Request: Placed OUTSIDE and directly underneath each card)
-  const renderOuterShelf = (tab: "SPIN" | "XO_GAME" | "COMING_SOON", isCenter: boolean) => {
+  const renderOuterShelf = (tab: DesktopTabType, isCenter: boolean) => {
     if (tab === "SPIN") {
       return (
         <TouchableOpacity
@@ -549,28 +611,29 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
       );
     }
 
-    // COMING_SOON
+    // RPS / COMING_SOON
     return (
       <TouchableOpacity
         activeOpacity={0.85}
         onPress={() => {
           if (!isCenter) {
-            setSelectedTab("COMING_SOON");
+            setSelectedTab("RPS");
             return;
           }
-          try { playTickSound(); } catch {}
-          haptics.tap();
-          router.push('/(authed)/home/leaderboard');
+          haptics.impact();
+          openRoomSheet("FRIENDS");
         }}
         style={[s.extraShelfBtn, { height: outerShelfH }]}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <View style={[s.shelfIconCircle, { backgroundColor: 'rgba(245, 182, 66, 0.15)', borderColor: 'rgba(245, 182, 66, 0.35)' }]}>
-            <Ionicons name="flash" size={13} color="#F5B642" />
+          <View style={[s.shelfIconCircle, { backgroundColor: 'rgba(245, 158, 11, 0.15)', borderColor: 'rgba(245, 158, 11, 0.35)' }]}>
+            <Ionicons name="people" size={14} color="#f59e0b" />
           </View>
-          <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '700' }}>Next-Gen Battles</Text>
+          <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '700' }}>
+            {isEN ? "Play with Friends" : "ከጓደኛ ጋር ተጫወት"}
+          </Text>
         </View>
-        <Ionicons name="chevron-forward" size={15} color="#F5B642" />
+        <Ionicons name="chevron-forward" size={15} color="#f59e0b" />
       </TouchableOpacity>
     );
   };

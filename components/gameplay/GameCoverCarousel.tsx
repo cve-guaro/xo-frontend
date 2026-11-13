@@ -8,7 +8,7 @@ import {
   Platform,
   useWindowDimensions,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import {
   Carousel,
@@ -29,8 +29,8 @@ const spinBgRedImg = require("../../assets/images/spin-background-red.webp");
 const xoBgBlueImg = require("../../assets/images/xo-background-blue.webp");
 const xoCardBordImg = require("../../assets/images/xo-card bord.webp");
 
-export type MobileCardMode = "SPIN" | "XO_GAME" | "COMING_SOON";
-const CARDS: MobileCardMode[] = ["SPIN", "XO_GAME", "COMING_SOON"];
+export type MobileCardMode = "SPIN" | "XO_GAME" | "RPS" | "COMING_SOON";
+const CARDS: MobileCardMode[] = ["SPIN", "XO_GAME", "RPS"];
 
 export interface GameCoverCarouselProps {
   width: number;
@@ -487,37 +487,45 @@ export const GameCoverCarousel: React.FC<GameCoverCarouselProps> = ({
     </View>
   );
 
-  const renderSoonCard = () => (
+  const renderRpsCard = () => (
     <View style={{ width: cardWidth, alignItems: "center" }}>
       <View
         style={{
           width: "100%",
-          backgroundColor: "#0d1522",
+          backgroundColor: "#130f24",
           borderRadius: 26,
           borderWidth: 1.5,
-          borderColor: "rgba(148, 163, 184, 0.35)",
+          borderColor: "rgba(245, 158, 11, 0.65)",
           padding: cardPadding,
           paddingTop: isCompactHeight ? 10 : 14,
           position: "relative",
           overflow: "hidden",
         }}
       >
+        {/* Ambient Dark Gradient Background */}
+        <LinearGradient
+          colors={["#1e1438", "#120d24", "#0a0715"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFillObject}
+        />
+
         {/* Top Badge Row */}
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", width: "100%", marginBottom: isCompactHeight ? 4 : 8 }}>
           <View style={{
             flexDirection: "row",
             alignItems: "center",
             gap: 6,
-            backgroundColor: "rgba(148, 163, 184, 0.18)",
+            backgroundColor: "rgba(245, 158, 11, 0.18)",
             borderWidth: 1,
-            borderColor: "rgba(148, 163, 184, 0.4)",
+            borderColor: "rgba(245, 158, 11, 0.5)",
             borderRadius: 14,
             paddingHorizontal: 10,
             paddingVertical: 5,
           }}>
-            <Ionicons name="sparkles" size={13} color="#94a3b8" />
+            <FontAwesome5 name="hand-scissors" size={12} color="#f59e0b" />
             <Text style={{ color: "#ffffff", fontSize: 11, fontWeight: "900", letterSpacing: 0.8 }}>
-              NEW ARENA
+              RPS ARENA
             </Text>
           </View>
 
@@ -527,54 +535,81 @@ export const GameCoverCarousel: React.FC<GameCoverCarouselProps> = ({
             gap: 5,
             backgroundColor: "rgba(245, 158, 11, 0.18)",
             borderWidth: 1,
-            borderColor: "rgba(245, 158, 11, 0.4)",
+            borderColor: "rgba(245, 158, 11, 0.5)",
             borderRadius: 14,
             paddingHorizontal: 10,
             paddingVertical: 5,
           }}>
-            <Ionicons name="flask" size={13} color="#f59e0b" />
+            <Ionicons name="flash" size={13} color="#f59e0b" />
             <Text style={{ color: "#f59e0b", fontSize: 10.5, fontWeight: "900", letterSpacing: 0.8 }}>
-              IN LAB
+              1V1 BATTLE
             </Text>
           </View>
         </View>
 
-        {/* Mystery Portal Graphic */}
+        {/* Artwork: Interactive 3-Hand Battle Arena */}
         <View style={{ width: "100%", height: soonArtHeight, alignItems: "center", justifyContent: "center", marginVertical: isCompactHeight ? 2 : 4 }}>
           <View style={{
-            width: isCompactHeight ? 116 : 140,
+            width: isCompactHeight ? 170 : 200,
             height: isCompactHeight ? 116 : 140,
-            borderRadius: isCompactHeight ? 58 : 70,
-            backgroundColor: "rgba(30, 41, 59, 0.6)",
-            borderWidth: 2,
-            borderColor: "rgba(148, 163, 184, 0.35)",
+            borderRadius: 24,
+            backgroundColor: "rgba(26, 18, 48, 0.7)",
+            borderWidth: 1.5,
+            borderColor: "rgba(245, 158, 11, 0.35)",
+            flexDirection: "row",
             alignItems: "center",
-            justifyContent: "center",
-            position: "relative",
+            justifyContent: "space-evenly",
+            paddingHorizontal: 8,
           }}>
-            <View style={{
-              position: "absolute",
-              width: isCompactHeight ? 134 : 164,
-              height: isCompactHeight ? 134 : 164,
-              borderRadius: isCompactHeight ? 67 : 82,
-              borderWidth: 1,
-              borderColor: "rgba(148, 163, 184, 0.15)",
-              borderStyle: "dashed",
-            }} />
-            <Ionicons name="sparkles" size={isCompactHeight ? 44 : 56} color="#94a3b8" />
-            <View style={{
-              position: "absolute",
-              bottom: -8,
-              backgroundColor: "#1e293b",
-              paddingHorizontal: 12,
-              paddingVertical: 3,
-              borderRadius: 10,
-              borderWidth: 1,
-              borderColor: "#475569",
-            }}>
-              <Text style={{ color: "#cbd5e1", fontSize: 9.5, fontWeight: "900", letterSpacing: 1 }}>
-                UPCOMING
-              </Text>
+            {/* Rock */}
+            <View style={{ alignItems: "center", gap: 4 }}>
+              <View style={{
+                width: isCompactHeight ? 40 : 48,
+                height: isCompactHeight ? 40 : 48,
+                borderRadius: isCompactHeight ? 20 : 24,
+                backgroundColor: "rgba(255, 42, 95, 0.15)",
+                borderWidth: 1.5,
+                borderColor: "#ff2a5f",
+                alignItems: "center",
+                justifyContent: "center",
+              }}>
+                <FontAwesome5 name="hand-rock" size={isCompactHeight ? 18 : 22} color="#ff2a5f" />
+              </View>
+              <Text style={{ color: "#cbd5e1", fontSize: 9.5, fontWeight: "800" }}>ROCK</Text>
+            </View>
+
+            {/* Paper */}
+            <View style={{ alignItems: "center", gap: 4 }}>
+              <View style={{
+                width: isCompactHeight ? 40 : 48,
+                height: isCompactHeight ? 40 : 48,
+                borderRadius: isCompactHeight ? 20 : 24,
+                backgroundColor: "rgba(0, 218, 243, 0.15)",
+                borderWidth: 1.5,
+                borderColor: "#00daf3",
+                alignItems: "center",
+                justifyContent: "center",
+              }}>
+                <FontAwesome5 name="hand-paper" size={isCompactHeight ? 18 : 22} color="#00daf3" />
+              </View>
+              <Text style={{ color: "#cbd5e1", fontSize: 9.5, fontWeight: "800" }}>PAPER</Text>
+            </View>
+
+            {/* Scissors */}
+            <View style={{ alignItems: "center", gap: 4 }}>
+              <View style={{
+                width: isCompactHeight ? 40 : 48,
+                height: isCompactHeight ? 40 : 48,
+                borderRadius: isCompactHeight ? 20 : 24,
+                backgroundColor: "rgba(245, 158, 11, 0.15)",
+                borderWidth: 1.5,
+                borderColor: "#f59e0b",
+                alignItems: "center",
+                justifyContent: "center",
+              }}>
+                <FontAwesome5 name="hand-scissors" size={isCompactHeight ? 18 : 22} color="#f59e0b" />
+              </View>
+              <Text style={{ color: "#cbd5e1", fontSize: 9.5, fontWeight: "800" }}>SCISSORS</Text>
             </View>
           </View>
         </View>
@@ -582,37 +617,49 @@ export const GameCoverCarousel: React.FC<GameCoverCarouselProps> = ({
         {/* Headline & Subtitle */}
         <View style={{ alignItems: "center", marginTop: isCompactHeight ? 2 : 4, marginBottom: isCompactHeight ? 8 : 14 }}>
           <Text style={{ color: "#ffffff", fontSize: headlineFontSize, fontWeight: "900", fontFamily: "Inter, sans-serif", letterSpacing: 0.5 }}>
-            NEW ARENA
+            RPS BATTLE
           </Text>
           <Text style={{ color: "rgba(255, 255, 255, 0.72)", fontSize: isCompactHeight ? 11.5 : 12.5, fontWeight: "600", marginTop: 2 }}>
-            {isEN ? "Next multiplayer mode in development" : "አዲስ የጨዋታ አይነት በቅርቡ ይለቀቃል"}
+            {isEN ? "Rock • Paper • Scissors" : "ሮክ • ፔፐር • ሲዘርስ"}
           </Text>
         </View>
 
-        {/* Inner Card Button: [ 🔒 SOON ] (Updated to SOON per user request) */}
-        <View
+        {/* Inner Card Button: [ ▶ PLAY NOW ] */}
+        <TouchableOpacity
+          activeOpacity={0.88}
+          onPress={() => {
+            haptics.impact();
+            router.push("/(authed)/games/rps");
+          }}
           style={{
             width: "100%",
             height: 50,
             borderRadius: 16,
             overflow: "hidden",
-            backgroundColor: "rgba(30, 41, 59, 0.8)",
-            borderWidth: 1,
-            borderColor: "rgba(148, 163, 184, 0.3)",
-            alignItems: "center",
-            justifyContent: "center",
-            flexDirection: "row",
-            gap: 8,
-          }}
+            boxShadow: "0 4px 20px rgba(245, 158, 11, 0.45)",
+          } as any}
         >
-          <Ionicons name="lock-closed" size={17} color="#94a3b8" />
-          <Text style={{ color: "#94a3b8", fontSize: 14, fontWeight: "900", letterSpacing: 0.8, fontFamily: "Inter, sans-serif" }}>
-            {isEN ? "SOON" : "በቅርብ"}
-          </Text>
-        </View>
+          <LinearGradient
+            colors={["#f59e0b", "#d97706"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={{
+              flex: 1,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+            }}
+          >
+            <Ionicons name="play" size={17} color="#ffffff" />
+            <Text style={{ color: "#ffffff", fontSize: 15, fontWeight: "900", letterSpacing: 0.8, fontFamily: "Inter, sans-serif" }}>
+              {isEN ? "PLAY NOW" : "አሁን ተጫወት"}
+            </Text>
+          </LinearGradient>
+        </TouchableOpacity>
       </View>
 
-      {/* Status: 4 PLAYERS • NEXT EXPANSION */}
+      {/* Status: 2 PLAYERS • REAL TIME */}
       <View style={{
         flexDirection: "row",
         alignItems: "center",
@@ -623,42 +670,47 @@ export const GameCoverCarousel: React.FC<GameCoverCarouselProps> = ({
         marginBottom: 10,
       }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-          <Ionicons name="people" size={13} color="#94a3b8" />
-          <Text style={{ color: "#94a3b8", fontSize: 11, fontWeight: "800", letterSpacing: 0.8 }}>
-            4 PLAYERS
+          <Ionicons name="people" size={13} color="#f59e0b" />
+          <Text style={{ color: "#f59e0b", fontSize: 11, fontWeight: "800", letterSpacing: 0.8 }}>
+            2 PLAYERS
           </Text>
         </View>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: "#f59e0b" }} />
-          <Text style={{ color: "#94a3b8", fontSize: 11, fontWeight: "800", letterSpacing: 0.8 }}>
-            NEXT EXPANSION
+          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: "#10B981" }} />
+          <Text style={{ color: "#10B981", fontSize: 11, fontWeight: "800", letterSpacing: 0.8 }}>
+            REAL TIME
           </Text>
         </View>
       </View>
 
-      {/* Outer Button: [ ⏳ Stay Tuned for Release ] */}
-      <View
+      {/* Outer Button: [ Play with Friends > ] */}
+      <TouchableOpacity
+        activeOpacity={0.8}
+        onPress={() => {
+          haptics.impact();
+          openRoomSheet("FRIENDS");
+        }}
         style={{
           width: "100%",
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
-          backgroundColor: "rgba(18, 24, 44, 0.5)",
+          backgroundColor: "rgba(22, 17, 36, 0.85)",
           borderRadius: 20,
           borderWidth: 1.2,
-          borderColor: "rgba(148, 163, 184, 0.25)",
+          borderColor: "rgba(245, 158, 11, 0.35)",
           paddingVertical: 12,
           paddingHorizontal: 16,
         }}
       >
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <Ionicons name="time-outline" size={17} color="#94a3b8" />
-          <Text style={{ color: "#94a3b8", fontSize: 13, fontWeight: "800", letterSpacing: 0.4 }}>
-            {isEN ? "Stay Tuned for Release" : "በቅርብ ይጠብቁን"}
+          <Ionicons name="people" size={18} color="#f59e0b" />
+          <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "800", letterSpacing: 0.4 }}>
+            {isEN ? "PLAY WITH FRIEND" : "ከጓደኛ ጋር ተጫወት"}
           </Text>
         </View>
-        <Ionicons name="lock-closed" size={14} color="#64748b" />
-      </View>
+        <Ionicons name="chevron-forward" size={16} color="#f59e0b" />
+      </TouchableOpacity>
     </View>
   );
 
@@ -666,14 +718,14 @@ export const GameCoverCarousel: React.FC<GameCoverCarouselProps> = ({
     ({ item }) => {
       if (item === "SPIN") return renderSpinCard();
       if (item === "XO_GAME") return renderXoCard();
-      return renderSoonCard();
+      return renderRpsCard();
     },
-    [isEN, openRoomSheet, setSpinBetModalVisible]
+    [isEN, openRoomSheet, setSpinBetModalVisible, router]
   );
 
   return (
     <View style={{ width: "100%", alignItems: "center" }}>
-      {/* Top 3 Mode Switcher Tabs [ SPIN ] [ XO ] [ SOON ] (Updated to SOON on phone per user request) */}
+      {/* Top 3 Mode Switcher Tabs [ SPIN ] [ XO ] [ RPS ] */}
       <View style={[styles.topTabsBar, { width: Math.min(width - 24, 380) }]}>
         <TouchableOpacity
           activeOpacity={0.82}
@@ -707,16 +759,16 @@ export const GameCoverCarousel: React.FC<GameCoverCarouselProps> = ({
 
         <TouchableOpacity
           activeOpacity={0.82}
-          onPress={() => handleTabPress("COMING_SOON")}
-          style={[styles.tabBtn, selectedTab === "COMING_SOON" && styles.tabActiveSoon]}
+          onPress={() => handleTabPress("RPS")}
+          style={[styles.tabBtn, (selectedTab === "RPS" || selectedTab === "COMING_SOON") && styles.tabActiveRPS]}
         >
-          <Ionicons
-            name="cube-outline"
-            size={14}
-            color={selectedTab === "COMING_SOON" ? "#FFFFFF" : "#8893a7"}
+          <FontAwesome5
+            name="hand-scissors"
+            size={13}
+            color={(selectedTab === "RPS" || selectedTab === "COMING_SOON") ? "#080F17" : "#8893a7"}
           />
-          <Text style={[styles.tabBtnText, selectedTab === "COMING_SOON" && styles.tabBtnTextActive]}>
-            {isEN ? "SOON" : "በቅርብ"}
+          <Text style={[styles.tabBtnText, (selectedTab === "RPS" || selectedTab === "COMING_SOON") ? { color: "#080F17", fontWeight: "900" } : null]}>
+            RPS
           </Text>
         </TouchableOpacity>
       </View>
@@ -746,7 +798,7 @@ export const GameCoverCarousel: React.FC<GameCoverCarouselProps> = ({
               try { playTickSound(); } catch {}
               haptics.impact();
               setSelectedTab(newTab);
-              setActiveGameMode(idx === 0 ? "spin" : "xo");
+              setActiveGameMode(idx === 0 ? "spin" : idx === 1 ? "xo" : "rps");
               router.setParams({ tab: newTab });
             }
           }}
@@ -764,7 +816,7 @@ export const GameCoverCarousel: React.FC<GameCoverCarouselProps> = ({
           width: 24,
           height: 7,
           borderRadius: 4,
-          backgroundColor: index === 0 ? "#ff2a5f" : index === 1 ? "#00daf3" : "#94a3b8",
+          backgroundColor: index === 0 ? "#ff2a5f" : index === 1 ? "#00daf3" : "#f59e0b",
         }}
         onPress={(i) => handleTabPress(CARDS[i])}
       />
@@ -803,6 +855,10 @@ const styles = StyleSheet.create({
   tabActiveXO: {
     backgroundColor: "#00daf3",
     boxShadow: "0 2px 10px rgba(0, 218, 243, 0.45)",
+  } as any,
+  tabActiveRPS: {
+    backgroundColor: "#f59e0b",
+    boxShadow: "0 2px 10px rgba(245, 158, 11, 0.45)",
   } as any,
   tabActiveSoon: {
     backgroundColor: "#223147",

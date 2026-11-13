@@ -8,7 +8,7 @@ import { Notification01 } from "../animate-ui/icons/hugeicons/notification-01";
 import { haptics } from "../../lib/haptcs";
 import { playTickSound } from "../../lib/pinTickAudio";
 
-export type DesktopTabType = "SPIN" | "XO_GAME" | "COMING_SOON";
+export type DesktopTabType = "SPIN" | "XO_GAME" | "RPS" | "COMING_SOON";
 
 interface DesktopHeaderProps {
   user: any;
@@ -106,17 +106,17 @@ export default function DesktopHeader({
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={() => handleTabPress("COMING_SOON")}
+              onPress={() => handleTabPress("RPS")}
               style={[
                 s.toggleBtn,
-                selectedTab === "COMING_SOON" && s.toggleBtnActiveSoon,
+                (selectedTab === "RPS" || selectedTab === "COMING_SOON") && s.toggleBtnActiveRps,
                 isCompact && { paddingVertical: 7, paddingHorizontal: isNarrow ? 10 : 14 }
               ]}
               activeOpacity={0.85}
             >
-              <Ionicons name="help-circle" size={isCompact ? 14 : 16} color={selectedTab === "COMING_SOON" ? "#FFFFFF" : "#8893A7"} style={{ marginRight: isNarrow ? 4 : 6 }} />
-              <Text style={[s.toggleBtnText, selectedTab === "COMING_SOON" && s.toggleBtnTextActive, isCompact && { fontSize: 11.5 }]}>
-                {isNarrow ? "SOON" : "? SOON"}
+              <Ionicons name="flash" size={isCompact ? 14 : 16} color={(selectedTab === "RPS" || selectedTab === "COMING_SOON") ? "#FFFFFF" : "#8893A7"} style={{ marginRight: isNarrow ? 4 : 6 }} />
+              <Text style={[s.toggleBtnText, (selectedTab === "RPS" || selectedTab === "COMING_SOON") && s.toggleBtnTextActive, isCompact && { fontSize: 11.5 }]}>
+                RPS
               </Text>
             </TouchableOpacity>
           </View>
@@ -252,6 +252,10 @@ const s = StyleSheet.create({
   toggleBtnActiveSoon: {
     backgroundColor: "#233041",
   },
+  toggleBtnActiveRps: {
+    backgroundColor: "#f59e0b",
+    boxShadow: "0 4px 14px rgba(245, 158, 11, 0.45)",
+  } as any,
   toggleBtnText: {
     color: "#8893A7",
     fontSize: 13.5,
