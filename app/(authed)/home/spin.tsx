@@ -1420,7 +1420,7 @@ export default function SpinGameScreen() {
         voiceService.initialize(AGORA_APP_ID).then(async (initialized) => {
           if (initialized) {
             try {
-              await voiceService.joinChannel(state.roundId, voiceUid);
+              await voiceService.joinChannel(state.roundId, voiceUid, undefined, token || undefined);
               await voiceService.setMute(true); // Default to muted
             } catch (e) {
               console.warn("[SPIN] Voice join failed (non-critical):", e);

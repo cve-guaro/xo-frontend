@@ -4,7 +4,24 @@
 // Supports Agora Web RTC SDK (agora-rtc-sdk-ng) and react-native-agora.
 // ────────────────────────────────────────────────────────────────────────────
 import { Platform } from "react-native";
+import * as SecureStore from "expo-secure-store";
 import { API_URL, AGORA_APP_ID } from "../config";
+
+async function getStoredAuthToken(): Promise<string | null> {
+  if (Platform.OS === "web") {
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        return window.localStorage.getItem("auth_v2_token");
+      }
+    } catch {}
+    return null;
+  }
+  try {
+    return await SecureStore.getItemAsync("auth_v2_token");
+  } catch {
+    return null;
+  }
+}
 
 let AgoraRTC: any = null;
 if (Platform.OS === "web") {
@@ -33,7 +50,7 @@ class VoiceService {
   private currentChannel = "";
   private currentUid: number | string = 0;
   private muted = true;
-  private appId = AGORA_APP_ID || "ba52d09d3e204851af7ddbe4340b38a2";
+  private appId = AGORA_APP_ID || "";
   private joinRetryCount = 0;
   private maxJoinRetries = 2;
   private speakingListeners: Array<(speakers: string[]) => void> = [];
@@ -45,11 +62,17 @@ class VoiceService {
     };
   }
 
-  async fetchToken(roomId: string, uid: string | number): Promise<{ token: string; channel: string; uid: any } | null> {
+  async fetchToken(roomId: string, uid: string | number, authToken?: string): Promise<{ token: string; channel: string; uid: any; appId?: string } | null> {
     try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      const bearer = authToken || (await getStoredAuthToken());
+      if (bearer) {
+        headers["Authorization"] = `Bearer ${bearer}`;
+      }
+
       const res = await fetch(`${API_URL}/voice/token`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ roomId, uid }),
       });
       if (res.ok) {
@@ -63,7 +86,12 @@ class VoiceService {
   }
 
   async initialize(appId?: string): Promise<boolean> {
-    this.appId = appId || AGORA_APP_ID || "ba52d09d3e204851af7ddbe4340b38a2";
+    this.appId = appId || AGORA_APP_ID || "";
+    if (!this.appId) {
+      console.warn("[VoiceService] AGORA_APP_ID is not configured. Running in Fallback / Disabled Voice mode.");
+      this.isInitialized = false;
+      return false;
+    }
 
     if (Platform.OS === "web" && AgoraRTC) {
       try {
@@ -132,7 +160,7 @@ class VoiceService {
     return false;
   }
 
-  async joinChannel(channelId: string, uid: number | string, customToken?: string): Promise<boolean> {
+  async joinChannel(channelId: string, uid: number | string, customToken?: string, authToken?: string): Promise<boolean> {
     const channelName = channelId.startsWith("spin_room_") ? channelId : `spin_room_${channelId}`;
     this.currentChannel = channelName;
     this.currentUid = uid;
@@ -140,7 +168,7 @@ class VoiceService {
     // Request Agora Token from backend
     let token = customToken;
     if (!token) {
-      const tokenRes = await this.fetchToken(channelId, uid);
+      const tokenRes = await this.fetchToken(channelId, uid, authToken);
       if (tokenRes?.token) {
         token = tokenRes.token;
       }
