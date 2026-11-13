@@ -200,7 +200,7 @@ export default function AuthedLayout() {
             backgroundColor: '#080F17', // Matching Brand Identity Deep Navy
             borderTopWidth: 1,
             borderTopColor: 'rgba(35, 48, 65, 0.7)',
-            paddingBottom: Platform.OS === 'web' ? 6 : Math.max(insets.bottom, 6),
+            paddingBottom: Platform.OS === 'web' ? 16 : Math.max(insets.bottom + 10, 16),
             paddingTop: 10,
             borderRadius: 0,
           }}>

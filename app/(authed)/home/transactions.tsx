@@ -784,8 +784,25 @@ Status          : ${status.toUpperCase()}
                       </View>
                     </View>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                      <TouchableOpacity style={s.titleUtilBtn}>
-                        <Ionicons name="funnel-outline" size={16} color="#8b93a7" />
+                      <TouchableOpacity 
+                        onPress={() => {
+                          try { playTickSound(); } catch {}
+                          haptics.tap();
+                          setShowFilterModal(true);
+                        }} 
+                        style={[
+                          s.titleUtilBtn,
+                          (typeFilter !== "all" || statusFilter !== "all") && {
+                            backgroundColor: "rgba(0, 218, 243, 0.15)",
+                            borderColor: "#00daf3",
+                          }
+                        ]}
+                      >
+                        <Ionicons 
+                          name={(typeFilter !== "all" || statusFilter !== "all") ? "funnel" : "funnel-outline"} 
+                          size={16} 
+                          color={(typeFilter !== "all" || statusFilter !== "all") ? "#00daf3" : "#8b93a7"} 
+                        />
                       </TouchableOpacity>
                       <TouchableOpacity onPress={handleDownloadAllReceipts} style={s.titleUtilBtn}>
                         <Ionicons name="download-outline" size={16} color="#8b93a7" />
@@ -1481,148 +1498,157 @@ Status          : ${status.toUpperCase()}
               })
             )}
           </ScrollView>
-
-          {/* Filter Modal Sheet */}
-          <Modal visible={showFilterModal} transparent animationType="fade" onRequestClose={() => setShowFilterModal(false)}>
-            <View style={{
-              flex: 1,
-              justifyContent: "flex-end",
-              backgroundColor: "rgba(0, 0, 0, 0.75)",
-            }}>
-              <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setShowFilterModal(false)} />
-              <View style={{
-                backgroundColor: "#0f1424",
-                borderTopLeftRadius: 28,
-                borderTopRightRadius: 28,
-                borderWidth: 1,
-                borderColor: "rgba(255, 255, 255, 0.1)",
-                paddingHorizontal: 22,
-                paddingTop: 16,
-                paddingBottom: Platform.OS === "ios" ? 38 : 24,
-              }}>
-                {/* Filter Header */}
-                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                  <Text style={{ color: "#ffffff", fontSize: 18, fontWeight: "900" }}>
-                    {isEN ? "Filter Transactions" : "ግብይቶችን አጣራ"}
-                  </Text>
-                  <TouchableOpacity onPress={() => setShowFilterModal(false)} style={{ padding: 4 }}>
-                    <Ionicons name="close" size={22} color="#8b93a7" />
-                  </TouchableOpacity>
-                </View>
-
-                {/* Filter by Type */}
-                <Text style={{ color: "#8b93a7", fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>
-                  {isEN ? "Transaction Type" : "የግብይት ዓይነት"}
-                </Text>
-                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 20 }}>
-                  {[
-                    { key: "all", label: isEN ? "All Types" : "ሁሉንም" },
-                    { key: "deposit", label: isEN ? "Deposit" : "ተቀማጭ" },
-                    { key: "withdrawal", label: isEN ? "Withdrawal" : "ወጪ" },
-                    { key: "prize", label: isEN ? "Prize / Win" : "ሽልማት" },
-                  ].map((opt) => (
-                    <TouchableOpacity
-                      key={opt.key}
-                      onPress={() => {
-                        haptics.tap();
-                        setTypeFilter(opt.key as any);
-                      }}
-                      style={{
-                        paddingHorizontal: 14,
-                        paddingVertical: 8,
-                        borderRadius: 12,
-                        backgroundColor: typeFilter === opt.key ? "rgba(0, 218, 243, 0.18)" : "#161c2e",
-                        borderWidth: 1,
-                        borderColor: typeFilter === opt.key ? "#00daf3" : "rgba(255, 255, 255, 0.08)",
-                      }}
-                    >
-                      <Text style={{ color: typeFilter === opt.key ? "#00daf3" : "#ffffff", fontSize: 13, fontWeight: "700" }}>
-                        {opt.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                {/* Filter by Status (Success, Pending, Failed) */}
-                <Text style={{ color: "#8b93a7", fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>
-                  {isEN ? "Status" : "ሁኔታ"}
-                </Text>
-                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 24 }}>
-                  {[
-                    { key: "all", label: isEN ? "All Statuses" : "ሁሉንም" },
-                    { key: "success", label: isEN ? "Completed" : "ተጠናቅቋል" },
-                    { key: "pending", label: isEN ? "Pending" : "በመጠባበቅ ላይ" },
-                    { key: "failed", label: isEN ? "Failed" : "አልተሳካም" },
-                  ].map((opt) => (
-                    <TouchableOpacity
-                      key={opt.key}
-                      onPress={() => {
-                        haptics.tap();
-                        setStatusFilter(opt.key as any);
-                      }}
-                      style={{
-                        paddingHorizontal: 14,
-                        paddingVertical: 8,
-                        borderRadius: 12,
-                        backgroundColor: statusFilter === opt.key ? "rgba(16, 185, 129, 0.18)" : "#161c2e",
-                        borderWidth: 1,
-                        borderColor: statusFilter === opt.key ? "#10b981" : "rgba(255, 255, 255, 0.08)",
-                      }}
-                    >
-                      <Text style={{ color: statusFilter === opt.key ? "#10b981" : "#ffffff", fontSize: 13, fontWeight: "700" }}>
-                        {opt.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                {/* Reset / Apply Buttons */}
-                <View style={{ flexDirection: "row", gap: 10 }}>
-                  <TouchableOpacity
-                    onPress={() => {
-                      haptics.tap();
-                      setTypeFilter("all");
-                      setStatusFilter("all");
-                    }}
-                    style={{
-                      flex: 1,
-                      height: 48,
-                      borderRadius: 14,
-                      backgroundColor: "#161c2e",
-                      borderWidth: 1,
-                      borderColor: "rgba(255, 255, 255, 0.1)",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <Text style={{ color: "#8b93a7", fontSize: 14, fontWeight: "700" }}>
-                      {isEN ? "Reset" : "ዳግም ጀምር"}
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => {
-                      haptics.impact();
-                      setShowFilterModal(false);
-                    }}
-                    style={{
-                      flex: 2,
-                      height: 48,
-                      borderRadius: 14,
-                      backgroundColor: "#00daf3",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <Text style={{ color: "#060a14", fontSize: 14, fontWeight: "900" }}>
-                      {isEN ? "Apply Filters" : "ተግብር"}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-          </Modal>
         </View>
       )}
+
+      {/* Filter Modal Sheet (Universal: Centered Dialog on Desktop, Bottom Sheet on Mobile) */}
+      <Modal visible={showFilterModal} transparent animationType="fade" onRequestClose={() => setShowFilterModal(false)}>
+        <View style={{
+          flex: 1,
+          justifyContent: isDesktop ? "center" : "flex-end",
+          alignItems: isDesktop ? "center" : "stretch",
+          backgroundColor: "rgba(0, 0, 0, 0.75)",
+          padding: isDesktop ? 20 : 0,
+        }}>
+          <TouchableOpacity style={StyleSheet.absoluteFillObject} activeOpacity={1} onPress={() => setShowFilterModal(false)} />
+          <View style={{
+            backgroundColor: "#0f1424",
+            borderRadius: isDesktop ? 24 : 28,
+            borderBottomLeftRadius: isDesktop ? 24 : 0,
+            borderBottomRightRadius: isDesktop ? 24 : 0,
+            borderWidth: 1,
+            borderColor: "rgba(255, 255, 255, 0.1)",
+            paddingHorizontal: 22,
+            paddingTop: 18,
+            paddingBottom: isDesktop ? 24 : (Platform.OS === "ios" ? 38 : 24),
+            width: isDesktop ? 480 : "100%",
+            maxWidth: "100%",
+            zIndex: 10,
+          }}>
+            {/* Filter Header */}
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <Text style={{ color: "#ffffff", fontSize: 18, fontWeight: "900" }}>
+                {isEN ? "Filter Transactions" : "ግብይቶችን አጣራ"}
+              </Text>
+              <TouchableOpacity onPress={() => setShowFilterModal(false)} style={{ padding: 4 }}>
+                <Ionicons name="close" size={22} color="#8b93a7" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Filter by Type */}
+            <Text style={{ color: "#8b93a7", fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>
+              {isEN ? "Transaction Type" : "የግብይት ዓይነት"}
+            </Text>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 20 }}>
+              {[
+                { key: "all", label: isEN ? "All Types" : "ሁሉንም" },
+                { key: "deposit", label: isEN ? "Deposit" : "ተቀማጭ" },
+                { key: "withdrawal", label: isEN ? "Withdrawal" : "ወጪ" },
+                { key: "prize", label: isEN ? "Prize / Win" : "ሽልማት" },
+              ].map((opt) => (
+                <TouchableOpacity
+                  key={opt.key}
+                  onPress={() => {
+                    haptics.tap();
+                    setTypeFilter(opt.key as any);
+                    setCurrentPage(1);
+                  }}
+                  style={{
+                    paddingHorizontal: 14,
+                    paddingVertical: 8,
+                    borderRadius: 12,
+                    backgroundColor: typeFilter === opt.key ? "rgba(0, 218, 243, 0.18)" : "#161c2e",
+                    borderWidth: 1,
+                    borderColor: typeFilter === opt.key ? "#00daf3" : "rgba(255, 255, 255, 0.08)",
+                  }}
+                >
+                  <Text style={{ color: typeFilter === opt.key ? "#00daf3" : "#ffffff", fontSize: 13, fontWeight: "700" }}>
+                    {opt.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Filter by Status (Success, Pending, Failed) */}
+            <Text style={{ color: "#8b93a7", fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>
+              {isEN ? "Status" : "ሁኔታ"}
+            </Text>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 24 }}>
+              {[
+                { key: "all", label: isEN ? "All Statuses" : "ሁሉንም" },
+                { key: "success", label: isEN ? "Completed" : "ተጠናቅቋል" },
+                { key: "pending", label: isEN ? "Pending" : "በመጠባበቅ ላይ" },
+                { key: "failed", label: isEN ? "Failed" : "አልተሳካም" },
+              ].map((opt) => (
+                <TouchableOpacity
+                  key={opt.key}
+                  onPress={() => {
+                    haptics.tap();
+                    setStatusFilter(opt.key as any);
+                    setCurrentPage(1);
+                  }}
+                  style={{
+                    paddingHorizontal: 14,
+                    paddingVertical: 8,
+                    borderRadius: 12,
+                    backgroundColor: statusFilter === opt.key ? "rgba(16, 185, 129, 0.18)" : "#161c2e",
+                    borderWidth: 1,
+                    borderColor: statusFilter === opt.key ? "#10b981" : "rgba(255, 255, 255, 0.08)",
+                  }}
+                >
+                  <Text style={{ color: statusFilter === opt.key ? "#10b981" : "#ffffff", fontSize: 13, fontWeight: "700" }}>
+                    {opt.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Reset / Apply Buttons */}
+            <View style={{ flexDirection: "row", gap: 10 }}>
+              <TouchableOpacity
+                onPress={() => {
+                  haptics.tap();
+                  setTypeFilter("all");
+                  setStatusFilter("all");
+                  setCurrentPage(1);
+                }}
+                style={{
+                  flex: 1,
+                  height: 48,
+                  borderRadius: 14,
+                  backgroundColor: "#161c2e",
+                  borderWidth: 1,
+                  borderColor: "rgba(255, 255, 255, 0.1)",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Text style={{ color: "#8b93a7", fontSize: 14, fontWeight: "700" }}>
+                  {isEN ? "Reset" : "ዳግም ጀምር"}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  haptics.impact();
+                  setShowFilterModal(false);
+                }}
+                style={{
+                  flex: 2,
+                  height: 48,
+                  borderRadius: 14,
+                  backgroundColor: "#00daf3",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Text style={{ color: "#060a14", fontSize: 14, fontWeight: "900" }}>
+                  {isEN ? "Apply Filters" : "ተግብር"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Deposit and Withdrawal Modals */}
       <WebDepositModal
