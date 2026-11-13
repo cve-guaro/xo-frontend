@@ -467,6 +467,51 @@ export default function ProfileScreen() {
                         toast.success(isEN ? "Preferences Saved" : "ቅንጅቶች ተቀምጠዋል");
                       }} trackColor={{ false: "#1f2540", true: "#00BFFF" }} thumbColor={notisMuted ? "#ffffff" : "#8b93a7"} />
                     </View>
+
+                    {/* Row 4: Provable Fairness & Rules */}
+                    <TouchableOpacity
+                      onPress={() => {
+                        playTickSound();
+                        haptics.tap();
+                        toast.info(
+                          isEN ? "Game Rules & Fairness" : "የጨዋታ ህጎች",
+                          isEN ? "Tic-Tac-Toe, Spin & RPS outcomes are cryptographically verified and fair." : "የጨዋታ ውጤቶች ፍትሃዊ እና በቴክኖሎጂ የተረጋገጡ ናቸው።"
+                        );
+                      }}
+                      style={s.settingsListRow}
+                      activeOpacity={0.8}
+                    >
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                        <View style={[s.settingsIconWrap, { backgroundColor: "rgba(16, 185, 129, 0.12)" }]}>
+                          <Ionicons name="shield-checkmark-outline" size={17} color="#10b981" />
+                        </View>
+                        <Text style={s.settingsRowLabel}>{isEN ? "Game Rules & Provable Fairness" : "የጨዋታ ህጎች እና ፍትሃዊነት"}</Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={16} color="#8b93a7" />
+                    </TouchableOpacity>
+
+                    {/* Row 5: Admin Panel (if admin) */}
+                    {(user?.role === "admin" || user?.role === "superadmin" || (user as any)?.is_superadmin || isSuperAdmin) && (
+                      <TouchableOpacity
+                        onPress={() => {
+                          playTickSound();
+                          haptics.tap();
+                          router.push("/admin" as any);
+                        }}
+                        style={[s.settingsListRow, { borderTopWidth: 1, borderTopColor: "rgba(0, 218, 243, 0.2)" }]}
+                        activeOpacity={0.8}
+                      >
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                          <View style={[s.settingsIconWrap, { backgroundColor: "rgba(0, 218, 243, 0.15)" }]}>
+                            <Ionicons name="shield-checkmark" size={17} color="#00daf3" />
+                          </View>
+                          <Text style={[s.settingsRowLabel, { color: "#00daf3", fontWeight: "800" }]}>
+                            {isEN ? "Admin Control Panel" : "የአስተዳዳሪ ገጽ"}
+                          </Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={16} color="#00daf3" />
+                      </TouchableOpacity>
+                    )}
                   </View>
                 </View>
 

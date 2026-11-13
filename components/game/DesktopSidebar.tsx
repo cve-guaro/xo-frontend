@@ -226,7 +226,7 @@ export default function DesktopSidebar({
             { id: "leaderboard", label: "Leaderboard", Icon: Trophy01 },
             { id: "transactions", label: "Transactions", Icon: Wallet01 },
             { id: "profile", label: "Profile", Icon: User01 },
-            ...(user?.role === "admin" || user?.role === "superadmin" || user?.role === "maintenance"
+            ...(user?.role === "admin" || user?.role === "superadmin" || user?.role === "maintenance" || user?.is_superadmin || (user as any)?.is_admin
               ? [{ id: "admin", label: "Admin Center", Icon: Shield01 }]
               : []),
           ].map(({ id, label, Icon }) => {
