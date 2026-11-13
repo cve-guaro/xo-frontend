@@ -52,6 +52,7 @@ import {
   RoundResultBanner,
   MatchFinalSheet,
 } from '../../../components/rps/RPSOverlays';
+import FriendMatchModal from '../../../components/game/FriendMatchModal';
 
 export default function RPSScreen() {
   const router = useRouter();
@@ -80,6 +81,8 @@ export default function RPSScreen() {
     desc: string;
   } | null>(null);
   const [showFinalSheet, setShowFinalSheet] = useState<boolean>(false);
+  const [friendModalVisible, setFriendModalVisible] = useState<boolean>(false);
+  const [inviteResult, setInviteResult] = useState<any>(null);
 
   // Radar Pulse animation for searching state
   const radarAnim = useRef(new Animated.Value(0.4)).current;
@@ -256,6 +259,17 @@ export default function RPSScreen() {
           Alert.alert('Game Alert', msg.payload?.message || msg.payload?.code || 'An error occurred.');
           break;
         }
+
+        case 'friend_invite_result': {
+          setInviteResult(msg.payload);
+          break;
+        }
+
+        case 'friend_invite_declined': {
+          Alert.alert('Challenge Declined', 'Your friend declined the match challenge.');
+          setInviteResult((prev: any) => ({ ...prev, declined: true }));
+          break;
+        }
       }
     });
 
@@ -325,6 +339,10 @@ export default function RPSScreen() {
   const handleCancelSearch = () => {
     socketApi?.send('rps:cancel_search');
     resetToLobby();
+  };
+
+  const handleSendInvite = (targetUsername: string, betAmount: number) => {
+    socketApi?.send('friend_invite', { token, targetUsername, betAmount });
   };
 
   const handleLockChoice = () => {
@@ -540,7 +558,37 @@ export default function RPSScreen() {
             <MaterialCommunityIcons name="sword-cross" size={22} color={colors.bgDeep} />
             <Text style={styles.findMatchText}>FIND OPPONENT ({selectedTier} ETB)</Text>
           </TouchableOpacity>
+
+          {/* Friend Match Button */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setFriendModalVisible(true)}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              backgroundColor: 'rgba(245, 158, 11, 0.12)',
+              borderRadius: 16,
+              borderWidth: 1.2,
+              borderColor: 'rgba(245, 158, 11, 0.4)',
+              paddingVertical: 14,
+              marginTop: 12,
+            }}
+          >
+            <Ionicons name="people" size={19} color="#f59e0b" />
+            <Text style={{ color: '#f59e0b', fontSize: 14, fontWeight: '800', letterSpacing: 0.5 }}>
+              PLAY WITH FRIEND
+            </Text>
+          </TouchableOpacity>
         </ScrollView>
+
+        <FriendMatchModal
+          visible={friendModalVisible}
+          onClose={() => { setFriendModalVisible(false); setInviteResult(null); }}
+          onSendInvite={handleSendInvite}
+          inviteResult={inviteResult}
+        />
       </SafeAreaView>
     );
   }
