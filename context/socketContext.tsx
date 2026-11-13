@@ -86,6 +86,16 @@ const SERVER_EVENTS = [
   "spin:voice_chunk",
   "spin:player_muted",
   "spin:invite_received",
+  // RPS game events
+  "rps:searching",
+  "rps:match_found",
+  "rps:phase_change",
+  "rps:choice_confirmed",
+  "rps:opponent_locked",
+  "rps:round_reveal",
+  "rps:match_result",
+  "rps:match_cancelled",
+  "rps:error",
 ] as const;
 
 type ServerEvent = (typeof SERVER_EVENTS)[number];
