@@ -52,16 +52,6 @@ type PreviousWeekWin = {
   weekEnd: string;
 } | null;
 
-const DEFAULT_PLATFORM_LEADERBOARD: LeaderboardUser[] = [
-  { id: "1", rank: 1, username: "Dawit_K", wins: 28, total: 28, winAmount: 1400, avatar: null, isMe: false },
-  { id: "2", rank: 2, username: "Sara_M", wins: 24, total: 24, winAmount: 1100, avatar: null, isMe: false },
-  { id: "3", rank: 3, username: "Abebe_B", wins: 19, total: 19, winAmount: 850, avatar: null, isMe: false },
-  { id: "4", rank: 4, username: "Tadesse_G", wins: 15, total: 15, winAmount: 620, avatar: null, isMe: false },
-  { id: "5", rank: 5, username: "Selam_T", wins: 12, total: 12, winAmount: 480, avatar: null, isMe: false },
-  { id: "6", rank: 6, username: "Yohannes_A", wins: 10, total: 10, winAmount: 390, avatar: null, isMe: false },
-  { id: "7", rank: 7, username: "Kidus_M", wins: 8, total: 8, winAmount: 310, avatar: null, isMe: false },
-  { id: "8", rank: 8, username: "Bethel_W", wins: 6, total: 6, winAmount: 240, avatar: null, isMe: false },
-];
 
 // ---- Reset Countdown Component ----
 function CountdownTimer({ secondsRemaining: initialSeconds, isEN }: { secondsRemaining: number; isEN: boolean }) {
@@ -237,7 +227,7 @@ export default function LeaderboardScreen() {
         const resolvedLeaderboard: LeaderboardUser[] =
           Array.isArray(data.leaderboard) && data.leaderboard.length > 0
             ? data.leaderboard
-            : DEFAULT_PLATFORM_LEADERBOARD;
+            : [];
         const resolvedTop3 =
           Array.isArray(data.top3) && data.top3.length > 0
             ? data.top3
@@ -247,14 +237,14 @@ export default function LeaderboardScreen() {
         setMyRank(data.myRank || null);
       } else {
         setIsLeaderboardDisabled(false);
-        setLeaderboard(DEFAULT_PLATFORM_LEADERBOARD);
-        setTop3(DEFAULT_PLATFORM_LEADERBOARD.slice(0, 3));
+        setLeaderboard([]);
+        setTop3([]);
       }
     } catch (e) {
       console.error("Leaderboard fetch error:", e);
       setIsLeaderboardDisabled(false);
-      setLeaderboard(DEFAULT_PLATFORM_LEADERBOARD);
-      setTop3(DEFAULT_PLATFORM_LEADERBOARD.slice(0, 3));
+      setLeaderboard([]);
+      setTop3([]);
     } finally {
       setLoading(false);
     }
