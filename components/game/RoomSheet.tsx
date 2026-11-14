@@ -444,10 +444,7 @@ const RoomSheet = memo(function RoomSheet({
                 {/* Header */}
                 <View style={styles.headerRow}>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.sheetTitle}>{isEN ? "Choose Your Stake" : "መጠን ይምረጡ"}</Text>
-                    <Text style={styles.sheetSubTitleText}>
-                      {isEN ? "Select your entry bet to play" : "ለመጫወት የውርርድ መጠን ይምረጡ"}
-                    </Text>
+                    <Text style={styles.sheetTitle}>{isEN ? "Choose your stake" : "መጠን ይምረጡ"}</Text>
                   </View>
                   <TouchableOpacity onPress={onClose} style={styles.iconCircleBtn} activeOpacity={0.8}>
                     <Ionicons name="close" size={20} color="rgba(255,255,255,0.7)" />
@@ -483,12 +480,9 @@ const RoomSheet = memo(function RoomSheet({
                                   {item.amount}
                                 </Text>
                                 <Text style={[styles.stakeUnitText, isSelected && styles.stakeUnitTextSelected]}>
-                                  Birr
+                                  ETB
                                 </Text>
                               </View>
-                              <Text style={[styles.stakeFeeText, isSelected && styles.stakeFeeTextSelected]}>
-                                Commission 20% / 30s
-                              </Text>
                             </View>
 
                             {isSelected && (
@@ -510,9 +504,8 @@ const RoomSheet = memo(function RoomSheet({
                   <Text style={styles.balanceValue}>ETB {balance.toLocaleString()}</Text>
                 </View>
 
-                {/* Action Buttons: [ PLAY NOW ] & [ PLAY WITH FRIEND ] (3D Push Button Animation - Image 5) */}
+                {/* Action Button: Find opponent */}
                 <View style={styles.actionBtnGroup}>
-                  {/* 3D Push Button: PLAY NOW */}
                   <View style={styles.primaryPlay3DBase}>
                     <Animated.View style={{ transform: [{ translateY: playNowPressAnim }] }}>
                       <Pressable
@@ -547,26 +540,9 @@ const RoomSheet = memo(function RoomSheet({
                               selectedStake === null && styles.primaryPlayTextDisabled,
                             ]}
                           >
-                            {isEN ? `PLAY NOW (${selectedStake || 25} ETB)` : `አሁን ይጫወቱ (${selectedStake || 25} ብር)`}
+                            {isEN ? `Find opponent · ${selectedStake || 25} ETB` : `ተጋጣሚ ፈልግ · ${selectedStake || 25} ብር`}
                           </Text>
                         </LinearGradient>
-                      </Pressable>
-                    </Animated.View>
-                  </View>
-
-                  {/* 3D Push Button: PLAY WITH FRIEND */}
-                  <View style={styles.outlineFriend3DBase}>
-                    <Animated.View style={{ transform: [{ translateY: friendBtnPressAnim }] }}>
-                      <Pressable
-                        onPressIn={onPressInFriend}
-                        onPressOut={onPressOutFriend}
-                        onPress={handleOpenPlayWithFriend}
-                        style={styles.outlineFriendBtn}
-                      >
-                        <Ionicons name="people-outline" size={17} color="#00daf3" style={{ marginRight: 8 }} />
-                        <Text style={styles.outlineFriendText}>
-                          {isEN ? "PLAY WITH FRIEND" : "ከጓደኛ ጋር ይጫወቱ"}
-                        </Text>
                       </Pressable>
                     </Animated.View>
                   </View>
