@@ -1,10 +1,18 @@
+// app/(authed)/admin/financial.tsx — Payments view
+// Matches reference: FinancialConsole (withdrawal/deposit queue, AML rules, cash-flow drill-down)
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, Platform, useWindowDimensions, Animated, Easing, FlatList } from 'react-native';
+import {
+  View, Text, ScrollView, TouchableOpacity, ActivityIndicator,
+  StyleSheet, Platform, useWindowDimensions, TextInput, Modal,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../../context/authContext';
 import { API_URL } from '../../../config';
-import { useAdminTheme } from './_layout';
+import { useAdminTheme } from '../../../constants/adminTheme';
+import {
+  AdminPanel, AdminPill, AdminButton, AdminToggle, AdminMeter, AdminPager,
+} from '../../../components/admin/ui';
 
 let PrimeChart: any = null;
 if (Platform.OS === 'web') {
@@ -17,45 +25,63 @@ const fmtK = (n: number) => {
   if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
   return fmt(n);
 };
-
-// Animated counter
-function ACount({ value, prefix = '', suffix = '', style }: any) {
-  const av = useRef(new Animated.Value(0)).current;
-  const [dv, setDv] = useState(0);
-  useEffect(() => {
-    av.setValue(0);
-    Animated.timing(av, { toValue: value, duration: 1400, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
-    const id = av.addListener(({ value: v }) => setDv(Math.round(v)));
-    return () => av.removeListener(id);
-  }, [value]);
-  return <Text style={style}>{prefix}{dv.toLocaleString()}{suffix}</Text>;
-}
+const fmtETB = (n: number) => `${fmt(n)} ETB`;
+const fmtAgo = (ts: string | number) => {
+  const d = typeof ts === 'number' ? ts : new Date(ts).getTime();
+  if (isNaN(d)) return '--';
+  const diff = Date.now() - d;
+  if (diff < 60000) return 'Just now';
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+  return `${Math.floor(diff / 86400000)}d ago`;
+};
+const fmtDay = (ts: string | number) => {
+  const d = new Date(typeof ts === 'number' ? ts : ts);
+  if (isNaN(d.getTime())) return '--';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};
 
 type TimeRange = 'day' | 'week' | 'month' | 'all';
-type TabKey = 'deposits' | 'withdrawals' | 'bonuses' | 'giveaways' | 'refunds';
+type TabKey = 'withdrawals' | 'deposits';
+
+const REJECTION_REASONS = [
+  'Name mismatch',
+  'Suspected fraud',
+  'Duplicate request',
+  'Insufficient KYC',
+  'Exceeds daily limit',
+  'Other',
+] as const;
 
 export default function FinancialDashboard() {
   const { theme: C, isDark } = useAdminTheme();
-  const st = useMemo(() => getStyles(C, isDark), [C, isDark]);
-  const [isMounted, setIsMounted] = useState(false);
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
+  const { token, isSuperAdmin } = useAuth();
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
-  const { token } = useAuth();
   const router = useRouter();
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => { setIsMounted(true); }, []);
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState<any>(null);
   const [range, setRange] = useState<TimeRange>('week');
-  const [gameFilter, setGameFilter] = useState<'all' | 'xo' | 'spin'>('all');
-  const [activeTab, setActiveTab] = useState<TabKey>('deposits');
+  const [tab, setTab] = useState<TabKey>('withdrawals');
+  const [highRisk, setHighRisk] = useState(false);
+
+  // Drill-down
   const [drillData, setDrillData] = useState<any>(null);
   const [drillLoading, setDrillLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+  // Reject dialog
+  const [rejectId, setRejectId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState<string>(REJECTION_REASONS[0]);
+
+  // AML state
+  const [forceManual, setForceManual] = useState(false);
+  const [autoThreshold, setAutoThreshold] = useState('5000');
+  const [maxDaily, setMaxDaily] = useState('50000');
 
   const fetchData = useCallback(async (showRefresh = false) => {
     if (showRefresh) setRefreshing(true);
@@ -83,23 +109,38 @@ export default function FinancialDashboard() {
     finally { setDrillLoading(false); }
   }, [token]);
 
+  const handleApprove = useCallback(async (txId: string) => {
+    try {
+      await fetch(`${API_URL}/admin/transactions/${txId}/approve`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}`, 'x-platform': 'web' },
+      });
+      fetchData();
+    } catch (e) { console.error('[FIN] approve error', e); }
+  }, [token, fetchData]);
+
+  const handleReject = useCallback(async (txId: string, reason: string) => {
+    try {
+      await fetch(`${API_URL}/admin/transactions/${txId}/reject`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'x-platform': 'web' },
+        body: JSON.stringify({ reason }),
+      });
+      fetchData();
+    } catch (e) { console.error('[FIN] reject error', e); }
+  }, [token, fetchData]);
+
   // Chart data
   const depositChartData = useMemo(() => {
     if (!data?.depositTimeline?.length) return {};
     return {
       labels: data.depositTimeline.map((i: any) => i.label),
       datasets: [{
-        label: 'Deposits (ETB)',
-        fill: true,
-        backgroundColor: 'rgba(52,211,153,0.08)',
-        borderColor: '#34d399',
-        tension: 0.4,
-        borderWidth: 2,
-        pointRadius: 4,
-        pointBackgroundColor: '#34d399',
-        pointHoverRadius: 7,
-        data: data.depositTimeline.map((i: any) => i.amount)
-      }]
+        label: 'Deposits (ETB)', fill: true,
+        backgroundColor: 'rgba(16,185,129,0.08)', borderColor: '#10B981',
+        tension: 0.4, borderWidth: 2, pointRadius: 3, pointBackgroundColor: '#10B981',
+        data: data.depositTimeline.map((i: any) => i.amount),
+      }],
     };
   }, [data?.depositTimeline]);
 
@@ -108,17 +149,11 @@ export default function FinancialDashboard() {
     return {
       labels: data.withdrawalTimeline.map((i: any) => i.label),
       datasets: [{
-        label: 'Withdrawals (ETB)',
-        fill: true,
-        backgroundColor: 'rgba(248,113,113,0.08)',
-        borderColor: '#f87171',
-        tension: 0.4,
-        borderWidth: 2,
-        pointRadius: 4,
-        pointBackgroundColor: '#f87171',
-        pointHoverRadius: 7,
-        data: data.withdrawalTimeline.map((i: any) => i.amount)
-      }]
+        label: 'Withdrawals (ETB)', fill: true,
+        backgroundColor: 'rgba(255,45,85,0.08)', borderColor: '#FF2D55',
+        tension: 0.4, borderWidth: 2, pointRadius: 3, pointBackgroundColor: '#FF2D55',
+        data: data.withdrawalTimeline.map((i: any) => i.amount),
+      }],
     };
   }, [data?.withdrawalTimeline]);
 
@@ -127,517 +162,541 @@ export default function FinancialDashboard() {
     plugins: {
       legend: { display: false },
       tooltip: {
-        backgroundColor: 'rgba(11,11,30,0.95)',
-        borderColor: 'rgba(0, 218, 243, 0.3)',
-        borderWidth: 1,
-        titleColor: '#fff',
-        bodyColor: '#94a3b8',
-        padding: 12,
-        cornerRadius: 8,
-      }
+        backgroundColor: C.surface, borderColor: C.border, borderWidth: 1,
+        titleColor: C.onSurface, bodyColor: C.onSurfaceVariant, padding: 10, cornerRadius: 8,
+      },
     },
     scales: {
-      x: { ticks: { color: '#475569', font: { size: 10 } }, grid: { display: false } },
-      y: { ticks: { color: '#475569', font: { size: 10 }, callback: (v: number) => fmtK(v) }, grid: { color: 'rgba(255,255,255,0.04)' } }
+      x: { ticks: { color: C.onSurfaceVariant, font: { size: 10 } }, grid: { display: false } },
+      y: { ticks: { color: C.onSurfaceVariant, font: { size: 10 }, callback: (v: number) => fmtK(v) }, grid: { color: C.border + '40' } },
     },
-    onClick: (_: any, elements: any[], chart: any) => {
+    onClick: (_: any, elements: any[]) => {
       if (elements.length > 0) {
         const idx = elements[0].index;
-        const timeline = activeTab === 'withdrawals' ? data?.withdrawalTimeline : data?.depositTimeline;
-        if (timeline?.[idx]?.date) {
-          fetchDrillDown(activeTab === 'withdrawals' ? 'withdrawals' : 'deposits', timeline[idx].date);
-        }
+        const timeline = tab === 'withdrawals' ? data?.withdrawalTimeline : data?.depositTimeline;
+        if (timeline?.[idx]?.date) fetchDrillDown(tab, timeline[idx].date);
       }
-    }
-  }), [data, activeTab, fetchDrillDown]);
+    },
+  }), [data, tab, fetchDrillDown, C]);
 
   if (loading) return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent' }}>
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
       <ActivityIndicator size="large" color={C.primary} />
       <Text style={{ color: C.onSurfaceVariant, marginTop: 12, fontSize: 12 }}>Loading financial data...</Text>
     </View>
   );
 
   const d = data || {};
-  const profitImpactTotal = (d.bonusesGiven || 0) + (d.giveawaysGiven || 0) + (d.systemRefunds || 0) + (d.adminRefunds || 0);
-  const profitImpactPct = d.purePlatformProfit > 0 ? ((profitImpactTotal / d.purePlatformProfit) * 100).toFixed(1) : '0';
+  const withdrawals = d.withdrawals || [];
+  const deposits = d.deposits || [];
+  const filteredWithdrawals = highRisk
+    ? withdrawals.filter((w: any) => (w.risk || 0) >= 65)
+    : withdrawals;
+  const pendingAmount = withdrawals
+    .filter((w: any) => w.status === 'pending')
+    .reduce((sum: number, w: any) => sum + (w.amount || 0), 0);
+  const autoEligible = withdrawals.filter((w: any) =>
+    w.status === 'pending' && w.amount <= Number(autoThreshold) && w.kyc_verified,
+  ).length;
+
+  // Daily cash-flow groups
+  const dailyGroups = useMemo(() => {
+    const timeline = d.depositTimeline || [];
+    const wTimeline = d.withdrawalTimeline || [];
+    const map = new Map<string, { date: string; deposits: number; withdrawals: number }>();
+    timeline.forEach((t: any) => {
+      const g = map.get(t.date) || { date: t.date, deposits: 0, withdrawals: 0 };
+      g.deposits += t.amount || 0;
+      map.set(t.date, g);
+    });
+    wTimeline.forEach((t: any) => {
+      const g = map.get(t.date) || { date: t.date, deposits: 0, withdrawals: 0 };
+      g.withdrawals += t.amount || 0;
+      map.set(t.date, g);
+    });
+    return [...map.values()].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 7);
+  }, [d.depositTimeline, d.withdrawalTimeline]);
 
   return (
-    <ScrollView style={st.container} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: 'transparent' }}
+      contentContainerStyle={{ padding: isMobile ? 12 : 20, paddingBottom: 100, gap: 16 }}
+      showsVerticalScrollIndicator={false}
+    >
       {/* Header */}
       <View style={[st.header, isMobile && { flexDirection: 'column', gap: 12 }]}>
         <View>
-          <Text style={st.title}>FINANCIAL DASHBOARD</Text>
-          <Text style={st.subtitle}>Revenue, Deposits, Withdrawals & Profit Tracking</Text>
+          <Text style={[st.title, { color: C.onSurface }]}>Financial console</Text>
+          <Text style={[st.subtitle, { color: C.onSurfaceVariant }]}>
+            Withdrawals dispatch through Chapa; rejections restore the reserved withdrawal balance
+          </Text>
         </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          {/* Game Filter */}
-          <View style={st.tfSelector}>
-            {(['all', 'xo'] as const).map(gf => (
-              <TouchableOpacity key={gf} style={[st.tfOpt, gameFilter === gf && { backgroundColor: C.secondary }]} onPress={() => setGameFilter(gf)}>
-                <Text style={[st.tfText, gameFilter === gf && { color: '#0a0f1c', fontWeight: '900' as any }]}>
-                  {gf === 'all' ? 'ALL GAMES' : 'XO GAME'}
-                </Text>
-              </TouchableOpacity>
-            ))}
-            <View style={[st.tfOpt, { opacity: 0.4 }]}>
-              <Text style={[st.tfText, { fontStyle: 'italic' }]}>SPIN (Soon)</Text>
-            </View>
-          </View>
-
-          {/* Time Range Selector */}
-          <View style={st.tfSelector}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <View style={[st.tfSelector, { backgroundColor: C.surfaceContainerLow, borderColor: C.border }]}>
             {(['day', 'week', 'month', 'all'] as TimeRange[]).map(tf => (
               <TouchableOpacity key={tf} style={[st.tfOpt, range === tf && { backgroundColor: C.primary }]} onPress={() => setRange(tf)}>
-                <Text style={[st.tfText, range === tf && { color: '#ffffff', fontWeight: '700' as any }]}>
-                  {tf === 'day' ? '24H' : tf === 'week' ? '7D' : tf === 'month' ? '30D' : 'ALL'}
+                <Text style={[st.tfText, { color: range === tf ? '#fff' : C.onSurfaceVariant }]}>
+                  {tf === 'day' ? 'Today' : tf === 'week' ? '7 days' : tf === 'month' ? '30 days' : 'All'}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
-          <TouchableOpacity style={st.refreshBtn} onPress={() => fetchData(true)} activeOpacity={0.8}>
-            {refreshing ? <ActivityIndicator size="small" color="#ffffff" /> : <Ionicons name="refresh" size={16} color="#ffffff" />}
-          </TouchableOpacity>
+          <AdminButton icon="refresh" tone="brand" onPress={() => fetchData(true)}>
+            {refreshing ? 'Updating...' : 'Update data'}
+          </AdminButton>
         </View>
       </View>
 
-      {/* ═══ Top KPI Cards ═══ */}
-      <View style={[st.kpiRow, isMobile ? { flexDirection: 'column' } : (width < 1280 ? { flexWrap: 'wrap' } : {})]}>
-        {/* Card 1: Platform Balance Breakdown */}
-        <View style={[st.kpiCard, !isMobile && width < 1280 && { flexBasis: '48%' }]}>
-          <View style={st.kpiIcon}>
-            <Ionicons name="wallet-outline" size={22} color={C.primary} />
-          </View>
-          <Text style={st.kpiLabel}>Total Platform Balance</Text>
-          <ACount value={d.totalPlatformAmount || 0} style={st.kpiValue} suffix=" ETB" />
-          <View style={{ flexDirection: 'row', gap: 12, marginTop: 8, marginBottom: 8 }}>
-            <View>
-              <Text style={st.kpiMini}>Available</Text>
-              <Text style={st.kpiMiniVal}>{fmtK(d.totalAvailable || 0)}</Text>
+      {/* ═══ Financial Request Queue + AML ═══ */}
+      <View style={[{ gap: 16 }, !isMobile && { flexDirection: 'row' }]}>
+        {/* Queue Panel */}
+        <View style={{ flex: 1 }}>
+          <AdminPanel
+            title="Financial request queue"
+            kicker="Withdrawals dispatch through Chapa; rejections restore the reserved withdrawal balance"
+            noPadBody
+            right={
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <AdminPill tone="brand">{`${fmtETB(pendingAmount)} pending`}</AdminPill>
+                {tab === 'withdrawals' && (
+                  <AdminButton
+                    tone={highRisk ? 'gold' : 'ghost'}
+                    size="xs"
+                    onPress={() => setHighRisk(v => !v)}
+                  >
+                    High risk
+                  </AdminButton>
+                )}
+              </View>
+            }
+          >
+            {/* Tab bar */}
+            <View style={[st.tabBar, { borderBottomColor: C.border }]}>
+              <View style={[st.tabGroup, { backgroundColor: C.surfaceContainerHighest }]}>
+                {(['withdrawals', 'deposits'] as TabKey[]).map(t => (
+                  <TouchableOpacity
+                    key={t}
+                    onPress={() => setTab(t)}
+                    style={[st.tabBtn, tab === t && { backgroundColor: C.surface }]}
+                  >
+                    <Text style={[st.tabBtnText, { color: tab === t ? C.onSurface : C.onSurfaceVariant }]}>
+                      {t === 'withdrawals' ? 'Withdrawal requests' : 'Deposit requests'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Text style={{ fontSize: 10.5, color: C.onSurfaceVariant }}>
+                {tab === 'withdrawals' ? `${filteredWithdrawals.length} matches` : `${deposits.length} deposits`}
+              </Text>
             </View>
-            <View>
-              <Text style={st.kpiMini}>Withdrawable</Text>
-              <Text style={st.kpiMiniVal}>{fmtK(d.totalWithdrawable || 0)}</Text>
-            </View>
-            <View>
-              <Text style={st.kpiMini}>Bonus</Text>
-              <Text style={[st.kpiMiniVal, { color: C.accentGold }]}>{fmtK(d.totalBonus || 0)}</Text>
-            </View>
-          </View>
-          {/* Proportional 3-way balance split bar */}
-          <View style={{ height: 4, backgroundColor: C.border, borderRadius: 2, flexDirection: 'row', overflow: 'hidden', width: '100%' }}>
-            <View style={{ flex: Math.max(1, d.totalAvailable || 0), backgroundColor: C.primary }} />
-            <View style={{ flex: Math.max(1, d.totalWithdrawable || 0), backgroundColor: C.success }} />
-            <View style={{ flex: Math.max(1, d.totalBonus || 0), backgroundColor: C.accentGold }} />
-          </View>
+
+            {/* Table */}
+            {tab === 'withdrawals' ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={Platform.OS === 'web'}>
+                <View style={{ minWidth: 900 }}>
+                  {/* Header */}
+                  <View style={[st.tableRow, { backgroundColor: C.surfaceContainerHighest }]}>
+                    <Text style={[st.th, { flex: 2 }]}>Player phone</Text>
+                    <Text style={[st.th, { flex: 1.2 }]}>Amount</Text>
+                    <Text style={[st.th, { flex: 1.5 }]}>Destination</Text>
+                    <Text style={[st.th, { flex: 1 }]}>Submitted</Text>
+                    <Text style={[st.th, { flex: 0.8 }]}>Status</Text>
+                    <Text style={[st.th, { flex: 1.5, textAlign: 'right' }]}>{' '}</Text>
+                  </View>
+                  {/* Rows */}
+                  {filteredWithdrawals.slice(0, 12).map((p: any) => (
+                    <View key={p.id || p.transaction_id} style={[st.tableRow, { borderTopWidth: 1, borderTopColor: C.border }]}>
+                      <View style={{ flex: 2, paddingHorizontal: 12, paddingVertical: 10 }}>
+                        <Text style={{ fontWeight: '700', color: C.onSurface, fontSize: 12 }}>{p.username || p.handle || '--'}</Text>
+                        <Text style={{ fontSize: 10, color: C.onSurfaceVariant, fontFamily: Platform.OS === 'web' ? 'monospace' : undefined }}>
+                          {p.number || p.phone || '--'} {p.kyc_verified ? 'KYC verified' : 'KYC missing'}
+                        </Text>
+                      </View>
+                      <View style={{ flex: 1.2, paddingHorizontal: 12, paddingVertical: 10 }}>
+                        <Text style={{ fontWeight: '700', color: C.primary, fontSize: 12 }}>{fmtETB(p.amount)}</Text>
+                        <Text style={{ fontSize: 10, color: C.onSurfaceVariant }}>Risk {p.risk || 0}/100</Text>
+                      </View>
+                      <View style={{ flex: 1.5, paddingHorizontal: 12, paddingVertical: 10 }}>
+                        <Text style={{ fontWeight: '600', color: C.onSurfaceVariant, fontSize: 12 }}>{p.rail || p.method || 'Chapa'}</Text>
+                        <Text style={{ fontSize: 10, color: C.onSurfaceVariant, fontFamily: Platform.OS === 'web' ? 'monospace' : undefined }}>{p.destination || p.dest || '--'}</Text>
+                      </View>
+                      <View style={{ flex: 1, paddingHorizontal: 12, paddingVertical: 10 }}>
+                        <Text style={{ color: C.onSurfaceVariant, fontSize: 12 }}>{fmtAgo(p.created_at || p.ts)}</Text>
+                        <Text style={{ fontSize: 10, color: C.onSurfaceVariant, fontFamily: Platform.OS === 'web' ? 'monospace' : undefined }}>{(p.reference || p.ref || '').slice(0, 12)}</Text>
+                      </View>
+                      <View style={{ flex: 0.8, paddingHorizontal: 12, paddingVertical: 10 }}>
+                        <AdminPill tone={p.status === 'pending' ? 'gold' : p.status === 'approved' ? 'positive' : p.status === 'rejected' ? 'coral' : 'azure'}>
+                          {p.status === 'approved' ? 'Paid' : (p.status || 'Pending')}
+                        </AdminPill>
+                        {p.rejection_reason && <Text style={{ fontSize: 10, color: C.error, marginTop: 2 }}>{p.rejection_reason}</Text>}
+                      </View>
+                      <View style={{ flex: 1.5, paddingHorizontal: 12, paddingVertical: 10, flexDirection: 'row', justifyContent: 'flex-end', gap: 6 }}>
+                        {p.status === 'pending' ? (
+                          <>
+                            <AdminButton size="xs" tone="brand" icon="checkmark" onPress={() => handleApprove(p.id || p.transaction_id)}>Approve</AdminButton>
+                            <AdminButton size="xs" tone="ghost" icon="arrow-undo" onPress={() => setRejectId(p.id || p.transaction_id)}>Reject</AdminButton>
+                          </>
+                        ) : (
+                          <Text style={{ fontSize: 10.5, color: C.onSurfaceVariant }}>No action required</Text>
+                        )}
+                      </View>
+                    </View>
+                  ))}
+                  {filteredWithdrawals.length === 0 && (
+                    <View style={{ padding: 40, alignItems: 'center' }}>
+                      <Text style={{ fontSize: 12, color: C.onSurfaceVariant }}>No withdrawal requests match this window and segment.</Text>
+                    </View>
+                  )}
+                </View>
+              </ScrollView>
+            ) : (
+              <ScrollView horizontal showsHorizontalScrollIndicator={Platform.OS === 'web'}>
+                <View style={{ minWidth: 800 }}>
+                  <View style={[st.tableRow, { backgroundColor: C.surfaceContainerHighest }]}>
+                    <Text style={[st.th, { flex: 2 }]}>Player</Text>
+                    <Text style={[st.th, { flex: 1.2 }]}>Amount</Text>
+                    <Text style={[st.th, { flex: 1.2 }]}>Payment method</Text>
+                    <Text style={[st.th, { flex: 1 }]}>Received</Text>
+                    <Text style={[st.th, { flex: 1.5 }]}>Reference</Text>
+                    <Text style={[st.th, { flex: 0.8 }]}>Status</Text>
+                  </View>
+                  {deposits.slice(0, 20).map((dp: any, i: number) => (
+                    <View key={dp.id || i} style={[st.tableRow, { borderTopWidth: 1, borderTopColor: C.border }]}>
+                      <View style={{ flex: 2, paddingHorizontal: 12, paddingVertical: 10 }}>
+                        <Text style={{ fontWeight: '700', color: C.onSurface, fontSize: 12 }}>{dp.username || '--'}</Text>
+                        <Text style={{ fontSize: 10, color: C.onSurfaceVariant, fontFamily: Platform.OS === 'web' ? 'monospace' : undefined }}>{dp.user_id?.slice(0, 8) || '--'}</Text>
+                      </View>
+                      <Text style={{ flex: 1.2, paddingHorizontal: 12, paddingVertical: 10, fontWeight: '700', color: C.success, fontSize: 12 }}>+{fmtETB(dp.amount)}</Text>
+                      <Text style={{ flex: 1.2, paddingHorizontal: 12, paddingVertical: 10, color: C.onSurfaceVariant, fontSize: 12 }}>{dp.method || dp.rail || 'Chapa'}</Text>
+                      <Text style={{ flex: 1, paddingHorizontal: 12, paddingVertical: 10, color: C.onSurfaceVariant, fontSize: 12 }}>{fmtAgo(dp.created_at || dp.ts)}</Text>
+                      <Text style={{ flex: 1.5, paddingHorizontal: 12, paddingVertical: 10, color: C.onSurfaceVariant, fontSize: 10.5, fontFamily: Platform.OS === 'web' ? 'monospace' : undefined }}>{dp.reference || dp.ref || '--'}</Text>
+                      <View style={{ flex: 0.8, paddingHorizontal: 12, paddingVertical: 10 }}>
+                        <AdminPill tone="positive">Confirmed</AdminPill>
+                      </View>
+                    </View>
+                  ))}
+                  {deposits.length === 0 && (
+                    <View style={{ padding: 40, alignItems: 'center' }}>
+                      <Text style={{ fontSize: 12, color: C.onSurfaceVariant }}>No deposit requests in this range.</Text>
+                    </View>
+                  )}
+                </View>
+              </ScrollView>
+            )}
+          </AdminPanel>
         </View>
 
-        {/* Card 2: Chapa Gateway Settlement */}
-        <View style={[st.kpiCard, !isMobile && width < 1280 && { flexBasis: '48%' }]}>
-          <View style={st.kpiIcon}>
-            <Ionicons name="card-outline" size={22} color={C.primary} />
+        {/* AML Payout Rules */}
+        {!isMobile && (
+          <View style={{ width: 330 }}>
+            <AdminPanel title="AML payout rules" kicker="Superadmin financial safeguards">
+              {/* Force manual toggle */}
+              <View style={[st.amlRow, { backgroundColor: C.surfaceContainerHighest, borderRadius: 12, padding: 12, marginBottom: 12 }]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: C.onSurface }}>Force manual approval</Text>
+                  <Text style={{ fontSize: 10.5, color: C.onSurfaceVariant, marginTop: 2 }}>No withdrawal can auto-dispatch.</Text>
+                </View>
+                <AdminToggle checked={forceManual} disabled={!isSuperAdmin} onChange={setForceManual} label="Force manual approval" />
+              </View>
+              {/* Threshold inputs */}
+              <View style={{ gap: 12 }}>
+                <View>
+                  <Text style={st.inputLabel}>Auto-payout threshold</Text>
+                  <View style={[st.inputWrap, { borderColor: C.border, backgroundColor: C.surface }]}>
+                    <TextInput
+                      value={autoThreshold}
+                      onChangeText={setAutoThreshold}
+                      keyboardType="numeric"
+                      style={[st.input, { color: C.onSurface }]}
+                      {...(Platform.OS === 'web' ? { outlineStyle: 'none' } as any : {})}
+                    />
+                    <Text style={{ fontSize: 10, fontWeight: '600', color: C.onSurfaceVariant }}>ETB</Text>
+                  </View>
+                </View>
+                <View>
+                  <Text style={st.inputLabel}>Max daily withdrawal</Text>
+                  <View style={[st.inputWrap, { borderColor: C.border, backgroundColor: C.surface }]}>
+                    <TextInput
+                      value={maxDaily}
+                      onChangeText={setMaxDaily}
+                      keyboardType="numeric"
+                      style={[st.input, { color: C.onSurface }]}
+                      {...(Platform.OS === 'web' ? { outlineStyle: 'none' } as any : {})}
+                    />
+                    <Text style={{ fontSize: 10, fontWeight: '600', color: C.onSurfaceVariant }}>ETB</Text>
+                  </View>
+                </View>
+              </View>
+              {/* Info */}
+              <View style={[st.amlInfo, { borderColor: C.border }]}>
+                <Text style={{ fontSize: 11, color: C.onSurfaceVariant, lineHeight: 17 }}>
+                  <Text style={{ fontWeight: '700', color: C.onSurface }}>{autoEligible}</Text> KYC-verified requests are below the auto-payout threshold in the current view.{' '}
+                  {forceManual ? 'Manual approval is currently forced.' : 'They remain eligible for automated dispatch after server-side checks.'}
+                </Text>
+              </View>
+              {!isSuperAdmin && (
+                <Text style={{ fontSize: 10.5, color: C.onSurfaceVariant, marginTop: 8 }}>
+                  Admin role can review and process requests; only superadmin can change AML rules.
+                </Text>
+              )}
+            </AdminPanel>
           </View>
-          <Text style={st.kpiLabel}>Chapa Settlement Balance</Text>
-          <ACount value={d.chapaBalance || 0} style={st.kpiValue} suffix=" ETB" />
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 }}>
-            <View style={[st.statusDot, { backgroundColor: d.chapaBalance > 0 ? C.success : C.error }]} />
-            <Text style={{ color: C.onSurfaceVariant, fontSize: 10, fontWeight: '700' as any }}>
-              {d.chapaBalance > 0 ? 'Gateway Connected & Active' : 'Low Settlement Balance'}
-            </Text>
-          </View>
-        </View>
-
-        {/* Card 3: Gross Gaming Revenue (GGR) */}
-        <View style={[st.kpiCard, !isMobile && width < 1280 && { flexBasis: '48%' }]}>
-          <View style={st.kpiIcon}>
-            <Ionicons name="trending-up-outline" size={22} color={C.success} />
-          </View>
-          <Text style={st.kpiLabel}>Gross Gaming Revenue (GGR)</Text>
-          <ACount value={d.purePlatformProfit || 0} style={[st.kpiValue, { color: C.success }]} suffix=" ETB" />
-          <Text style={{ color: C.onSurfaceVariant, fontSize: 11, marginTop: 6, fontWeight: '500' }}>
-            Commission from {fmt(d.totalGamesFinished || 0)} finished games (2×bet - prize)
-          </Text>
-        </View>
-
-        {/* Card 4: Net Platform Gaming Profit */}
-        <View style={[st.kpiCard, !isMobile && width < 1280 && { flexBasis: '48%' }]}>
-          <View style={st.kpiIcon}>
-            <Ionicons name="analytics-outline" size={22} color={d.netPlatformProfit >= 0 ? C.success : C.error} />
-          </View>
-          <Text style={st.kpiLabel}>Net Gaming Profit</Text>
-          <ACount value={d.netPlatformProfit || 0} style={[st.kpiValue, { color: d.netPlatformProfit >= 0 ? C.success : C.error }]} suffix=" ETB" />
-          <Text style={{ color: d.netPlatformProfit >= 0 ? C.onSurfaceVariant : C.error, fontSize: 11, marginTop: 6, fontWeight: '500' }}>
-            -{profitImpactPct}% deducted by bonuses & refunds ({fmtK(profitImpactTotal)})
-          </Text>
-        </View>
+        )}
       </View>
 
-      {/* ═══ Deposits & Withdrawals Today Bars ═══ */}
-      <View style={[st.todayRow, isMobile && { flexDirection: 'column' }]}>
-        <View style={st.todayCard}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <View style={st.todayIcon}>
-              <Ionicons name="arrow-down-outline" size={20} color={C.success} />
+      {/* AML on mobile — stacked below */}
+      {isMobile && (
+        <AdminPanel title="AML payout rules" kicker="Superadmin financial safeguards">
+          <View style={[st.amlRow, { backgroundColor: C.surfaceContainerHighest, borderRadius: 12, padding: 12, marginBottom: 12 }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: C.onSurface }}>Force manual approval</Text>
+              <Text style={{ fontSize: 10.5, color: C.onSurfaceVariant, marginTop: 2 }}>No withdrawal can auto-dispatch.</Text>
+            </View>
+            <AdminToggle checked={forceManual} disabled={!isSuperAdmin} onChange={setForceManual} label="Force manual approval" />
+          </View>
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={st.inputLabel}>Auto-payout threshold</Text>
+              <View style={[st.inputWrap, { borderColor: C.border, backgroundColor: C.surface }]}>
+                <TextInput value={autoThreshold} onChangeText={setAutoThreshold} keyboardType="numeric" style={[st.input, { color: C.onSurface }]} {...(Platform.OS === 'web' ? { outlineStyle: 'none' } as any : {})} />
+                <Text style={{ fontSize: 10, fontWeight: '600', color: C.onSurfaceVariant }}>ETB</Text>
+              </View>
             </View>
             <View>
-              <Text style={st.todayLabel}>Deposits Today</Text>
-              <Text style={[st.todayVal, { color: C.success }]}>{fmt(d.depositsToday || 0)} ETB</Text>
+              <Text style={st.inputLabel}>Max daily withdrawal</Text>
+              <View style={[st.inputWrap, { borderColor: C.border, backgroundColor: C.surface }]}>
+                <TextInput value={maxDaily} onChangeText={setMaxDaily} keyboardType="numeric" style={[st.input, { color: C.onSurface }]} {...(Platform.OS === 'web' ? { outlineStyle: 'none' } as any : {})} />
+                <Text style={{ fontSize: 10, fontWeight: '600', color: C.onSurfaceVariant }}>ETB</Text>
+              </View>
             </View>
           </View>
-          <View style={{ alignItems: 'flex-end' }}>
-            <Text style={{ color: C.onSurfaceVariant, fontSize: 11, fontWeight: '700' as any }}>{d.depositCountToday || 0} txs</Text>
-            <Text style={{ color: C.onSurfaceVariant, fontSize: 11 }}>Total: {fmtK(d.totalDeposits || 0)}</Text>
-          </View>
-        </View>
-        <View style={st.todayCard}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <View style={st.todayIcon}>
-              <Ionicons name="arrow-up-outline" size={20} color={C.error} />
-            </View>
-            <View>
-              <Text style={st.todayLabel}>Withdrawals Today</Text>
-              <Text style={[st.todayVal, { color: C.error }]}>{fmt(d.withdrawalsToday || 0)} ETB</Text>
-            </View>
-          </View>
-          <View style={{ alignItems: 'flex-end' }}>
-            <Text style={{ color: C.onSurfaceVariant, fontSize: 11, fontWeight: '700' as any }}>{d.withdrawalCountToday || 0} txs</Text>
-            <Text style={{ color: C.onSurfaceVariant, fontSize: 11 }}>Total: {fmtK(d.totalWithdrawals || 0)}</Text>
-          </View>
-        </View>
-      </View>
+        </AdminPanel>
+      )}
 
-      {/* ═══ Charts Row ═══ */}
-      <View style={[st.chartsRow, isMobile && { flexDirection: 'column' }]}>
-        <View style={[st.chartCard, { flex: 1 }]}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <View>
-              <Text style={st.chartTitle}>DEPOSITS OVER TIME</Text>
-              <Text style={st.chartSub}>Click a point to see depositors</Text>
-            </View>
-            <Text style={[st.chartTotal, { color: '#34d399' }]}>{fmtK(d.totalDeposits || 0)} ETB</Text>
+      {/* ═══ Cash-flow date drill-down ═══ */}
+      <AdminPanel title="Cash-flow date drill-down" kicker="Click a calendar day to inspect deposits, withdrawals, referral bonuses, and giveaway outflows">
+        {/* Day cards */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 4 }}>
+          {dailyGroups.map(dg => {
+            const sel = selectedDate === dg.date;
+            return (
+              <TouchableOpacity
+                key={dg.date}
+                onPress={() => {
+                  if (sel) { setSelectedDate(null); setDrillData(null); }
+                  else fetchDrillDown('deposits', dg.date);
+                }}
+                style={[
+                  st.dayCard,
+                  { borderColor: sel ? C.primary + '60' : C.border },
+                  sel && { backgroundColor: C.primaryContainer },
+                ]}
+              >
+                <Text style={{ fontSize: 10, color: C.onSurfaceVariant }}>{fmtDay(dg.date)}</Text>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: C.success, marginTop: 4 }}>+{fmtETB(dg.deposits)}</Text>
+                <Text style={{ fontSize: 10, color: C.primary, marginTop: 2 }}>-{fmtETB(dg.withdrawals)}</Text>
+              </TouchableOpacity>
+            );
+          })}
+          {dailyGroups.length === 0 && (
+            <Text style={{ fontSize: 11, color: C.onSurfaceVariant }}>No date range data available.</Text>
+          )}
+        </ScrollView>
+
+        {/* Detail table when a day is selected */}
+        {drillLoading && <ActivityIndicator size="small" color={C.primary} style={{ marginTop: 16 }} />}
+        {drillData && !drillLoading && (
+          <View style={[st.drillTable, { borderColor: C.border, marginTop: 16 }]}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={Platform.OS === 'web'}>
+              <View style={{ minWidth: 640 }}>
+                <View style={[st.tableRow, { backgroundColor: C.surfaceContainerHighest }]}>
+                  <Text style={[st.th, { flex: 1 }]}>Time</Text>
+                  <Text style={[st.th, { flex: 1 }]}>Type</Text>
+                  <Text style={[st.th, { flex: 1.5 }]}>Player</Text>
+                  <Text style={[st.th, { flex: 1, textAlign: 'right' }]}>Amount</Text>
+                  <Text style={[st.th, { flex: 1 }]}>Txs</Text>
+                </View>
+                {(drillData.users || []).slice(0, 12).map((r: any, i: number) => (
+                  <TouchableOpacity
+                    key={i}
+                    style={[st.tableRow, { borderTopWidth: 1, borderTopColor: C.border }]}
+                    onPress={() => router.push(`/admin/user-detail?id=${r.user_id}` as any)}
+                  >
+                    <Text style={{ flex: 1, paddingHorizontal: 8, paddingVertical: 8, color: C.onSurfaceVariant, fontSize: 12 }}>{fmtAgo(r.created_at || r.ts || '')}</Text>
+                    <Text style={{ flex: 1, paddingHorizontal: 8, paddingVertical: 8, color: C.onSurfaceVariant, fontSize: 12, textTransform: 'capitalize' }}>{drillData.type || 'deposit'}</Text>
+                    <Text style={{ flex: 1.5, paddingHorizontal: 8, paddingVertical: 8, fontWeight: '600', color: C.onSurface, fontSize: 12 }}>{r.username || '--'}</Text>
+                    <Text style={{ flex: 1, paddingHorizontal: 8, paddingVertical: 8, fontWeight: '700', color: drillData.type === 'withdrawals' ? C.primary : C.success, fontSize: 12, textAlign: 'right' }}>
+                      {drillData.type === 'withdrawals' ? '-' : '+'}{fmtETB(r.total_amount)}
+                    </Text>
+                    <Text style={{ flex: 1, paddingHorizontal: 8, paddingVertical: 8, color: C.onSurfaceVariant, fontSize: 12 }}>{r.tx_count}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
           </View>
-          <View style={{ height: 220 }}>
+        )}
+        {!drillData && !drillLoading && (
+          <Text style={{ fontSize: 11, color: C.onSurfaceVariant, marginTop: 12 }}>Select a date above to open its full transaction breakdown.</Text>
+        )}
+      </AdminPanel>
+
+      {/* ═══ Charts ═══ */}
+      <View style={[{ gap: 16 }, !isMobile && { flexDirection: 'row' }]}>
+        <AdminPanel title="Deposits over time" kicker="Click a point to see depositors" style={{ flex: 1 }}
+          right={<Text style={{ fontSize: 14, fontWeight: '700', color: C.success }}>{fmtK(d.totalDeposits || 0)} ETB</Text>}
+        >
+          <View style={{ height: 200 }}>
             {isMounted && Platform.OS === 'web' && PrimeChart && Object.keys(depositChartData).length > 0 ? (
-              <React.Suspense fallback={<View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator size="small" color="#00daf3" /></View>}>
+              <React.Suspense fallback={<ActivityIndicator size="small" color={C.primary} />}>
                 <PrimeChart type="line" data={depositChartData} options={chartOpts} style={{ height: '100%' }} />
               </React.Suspense>
             ) : (
               <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ color: '#475569', fontSize: 12 }}>Chart loading...</Text>
+                <Text style={{ color: C.onSurfaceVariant, fontSize: 11 }}>Chart available on web only</Text>
               </View>
             )}
           </View>
-        </View>
+        </AdminPanel>
 
-        <View style={[st.chartCard, { flex: 1 }]}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <View>
-              <Text style={st.chartTitle}>WITHDRAWALS OVER TIME</Text>
-              <Text style={st.chartSub}>Click a point to see payees</Text>
-            </View>
-            <Text style={[st.chartTotal, { color: '#f87171' }]}>{fmtK(d.totalWithdrawals || 0)} ETB</Text>
-          </View>
-          <View style={{ height: 220 }}>
+        <AdminPanel title="Withdrawals over time" kicker="Click a point to see payees" style={{ flex: 1 }}
+          right={<Text style={{ fontSize: 14, fontWeight: '700', color: C.primary }}>{fmtK(d.totalWithdrawals || 0)} ETB</Text>}
+        >
+          <View style={{ height: 200 }}>
             {isMounted && Platform.OS === 'web' && PrimeChart && Object.keys(withdrawalChartData).length > 0 ? (
-              <React.Suspense fallback={<View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator size="small" color="#00daf3" /></View>}>
+              <React.Suspense fallback={<ActivityIndicator size="small" color={C.primary} />}>
                 <PrimeChart type="line" data={withdrawalChartData} options={chartOpts} style={{ height: '100%' }} />
               </React.Suspense>
             ) : (
               <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ color: '#475569', fontSize: 12 }}>Chart loading...</Text>
+                <Text style={{ color: C.onSurfaceVariant, fontSize: 11 }}>Chart available on web only</Text>
               </View>
             )}
           </View>
-        </View>
+        </AdminPanel>
       </View>
 
-      {/* Drill-down panel */}
-      {(drillData || drillLoading) && (
-        <View style={st.drillPanel}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <Text style={st.drillTitle}>
-              {drillData?.type === 'withdrawals' ? '💸 Withdrawal' : '💰 Deposit'} Users — {selectedDate && !isNaN(new Date(selectedDate).getTime()) ? new Date(selectedDate).toLocaleDateString() : ''}
-            </Text>
-            <TouchableOpacity onPress={() => { setDrillData(null); setSelectedDate(null); }}>
-              <Ionicons name="close-circle" size={22} color={C.onSurfaceVariant} />
-            </TouchableOpacity>
-          </View>
-          {drillLoading ? <ActivityIndicator size="small" color={C.primary} /> : (
-            <View>
-              <View style={st.drillHeader}>
-                <Text style={[st.drillCell, { flex: 2 }]}>User</Text>
-                <Text style={[st.drillCell, { flex: 1.5 }]}>Phone</Text>
-                <Text style={[st.drillCell, { flex: 1, textAlign: 'right' }]}>Amount</Text>
-                <Text style={[st.drillCell, { flex: 0.5, textAlign: 'right' }]}>Txs</Text>
-              </View>
-              {(drillData?.users || []).map((u: any, i: number) => (
-                <TouchableOpacity key={i} style={st.drillRow} onPress={() => router.push(`/admin/user-detail?id=${u.user_id}` as any)}>
-                  <Text style={[st.drillCellVal, { flex: 2 }]}>{u.username || '—'}</Text>
-                  <Text style={[st.drillCellVal, { flex: 1.5, color: '#64748b' }]}>{u.number || '—'}</Text>
-                  <Text style={[st.drillCellVal, { flex: 1, textAlign: 'right', color: drillData?.type === 'withdrawals' ? '#f87171' : '#34d399', fontWeight: '800' as any }]}>
-                    {fmt(u.total_amount)}
-                  </Text>
-                  <Text style={[st.drillCellVal, { flex: 0.5, textAlign: 'right' }]}>{u.tx_count}</Text>
-                </TouchableOpacity>
-              ))}
-              {(!drillData?.users || drillData.users.length === 0) && (
-                <Text style={{ color: '#475569', fontSize: 11, textAlign: 'center', padding: 20 }}>No transactions for this date</Text>
-              )}
-            </View>
-          )}
-        </View>
-      )}
-
-      {/* ═══ Profit Impact Section ═══ */}
-      <Text style={st.sectionTitle}>PROFIT IMPACT BREAKDOWN</Text>
-      <Text style={st.sectionSub}>Items that reduce your pure platform profit</Text>
-      <View style={[st.impactRow, isMobile && { flexDirection: 'column' }]}>
+      {/* ═══ KPI Summary ═══ */}
+      <View style={[{ gap: 16 }, !isMobile && { flexDirection: 'row', flexWrap: 'wrap' }]}>
         {[
-          { label: 'Welcome & Referral Bonuses', value: d.bonusesGiven, count: d.bonusCount, color: '#fbbf24', icon: 'gift' as any },
-          { label: 'Leaderboard Giveaways', value: d.giveawaysGiven, count: d.giveawayCount, color: '#a78bfa', icon: 'trophy' as any },
-          { label: 'System Refunds', value: d.systemRefunds, count: d.systemRefundCount, color: '#fb923c', icon: 'refresh-circle' as any },
-          { label: 'Admin Manual Refunds', value: d.adminRefunds, count: d.adminRefundCount, color: '#f87171', icon: 'person' as any },
-        ].map((item, i) => {
-          const pct = d.purePlatformProfit > 0 ? ((item.value / d.purePlatformProfit) * 100).toFixed(1) : '0';
-          return (
-            <View key={i} style={[st.impactCard, { borderColor: item.color + '40' }]}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                <View style={[st.impactIcon, { backgroundColor: item.color + '18' }]}>
-                  <Ionicons name={item.icon} size={16} color={item.color} />
-                </View>
-                <Text style={st.impactLabel}>{item.label}</Text>
-              </View>
-              <Text style={[st.impactVal, { color: item.color }]}>-{fmt(item.value || 0)} ETB</Text>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
-                <Text style={st.impactMeta}>{item.count || 0} entries</Text>
-                <Text style={[st.impactMeta, { color: item.color }]}>{pct}% of profit</Text>
-              </View>
-              {/* Mini progress bar */}
-              <View style={st.impactBar}>
-                <View style={[st.impactBarFill, { width: `${Math.min(Number(pct), 100)}%`, backgroundColor: item.color }]} />
-              </View>
+          { label: 'Total platform balance', value: fmtETB(d.totalPlatformAmount || 0), icon: 'wallet-outline' as keyof typeof Ionicons.glyphMap, color: C.primary },
+          { label: 'Chapa settlement', value: fmtETB(d.chapaBalance || 0), icon: 'card-outline' as keyof typeof Ionicons.glyphMap, color: C.accentCyan },
+          { label: 'Gross gaming revenue', value: fmtETB(d.purePlatformProfit || 0), icon: 'trending-up-outline' as keyof typeof Ionicons.glyphMap, color: C.success },
+          { label: 'Net gaming profit', value: fmtETB(d.netPlatformProfit || 0), icon: 'analytics-outline' as keyof typeof Ionicons.glyphMap, color: (d.netPlatformProfit || 0) >= 0 ? C.success : C.error },
+        ].map((kpi, i) => (
+          <View key={i} style={[st.kpiMini, { backgroundColor: C.surface, borderColor: C.border, flex: isMobile ? undefined : 1, minWidth: isMobile ? undefined : 200 }]}>
+            <View style={[st.kpiMiniIcon, { backgroundColor: C.surfaceContainerLow, borderColor: C.border }]}>
+              <Ionicons name={kpi.icon} size={18} color={kpi.color} />
             </View>
-          );
-        })}
-      </View>
-
-      {/* ═══ Data Tables ═══ */}
-      <Text style={[st.sectionTitle, { marginTop: 24 }]}>DETAILED RECORDS</Text>
-      <View style={st.tabRow}>
-        {([
-          { key: 'bonuses' as TabKey, label: 'Bonuses', icon: 'gift' as any },
-          { key: 'giveaways' as TabKey, label: 'Giveaways', icon: 'trophy' as any },
-          { key: 'refunds' as TabKey, label: 'Refunds', icon: 'refresh-circle' as any },
-        ]).map(tab => (
-          <TouchableOpacity
-            key={tab.key}
-            style={[st.tab, activeTab === tab.key && st.tabActive]}
-            onPress={() => setActiveTab(tab.key)}
-          >
-            <Ionicons name={tab.icon} size={14} color={activeTab === tab.key ? '#fff' : C.onSurfaceVariant} />
-            <Text style={[st.tabText, activeTab === tab.key && { color: '#fff', fontWeight: '800' as any }]}>{tab.label}</Text>
-          </TouchableOpacity>
+            <Text style={{ fontSize: 11, color: C.onSurfaceVariant, marginTop: 8 }}>{kpi.label}</Text>
+            <Text style={{ fontSize: 20, fontWeight: '700', color: kpi.color, marginTop: 4 }}>{kpi.value}</Text>
+          </View>
         ))}
       </View>
 
-      <View style={st.tableCard}>
-        {activeTab === 'bonuses' && (
-          <View>
-            {!isMobile && (
-              <View style={st.tableHeader}>
-                <Text style={[st.thCell, { flex: 2 }]}>User</Text>
-                <Text style={[st.thCell, { flex: 1.5 }]}>Amount</Text>
-                <Text style={[st.thCell, { flex: 3 }]}>Reason</Text>
-                <Text style={[st.thCell, { flex: 1.5, textAlign: 'right' }]}>Date</Text>
+      {/* ═══ Profit Impact Breakdown ═══ */}
+      <AdminPanel title="Profit impact breakdown" kicker="Items that reduce your pure platform profit">
+        <View style={[{ gap: 12 }, !isMobile && { flexDirection: 'row' }]}>
+          {[
+            { label: 'Welcome and referral bonuses', value: d.bonusesGiven, count: d.bonusCount, color: C.accentGold },
+            { label: 'Leaderboard giveaways', value: d.giveawaysGiven, count: d.giveawayCount, color: '#A78BFA' },
+            { label: 'System refunds', value: d.systemRefunds, count: d.systemRefundCount, color: '#FB923C' },
+            { label: 'Admin manual refunds', value: d.adminRefunds, count: d.adminRefundCount, color: C.error },
+          ].map((item, i) => {
+            const pct = (d.purePlatformProfit || 0) > 0 ? ((item.value || 0) / d.purePlatformProfit * 100) : 0;
+            return (
+              <View key={i} style={[st.impactCard, { flex: 1, borderColor: item.color + '40', backgroundColor: C.surface }]}>
+                <Text style={{ fontSize: 11, fontWeight: '600', color: C.onSurfaceVariant }}>{item.label}</Text>
+                <Text style={{ fontSize: 18, fontWeight: '700', color: item.color, marginTop: 4 }}>-{fmtETB(item.value || 0)}</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
+                  <Text style={{ fontSize: 10, color: C.onSurfaceVariant }}>{item.count || 0} entries</Text>
+                  <Text style={{ fontSize: 10, color: item.color }}>{pct.toFixed(1)}% of profit</Text>
+                </View>
+                <View style={{ marginTop: 6 }}>
+                  <AdminMeter value={Math.min(pct, 100)} tone={item.color === C.error ? 'coral' : item.color === C.accentGold ? 'gold' : 'brand'} />
+                </View>
               </View>
-            )}
-            {(d.recentBonuses || []).map((b: any, i: number) => (
-              isMobile ? (
-                <View key={i} style={{ padding: 14, backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 12, marginBottom: 8, borderWidth: 1, borderColor: C.outlineVariant, gap: 6 }}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>{b.username || '—'}</Text>
-                    <Text style={{ color: '#fbbf24', fontSize: 13, fontWeight: '800' }}>{fmt(b.amount)} ETB</Text>
-                  </View>
-                  <Text style={{ color: C.onSurfaceVariant, fontSize: 11 }}>{b.reason || '—'}</Text>
-                  <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, alignSelf: 'flex-end' }}>
-                    {b.created_at && !isNaN(new Date(b.created_at).getTime()) ? new Date(b.created_at).toLocaleDateString() : '—'}
+            );
+          })}
+        </View>
+      </AdminPanel>
+
+      {/* ═══ Reject Dialog (Modal) ═══ */}
+      {rejectId && (
+        <Modal transparent animationType="fade" visible={!!rejectId}>
+          <View style={st.modalOverlay}>
+            <View style={[st.modalCard, { backgroundColor: C.surface, borderColor: C.border }]}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 17, fontWeight: '700', color: C.onSurface }}>Reject and restore balance</Text>
+                  <Text style={{ fontSize: 11, color: C.onSurfaceVariant, marginTop: 4, lineHeight: 17 }}>
+                    The cash-out is marked rejected and the reserved funds are automatically restored to the player wallet.
                   </Text>
                 </View>
-              ) : (
-                <View key={i} style={st.tableRow}>
-                  <Text style={[st.tdCell, { flex: 2 }]}>{b.username || '—'}</Text>
-                  <Text style={[st.tdCell, { flex: 1.5, color: '#fbbf24', fontWeight: '700' as any }]}>{fmt(b.amount)} ETB</Text>
-                  <Text style={[st.tdCell, { flex: 3, color: '#64748b' }]} numberOfLines={1}>{b.reason || '—'}</Text>
-                  <Text style={[st.tdCell, { flex: 1.5, textAlign: 'right', color: '#475569' }]}>
-                    {b.created_at && !isNaN(new Date(b.created_at).getTime()) ? new Date(b.created_at).toLocaleDateString() : '—'}
-                  </Text>
-                </View>
-              )
-            ))}
-            {(!d.recentBonuses || d.recentBonuses.length === 0) && (
-              <Text style={{ color: '#475569', fontSize: 11, textAlign: 'center', padding: 30 }}>No bonus records</Text>
-            )}
-          </View>
-        )}
-
-        {activeTab === 'giveaways' && (
-          <View>
-            <View style={st.tableHeader}>
-              <Text style={[st.thCell, { flex: 1 }]}>Rank</Text>
-              <Text style={[st.thCell, { flex: 2 }]}>User</Text>
-              <Text style={[st.thCell, { flex: 1 }]}>Wins</Text>
-              <Text style={[st.thCell, { flex: 1.5 }]}>Prize</Text>
-              <Text style={[st.thCell, { flex: 1.5, textAlign: 'right' }]}>Week</Text>
-            </View>
-            {(d.recentGiveaways || []).map((g: any, i: number) => (
-              <View key={i} style={st.tableRow}>
-                <Text style={[st.tdCell, { flex: 1 }]}>
-                  <Text style={{ color: g.rank === 1 ? '#fbbf24' : g.rank === 2 ? '#94a3b8' : '#cd7f32' }}>
-                    #{g.rank}
-                  </Text>
-                </Text>
-                <Text style={[st.tdCell, { flex: 2 }]}>{g.username || '—'}</Text>
-                <Text style={[st.tdCell, { flex: 1, color: C.secondary }]}>{g.wins}</Text>
-                <Text style={[st.tdCell, { flex: 1.5, color: '#34d399', fontWeight: '700' as any }]}>{fmt(g.prize_amount)} ETB</Text>
-                <Text style={[st.tdCell, { flex: 1.5, textAlign: 'right', color: '#475569' }]}>{g.week_start}</Text>
+                <TouchableOpacity onPress={() => setRejectId(null)} style={{ padding: 4 }}>
+                  <Ionicons name="close" size={16} color={C.onSurfaceVariant} />
+                </TouchableOpacity>
               </View>
-            ))}
-            {(!d.recentGiveaways || d.recentGiveaways.length === 0) && (
-              <Text style={{ color: '#475569', fontSize: 11, textAlign: 'center', padding: 30 }}>No giveaway records</Text>
-            )}
-          </View>
-        )}
-
-        {activeTab === 'refunds' && (
-          <View>
-            <View style={st.tableHeader}>
-              <Text style={[st.thCell, { flex: 2 }]}>User</Text>
-              <Text style={[st.thCell, { flex: 1.5 }]}>Amount</Text>
-              <Text style={[st.thCell, { flex: 1.5 }]}>Type</Text>
-              <Text style={[st.thCell, { flex: 1.5, textAlign: 'right' }]}>Date</Text>
-            </View>
-            {(d.recentRefunds || []).map((r: any, i: number) => (
-              <View key={i} style={st.tableRow}>
-                <Text style={[st.tdCell, { flex: 2 }]}>{r.username || '—'}</Text>
-                <Text style={[st.tdCell, { flex: 1.5, color: '#f87171', fontWeight: '700' as any }]}>{fmt(r.amount)} ETB</Text>
-                <Text style={[st.tdCell, { flex: 1.5 }]}>
-                  <View style={[st.typeBadge, { borderColor: r.provider === 'ADMIN_REFUND' ? 'rgba(248,113,113,0.3)' : 'rgba(251,146,60,0.3)' }]}>
-                    <Text style={{ color: r.provider === 'ADMIN_REFUND' ? '#f87171' : '#fb923c', fontSize: 9, fontWeight: '800' as any }}>
-                      {r.provider === 'ADMIN_REFUND' ? 'ADMIN' : 'SYSTEM'}
-                    </Text>
+              <View style={{ marginTop: 16 }}>
+                <Text style={st.inputLabel}>Rejection reason</Text>
+                {Platform.OS === 'web' ? (
+                  <select
+                    value={rejectReason}
+                    onChange={(e: any) => setRejectReason(e.target.value)}
+                    style={{
+                      height: 40, width: '100%', borderRadius: 8,
+                      border: `1px solid ${C.border}`, backgroundColor: C.surface,
+                      padding: '0 12px', fontSize: 12, fontWeight: 600, color: C.onSurface,
+                      outline: 'none',
+                    } as any}
+                  >
+                    {REJECTION_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                ) : (
+                  <View>
+                    {REJECTION_REASONS.map(r => (
+                      <TouchableOpacity key={r} onPress={() => setRejectReason(r)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 }}>
+                        <Ionicons name={rejectReason === r ? 'radio-button-on' : 'radio-button-off'} size={16} color={rejectReason === r ? C.primary : C.onSurfaceVariant} />
+                        <Text style={{ fontSize: 12, color: C.onSurface }}>{r}</Text>
+                      </TouchableOpacity>
+                    ))}
                   </View>
-                </Text>
-                <Text style={[st.tdCell, { flex: 1.5, textAlign: 'right', color: '#475569' }]}>
-                  {r.created_at && !isNaN(new Date(r.created_at).getTime()) ? new Date(r.created_at).toLocaleDateString() : '—'}
-                </Text>
+                )}
               </View>
-            ))}
-            {(!d.recentRefunds || d.recentRefunds.length === 0) && (
-              <Text style={{ color: '#475569', fontSize: 11, textAlign: 'center', padding: 30 }}>No refund records</Text>
-            )}
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+                <AdminButton tone="ghost" onPress={() => setRejectId(null)}>Cancel</AdminButton>
+                <AdminButton tone="danger" icon="arrow-undo" onPress={() => { handleReject(rejectId, rejectReason); setRejectId(null); }}>Reject and refund</AdminButton>
+              </View>
+            </View>
           </View>
-        )}
-      </View>
+        </Modal>
+      )}
     </ScrollView>
   );
 }
 
-const getStyles = (C: any, isDark: boolean) => {
-  const bgSurface = isDark ? '#0c1424' : '#ffffff';
-  const bgCard = isDark ? '#080e1b' : '#f8fafc';
-  const borderColor = isDark ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0';
-  const textPrimary = isDark ? '#ffffff' : '#0f172a';
-  const textSecondary = isDark ? '#94a3b8' : '#64748b';
-
-  return StyleSheet.create({
-    container: { flex: 1, backgroundColor: 'transparent', padding: 20, paddingTop: 24 },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
-    title: { fontSize: 24, fontWeight: '900', color: textPrimary, letterSpacing: 1 },
-    subtitle: { color: textSecondary, fontSize: 11, fontWeight: '600', marginTop: 2 },
-    tfSelector: { flexDirection: 'row', gap: 3, padding: 3, backgroundColor: bgCard, borderRadius: 10, borderWidth: 1, borderColor },
-    tfOpt: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 8 },
-    tfText: { fontSize: 9, fontWeight: '700', letterSpacing: 1, color: textSecondary },
-    refreshBtn: { backgroundColor: '#FF2D55', width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-
-    // KPI Cards
-    kpiRow: { flexDirection: 'row', gap: 16, marginBottom: 20 },
-    kpiCard: {
-      flex: 1, minWidth: 220, backgroundColor: bgSurface, borderWidth: 1, borderColor, borderRadius: 12, padding: 20,
-    },
-    kpiIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: bgCard, alignItems: 'center', justifyContent: 'center', marginBottom: 12, borderWidth: 1, borderColor },
-    kpiLabel: { color: textSecondary, fontSize: 12, fontWeight: '500', marginBottom: 6 },
-    kpiValue: { color: textPrimary, fontSize: 24, fontWeight: '700', letterSpacing: -0.5 },
-    kpiMini: { color: textSecondary, fontSize: 10, fontWeight: '500' },
-    kpiMiniVal: { color: textPrimary, fontSize: 12, fontWeight: '700' },
-    statusDot: { width: 6, height: 6, borderRadius: 3 },
-
-    // Today row
-    todayRow: { flexDirection: 'row', gap: 16, marginBottom: 20 },
-    todayCard: {
-      flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-      backgroundColor: bgSurface, borderWidth: 1, borderColor,
-      borderRadius: 12, padding: 18,
-    },
-    todayIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: bgCard, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor },
-    todayLabel: { color: textSecondary, fontSize: 11, fontWeight: '600' },
-    todayVal: { fontSize: 18, fontWeight: '700', marginTop: 2, color: textPrimary },
-
-    // Charts
-    chartsRow: { flexDirection: 'row', gap: 16, marginBottom: 20 },
-    chartCard: {
-      backgroundColor: bgSurface, borderWidth: 1, borderColor,
-      borderRadius: 12, padding: 20, overflow: 'hidden',
-    },
-    chartTitle: { color: textPrimary, fontSize: 12, fontWeight: '700', letterSpacing: 0.5 },
-    chartSub: { color: textSecondary, fontSize: 10, fontWeight: '500', marginTop: 2 },
-    chartTotal: { fontSize: 16, fontWeight: '700', color: textPrimary },
-
-    // Drill-down
-    drillPanel: {
-      backgroundColor: bgSurface, borderWidth: 1, borderColor,
-      borderRadius: 12, padding: 20, marginBottom: 20,
-    },
-    drillTitle: { color: textPrimary, fontSize: 14, fontWeight: '700' },
-    drillHeader: { flexDirection: 'row', paddingVertical: 10, borderBottomWidth: 1, borderColor, backgroundColor: bgCard },
-    drillCell: { color: textSecondary, fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
-    drillRow: { flexDirection: 'row', paddingVertical: 12, borderBottomWidth: 1, borderColor },
-    drillCellVal: { color: textPrimary, fontSize: 12, fontWeight: '500' },
-
-    // Section titles
-    sectionTitle: { color: textPrimary, fontSize: 14, fontWeight: '700', letterSpacing: 0.5, marginBottom: 4, marginTop: 8 },
-    sectionSub: { color: textSecondary, fontSize: 11, fontWeight: '500', marginBottom: 16 },
-
-    // Impact cards
-    impactRow: { flexDirection: 'row', gap: 16, marginBottom: 20 },
-    impactCard: {
-      flex: 1, backgroundColor: bgSurface, borderWidth: 1, borderColor, borderRadius: 12, padding: 18,
-    },
-    impactIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: bgCard, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor },
-    impactLabel: { color: textSecondary, fontSize: 11, fontWeight: '600', flex: 1 },
-    impactVal: { fontSize: 18, fontWeight: '700', color: textPrimary },
-    impactMeta: { color: textSecondary, fontSize: 10, fontWeight: '500' },
-    impactBar: { height: 4, backgroundColor: borderColor, borderRadius: 2, marginTop: 8 },
-    impactBarFill: { height: 4, borderRadius: 2 },
-
-    // Tabs
-    tabRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
-    tab: {
-      flexDirection: 'row', alignItems: 'center', gap: 6,
-      paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8,
-      backgroundColor: bgSurface, borderWidth: 1, borderColor,
-    },
-    tabActive: { backgroundColor: '#FF2D55', borderColor: '#FF2D55' },
-    tabText: { color: textSecondary, fontSize: 11, fontWeight: '600' },
-
-    // Tables
-    tableCard: {
-      backgroundColor: bgSurface, borderWidth: 1, borderColor,
-      borderRadius: 12, padding: 16, marginBottom: 20,
-    },
-    tableHeader: { flexDirection: 'row', paddingVertical: 10, borderBottomWidth: 1, borderColor, backgroundColor: bgCard },
-    thCell: { color: textSecondary, fontSize: 10, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase' },
-    tableRow: { flexDirection: 'row', paddingVertical: 12, borderBottomWidth: 1, borderColor, alignItems: 'center' },
-    tdCell: { color: textPrimary, fontSize: 12, fontWeight: '500' },
-    typeBadge: { borderWidth: 1, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
-  });
-};
+const st = StyleSheet.create({
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  title: { fontSize: 20, fontWeight: '700' },
+  subtitle: { fontSize: 11, fontWeight: '500', marginTop: 2 },
+  tfSelector: { flexDirection: 'row', gap: 2, padding: 3, borderRadius: 10, borderWidth: 1 },
+  tfOpt: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 8 },
+  tfText: { fontSize: 11, fontWeight: '700' },
+  tabBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, paddingHorizontal: 16, paddingVertical: 10 },
+  tabGroup: { flexDirection: 'row', borderRadius: 8, padding: 2 },
+  tabBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 },
+  tabBtnText: { fontSize: 11, fontWeight: '600' },
+  tableRow: { flexDirection: 'row', alignItems: 'center' },
+  th: { paddingHorizontal: 12, paddingVertical: 10, fontSize: 11, fontWeight: '700' },
+  amlRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  amlInfo: { borderWidth: 1, borderRadius: 12, padding: 12, marginTop: 12 },
+  inputLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 4, color: '#8292A6' },
+  inputWrap: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 8, height: 36, paddingHorizontal: 12 },
+  input: { flex: 1, fontSize: 12, fontWeight: '600', fontFamily: Platform.OS === 'web' ? 'monospace' : undefined },
+  dayCard: { minWidth: 104, borderWidth: 1, borderRadius: 12, padding: 12 },
+  drillTable: { borderWidth: 1, borderRadius: 12, overflow: 'hidden' },
+  kpiMini: { borderWidth: 1, borderRadius: 12, padding: 16 },
+  kpiMiniIcon: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  impactCard: { borderWidth: 1, borderRadius: 12, padding: 16 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center', padding: 16 },
+  modalCard: { width: '100%', maxWidth: 420, borderRadius: 16, borderWidth: 1, padding: 20 },
+});
