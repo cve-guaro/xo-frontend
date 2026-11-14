@@ -258,36 +258,23 @@ export default function AdminLayout() {
 
   const isMaintenanceAdmin = user?.role === 'superadmin' || user?.role === 'maintenance' || user?.role === 'maintenance_admin';
 
-  // Logical groupings for navigation
-  const generalGroup = [
+  // ─── Flat 8-item navigation matching reference dashboard ───────
+  const navItems = [
     { icon: 'grid', label: 'Overview', path: '/admin' },
-    { icon: 'wallet', label: 'Financials', path: '/admin/financial' },
-    { icon: 'people', label: 'User Directory', path: '/admin/users' },
-    { icon: 'cash', label: 'Transaction Ledger', path: '/admin/ledger' },
-    { icon: 'options', label: 'Platform Controls', path: '/admin/controls' },
-    { icon: 'link', label: 'Promotions', path: '/admin/promotion-links' },
-    { icon: 'shield-checkmark', label: 'System Audits', path: '/admin/audit' },
-    ...(isMaintenanceAdmin ? [
-      { icon: 'construct', label: 'Maintenance', path: '/admin/maintenance' },
-      { icon: 'apps', label: 'Mini Apps (API)', path: '/admin/miniapps' },
-    ] : []),
-  ];
-
-  const xoGroup = [
-    { icon: 'list', label: 'XO Game Logs', path: '/admin/logs' },
-    { icon: 'podium', label: 'XO Leaderboard', path: '/admin/leaderboard' },
-    { icon: 'construct', label: 'XO Control Center', path: '/admin/xo-controls' },
-  ];
-
-  const spinGroup = [
-    { icon: 'color-palette', label: 'Spin Hub', path: '/admin/spin' },
-    { icon: 'radio', label: 'Live Lobbies', path: '/admin/spin?activeTab=lobbies' },
+    { icon: 'wallet', label: 'Payments', path: '/admin/financial' },
+    { icon: 'game-controller', label: 'Game engine', path: '/admin/controls' },
+    { icon: 'people', label: 'Players', path: '/admin/users' },
+    { icon: 'megaphone', label: 'Promotions', path: '/admin/promotion-links' },
+    { icon: 'trophy', label: 'Leaderboard', path: '/admin/leaderboard' },
+    { icon: 'apps', label: 'Mini-apps', path: '/admin/miniapps' },
+    { icon: 'shield', label: 'System', path: '/admin/audit' },
   ];
 
   const bottomTabItems = [
-    { icon: 'home', label: 'Overview', path: '/admin' },
-    { icon: 'game-controller', label: 'Games', path: '/admin/spin' },
-    { icon: 'people', label: 'Users', path: '/admin/users' },
+    { icon: 'grid', label: 'Overview', path: '/admin' },
+    { icon: 'wallet', label: 'Payments', path: '/admin/financial' },
+    { icon: 'game-controller', label: 'Games', path: '/admin/controls' },
+    { icon: 'people', label: 'Players', path: '/admin/users' },
   ];
 
   // ─── 2FA SECURITY GATE ────────────────────────────────────────
@@ -438,7 +425,7 @@ export default function AdminLayout() {
                 ) : (
                   <>
                     <Ionicons name="flash" size={15} color={C.secondary} />
-                    <Text style={s.quickPassText}>{isEN ? '⚡ Quick Pass (Admin Bypass)' : '⚡ ፈጣን ማለፊያ'}</Text>
+                    <Text style={s.quickPassText}>{isEN ? 'Quick pass' : 'ፈጣን ማለፊያ'}</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -554,27 +541,17 @@ export default function AdminLayout() {
                 </View>
 
                 <ScrollView style={{ flex: 1, paddingHorizontal: 12, paddingTop: 12 }} showsVerticalScrollIndicator={false}>
-                  <NavGroup 
-                    title="General Platform"
-                    items={generalGroup}
-                    currentPath={pathname || ''}
-                    collapsed={false}
-                    onSelect={() => setMobileSidebarVisible(false)}
-                  />
-                  <NavGroup 
-                    title="XO Game"
-                    items={xoGroup}
-                    currentPath={pathname || ''}
-                    collapsed={false}
-                    onSelect={() => setMobileSidebarVisible(false)}
-                  />
-                  <NavGroup 
-                    title="Spin Game"
-                    items={spinGroup}
-                    currentPath={pathname || ''}
-                    collapsed={false}
-                    onSelect={() => setMobileSidebarVisible(false)}
-                  />
+                  <View style={{ paddingHorizontal: 8 }}>
+                    {navItems.map(item => (
+                      <SideNavItem
+                        key={item.path}
+                        {...item}
+                        currentPath={pathname || ''}
+                        collapsed={false}
+                        onSelect={() => setMobileSidebarVisible(false)}
+                      />
+                    ))}
+                  </View>
                 </ScrollView>
 
                 <View style={[s.drawerFooter, { borderTopColor: currentTheme.border }]}>
@@ -583,7 +560,7 @@ export default function AdminLayout() {
                     onPress={() => { setMobileSidebarVisible(false); router.push('/(authed)/home/gameplay' as any); }}
                   >
                     <Ionicons name="game-controller-outline" size={17} color={currentTheme.accentCyan} />
-                    <Text style={[s.drawerHomeBtnText, { color: currentTheme.accentCyan }]}>{isEN ? 'BACK TO GAME' : 'ወደ ጨዋታ ተመለስ'}</Text>
+                    <Text style={[s.drawerHomeBtnText, { color: currentTheme.accentCyan }]}>{isEN ? 'Back to game' : 'ወደ ጨዋታ ተመለስ'}</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity 
@@ -591,7 +568,7 @@ export default function AdminLayout() {
                     onPress={() => { setMobileSidebarVisible(false); setLogoutModalVisible(true); }}
                   >
                     <Ionicons name="log-out-outline" size={17} color={currentTheme.primary} />
-                    <Text style={[s.emergencyText, { color: currentTheme.primary }]}>{isEN ? 'LOGOUT' : 'ውጣ'}</Text>
+                    <Text style={[s.emergencyText, { color: currentTheme.primary }]}>{isEN ? 'Log out' : 'ውጣ'}</Text>
                   </TouchableOpacity>
                 </View>
               </SafeAreaView>
@@ -658,24 +635,16 @@ export default function AdminLayout() {
           )}
 
           <ScrollView style={s.navList} showsVerticalScrollIndicator={false}>
-            <NavGroup 
-              title="General Platform"
-              items={generalGroup}
-              currentPath={pathname || ''}
-              collapsed={collapsed}
-            />
-            <NavGroup 
-              title="XO Game"
-              items={xoGroup}
-              currentPath={pathname || ''}
-              collapsed={collapsed}
-            />
-            <NavGroup 
-              title="Spin Game"
-              items={spinGroup}
-              currentPath={pathname || ''}
-              collapsed={collapsed}
-            />
+            <View style={!collapsed ? { paddingHorizontal: 8 } : { alignItems: 'center' }}>
+              {navItems.map(item => (
+                <SideNavItem
+                  key={item.path}
+                  {...item}
+                  currentPath={pathname || ''}
+                  collapsed={collapsed}
+                />
+              ))}
+            </View>
           </ScrollView>
 
           <View style={[s.sidebarFooter, { borderTopColor: currentTheme.border }, collapsed && { paddingHorizontal: 8, alignItems: 'center' }]}>
@@ -686,7 +655,7 @@ export default function AdminLayout() {
               accessibilityLabel="Back to Home"
             >
               <Ionicons name="game-controller-outline" size={17} color={currentTheme.accentCyan} />
-              {!collapsed && <Text style={[s.footerHomeBtnText, { color: currentTheme.accentCyan }]}>{isEN ? 'BACK TO GAME' : 'ወደ ጨዋታ'}</Text>}
+              {!collapsed && <Text style={[s.footerHomeBtnText, { color: currentTheme.accentCyan }]}>{isEN ? 'Back to game' : 'ወደ ጨዋታ'}</Text>}
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -696,7 +665,7 @@ export default function AdminLayout() {
               accessibilityLabel="Logout"
             >
               <Ionicons name="log-out-outline" size={17} color={currentTheme.primary} />
-              {!collapsed && <Text style={[s.emergencyText, { color: currentTheme.primary }]}>{isEN ? 'LOGOUT' : 'ውጣ'}</Text>}
+              {!collapsed && <Text style={[s.emergencyText, { color: currentTheme.primary }]}>{isEN ? 'Log out' : 'ውጣ'}</Text>}
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -729,7 +698,7 @@ export default function AdminLayout() {
               style={[s.topbarHomeBadge, { backgroundColor: isDark ? 'rgba(255, 45, 85, 0.08)' : 'rgba(225, 29, 72, 0.06)', borderColor: isDark ? 'rgba(255, 45, 85, 0.3)' : 'rgba(225, 29, 72, 0.3)' }]}
             >
               <Ionicons name="game-controller-outline" size={14} color={currentTheme.primary} />
-              <Text style={[s.topbarHomeBadgeText, { color: currentTheme.primary }]}>{isEN ? 'GAME CLIENT' : 'ጨዋታ'}</Text>
+              <Text style={[s.topbarHomeBadgeText, { color: currentTheme.primary }]}>{isEN ? 'Game client' : 'ጨዋታ'}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity 
