@@ -59,6 +59,7 @@ export default function LoginScreen() {
   const [passLoading, setPassLoading] = useState(false);
   const [guestModalVisible, setGuestModalVisible] = useState(false);
   const [guestLoading, setGuestLoading] = useState<number | null>(null);
+  const isTestLoginAllowed = __DEV__ || process.env.EXPO_PUBLIC_ENABLE_TEST_LOGIN === 'true';
   const MAX_ATTEMPTS = 5;
 
   useEffect(() => {
@@ -106,14 +107,10 @@ export default function LoginScreen() {
     }
   }, [urlToken, urlRefresh, token, loginWithToken]);
 
-  // ---- route if already logged in
+  // ---- route if already logged in (guests & users enter gameplay; admins access panel from Profile)
   useEffect(() => {
     if (token && user) {
-      if (user.role === 'admin') {
-        router.replace("/(authed)/admin");
-      } else {
-        router.replace("/(authed)/home/gameplay");
-      }
+      router.replace("/(authed)/home/gameplay");
     }
   }, [token, user, router]);
 
@@ -302,18 +299,11 @@ export default function LoginScreen() {
     try {
       setGuestLoading(guestIndex);
       await unlockAudio();
-      let res = await fetch(`${API_URL}/auth/guest-login`, {
+      const res = await fetch(`${API_URL}/otp/guest-login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ guestIndex }),
       });
-      if (res.status === 404) {
-        res = await fetch(`${API_URL}/otp/guest-login`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ guestIndex }),
-        });
-      }
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || data?.message || "Guest login failed");
       if (data.token && loginWithToken) {
@@ -451,16 +441,18 @@ export default function LoginScreen() {
                           </TouchableOpacity>
 
                           {/* Button 3: Test Guest Accounts (1,000 ETB) */}
-                          <TouchableOpacity
-                            onPress={() => setGuestModalVisible(true)}
-                            activeOpacity={0.8}
-                            style={[styles.secondaryActionBtn, { borderColor: "rgba(250, 204, 21, 0.4)", backgroundColor: "rgba(250, 204, 21, 0.08)" }]}
-                          >
-                            <Ionicons name="flash" size={19} color="#facc15" />
-                            <Text style={[styles.secondaryActionBtnText, { color: "#facc15" }]}>
-                              {language === 'am' ? 'በእንግዳ አካውንት ሞክር (1,000 ብር)' : 'Test Guest Accounts (1,000 ETB)'}
-                            </Text>
-                          </TouchableOpacity>
+                          {isTestLoginAllowed && (
+                            <TouchableOpacity
+                              onPress={() => setGuestModalVisible(true)}
+                              activeOpacity={0.8}
+                              style={[styles.secondaryActionBtn, { borderColor: "rgba(250, 204, 21, 0.4)", backgroundColor: "rgba(250, 204, 21, 0.08)" }]}
+                            >
+                              <Ionicons name="flash" size={19} color="#facc15" />
+                              <Text style={[styles.secondaryActionBtnText, { color: "#facc15" }]}>
+                                {language === 'am' ? 'በእንግዳ አካውንት ሞክር (1,000 ብር)' : 'Test Guest Accounts (1,000 ETB)'}
+                              </Text>
+                            </TouchableOpacity>
+                          )}
                         </View>
                       ) : (
                         /* SMS Phone Input View */
@@ -519,6 +511,30 @@ export default function LoginScreen() {
                               )}
                             </LinearGradient>
                           </TouchableOpacity>
+
+                          {isTestLoginAllowed && (
+                            <TouchableOpacity
+                              onPress={() => setGuestModalVisible(true)}
+                              activeOpacity={0.8}
+                              style={{
+                                marginTop: 14,
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: 6,
+                                paddingVertical: 11,
+                                borderRadius: 14,
+                                backgroundColor: 'rgba(250, 204, 21, 0.08)',
+                                borderWidth: 1,
+                                borderColor: 'rgba(250, 204, 21, 0.3)',
+                              }}
+                            >
+                              <Ionicons name="flash" size={15} color="#facc15" />
+                              <Text style={{ color: '#facc15', fontSize: 13, fontWeight: '800' }}>
+                                {language === 'am' ? 'ይዝለሉ — በሙከራ እንግዳ ይግቡ' : 'Skip Login — Play as Test Guest'}
+                              </Text>
+                            </TouchableOpacity>
+                          )}
                         </View>
                       )}
                     </View>
@@ -691,16 +707,18 @@ export default function LoginScreen() {
                           </TouchableOpacity>
 
                           {/* Button 3: Test Guest Accounts (1,000 ETB) */}
-                          <TouchableOpacity
-                            onPress={() => setGuestModalVisible(true)}
-                            activeOpacity={0.8}
-                            style={[styles.secondaryActionBtn, { borderColor: "rgba(250, 204, 21, 0.4)", backgroundColor: "rgba(250, 204, 21, 0.08)" }]}
-                          >
-                            <Ionicons name="flash" size={19} color="#facc15" />
-                            <Text style={[styles.secondaryActionBtnText, { color: "#facc15" }]}>
-                              {language === 'am' ? 'በእንግዳ አካውንት ሞክር (1,000 ብር)' : 'Test Guest Accounts (1,000 ETB)'}
-                            </Text>
-                          </TouchableOpacity>
+                          {isTestLoginAllowed && (
+                            <TouchableOpacity
+                              onPress={() => setGuestModalVisible(true)}
+                              activeOpacity={0.8}
+                              style={[styles.secondaryActionBtn, { borderColor: "rgba(250, 204, 21, 0.4)", backgroundColor: "rgba(250, 204, 21, 0.08)" }]}
+                            >
+                              <Ionicons name="flash" size={19} color="#facc15" />
+                              <Text style={[styles.secondaryActionBtnText, { color: "#facc15" }]}>
+                                {language === 'am' ? 'በእንግዳ አካውንት ሞክር (1,000 ብር)' : 'Test Guest Accounts (1,000 ETB)'}
+                              </Text>
+                            </TouchableOpacity>
+                          )}
                         </View>
                       ) : (
                         /* SMS Phone Input View */
@@ -762,6 +780,30 @@ export default function LoginScreen() {
                               )}
                             </LinearGradient>
                           </TouchableOpacity>
+
+                          {isTestLoginAllowed && (
+                            <TouchableOpacity
+                              onPress={() => setGuestModalVisible(true)}
+                              activeOpacity={0.8}
+                              style={{
+                                marginTop: 14,
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: 6,
+                                paddingVertical: 11,
+                                borderRadius: 14,
+                                backgroundColor: 'rgba(250, 204, 21, 0.08)',
+                                borderWidth: 1,
+                                borderColor: 'rgba(250, 204, 21, 0.3)',
+                              }}
+                            >
+                              <Ionicons name="flash" size={15} color="#facc15" />
+                              <Text style={{ color: '#facc15', fontSize: 13, fontWeight: '800' }}>
+                                {language === 'am' ? 'ይዝለሉ — በሙከራ እንግዳ ይግቡ' : 'Skip Login — Play as Test Guest'}
+                              </Text>
+                            </TouchableOpacity>
+                          )}
                         </View>
                       )}
                     </View>
@@ -909,9 +951,9 @@ export default function LoginScreen() {
         </View>
       )}
 
-      {/* 4 Test Guest Accounts Selector Modal */}
+      {/* 5 Test Guest Accounts Selector Modal */}
       <Modal
-        visible={guestModalVisible}
+        visible={isTestLoginAllowed && guestModalVisible}
         transparent
         animationType="fade"
         onRequestClose={() => setGuestModalVisible(false)}
