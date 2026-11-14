@@ -1,946 +1,376 @@
+// app/(authed)/admin/controls.tsx — Game Engine view
+// Matches reference: EnginePanel (XO/Spin controls, stake settings table, diagnostics)
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, Platform, useWindowDimensions, TextInput, Modal, Alert, Switch } from 'react-native';
+import {
+  View, Text, ScrollView, TouchableOpacity, ActivityIndicator,
+  StyleSheet, Platform, useWindowDimensions,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../../context/authContext';
 import { API_URL } from '../../../config';
-import { useAdminTheme } from './_layout';
+import { useAdminTheme } from '../../../constants/adminTheme';
+import {
+  AdminPanel, AdminPill, AdminButton, AdminToggle, AdminMeter,
+} from '../../../components/admin/ui';
 
-const fmt = (n: number) => Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const timeFmt = (d: string) => {
-  if (!d) return '—';
-  const time = new Date(d).getTime();
-  if (isNaN(time)) return '—';
-  return new Date(d).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-};
+const fmt = (n: number) => Number(n || 0).toLocaleString();
+const fmtETB = (n: number) => `${fmt(n)} ETB`;
 
-// removed old showConfirm
+const STAKE_TIERS = [10, 25, 50, 100, 200, 500];
 
-const TEMPLATES = [
-  { label: '🎉 Congratulations!', title: 'Congratulations!', message: 'You did an amazing job! Keep winning on XO Ethiopia.' },
-  { label: '💰 Refund Processed', title: 'Refund Processed', message: 'A refund has been credited to your account. Check your balance.' },
-  { label: '👋 Welcome Back', title: 'Welcome Back!', message: 'We missed you! Come back and play some games on XO Ethiopia.' },
-  { label: '🔔 Account Update', title: 'Account Update', message: 'Your account has been updated. If you did not request this, contact support.' },
-  { label: '🎁 Bonus Added', title: 'Bonus Added!', message: 'A bonus has been added to your account. Play a game to use it!' },
-  { label: '⚠️ Important Notice', title: 'Important Notice', message: 'Please read this important update about your account.' },
-];
+function SettingRow({ label, hint, checked, disabled, onChange }: {
+  label: string; hint?: string; checked: boolean; disabled?: boolean; onChange: (on: boolean) => void;
+}) {
+  const { theme: C } = useAdminTheme();
+  return (
+    <View style={[st.settingRow, { borderBottomColor: C.border }]}>
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontSize: 12, fontWeight: '600', color: C.onSurface }}>{label}</Text>
+        {hint && <Text style={{ fontSize: 11, color: C.onSurfaceVariant, marginTop: 2 }}>{hint}</Text>}
+      </View>
+      <AdminToggle checked={checked} disabled={disabled} onChange={onChange} label={label} />
+    </View>
+  );
+}
 
-export default function AdminControls() {
+export default function GameEngineControls() {
   const { theme: C, isDark } = useAdminTheme();
-  const s = useMemo(() => getStyles(C, isDark), [C, isDark]);
-  const spinS = useMemo(() => getSpinStyles(C, isDark), [C, isDark]);
-  const { token, showAlert } = useAuth();
-  const router = useRouter();
-  const params = useLocalSearchParams();
+  const { token, isSuperAdmin, showAlert } = useAuth();
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
 
-  const [tab, setTab] = useState<'notifications' | 'ticker' | 'refunds'>((params?.activeTab as any) || 'notifications');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<any>(null);
 
-  useEffect(() => {
-    if (params?.activeTab) {
-      setTab(params.activeTab as any);
-    }
-  }, [params?.activeTab]);
+  // XO control states
+  const [xoLockAll, setXoLockAll] = useState(false);
+  const [xoLockRooms, setXoLockRooms] = useState(false);
+  const [xoLockFriends, setXoLockFriends] = useState(false);
+  const [botFallback, setBotFallback] = useState(false);
+  const [fillSeconds, setFillSeconds] = useState(15);
 
-  // Live queue stats state
-  const [liveStats, setLiveStats] = useState<any>({
-    roomStats: {},
-    shadowBanned: [],
-    activeGamesCount: 0
-  });
+  // Spin control states
+  const [spinPaused, setSpinPaused] = useState(false);
+  const [spinBots, setSpinBots] = useState(false);
+  const [spinRailBots, setSpinRailBots] = useState(false);
 
-  // Confirm Modal State
-  const [confirmState, setConfirmState] = useState<{
-    visible: boolean;
-    message: string;
-    onConfirm: () => void;
-    onCancel: () => void;
-  }>({ visible: false, message: '', onConfirm: () => {}, onCancel: () => {} });
+  // Stake availability
+  const [roomStates, setRoomStates] = useState<Record<number, { enabled: boolean; turnSeconds: number }>>({});
 
-  const showConfirmModal = (message: string): Promise<boolean> => {
-    return new Promise((resolve) => {
-      setConfirmState({
-        visible: true,
-        message,
-        onConfirm: () => {
-          setConfirmState(prev => ({ ...prev, visible: false }));
-          resolve(true);
-        },
-        onCancel: () => {
-          setConfirmState(prev => ({ ...prev, visible: false }));
-          resolve(false);
-        }
-      });
-    });
-  };
+  // Live stats
+  const [liveStats, setLiveStats] = useState<any>({ roomStats: {}, activeGamesCount: 0 });
 
-  // Global Settings Toggles State
-  const [settings, setSettings] = useState<any>({
-    fake_ticker_enabled: false,
-    real_ticker_enabled: true,
-  });
-
-  // ----------------------------------------------------
-  // 1. NOTIFICATIONS STATE
-  // ----------------------------------------------------
-  const [targetPhone, setTargetPhone] = useState('');
-  const [notifTitle, setNotifTitle] = useState('');
-  const [notifMessage, setNotifMessage] = useState('');
-  const [notifType, setNotifType] = useState('admin_message');
-  const [sendResult, setSendResult] = useState<any>(null);
-  const [sending, setSending] = useState(false);
-  const [history, setHistory] = useState<any[]>([]);
-  const [historyTotal, setHistoryTotal] = useState(0);
-
-
-
-  // ----------------------------------------------------
-  // 4. REFUNDS STATE
-  // ----------------------------------------------------
-  const [refunds, setRefunds] = useState<any[]>([]);
-  const [refundUser, setRefundUser] = useState('');
-  const [refundAmount, setRefundAmount] = useState('');
-  const [refundReason, setRefundReason] = useState('');
-  const [refundOriginalTxId, setRefundOriginalTxId] = useState('');
-  const [refundTarget, setRefundTarget] = useState<'available' | 'withdrawable' | 'both'>('available');
-  const [refundResult, setRefundResult] = useState<any>(null);
-
-
-
-  // ----------------------------------------------------
-  // API ACTIONS
-  // ----------------------------------------------------
-  
-  // Fetch Settings
-  const fetchSettings = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     try {
-      const res = await fetch(`${API_URL}/admin/settings`, {
-        headers: { Authorization: `Bearer ${token}`, 'x-platform': 'web' },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.config) {
-          setSettings({
-            fake_ticker_enabled: data.config.fake_ticker_enabled === true,
-            real_ticker_enabled: data.config.real_ticker_enabled !== false,
-          });
+      const h = { Authorization: `Bearer ${token}`, 'x-platform': 'web' };
+      const [settRes, statsRes] = await Promise.all([
+        fetch(`${API_URL}/admin/settings`, { headers: h }),
+        fetch(`${API_URL}/admin/live-queue-stats`, { headers: h }).catch(() => null),
+      ]);
+      if (settRes.ok) {
+        const d = await settRes.json();
+        setData(d);
+        if (d.config) {
+          setXoLockAll(d.config.xo_lock_all === true);
+          setXoLockRooms(d.config.xo_lock_rooms === true);
+          setXoLockFriends(d.config.xo_lock_friends === true);
+          setBotFallback(d.config.bot_fallback === true);
+          setFillSeconds(d.config.fill_seconds || 15);
+          setSpinPaused(d.config.spin_paused === true);
+          setSpinBots(d.config.spin_bots_enabled === true);
+          setSpinRailBots(d.config.spin_rail_bots === true);
         }
+        // Build room states
+        const rooms: Record<number, { enabled: boolean; turnSeconds: number }> = {};
+        STAKE_TIERS.forEach((stake, i) => {
+          rooms[i] = {
+            enabled: d.config?.[`room_${i}_enabled`] !== false,
+            turnSeconds: d.config?.[`room_${i}_timer`] || (i < 3 ? 20 : 30),
+          };
+        });
+        setRoomStates(rooms);
       }
-    } catch (e) { console.error('Fetch settings error:', e); }
+      if (statsRes?.ok) {
+        const sd = await statsRes.json();
+        setLiveStats(sd);
+      }
+    } catch (e) { console.error('[ENGINE] fetch error', e); }
+    finally { setLoading(false); }
   }, [token]);
 
-  // Update Toggle Setting
-  const updateToggle = async (key: string, val: boolean) => {
-    const confirmed = await showConfirmModal(`Toggle ${key.replace(/_/g, ' ')} to ${val ? 'ON' : 'OFF'}?`);
-    if (!confirmed) return;
-    const updated = { ...settings, [key]: val };
-    setSettings(updated);
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const updateSetting = useCallback(async (key: string, value: any) => {
     try {
-      const res = await fetch(`${API_URL}/admin/settings`, {
+      await fetch(`${API_URL}/admin/settings`, {
         method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'x-platform': 'web',
-        },
-        body: JSON.stringify({ [key]: val }),
-      });
-      if (!res.ok) {
-        // Revert on failure
-        setSettings(settings);
-        showAlert('Error', 'Failed to update setting');
-      }
-    } catch (e) {
-      setSettings(settings);
-      showAlert('Error', 'Network error updating setting');
-    }
-  };
-
-  // Fetch Notification History
-  const fetchHistory = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`${API_URL}/notifications/admin/history?limit=50`, {
-        headers: { Authorization: `Bearer ${token}`, 'x-platform': 'web' },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setHistory(data.notifications || []);
-        setHistoryTotal(data.total || 0);
-      }
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
-  }, [token]);
-
-  // Send Notification
-  const handleSendNotification = useCallback(async () => {
-    if (!notifTitle.trim() || !notifMessage.trim()) return;
-    setSending(true);
-    setSendResult(null);
-    try {
-      let url = `${API_URL}/notifications/admin/broadcast`;
-      let body: any = { type: notifType, title: notifTitle, message: notifMessage };
-
-      if (targetPhone.trim()) {
-        url = `${API_URL}/notifications/admin/send-by-phone`;
-        body.phone = targetPhone.trim();
-      }
-
-      const res = await fetch(url, {
-        method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'x-platform': 'web' },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ [key]: value }),
       });
-      const data = await res.json();
-      if (res.ok) {
-        setSendResult({ ok: true, sent: data.sent, user: data.user });
-        setNotifTitle('');
-        setNotifMessage('');
-        setTargetPhone('');
-        fetchHistory();
-      } else {
-        setSendResult({ ok: false, error: data.error });
-      }
-    } catch (e: any) {
-      setSendResult({ ok: false, error: e.message });
-    }
-    finally { setSending(false); }
-  }, [token, targetPhone, notifTitle, notifMessage, notifType, fetchHistory]);
+    } catch (e) { showAlert('Error', 'Failed to update setting'); }
+  }, [token, showAlert]);
 
+  if (loading) return (
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+      <ActivityIndicator size="large" color={C.primary} />
+      <Text style={{ color: C.onSurfaceVariant, marginTop: 12, fontSize: 12 }}>Loading engine controls...</Text>
+    </View>
+  );
 
-
-  // Fetch Refunds
-  const fetchRefunds = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`${API_URL}/notifications/admin/refund-log`, {
-        headers: { Authorization: `Bearer ${token}`, 'x-platform': 'web' },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setRefunds(data.refunds || []);
-      }
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
-  }, [token]);
-
-  // Issue Manual Refund
-  const handleIssueRefund = async () => {
-    if (!refundUser.trim() || !refundAmount.trim() || !refundOriginalTxId.trim()) return;
-    const confirmed = await showConfirmModal(`Issue refund of ${refundAmount} ETB to ${refundUser.trim()} (original tx ${refundOriginalTxId.trim()})?`);
-    if (!confirmed) return;
-    setRefundResult(null);
-    try {
-      const res = await fetch(`${API_URL}/admin/refund`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'x-platform': 'web',
-        },
-        body: JSON.stringify({
-          phoneOrUsername: refundUser.trim(),
-          amount: Number(refundAmount),
-          reason: refundReason.trim(),
-          target: refundTarget,
-          originalTxId: refundOriginalTxId.trim(),
-        }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setRefundResult({ ok: true, message: data.message });
-        setRefundUser('');
-        setRefundAmount('');
-        setRefundReason('');
-        setRefundOriginalTxId('');
-        setRefundTarget('available');
-        fetchRefunds();
-      } else {
-        setRefundResult({ ok: false, error: data.error });
-      }
-    } catch (e: any) {
-      setRefundResult({ ok: false, error: e.message });
-    }
-  };
-
-  // Live queue stats and breakdowns removed (moved to xo-controls.tsx)
-
-  // Initial Data Loading
-  useEffect(() => {
-    fetchSettings();
-  }, [fetchSettings]);
-
-  useEffect(() => {
-    if (tab === 'notifications') fetchHistory();
-    if (tab === 'refunds') fetchRefunds();
-  }, [tab, fetchHistory, fetchRefunds]);
-
-  const applyTemplate = (t: typeof TEMPLATES[0]) => {
-    setNotifTitle(t.title);
-    setNotifMessage(t.message);
-  };
+  const xoBlocked = xoLockAll;
+  const spinBlocked = spinPaused;
 
   return (
-    <ScrollView style={s.container} contentContainerStyle={{ paddingBottom: 60 }}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: 'transparent' }}
+      contentContainerStyle={{ padding: isMobile ? 12 : 20, paddingBottom: 100, gap: 16 }}
+      showsVerticalScrollIndicator={false}
+    >
       {/* Header */}
-      <View style={[s.headerBar, isMobile && { flexDirection: 'column', alignItems: 'flex-start', gap: 12 }]}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <TouchableOpacity onPress={() => router.back()} style={s.backCircle}>
-            <Ionicons name="arrow-back" size={18} color={C.accentCyan} />
-          </TouchableOpacity>
-          <View>
-            <Text style={s.headerTitle}>System Control Center</Text>
-            <Text style={s.headerSub}>ADMIN / CONTROLLER PANEL</Text>
-          </View>
-        </View>
-        
-        <TouchableOpacity
-          onPress={() => router.replace('/(authed)/home/gameplay' as any)}
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 8,
-            backgroundColor: C.accentCyan,
-            paddingHorizontal: 16,
-            paddingVertical: 10,
-            borderRadius: 10,
-            alignSelf: isMobile ? 'flex-start' : 'center',
-          }}
-        >
-          <Ionicons name="home" size={16} color="#0a0f1c" />
-          <Text style={{ color: '#0a0f1c', fontSize: 13, fontWeight: '800', fontFamily: 'Inter' }}>
-            Back to Home Page
+      <View style={st.header}>
+        <View>
+          <Text style={[st.title, { color: C.onSurface }]}>Game engine</Text>
+          <Text style={[st.subtitle, { color: C.onSurfaceVariant }]}>
+            Control matchmaking, bots, timers, and stake availability
           </Text>
-        </TouchableOpacity>
+        </View>
+        <AdminButton icon="refresh" tone="ghost" onPress={fetchData}>Refresh</AdminButton>
       </View>
 
-      {/* Tab Bar */}
-      <View style={s.tabBar}>
-        {([
-          { key: 'notifications', label: 'Notifications', icon: 'notifications' },
-          { key: 'ticker', label: 'Ticker Feed', icon: 'list' },
-          { key: 'refunds', label: 'Refund System', icon: 'refresh' },
-        ] as const).map(t => (
-          <TouchableOpacity
-            key={t.key}
-            style={[s.tab, tab === t.key && s.tabActive, isMobile && { paddingHorizontal: 8 }]}
-            onPress={() => setTab(t.key)}
-          >
-            <Ionicons name={t.icon as any} size={15} color={tab === t.key ? '#ffffff' : (isDark ? '#94a3b8' : '#64748b')} />
-            <Text style={[s.tabText, tab === t.key && s.tabTextActive]}>{t.label}</Text>
-          </TouchableOpacity>
-        ))}
+      {/* ═══ XO + Spin Controls ═══ */}
+      <View style={[{ gap: 16 }, !isMobile && { flexDirection: 'row' }]}>
+        {/* Tic-Tac-Toe controls */}
+        <AdminPanel
+          title="Tic-Tac-Toe controls"
+          kicker="Changes apply only to XO."
+          style={{ flex: 1 }}
+          right={<Ionicons name="game-controller-outline" size={16} color={C.primary} />}
+        >
+          <SettingRow
+            label="Lock all XO"
+            hint="Pause public and friend matchmaking."
+            checked={xoLockAll}
+            disabled={!isSuperAdmin}
+            onChange={v => { setXoLockAll(v); updateSetting('xo_lock_all', v); }}
+          />
+          <SettingRow
+            label="Lock public rooms"
+            checked={xoLockRooms}
+            disabled={!isSuperAdmin || xoBlocked}
+            onChange={v => { setXoLockRooms(v); updateSetting('xo_lock_rooms', v); }}
+          />
+          <SettingRow
+            label="Lock friend battles"
+            checked={xoLockFriends}
+            disabled={!isSuperAdmin || xoBlocked}
+            onChange={v => { setXoLockFriends(v); updateSetting('xo_lock_friends', v); }}
+          />
+          <SettingRow
+            label="XO AI fallback"
+            hint="Fill public queues after the wait period."
+            checked={botFallback}
+            disabled={xoBlocked}
+            onChange={v => { setBotFallback(v); updateSetting('bot_fallback', v); }}
+          />
+          {/* Fill wait selector */}
+          <View style={[st.settingRow, { borderBottomWidth: 0 }]}>
+            <Text style={{ fontSize: 12, fontWeight: '500', color: C.onSurfaceVariant }}>Wait before adding AI</Text>
+            {Platform.OS === 'web' ? (
+              <select
+                value={fillSeconds}
+                disabled={!botFallback || xoBlocked}
+                onChange={(e: any) => { const v = Number(e.target.value); setFillSeconds(v); updateSetting('fill_seconds', v); }}
+                style={{
+                  height: 32, borderRadius: 8, border: `1px solid ${C.border}`,
+                  backgroundColor: C.surface, paddingLeft: 12, paddingRight: 12,
+                  fontSize: 12, color: C.onSurface, outline: 'none',
+                  opacity: (!botFallback || xoBlocked) ? 0.4 : 1,
+                } as any}
+              >
+                {[5, 10, 15, 20, 30, 45, 60].map(s => <option key={s} value={s}>{s} seconds</option>)}
+              </select>
+            ) : (
+              <Text style={{ fontSize: 12, fontWeight: '600', color: C.onSurface }}>{fillSeconds}s</Text>
+            )}
+          </View>
+        </AdminPanel>
+
+        {/* Spin Wheel controls */}
+        <AdminPanel
+          title="Spin Wheel controls"
+          kicker="Changes apply only to Spin Wheel."
+          style={{ flex: 1 }}
+          right={<Ionicons name="disc-outline" size={16} color={C.primary} />}
+        >
+          <SettingRow
+            label="Pause Spin Wheel"
+            hint="Stop new Spin rooms and rail wagers."
+            checked={spinPaused}
+            disabled={!isSuperAdmin}
+            onChange={v => { setSpinPaused(v); updateSetting('spin_paused', v); }}
+          />
+          <SettingRow
+            label="5-player room bots"
+            hint="Fill unoccupied seats in five-player rooms."
+            checked={spinBots}
+            disabled={spinBlocked}
+            onChange={v => { setSpinBots(v); updateSetting('spin_bots_enabled', v); }}
+          />
+          <SettingRow
+            label="Rail wager bots"
+            hint="Provide liquidity for continuous rail wagers."
+            checked={spinRailBots}
+            disabled={spinBlocked}
+            onChange={v => { setSpinRailBots(v); updateSetting('spin_rail_bots', v); }}
+          />
+          {/* Live rooms info */}
+          <View style={{ borderTopWidth: 1, borderTopColor: C.border, marginTop: 8, paddingTop: 12 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <Text style={{ fontSize: 12, fontWeight: '600', color: C.onSurface }}>Live stats</Text>
+              <Text style={{ fontSize: 10, color: C.onSurfaceVariant }}>{spinBlocked ? 'Paused' : 'Realtime'}</Text>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+              <View style={[st.statChip, { backgroundColor: C.surfaceContainerHighest }]}>
+                <Text style={{ fontSize: 10, color: C.onSurfaceVariant }}>Active games</Text>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: C.onSurface }}>{liveStats.activeGamesCount || 0}</Text>
+              </View>
+              <View style={[st.statChip, { backgroundColor: C.surfaceContainerHighest }]}>
+                <Text style={{ fontSize: 10, color: C.onSurfaceVariant }}>Queued players</Text>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: C.onSurface }}>
+                  {Object.values(liveStats.roomStats || {}).reduce((sum: number, r: any) => sum + (r?.queue || 0), 0)}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </AdminPanel>
       </View>
 
-      {/* NOTIFICATIONS TAB */}
-      {tab === 'notifications' && (
-        <View style={s.section}>
-          <View style={[s.twoColumnLayout, isMobile && s.twoColumnLayoutMobile]}>
-            {/* LEFT COLUMN: Input Form */}
-            <View style={[s.columnLeft, isMobile && { width: '100%' as any }]}>
-              <View style={s.controlCard}>
-                {/* Templates */}
-                <Text style={s.sectionLabel}>QUICK TEMPLATES</Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 18 }}>
-                  {TEMPLATES.map((t, i) => (
-                    <TouchableOpacity key={i} onPress={() => applyTemplate(t)} style={s.templateBtn}>
-                      <Text style={s.templateText}>{t.label}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                {/* Target */}
-                <Text style={s.fieldLabel}>TARGET PHONE (LEAVE EMPTY FOR BROADCAST TO ALL)</Text>
-                <View style={s.inputRow}>
-                  <Ionicons name="call-outline" size={16} color={C.onSurfaceVariant} />
-                  <TextInput
-                    value={targetPhone}
-                    onChangeText={setTargetPhone}
-                    placeholder="e.g. 0939484533 (leave empty for broadcast)"
-                    style={s.input}
-                    placeholderTextColor={C.onSurfaceVariant + '80'}
-                    inputMode="tel"
-                  />
-                  {!!targetPhone && (
-                    <TouchableOpacity onPress={() => setTargetPhone('')}>
-                      <Ionicons name="close-circle" size={16} color={C.onSurfaceVariant} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-
-                {/* Type selector */}
-                <Text style={s.fieldLabel}>NOTIFICATION TYPE</Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
-                  {['admin_message', 'broadcast', 'refund', 'system'].map(t => (
-                    <TouchableOpacity
-                      key={t}
-                      onPress={() => setNotifType(t)}
-                      style={[s.typeBtn, notifType === t && s.typeBtnActive]}
-                    >
-                      <Text style={[s.typeBtnText, notifType === t && s.typeBtnTextActive]}>
-                        {t.toUpperCase().replace('_', ' ')}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                {/* Title */}
-                <Text style={s.fieldLabel}>TITLE</Text>
-                <View style={s.inputRow}>
-                  <Ionicons name="text-outline" size={16} color={C.onSurfaceVariant} />
-                  <TextInput 
-                    value={notifTitle} 
-                    onChangeText={setNotifTitle} 
-                    placeholder="Notification title..." 
-                    style={s.input} 
-                    placeholderTextColor={C.onSurfaceVariant + '80'} 
-                  />
-                </View>
-
-                {/* Message */}
-                <Text style={s.fieldLabel}>MESSAGE BODY</Text>
-                <View style={[s.inputRow, { minHeight: 90, alignItems: 'flex-start', paddingVertical: 10 }]}>
-                  <Ionicons name="chatbubble-outline" size={16} color={C.onSurfaceVariant} style={{ marginTop: 2 }} />
-                  <TextInput
-                    value={notifMessage}
-                    onChangeText={setNotifMessage}
-                    placeholder="Write your notification message..."
-                    style={[s.input, { minHeight: 70, textAlignVertical: 'top' }]}
-                    placeholderTextColor={C.onSurfaceVariant + '80'}
-                    multiline
-                  />
-                </View>
-
-                {/* Send Button */}
-                <TouchableOpacity 
-                  onPress={handleSendNotification} 
-                  disabled={sending || !notifTitle.trim() || !notifMessage.trim()} 
-                  style={[s.sendBtn, (sending || !notifTitle.trim() || !notifMessage.trim()) && { opacity: 0.5 }]}
-                >
-                  {sending ? (
-                    <ActivityIndicator color="#ffffff" size="small" />
-                  ) : (
-                    <>
-                      <Ionicons name="paper-plane" size={16} color="#ffffff" />
-                      <Text style={s.sendBtnText}>
-                        {targetPhone.trim() ? `Send Direct to ${targetPhone}` : 'Broadcast to ALL Users'}
-                      </Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-
-                {/* Result */}
-                {sendResult && (
-                  <View style={[s.resultBox, { borderColor: sendResult.ok ? 'rgba(52,211,153,0.3)' : 'rgba(239,68,68,0.3)', backgroundColor: sendResult.ok ? (isDark ? 'rgba(52,211,153,0.1)' : '#ECFDF5') : (isDark ? 'rgba(239,68,68,0.1)' : '#FEF2F2') }]}>
-                    <Ionicons name={sendResult.ok ? 'checkmark-circle' : 'alert-circle'} size={18} color={sendResult.ok ? C.secondary : C.error} />
-                    <Text style={{ color: sendResult.ok ? C.secondary : C.error, fontSize: 13, fontWeight: '700', flex: 1 }}>
-                      {sendResult.ok
-                        ? `Sent to ${sendResult.sent} user(s)${sendResult.user ? ` — ${sendResult.user.username || sendResult.user.number}` : ''}`
-                        : sendResult.error}
-                    </Text>
-                  </View>
-                )}
-              </View>
+      {/* ═══ Stake Settings Table ═══ */}
+      <AdminPanel
+        title="Stake settings"
+        kicker="Each game's timers and availability are independent."
+        noPadBody
+      >
+        <ScrollView horizontal showsHorizontalScrollIndicator={Platform.OS === 'web'}>
+          <View style={{ minWidth: 760 }}>
+            {/* Table header */}
+            <View style={[st.tableRow, { backgroundColor: C.surfaceContainerHighest }]}>
+              <Text style={[st.th, { flex: 1.2 }]}>Game</Text>
+              <Text style={[st.th, { flex: 0.8 }]}>Stake</Text>
+              <Text style={[st.th, { flex: 1 }]}>Available</Text>
+              <Text style={[st.th, { flex: 1 }]}>Timer</Text>
+              <Text style={[st.th, { flex: 0.8, textAlign: 'right' }]}>Matches</Text>
+              <Text style={[st.th, { flex: 0.8, textAlign: 'right' }]}>GGR (ETB)</Text>
             </View>
-
-            {/* RIGHT COLUMN: Live Preview & History */}
-            <View style={[s.columnRight, isMobile && { width: '100%' as any }]}>
-              {/* Live Preview Card */}
-              <View style={s.controlCard}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: C.accentCyan }} />
-                    <Text style={s.sectionLabel}>LIVE DEVICE PREVIEW</Text>
+            {/* XO rows */}
+            {STAKE_TIERS.map((stake, tier) => {
+              const room = roomStates[tier] || { enabled: true, turnSeconds: 20 };
+              const blocked = xoBlocked || xoLockRooms;
+              const stats = liveStats.roomStats?.[`room_${tier}`] || {};
+              return (
+                <View key={`xo-${tier}`} style={[st.tableRow, { borderTopWidth: 1, borderTopColor: C.border }]}>
+                  <View style={{ flex: 1.2, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 10 }}>
+                    <Ionicons name="game-controller-outline" size={14} color={C.onSurfaceVariant} />
+                    <Text style={{ fontWeight: '700', color: C.onSurface, fontSize: 12 }}>Tic-Tac-Toe</Text>
                   </View>
-                  <Text style={{ fontSize: 10, color: C.onSurfaceVariant, fontWeight: '700', textTransform: 'uppercase' }}>Push Mockup</Text>
-                </View>
-
-                <View style={s.previewDeviceBubble}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <View style={{ width: 22, height: 22, borderRadius: 6, backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center' }}>
-                        <Ionicons name="game-controller" size={12} color="#ffffff" />
-                      </View>
-                      <Text style={{ fontSize: 12, fontWeight: '800', color: C.onSurface }}>XO ETHIOPIA</Text>
-                      <View style={[s.typePill, { borderColor: C.accentCyan + '40', backgroundColor: C.accentCyan + '15' }]}>
-                        <Text style={{ color: C.accentCyan, fontSize: 9, fontWeight: '800' }}>{(notifType || 'SYSTEM').toUpperCase()}</Text>
-                      </View>
-                    </View>
-                    <Text style={{ fontSize: 10, color: C.onSurfaceVariant }}>Just now</Text>
-                  </View>
-
-                  <Text style={{ fontSize: 14, fontWeight: '800', color: C.onSurface, marginBottom: 4 }}>
-                    {notifTitle.trim() || 'Notification Title Preview'}
+                  <Text style={{ flex: 0.8, paddingHorizontal: 12, paddingVertical: 10, fontWeight: '600', color: C.onSurface, fontSize: 12, fontFamily: Platform.OS === 'web' ? 'monospace' : undefined }}>
+                    {stake.toLocaleString()} ETB
                   </Text>
-                  <Text style={{ fontSize: 12, color: C.onSurfaceVariant, lineHeight: 18 }}>
-                    {notifMessage.trim() || 'This is how your notification will appear in the player notification inbox and alert toasts.'}
+                  <View style={{ flex: 1, paddingHorizontal: 12, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <AdminToggle
+                      checked={room.enabled}
+                      disabled={blocked}
+                      onChange={on => {
+                        setRoomStates(p => ({ ...p, [tier]: { ...p[tier], enabled: on } }));
+                        updateSetting(`room_${tier}_enabled`, on);
+                      }}
+                      label={`XO ${stake} ETB rooms`}
+                    />
+                    <Text style={{ fontSize: 10, color: C.onSurfaceVariant }}>{blocked ? 'Locked' : room.enabled ? 'Open' : 'Closed'}</Text>
+                  </View>
+                  <View style={{ flex: 1, paddingHorizontal: 12, paddingVertical: 10 }}>
+                    {Platform.OS === 'web' ? (
+                      <select
+                        value={room.turnSeconds}
+                        disabled={blocked || !room.enabled}
+                        onChange={(e: any) => {
+                          const v = Number(e.target.value);
+                          setRoomStates(p => ({ ...p, [tier]: { ...p[tier], turnSeconds: v } }));
+                          updateSetting(`room_${tier}_timer`, v);
+                        }}
+                        style={{
+                          height: 28, borderRadius: 8, border: `1px solid ${C.border}`,
+                          backgroundColor: C.surface, paddingLeft: 8, paddingRight: 8,
+                          fontSize: 11, color: C.onSurface, outline: 'none',
+                          opacity: (blocked || !room.enabled) ? 0.4 : 1,
+                        } as any}
+                      >
+                        {[15, 20, 25, 30, 45].map(s => <option key={s} value={s}>{s}s per move</option>)}
+                      </select>
+                    ) : (
+                      <Text style={{ fontSize: 12, color: C.onSurface }}>{room.turnSeconds}s</Text>
+                    )}
+                  </View>
+                  <Text style={{ flex: 0.8, paddingHorizontal: 12, paddingVertical: 10, textAlign: 'right', color: C.onSurface, fontSize: 12, fontFamily: Platform.OS === 'web' ? 'monospace' : undefined }}>
+                    {fmt(stats.matches || 0)}
                   </Text>
-
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, paddingTop: 8, borderTopWidth: 1, borderTopColor: C.border }}>
-                    <Text style={{ fontSize: 10, color: C.onSurfaceVariant }}>Target: {targetPhone.trim() || 'All Registered Users'}</Text>
-                    <Ionicons name="notifications" size={12} color={C.primary} />
-                  </View>
+                  <Text style={{ flex: 0.8, paddingHorizontal: 12, paddingVertical: 10, textAlign: 'right', fontWeight: '600', color: C.onSurface, fontSize: 12, fontFamily: Platform.OS === 'web' ? 'monospace' : undefined }}>
+                    {fmt(stats.ggr || 0)}
+                  </Text>
                 </View>
-              </View>
+              );
+            })}
+          </View>
+        </ScrollView>
+      </AdminPanel>
 
-              {/* Notification History Card */}
-              <View style={[s.controlCard, { marginTop: 16 }]}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                  <Text style={s.sectionLabel}>RECENT DISPATCHES ({historyTotal})</Text>
-                  <TouchableOpacity onPress={fetchHistory} style={{ padding: 4 }}>
-                    <Ionicons name="refresh" size={14} color={C.onSurfaceVariant} />
-                  </TouchableOpacity>
-                </View>
-
-                {loading && <ActivityIndicator color={C.primary} style={{ marginVertical: 20 }} />}
-                {!loading && history.length === 0 && (
-                  <View style={{ padding: 24, alignItems: 'center' }}>
-                    <Text style={{ color: C.onSurfaceVariant, fontSize: 12 }}>No notifications sent yet</Text>
-                  </View>
-                )}
-
-                <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
-                  <View style={{ gap: 8 }}>
-                    {history.map((n, i) => (
-                      <View key={n.id || i} style={s.historyCard}>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                          <View style={[s.typePill, { borderColor: n.type === 'broadcast' ? C.primary + '40' : C.accentCyan + '40', backgroundColor: n.type === 'broadcast' ? C.primary + '15' : C.accentCyan + '15' }]}>
-                            <Text style={{ color: n.type === 'broadcast' ? C.primary : C.accentCyan, fontSize: 9, fontWeight: '800' }}>{(n.type || 'system').toUpperCase()}</Text>
-                          </View>
-                          <Text style={{ color: C.onSurfaceVariant, fontSize: 10 }}>{timeFmt(n.created_at)}</Text>
-                        </View>
-                        <Text style={{ color: C.onSurface, fontSize: 13, fontWeight: '700', marginBottom: 2 }}>{n.title}</Text>
-                        <Text style={{ color: C.onSurfaceVariant, fontSize: 11, lineHeight: 16 }} numberOfLines={2}>{n.message}</Text>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
-                          <Text style={{ color: C.onSurfaceVariant, fontSize: 10 }}>To: {n.username || n.number || 'Broadcast'}</Text>
-                          <Text style={{ color: n.read ? C.secondary : C.accentGold, fontSize: 9, fontWeight: '800' }}>{n.read ? 'READ' : 'SENT'}</Text>
-                        </View>
-                      </View>
-                    ))}
-                  </View>
-                </ScrollView>
+      {/* ═══ Diagnostics ═══ */}
+      <AdminPanel title="Diagnostics" kicker="Engine health and shadow pool">
+        <View style={{ gap: 16 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Ionicons name="checkmark-circle" size={16} color={C.success} />
+              <View>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: C.onSurface }}>Engine health</Text>
+                <Text style={{ fontSize: 11, color: C.onSurfaceVariant }}>Matchmaking and game loops are running.</Text>
               </View>
             </View>
+            <AdminPill tone="positive" dot>Healthy</AdminPill>
           </View>
-        </View>
-      )}
-
-      {/* TICKER FEED TAB */}
-      {tab === 'ticker' && (
-        <View style={s.section}>
-          <View style={[s.controlCard, { alignItems: 'center', padding: 32, gap: 16 }]}>
-            <Ionicons name="trophy-outline" size={48} color="#00e5ff" />
-            <Text style={s.controlCardTitle}>Fake Winner Ticker Consolidation</Text>
-            <Text style={[s.switchDesc, { textAlign: 'center', maxWidth: 400 }]}>
-              Simulated winner entries and announcements configuration has been consolidated into the Leaderboard Hub.
-            </Text>
-            <TouchableOpacity 
-              onPress={() => router.push('/admin/leaderboard' as any)} 
-              style={{
-                flexDirection: 'row', alignItems: 'center', gap: 8,
-                backgroundColor: '#00e5ff', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 10
-              }}
-            >
-              <Text style={{ color: '#0a0f1c', fontWeight: '900', fontSize: 13 }}>Go to Leaderboard Hub</Text>
-              <Ionicons name="arrow-forward" size={14} color="#0a0f1c" />
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
-
-      {/* REFUNDS TAB */}
-      {tab === 'refunds' && (
-        <View style={s.section}>
-          <View style={[s.twoColumnLayout, isMobile && s.twoColumnLayoutMobile]}>
-            {/* LEFT COLUMN: Issue Manual Refund Form */}
-            <View style={[s.columnLeft, isMobile && { width: '100%' as any }]}>
-              <View style={s.controlCard}>
-                <Text style={s.controlCardTitle}>Issue Manual Refund</Text>
-                <Text style={[s.switchDesc, { marginBottom: 16 }]}>
-                  Credits the specified user's wallet immediately and records an immutable audit trail entry.
+          <View>
+            <Text style={{ fontSize: 12, fontWeight: '600', color: C.onSurface }}>Active connections</Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+              <View style={[st.statChip, { backgroundColor: C.surfaceContainerHighest }]}>
+                <Text style={{ fontSize: 10, color: C.onSurfaceVariant }}>WebSocket</Text>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: C.success }}>{liveStats.wsConnections || 0}</Text>
+              </View>
+              <View style={[st.statChip, { backgroundColor: C.surfaceContainerHighest }]}>
+                <Text style={{ fontSize: 10, color: C.onSurfaceVariant }}>Active games</Text>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: C.primary }}>{liveStats.activeGamesCount || 0}</Text>
+              </View>
+              <View style={[st.statChip, { backgroundColor: C.surfaceContainerHighest }]}>
+                <Text style={{ fontSize: 10, color: C.onSurfaceVariant }}>In queue</Text>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: C.accentGold }}>
+                  {Object.values(liveStats.roomStats || {}).reduce((sum: number, r: any) => sum + (r?.queue || 0), 0)}
                 </Text>
-
-                <Text style={s.fieldLabel}>USER (PHONE, USERNAME OR USER ID)</Text>
-                <View style={s.inputRow}>
-                  <Ionicons name="person-outline" size={16} color={C.onSurfaceVariant} />
-                  <TextInput
-                    value={refundUser}
-                    onChangeText={setRefundUser}
-                    placeholder="e.g. 0939484533 or Almaz_Winner"
-                    style={s.input}
-                    placeholderTextColor={C.onSurfaceVariant + '80'}
-                  />
-                </View>
-
-                <Text style={s.fieldLabel}>ORIGINAL TRANSACTION ID (REQUIRED — AUDIT KEY)</Text>
-                <View style={s.inputRow}>
-                  <Ionicons name="receipt-outline" size={16} color={C.onSurfaceVariant} />
-                  <TextInput
-                    value={refundOriginalTxId}
-                    onChangeText={setRefundOriginalTxId}
-                    placeholder="wallet_transactions.id of the tx being refunded"
-                    style={s.input}
-                    placeholderTextColor={C.onSurfaceVariant + '80'}
-                    autoCapitalize="none"
-                  />
-                </View>
-
-                <Text style={s.fieldLabel}>REFUND AMOUNT (IN ETB)</Text>
-                <View style={s.inputRow}>
-                  <Ionicons name="wallet-outline" size={16} color={C.onSurfaceVariant} />
-                  <TextInput
-                    value={refundAmount}
-                    onChangeText={setRefundAmount}
-                    placeholder="e.g. 50"
-                    style={s.input}
-                    placeholderTextColor={C.onSurfaceVariant + '80'}
-                    inputMode="numeric"
-                  />
-                </View>
-
-                <Text style={s.fieldLabel}>REFUND TARGET BALANCE</Text>
-                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
-                  {([
-                    { key: 'available', label: 'Available Only' },
-                    { key: 'withdrawable', label: 'Withdrawable Only' },
-                    { key: 'both', label: 'Both Balances' }
-                  ] as const).map(option => (
-                    <TouchableOpacity
-                      key={option.key}
-                      onPress={() => setRefundTarget(option.key)}
-                      style={[s.targetBtn, refundTarget === option.key && s.targetBtnActive]}
-                    >
-                      <Text style={[s.targetBtnText, refundTarget === option.key && s.targetBtnTextActive]}>
-                        {option.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                <Text style={s.fieldLabel}>REASON / NOTIFICATION MESSAGE</Text>
-                <View style={s.inputRow}>
-                  <Ionicons name="document-text-outline" size={16} color={C.onSurfaceVariant} />
-                  <TextInput
-                    value={refundReason}
-                    onChangeText={setRefundReason}
-                    placeholder="e.g. A refund of 50 ETB has been credited to your account."
-                    style={s.input}
-                    placeholderTextColor={C.onSurfaceVariant + '80'}
-                  />
-                </View>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
-                  {[
-                    'System anomaly refund',
-                    'Manual deposit correction',
-                    'Game dispute resolution',
-                    'Platform bonus credit'
-                  ].map((tmpl, i) => (
-                    <TouchableOpacity key={i} onPress={() => setRefundReason(tmpl)} style={s.templateBtn}>
-                      <Text style={s.templateText}>{tmpl}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                <TouchableOpacity onPress={handleIssueRefund} style={s.refundSubmitBtn}>
-                  <Ionicons name="refresh" size={16} color="#ffffff" />
-                  <Text style={s.refundSubmitBtnText}>Submit Refund Transaction</Text>
-                </TouchableOpacity>
-
-                {refundResult && (
-                  <View style={[s.resultBox, { borderColor: refundResult.ok ? 'rgba(52,211,153,0.3)' : 'rgba(239,68,68,0.3)', backgroundColor: refundResult.ok ? (isDark ? 'rgba(52,211,153,0.1)' : '#ECFDF5') : (isDark ? 'rgba(239,68,68,0.1)' : '#FEF2F2'), marginTop: 14 }]}>
-                    <Ionicons name={refundResult.ok ? 'checkmark-circle' : 'alert-circle'} size={18} color={refundResult.ok ? C.secondary : C.error} />
-                    <Text style={{ color: refundResult.ok ? C.secondary : C.error, fontSize: 13, fontWeight: '700', flex: 1 }}>
-                      {refundResult.ok ? refundResult.message : refundResult.error}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            </View>
-
-            {/* RIGHT COLUMN: Policy Overview & Audit Logs */}
-            <View style={[s.columnRight, isMobile && { width: '100%' as any }]}>
-              {/* Financial Integrity Policy Card */}
-              <View style={s.controlCard}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                  <Ionicons name="shield-checkmark" size={18} color={C.accentGold} />
-                  <Text style={[s.controlCardTitle, { marginBottom: 0 }]}>Financial Integrity Policy</Text>
-                </View>
-                <Text style={{ color: C.onSurfaceVariant, fontSize: 12, lineHeight: 18 }}>
-                  Manual refunds execute double-entry ledger rows in <Text style={{ color: C.onSurface, fontWeight: '700' }}>wallet_transactions</Text>. Balances strictly adhere to the AML 1x rollover requirement.
-                </Text>
-                <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-                  <View style={{ flex: 1, backgroundColor: isDark ? '#080e1b' : '#f8fafc', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0' }}>
-                    <Text style={{ color: C.onSurfaceVariant, fontSize: 10, fontWeight: '700' }}>TOTAL RECORDED</Text>
-                    <Text style={{ color: C.accentGold, fontSize: 18, fontWeight: '800', marginTop: 2 }}>{refunds.length} Refunds</Text>
-                  </View>
-                  <View style={{ flex: 1, backgroundColor: isDark ? '#080e1b' : '#f8fafc', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0' }}>
-                    <Text style={{ color: C.onSurfaceVariant, fontSize: 10, fontWeight: '700' }}>AUDIT STATUS</Text>
-                    <Text style={{ color: C.secondary, fontSize: 18, fontWeight: '800', marginTop: 2 }}>VERIFIED</Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* Refund Logs Card */}
-              <View style={[s.controlCard, { marginTop: 16 }]}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                  <Text style={s.sectionLabel}>REFUND TRANSACTION LOG ({refunds.length})</Text>
-                  <TouchableOpacity onPress={fetchRefunds} style={{ padding: 4 }}>
-                    <Ionicons name="refresh" size={14} color={C.onSurfaceVariant} />
-                  </TouchableOpacity>
-                </View>
-
-                {loading && <ActivityIndicator color={C.primary} style={{ marginVertical: 20 }} />}
-                {!loading && refunds.length === 0 && (
-                  <View style={s.emptyState}>
-                    <Text style={{ color: C.onSurfaceVariant, fontSize: 12 }}>No refunds recorded</Text>
-                  </View>
-                )}
-
-                <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
-                  <View style={{ gap: 8 }}>
-                    {refunds.map((r, i) => {
-                      const meta = r.meta || {};
-                      const targetBalance = meta.targetBalance || 'available';
-                      const targetLabels: Record<string, string> = {
-                        available: 'Available Only',
-                        withdrawable: 'Withdrawable Only',
-                        both: 'Both Balances'
-                      };
-                      return (
-                        <View key={r.id || i} style={s.historyCard}>
-                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                            <Text style={{ color: C.secondary, fontSize: 14, fontWeight: '800' }}>+{r.amount / 100} ETB</Text>
-                            <Text style={{ color: C.onSurfaceVariant, fontSize: 10 }}>{timeFmt(r.created_at)}</Text>
-                          </View>
-                          <Text style={{ color: C.onSurface, fontSize: 13, fontWeight: '700' }}>{r.username || 'User'}</Text>
-                          <Text style={{ color: C.onSurfaceVariant, fontSize: 11 }}>Phone: {r.number || '—'}</Text>
-                          <Text style={{ color: C.accentGold, fontSize: 11, marginTop: 4 }}>Reason: {meta.reason || 'Manual refund'}</Text>
-                          <View style={[s.targetPill, { marginTop: 6, borderColor: C.accentCyan + '40', backgroundColor: C.accentCyan + '15' }]}>
-                            <Text style={{ color: C.accentCyan, fontSize: 9, fontWeight: '800' }}>
-                              TARGET: {targetLabels[targetBalance]?.toUpperCase() || 'AVAILABLE ONLY'}
-                            </Text>
-                          </View>
-                        </View>
-                      );
-                    })}
-                  </View>
-                </ScrollView>
               </View>
             </View>
           </View>
         </View>
-      )}
-
-      {/* Confirm Modal */}
-      <Modal transparent visible={confirmState.visible} animationType="fade">
-        <View style={s.modalOverlay}>
-          <View style={s.modalContent}>
-            <Ionicons name="warning" size={40} color={C.accentGold} style={{ marginBottom: 12 }} />
-            <Text style={s.modalTitle}>Confirm Action</Text>
-            <Text style={s.modalMessage}>{confirmState.message}</Text>
-            <View style={s.modalActions}>
-              <TouchableOpacity style={s.modalCancelBtn} onPress={confirmState.onCancel}>
-                <Text style={s.modalCancelBtnText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={s.modalConfirmBtn} onPress={confirmState.onConfirm}>
-                <Text style={s.modalConfirmBtnText}>Confirm</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
+      </AdminPanel>
     </ScrollView>
   );
 }
 
-const getStyles = (C: any, isDark: boolean) => {
-  const bgSurface = isDark ? '#0c1424' : '#ffffff';
-  const bgCard = isDark ? '#080e1b' : '#f8fafc';
-  const borderColor = isDark ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0';
-  const textPrimary = isDark ? '#ffffff' : '#0f172a';
-  const textSecondary = isDark ? '#94a3b8' : '#64748b';
-
-  return StyleSheet.create({
-    container: { flex: 1, backgroundColor: 'transparent', padding: 24, paddingTop: 20 },
-    headerBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 },
-    backCircle: { width: 36, height: 36, borderRadius: 8, backgroundColor: bgCard, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor },
-    headerTitle: { color: textPrimary, fontSize: 20, fontWeight: '700', letterSpacing: -0.5, fontFamily: 'Inter' },
-    headerSub: { color: textSecondary, fontSize: 10, fontWeight: '600', letterSpacing: 1.5, marginTop: 2, fontFamily: 'Inter' },
-
-    tabBar: { flexDirection: 'row', gap: 6, marginBottom: 24, flexWrap: 'wrap' },
-    tab: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8, backgroundColor: bgSurface, borderWidth: 1, borderColor, marginBottom: 4 },
-    tabActive: { backgroundColor: '#FF2D55', borderColor: '#FF2D55' },
-    tabText: { color: textSecondary, fontSize: 12, fontWeight: '700', fontFamily: 'Inter' },
-    tabTextActive: { color: '#ffffff', fontFamily: 'Inter' },
-
-    twoColumnLayout: {
-      flexDirection: 'row',
-      gap: 20,
-      alignItems: 'flex-start',
-      width: '100%',
-    },
-    twoColumnLayoutMobile: {
-      flexDirection: 'column',
-    },
-    columnLeft: {
-      flex: 1.25,
-      minWidth: 0,
-    },
-    columnRight: {
-      flex: 1,
-      minWidth: 0,
-    },
-    previewDeviceBubble: {
-      backgroundColor: bgCard,
-      borderRadius: 14,
-      padding: 16,
-      borderWidth: 1,
-      borderColor: borderColor,
-    },
-
-    section: {},
-    sectionLabel: { color: textSecondary, fontSize: 11, fontWeight: '700', letterSpacing: 1.5, marginBottom: 12, textTransform: 'uppercase', fontFamily: 'Inter' },
-
-    fieldLabel: { color: textSecondary, fontSize: 11, fontWeight: '700', letterSpacing: 1.2, marginBottom: 6, textTransform: 'uppercase', fontFamily: 'Inter' },
-    inputRow: { backgroundColor: bgCard, borderRadius: 8, borderWidth: 1, borderColor, marginBottom: 14, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12 },
-    input: { flex: 1, color: textPrimary, padding: 12, fontSize: 14, fontFamily: 'Inter' },
-
-    templateBtn: { backgroundColor: bgSurface, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor },
-    templateText: { color: textSecondary, fontSize: 11, fontWeight: '600', fontFamily: 'Inter' },
-
-    typeBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: bgSurface, borderWidth: 1, borderColor },
-    typeBtnActive: { backgroundColor: C.primary, borderColor: C.primary },
-    typeBtnText: { color: textSecondary, fontSize: 10, fontWeight: '700', fontFamily: 'Inter' },
-    typeBtnTextActive: { color: '#ffffff', fontFamily: 'Inter' },
-
-    sendBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: C.primary, paddingVertical: 14, borderRadius: 8, marginTop: 8 },
-    sendBtnText: { color: '#ffffff', fontSize: 14, fontWeight: '700', fontFamily: 'Inter' },
-
-    resultBox: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, padding: 12, borderRadius: 8, borderWidth: 1 },
-
-    historyCard: { backgroundColor: bgSurface, borderRadius: 10, padding: 16, marginBottom: 8, borderWidth: 1, borderColor },
-    typePill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, alignSelf: 'flex-start' },
-
-    emptyState: { padding: 40, alignItems: 'center', backgroundColor: bgCard, borderRadius: 10, borderWidth: 1, borderColor },
-
-    controlCard: { backgroundColor: bgSurface, borderRadius: 10, padding: 24, borderColor, borderWidth: 1 },
-    controlCardTitle: { color: textPrimary, fontSize: 16, fontWeight: '700', marginBottom: 12, fontFamily: 'Inter' },
-    switchRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: borderColor },
-    switchLabel: { color: textPrimary, fontSize: 14, fontWeight: '700', fontFamily: 'Inter' },
-    switchDesc: { color: textSecondary, fontSize: 11, marginTop: 2, fontFamily: 'Inter' },
-    systemRuleText: { color: '#fbbf24', fontSize: 12, lineHeight: 18, marginTop: 14, backgroundColor: isDark ? 'rgba(251,191,36,0.05)' : 'rgba(251,191,36,0.1)', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(251,191,36,0.2)' },
-
-    addBtnSmall: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: C.primary, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
-    addBtnText: { color: '#ffffff', fontSize: 11, fontWeight: '700', fontFamily: 'Inter' },
-
-    fakeUserCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: bgSurface, borderRadius: 10, padding: 16, marginBottom: 8, borderWidth: 1, borderColor },
-    fakeUserRank: { color: textSecondary, fontSize: 12, fontWeight: '700', marginRight: 4, fontFamily: 'Inter' },
-    fakeUsername: { color: textPrimary, fontSize: 13, fontWeight: '700', fontFamily: 'Inter' },
-    fakeUserStats: { color: textSecondary, fontSize: 11, marginTop: 2, fontFamily: 'Inter' },
-    inactiveBadge: { paddingHorizontal: 6, paddingVertical: 2, backgroundColor: 'rgba(251,84,84,0.1)', borderRadius: 4, borderWidth: 1, borderColor: 'rgba(251,84,84,0.2)' },
-    inactiveBadgeText: { color: '#ef4444', fontSize: 8, fontWeight: '700', fontFamily: 'Inter' },
-
-    editActionBtn: { width: 28, height: 28, borderRadius: 6, backgroundColor: 'rgba(255, 45, 85, 0.1)', alignItems: 'center', justifyContent: 'center' },
-    deleteActionBtn: { width: 28, height: 28, borderRadius: 6, backgroundColor: 'rgba(251,84,84,0.1)', alignItems: 'center', justifyContent: 'center' },
-
-    addTickerBtn: { backgroundColor: C.primary, paddingHorizontal: 18, justifyContent: 'center', borderRadius: 8 },
-    addTickerBtnText: { color: '#ffffff', fontSize: 13, fontWeight: '700', fontFamily: 'Inter' },
-    tickerGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    tickerCard: { width: Platform.OS === 'web' ? '23%' : '48%', flexDirection: 'row', alignItems: 'center', backgroundColor: bgSurface, borderRadius: 10, padding: 12, borderWidth: 1, borderColor },
-
-    refundSubmitBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: C.primary, paddingVertical: 14, borderRadius: 8, marginTop: 14 },
-    refundSubmitBtnText: { color: '#ffffff', fontSize: 13, fontWeight: '700', fontFamily: 'Inter' },
-
-    backToGameBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.primary, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 },
-    backToGameBtnText: { color: '#ffffff', fontSize: 12, fontWeight: '700', fontFamily: 'Inter' },
-
-    targetBtn: { flex: 1, paddingVertical: 10, borderRadius: 8, backgroundColor: bgSurface, borderWidth: 1, borderColor, alignItems: 'center' },
-    targetBtnActive: { backgroundColor: C.primary, borderColor: C.primary },
-    targetBtnText: { color: textSecondary, fontSize: 11, fontWeight: '700', fontFamily: 'Inter' },
-    targetBtnTextActive: { color: '#ffffff', fontFamily: 'Inter' },
-    targetPill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, alignSelf: 'flex-start' },
-
-    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-    modalContent: { backgroundColor: bgSurface, borderRadius: 10, width: '100%', maxWidth: 450, borderWidth: 1, borderColor, padding: 24, alignItems: 'center' },
-    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: borderColor },
-    modalTitle: { color: textPrimary, fontSize: 16, fontWeight: '700', fontFamily: 'Inter' },
-    modalBody: { padding: 16 },
-    modalMessage: { color: textSecondary, fontSize: 13, textAlign: 'center', marginBottom: 20, fontFamily: 'Inter' },
-    modalActions: { flexDirection: 'row', gap: 12, width: '100%' },
-    modalCancelBtn: { flex: 1, backgroundColor: bgCard, paddingVertical: 12, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor },
-    modalCancelBtnText: { color: textPrimary, fontSize: 13, fontWeight: '700', fontFamily: 'Inter' },
-    modalConfirmBtn: { flex: 1, backgroundColor: C.primary, paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
-    modalConfirmBtnText: { color: '#ffffff', fontSize: 13, fontWeight: '700', fontFamily: 'Inter' },
-    modalSubmitBtn: { backgroundColor: C.primary, paddingVertical: 12, borderRadius: 8, alignItems: 'center', marginTop: 10 },
-    modalSubmitBtnText: { color: '#ffffff', fontSize: 13, fontWeight: '700', fontFamily: 'Inter' },
-  });
-};
-
-const getSpinStyles = (C: any, isDark: boolean) => {
-  const bgSurface = isDark ? '#0c1424' : '#ffffff';
-  const bgCard = isDark ? '#080e1b' : '#f8fafc';
-  const borderColor = isDark ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0';
-  const textPrimary = isDark ? '#ffffff' : '#0f172a';
-  const textSecondary = isDark ? '#94a3b8' : '#64748b';
-
-  return StyleSheet.create({
-    statCard: {
-      width: Platform.OS === 'web' ? '31%' : '47%',
-      backgroundColor: bgSurface,
-      borderRadius: 10,
-      padding: 16,
-      borderWidth: 1,
-      borderColor,
-    },
-    statIconWrap: {
-      width: 36,
-      height: 36,
-      borderRadius: 8,
-      backgroundColor: bgCard,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginBottom: 10,
-      borderWidth: 1,
-      borderColor,
-    },
-    statValue: {
-      color: textPrimary,
-      fontSize: 16,
-      fontWeight: '900',
-      fontFamily: 'Inter',
-      marginBottom: 2,
-    },
-    statLabel: {
-      color: textSecondary,
-      fontSize: 10,
-      fontWeight: '700',
-      letterSpacing: 0.5,
-      fontFamily: 'Inter',
-    },
-    liveStatusDot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-    },
-    pageBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-      backgroundColor: bgSurface,
-      paddingHorizontal: 14,
-      paddingVertical: 8,
-      borderRadius: 10,
-      borderWidth: 1,
-      borderColor,
-    },
-    pageBtnText: {
-      color: textPrimary,
-      fontSize: 12,
-      fontWeight: '700',
-      fontFamily: 'Inter',
-    },
-  });
-};
+const st = StyleSheet.create({
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  title: { fontSize: 20, fontWeight: '700' },
+  subtitle: { fontSize: 11, fontWeight: '500', marginTop: 2 },
+  settingRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    gap: 12, minHeight: 52, borderBottomWidth: 1, paddingVertical: 10,
+  },
+  tableRow: { flexDirection: 'row', alignItems: 'center' },
+  th: { paddingHorizontal: 12, paddingVertical: 10, fontSize: 11, fontWeight: '700' },
+  statChip: { borderRadius: 12, padding: 12, minWidth: 90 },
+});
