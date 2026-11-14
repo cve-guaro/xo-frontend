@@ -1,12 +1,37 @@
-// app/(authed)/admin/promotion-links.tsx — Promotion Link Management
+// app/(authed)/admin/promotion-links.tsx — Promotions + Notifications
+// Redesigned to match reference PromotionsPanel + NotificationsPanel layout.
+// Uses real backend APIs for promotion links, promo popups, and bulk SMS.
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, StyleSheet, Platform, Modal, Switch, Image } from 'react-native';
+import {
+  View, Text, ScrollView, TouchableOpacity, TextInput,
+  ActivityIndicator, StyleSheet, Platform, Modal,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../../context/authContext';
-import { API_URL, APP_URL } from '../../../config';
-import { useAdminTheme } from './_layout';
-import ActionConfirmModal from '../../../components/ActionConfirmModal';
+import { API_URL } from '../../../config';
+import { useAdminTheme } from '../../../constants/adminTheme';
+import {
+  AdminPanel, AdminPill, AdminButton, AdminMeter, AdminPager,
+} from '../../../components/admin/ui';
 
+/* ── helpers ─────────────────────────────────────────── */
+const fmtInt = (n: number) => n.toLocaleString('en-US');
+const fmtETB = (n: number) => `ETB ${fmtInt(n)}`;
+const fmtDay = (iso: string) => {
+  if (!iso) return '--';
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+const timeSince = (iso?: string) => {
+  if (!iso) return '--';
+  const d = Date.now() - new Date(iso).getTime();
+  if (d < 60000) return 'Just now';
+  if (d < 3600000) return `${Math.floor(d / 60000)}m ago`;
+  if (d < 86400000) return `${Math.floor(d / 3600000)}h ago`;
+  return `${Math.floor(d / 86400000)}d ago`;
+};
+
+/* ── types ───────────────────────────────────────────── */
 interface PromotionLink {
   id: string;
   code: string;
@@ -19,1423 +44,553 @@ interface PromotionLink {
   total_registrations: number;
 }
 
+interface SmsHistoryItem {
+  id: string;
+  message: string;
+  target_count: number;
+  sent_count: number;
+  status: string;
+  created_at: string;
+  admin_name?: string;
+}
+
+/* ── audiences ──────────────────────────────────────── */
+const AUDIENCES: { key: string; label: string }[] = [
+  { key: 'all', label: 'All players' },
+  { key: 'active7', label: 'Active last 7 days' },
+  { key: 'depositors', label: 'Funded wallets' },
+  { key: 'dormant', label: 'Dormant / losing streak' },
+];
+
+const BALANCE_RANGES: { key: string; label: string }[] = [
+  { key: 'all', label: 'Any balance' },
+  { key: '0-100', label: '0 - 100 ETB' },
+  { key: '100-1000', label: '100 - 1,000 ETB' },
+  { key: '1000-10000', label: '1,000 - 10,000 ETB' },
+  { key: '10000-100000', label: '10,000+ ETB' },
+];
+
+/* ════════════════════════════════════════════════════════════════════ */
 export default function PromotionLinks() {
-  const { theme: C, isDark } = useAdminTheme();
-  const bgSurface = C.surface;
-  const bgCard = isDark ? C.surfaceContainerLowest : C.surfaceContainerLow;
-  const borderColor = C.border;
-  const textPrimary = C.onSurface;
-  const textSecondary = C.onSurfaceVariant;
-  const styles = useMemo(() => getStyles(C, isDark), [C, isDark]);
-  const { token, t, isSuperAdmin, showAlert, fixUrl } = useAuth();
+  const { theme: C } = useAdminTheme();
+  const { token, isSuperAdmin, showAlert } = useAuth();
+  const headers = useMemo(
+    () => ({ Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'x-platform': 'web' }),
+    [token],
+  );
+
+  /* ── tab state ─────────────────────────────────────── */
+  type Tab = 'promos' | 'notifications';
+  const [tab, setTab] = useState<Tab>('promos');
+
+  /* ══════════ PROMO STATE ═══════════ */
   const [links, setLinks] = useState<PromotionLink[]>([]);
   const [loading, setLoading] = useState(true);
-  const [createModalVisible, setCreateModalVisible] = useState(false);
-  const [selectedLink, setSelectedLink] = useState<PromotionLink | null>(null);
-  const [claims, setClaims] = useState<any[]>([]);
-  const [claimsLoading, setClaimsLoading] = useState(false);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [confirmAction, setConfirmAction] = useState<{type: 'delete' | 'toggle', link: PromotionLink} | null>(null);
-
-  // Create form state
-  const [newLink, setNewLink] = useState({
-    name: '',
-    bonus_amount: '10',
-    code: '',
-    expires_at: ''
-  });
+  const [code, setCode] = useState('');
+  const [gift, setGift] = useState('100');
+  const [cap, setCap] = useState('1000');
+  const [days, setDays] = useState('14');
+  const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const PER_PAGE = 10;
 
   const fetchLinks = useCallback(async () => {
     try {
       setLoading(true);
       const res = await fetch(`${API_URL}/admin/promotion-links`, {
-        headers: { Authorization: `Bearer ${token}`, 'x-platform': 'web' }
+        headers: { Authorization: `Bearer ${token}`, 'x-platform': 'web' },
       });
       if (res.ok) {
         const data = await res.json();
         setLinks(Array.isArray(data) ? data : (data.links || []));
       }
-    } catch (e) {
-      console.error('[admin/promotion]', e);
-    } finally {
-      setLoading(false);
-    }
+    } catch (e) { console.error('[admin/promotion]', e); }
+    finally { setLoading(false); }
   }, [token]);
 
   useEffect(() => { fetchLinks(); }, [fetchLinks]);
 
-  const createLink = async () => {
+  const createPromo = async () => {
+    if (!code.trim()) { setError('Code is required'); return; }
     try {
       const res = await fetch(`${API_URL}/admin/promotion-links`, {
         method: 'POST',
-        headers: { 
-          Authorization: `Bearer ${token}`, 
-          'Content-Type': 'application/json',
-          'x-platform': 'web' 
-        },
+        headers,
         body: JSON.stringify({
-          name: newLink.name,
-          bonus_amount: Number(newLink.bonus_amount),
-          code: newLink.code.trim().toUpperCase() || undefined,
-          expires_at: newLink.expires_at || null
-        })
+          name: code,
+          bonus_amount: Number(gift),
+          code: code.trim().toUpperCase(),
+          expires_at: days ? new Date(Date.now() + Number(days) * 86400000).toISOString() : null,
+        }),
       });
-
-      const data = await res.json();
       if (res.ok) {
-        setCreateModalVisible(false);
-        setNewLink({ name: '', bonus_amount: '10', code: '', expires_at: '' });
+        setCode(''); setError(null);
         fetchLinks();
       } else {
-        console.error('[admin/promotion/create] Server error:', data);
-        showAlert('Error', 'Failed to create: ' + (data.error || 'Unknown error'));
+        const d = await res.json();
+        setError(d.error || 'Failed to create');
       }
-    } catch (e) {
-      console.error('[admin/promotion/create]', e);
-    }
+    } catch { setError('Network error'); }
   };
 
-  const toggleActive = async (link: PromotionLink) => {
+  const togglePromo = async (link: PromotionLink) => {
     try {
       await fetch(`${API_URL}/admin/promotion-links/${link.id}`, {
         method: 'PATCH',
-        headers: { 
-          Authorization: `Bearer ${token}`, 
-          'Content-Type': 'application/json',
-          'x-platform': 'web' 
-        },
-        body: JSON.stringify({ is_active: !link.is_active })
+        headers,
+        body: JSON.stringify({ is_active: !link.is_active }),
       });
       fetchLinks();
-    } catch (e) {
-      console.error('[admin/promotion/toggle]', e);
-    }
+    } catch (e) { console.error('[admin/promo/toggle]', e); }
   };
 
-  const deleteLink = async (id: string) => {
-    try {
-      await fetch(`${API_URL}/admin/promotion-links/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}`, 'x-platform': 'web' }
-      });
-      setSelectedLink(null);
-      fetchLinks();
-    } catch (e) {
-      console.error('[admin/promotion/delete]', e);
-    }
-  };
+  const now = Date.now();
+  const live = links.filter(p => p.is_active && (!p.expires_at || new Date(p.expires_at).getTime() > now));
+  const totalClaims = links.reduce((s, p) => s + (p.total_claims || 0), 0);
+  const paged = links.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+  const totalPages = Math.max(1, Math.ceil(links.length / PER_PAGE));
 
-  const loadClaims = async (link: PromotionLink) => {
-    try {
-      setClaimsLoading(true);
-      const res = await fetch(`${API_URL}/admin/promotion-links/${link.id}/claims`, {
-        headers: { Authorization: `Bearer ${token}`, 'x-platform': 'web' }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setClaims(Array.isArray(data) ? data : (data.claims || []));
-      }
-    } catch (e) {
-      console.error('[admin/promotion/claims]', e);
-    } finally {
-      setClaimsLoading(false);
-    }
-  };
-
-  const formatDate = (iso: string) => {
-    if (!iso) return '—';
-    return new Date(iso).toLocaleDateString() + ' ' + new Date(iso).toLocaleTimeString();
-  };
-
-  // Promotion Popup Tab State
-  const [activeTab, setActiveTab] = useState<'links' | 'popup' | 'sms'>('links');
-  const [popupHistory, setPopupHistory] = useState<any[]>([]);
-  const [popupConfig, setPopupConfig] = useState({ image_url: '', display_duration: '5', expires_at: '', starts_at: '', is_active: false });
-  const [popupLoading, setPopupLoading] = useState(false);
-  const [popupSaving, setPopupSaving] = useState(false);
-  const [showAddPopup, setShowAddPopup] = useState(false);
-
-  const fetchPopupConfig = useCallback(async () => {
-    try {
-      setPopupLoading(true);
-      const res = await fetch(`${API_URL}/admin/promo-popup`, { headers: { Authorization: `Bearer ${token}`, 'x-platform': 'web' } });
-      if (res.ok) { 
-        const d = await res.json(); 
-        setPopupHistory(d.popups || []);
-      }
-    } catch (e) { console.error('[promo-popup] fetch error', e); }
-    finally { setPopupLoading(false); }
-  }, [token]);
-
-  useEffect(() => { if (activeTab === 'popup') fetchPopupConfig(); }, [activeTab, fetchPopupConfig]);
-
-  const savePopupConfig = async () => {
-    // If we're making this new one active, we should check if another one is active. (Backend handles this by turning others off)
-    try {
-      setPopupSaving(true);
-      const res = await fetch(`${API_URL}/admin/promo-popup`, {
-        method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'x-platform': 'web' },
-        body: JSON.stringify({ image_url: popupConfig.image_url, display_duration: Number(popupConfig.display_duration), expires_at: popupConfig.expires_at || null, starts_at: popupConfig.starts_at || null, is_active: popupConfig.is_active })
-      });
-      if (res.ok) {
-        showAlert('Success', 'New popup created!');
-        setPopupConfig({ image_url: '', display_duration: '5', expires_at: '', starts_at: '', is_active: false });
-        setShowAddPopup(false);
-        fetchPopupConfig();
-      } else { const d = await res.json(); showAlert('Error', 'Save failed: ' + (d.error || 'Unknown error')); }
-    } catch (e) { console.error('[promo-popup] save error', e); }
-    finally { setPopupSaving(false); }
-  };
-
-  const togglePopupStatus = async (id: number, currentStatus: boolean) => {
-    try {
-      setPopupLoading(true);
-      const res = await fetch(`${API_URL}/admin/promo-popup/${id}`, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'x-platform': 'web' },
-        body: JSON.stringify({ is_active: !currentStatus })
-      });
-      if (res.ok) {
-        fetchPopupConfig();
-      } else {
-        showAlert('Error', 'Failed to update popup status');
-      }
-    } catch (e) {
-      console.error(e);
-      showAlert('Error', 'Network error');
-    } finally {
-      setPopupLoading(false);
-    }
-  };
-
-  const [popupToDelete, setPopupToDelete] = useState<number | null>(null);
-
-  const deletePopup = async (id: number) => {
-    try {
-      setPopupLoading(true);
-      const res = await fetch(`${API_URL}/admin/promo-popup/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}`, 'x-platform': 'web' }
-      });
-      if (res.ok) {
-        showAlert('Success', 'Popup deleted successfully');
-        fetchPopupConfig();
-      } else {
-        const d = await res.json();
-        showAlert('Error', 'Failed to delete popup: ' + (d.error || 'Unknown error'));
-      }
-    } catch (e) {
-      console.error(e);
-      showAlert('Error', 'Network error');
-    } finally {
-      setPopupLoading(false);
-      setPopupToDelete(null);
-    }
-  };
-
-  const handleImageUpload = async (e: any) => {
-    const file = e.target?.files?.[0];
-    if (!file) return;
-    try {
-      setPopupSaving(true);
-      const formData = new FormData();
-      formData.append('image', file);
-      const res = await fetch(`${API_URL}/admin/upload-promo`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'x-platform': 'web' },
-        body: formData,
-      });
-      const data = await res.json();
-      if (res.ok && data.url) {
-        setPopupConfig({ ...popupConfig, image_url: data.url });
-      } else {
-        showAlert('Error', 'Upload failed: ' + (data.error || 'Unknown error'));
-      }
-    } catch (err) {
-      console.error(err);
-      showAlert('Error', 'Upload failed');
-    } finally {
-      setPopupSaving(false);
-    }
-  };
-
-  // Bulk SMS State
-  const [smsForm, setSmsForm] = useState({
-    message: '',
-    targetMode: 'all', // 'all' or 'specific'
-    role: 'all', // 'all', 'user', 'admin', 'maintenance_admin', 'superadmin'
-    balanceRange: 'all', // 'all', '0-100', '100-1000', '1000-10000', '10000-100000'
-    specificPhone: ''
-  });
+  /* ══════════ NOTIFICATION / SMS STATE ═══════════ */
+  const [channel, setChannel] = useState<'sms'>('sms');
+  const [audience, setAudience] = useState('all');
+  const [balanceRange, setBalanceRange] = useState('all');
+  const [smsBody, setSmsBody] = useState('');
   const [smsSending, setSmsSending] = useState(false);
-  const [smsHistory, setSmsHistory] = useState<any[]>([]);
+  const [smsHistory, setSmsHistory] = useState<SmsHistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [confirmSms, setConfirmSms] = useState(false);
-
-  // Live preview states
   const [previewCount, setPreviewCount] = useState<number | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [confirmSms, setConfirmSms] = useState(false);
 
-  // Helper to calculate character and segment metrics
-  const getSmsStats = (text: string, targetCount: number) => {
-    if (!text) return { chars: 0, segments: 0, cost: 0, isUnicode: false };
-    const chars = text.length;
-    const isUnicode = /[^\u0000-\u007F]/.test(text); 
-    let segments = 1;
-    if (isUnicode) {
-      segments = chars <= 70 ? 1 : Math.ceil(chars / 67);
-    } else {
-      segments = chars <= 160 ? 1 : Math.ceil(chars / 153);
-    }
-    // Estimated cost logic: 0.20 ETB per segment per message
-    const cost = targetCount * segments * 0.20;
-    return { chars, segments, cost, isUnicode };
-  };
+  const isUnicode = /[^\x00-\x7F]/.test(smsBody);
+  const segments = smsBody ? Math.max(1, Math.ceil(smsBody.length / (isUnicode ? 70 : 160))) : 0;
+  const recipients = previewCount ?? 0;
+  const estCost = Math.round(recipients * segments * 0.35);
 
   const fetchPreviewCount = useCallback(async () => {
     try {
       setPreviewLoading(true);
       const payload: any = {};
-      if (smsForm.targetMode === 'specific') {
-        if (smsForm.specificPhone) {
-          payload.specific_phone = smsForm.specificPhone;
-        } else {
-          if (smsForm.role !== 'all') payload.role = smsForm.role;
-          if (smsForm.balanceRange !== 'all') {
-            const [min, max] = smsForm.balanceRange.split('-');
-            if (min) payload.min_balance = Number(min);
-            if (max) payload.max_balance = Number(max);
-          }
-        }
+      if (audience !== 'all') payload.role = audience;
+      if (balanceRange !== 'all') {
+        const [min, max] = balanceRange.split('-');
+        if (min) payload.min_balance = Number(min);
+        if (max) payload.max_balance = Number(max);
       }
-
       const res = await fetch(`${API_URL}/admin/bulk-sms/preview`, {
-        method: 'POST',
-        headers: { 
-          Authorization: `Bearer ${token}`, 
-          'Content-Type': 'application/json',
-          'x-platform': 'web'
-        },
-        body: JSON.stringify(payload)
+        method: 'POST', headers,
+        body: JSON.stringify(payload),
       });
       if (res.ok) {
         const data = await res.json();
         setPreviewCount(data.count || 0);
       }
-    } catch (e) {
-      console.error('[admin/sms-preview-count]', e);
-    } finally {
-      setPreviewLoading(false);
-    }
-  }, [token, smsForm.targetMode, smsForm.role, smsForm.balanceRange, smsForm.specificPhone]);
-
-  useEffect(() => {
-    if (activeTab === 'sms') {
-      fetchPreviewCount();
-    }
-  }, [activeTab, fetchPreviewCount]);
+    } catch (e) { console.error('[sms/preview]', e); }
+    finally { setPreviewLoading(false); }
+  }, [token, audience, balanceRange]);
 
   const fetchSmsHistory = useCallback(async () => {
     try {
       setHistoryLoading(true);
       const res = await fetch(`${API_URL}/admin/bulk-sms/history`, {
-        headers: { Authorization: `Bearer ${token}`, 'x-platform': 'web' }
+        headers: { Authorization: `Bearer ${token}`, 'x-platform': 'web' },
       });
       if (res.ok) {
         const data = await res.json();
         setSmsHistory(data.history || []);
       }
-    } catch (e) {
-      console.error('[admin/sms-history]', e);
-    } finally {
-      setHistoryLoading(false);
-    }
+    } catch (e) { console.error('[sms/history]', e); }
+    finally { setHistoryLoading(false); }
   }, [token]);
 
   useEffect(() => {
-    if (activeTab === 'sms') fetchSmsHistory();
-  }, [activeTab, fetchSmsHistory]);
+    if (tab === 'notifications') {
+      fetchPreviewCount();
+      fetchSmsHistory();
+    }
+  }, [tab, fetchPreviewCount, fetchSmsHistory]);
 
   const sendBulkSms = async () => {
-    if (!smsForm.message.trim()) {
-      showAlert('Validation', 'Message cannot be empty');
-      setConfirmSms(false);
-      return;
-    }
-    
+    if (!smsBody.trim()) { showAlert('Validation', 'Message cannot be empty'); setConfirmSms(false); return; }
     try {
       setSmsSending(true);
-      const payload: any = { message: smsForm.message };
-      
-      if (smsForm.targetMode === 'specific') {
-        if (smsForm.specificPhone) {
-          payload.specific_phone = smsForm.specificPhone;
-        } else {
-          if (smsForm.role !== 'all') payload.role = smsForm.role;
-          if (smsForm.balanceRange !== 'all') {
-            const [min, max] = smsForm.balanceRange.split('-');
-            if (min) payload.min_balance = Number(min);
-            if (max) payload.max_balance = Number(max);
-          }
-        }
+      const payload: any = { message: smsBody };
+      if (audience !== 'all') payload.role = audience;
+      if (balanceRange !== 'all') {
+        const [min, max] = balanceRange.split('-');
+        if (min) payload.min_balance = Number(min);
+        if (max) payload.max_balance = Number(max);
       }
-
       const res = await fetch(`${API_URL}/admin/bulk-sms`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'x-platform': 'web' },
-        body: JSON.stringify(payload)
+        method: 'POST', headers,
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (res.ok) {
-        showAlert('Success', `Successfully queued ${data.queuedCount || 0} messages.`);
-        setSmsForm({ ...smsForm, message: '', specificPhone: '' });
+        showAlert('Success', `Queued ${data.queuedCount || 0} messages`);
+        setSmsBody('');
         setConfirmSms(false);
         fetchSmsHistory();
       } else {
-        showAlert('Error', 'Failed: ' + (data.error || 'Unknown error'));
+        showAlert('Error', data.error || 'Failed');
         setConfirmSms(false);
       }
-    } catch (e) {
-      showAlert('Error', 'Network error');
-      setConfirmSms(false);
-    } finally {
-      setSmsSending(false);
-    }
+    } catch { showAlert('Error', 'Network error'); setConfirmSms(false); }
+    finally { setSmsSending(false); }
   };
 
+  /* ── styles ────────────────────────────────────────── */
+  const sLabel: any = { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1.2, color: C.onSurfaceVariant, marginBottom: 6 };
+  const sInput: any = { height: 36, borderWidth: 1, borderColor: C.border, borderRadius: 8, backgroundColor: C.surface, paddingHorizontal: 12, fontSize: 12, color: C.onSurface, ...(Platform.OS === 'web' ? { outlineStyle: 'none' } as any : {}) };
+
+  /* ═══════════════════════════════════════════════════════════════ */
   return (
-    <View style={styles.container}>
-      {/* Tab Switcher */}
-      <View style={{ flexDirection: 'row', marginBottom: 20, gap: 8 }}>
-        <TouchableOpacity style={[styles.tabBtn, activeTab === 'links' && styles.tabBtnActive]} onPress={() => setActiveTab('links')}>
-          <Ionicons name="link" size={16} color={activeTab === 'links' ? '#0c0c1f' : '#a78bfa'} />
-          <Text style={[styles.tabBtnText, activeTab === 'links' && styles.tabBtnTextActive]}>Referral Links</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.tabBtn, activeTab === 'popup' && styles.tabBtnActive]} onPress={() => setActiveTab('popup')}>
-          <Ionicons name="image" size={16} color={activeTab === 'popup' ? '#0c0c1f' : '#a78bfa'} />
-          <Text style={[styles.tabBtnText, activeTab === 'popup' && styles.tabBtnTextActive]}>Promotion Popup</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.tabBtn, activeTab === 'sms' && styles.tabBtnActive]} onPress={() => setActiveTab('sms')}>
-          <Ionicons name="chatbubbles" size={16} color={activeTab === 'sms' ? '#0c0c1f' : '#a78bfa'} />
-          <Text style={[styles.tabBtnText, activeTab === 'sms' && styles.tabBtnTextActive]}>Bulk SMS</Text>
-        </TouchableOpacity>
+    <View style={{ flex: 1, backgroundColor: C.background }}>
+      {/* ── Tab bar ── */}
+      <View style={{ flexDirection: 'row', paddingHorizontal: 24, paddingTop: 16, gap: 8 }}>
+        {(['promos', 'notifications'] as Tab[]).map(t => (
+          <TouchableOpacity
+            key={t}
+            onPress={() => setTab(t)}
+            style={{
+              paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8,
+              backgroundColor: tab === t ? C.primary : C.surfaceContainerLow,
+            }}
+          >
+            <Text style={{ fontSize: 12, fontWeight: '700', color: tab === t ? '#fff' : C.onSurfaceVariant }}>
+              {t === 'promos' ? 'Promo codes' : 'Notifications'}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
-      {activeTab === 'popup' ? (
-        /* ═══ Promotion Popup Config ═══ */
-        <ScrollView style={{ flex: 1 }}>
-          <View style={styles.popupCard}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
-              <View>
-                <Text style={{ color: '#e5e3ff', fontSize: 20, fontWeight: '800', marginBottom: 4 }}>Game Entry Popups</Text>
-                <Text style={{ color: 'rgba(168,167,212,0.5)', fontSize: 12 }}>Manage popups shown to users. Only one can be active at a time.</Text>
-              </View>
-              <TouchableOpacity 
-                style={[styles.addBtn, (popupHistory.some(p => p.is_active) && !showAddPopup) && { opacity: 0.5 }]} 
-                onPress={() => {
-                  if (popupHistory.some(p => p.is_active)) {
-                    showAlert('Cannot Add', 'Please turn off the active popup first.');
-                  } else {
-                    setShowAddPopup(true);
-                  }
-                }}
-                disabled={popupHistory.some(p => p.is_active) || showAddPopup}
-              >
-                <Ionicons name="add" size={16} color="#0c0c1f" />
-                <Text style={styles.addBtnText}>New Popup</Text>
-              </TouchableOpacity>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 24, gap: 16 }} showsVerticalScrollIndicator={false}>
+        {tab === 'promos' ? (
+          /* ═══ PROMOTIONS TAB ═══ */
+          <View style={Platform.OS === 'web' ? { flexDirection: 'row', gap: 16, alignItems: 'flex-start' } : { gap: 16 }}>
+            {/* ── Left column: create promo ── */}
+            <View style={Platform.OS === 'web' ? { width: 340, gap: 16 } : { gap: 16 }}>
+              <AdminPanel title="Create promo code" kicker="Gift amount, usage cap, and expiry">
+                <View style={{ gap: 12 }}>
+                  <View>
+                    <Text style={sLabel}>Code</Text>
+                    <TextInput
+                      value={code}
+                      onChangeText={t => setCode(t.toUpperCase())}
+                      placeholder="e.g. TIMKET200"
+                      placeholderTextColor={C.onSurfaceVariant}
+                      maxLength={16}
+                      autoCapitalize="characters"
+                      style={[sInput, { fontFamily: Platform.OS === 'web' ? 'monospace' : 'Courier' }]}
+                    />
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={sLabel}>Gift ETB</Text>
+                      <TextInput
+                        value={gift}
+                        onChangeText={t => setGift(t.replace(/\D/g, ''))}
+                        keyboardType="numeric"
+                        style={[sInput, { fontFamily: Platform.OS === 'web' ? 'monospace' : 'Courier' }]}
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={sLabel}>Usage cap</Text>
+                      <TextInput
+                        value={cap}
+                        onChangeText={t => setCap(t.replace(/\D/g, ''))}
+                        keyboardType="numeric"
+                        style={[sInput, { fontFamily: Platform.OS === 'web' ? 'monospace' : 'Courier' }]}
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={sLabel}>Days</Text>
+                      <TextInput
+                        value={days}
+                        onChangeText={t => setDays(t.replace(/\D/g, ''))}
+                        keyboardType="numeric"
+                        style={[sInput, { fontFamily: Platform.OS === 'web' ? 'monospace' : 'Courier' }]}
+                      />
+                    </View>
+                  </View>
+                  {error && <Text style={{ fontSize: 11, fontWeight: '700', color: C.error }}>{error}</Text>}
+                  <AdminButton tone="brand" icon="add-circle-outline" onPress={createPromo} disabled={!code || !isSuperAdmin}>
+                    Create promo code
+                  </AdminButton>
+                </View>
+              </AdminPanel>
             </View>
 
-            {popupLoading && !popupHistory.length ? <ActivityIndicator color={C.primary} style={{ padding: 40 }} /> : null}
-
-            {showAddPopup ? (
-              <View style={[styles.popupCard, { marginBottom: 24, padding: 20, backgroundColor: 'rgba(0,0,0,0.2)', borderWidth: 1, borderColor: 'rgba(167,139,250,0.2)' }]}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}>
-                  <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>Create New Popup</Text>
-                  <TouchableOpacity onPress={() => setShowAddPopup(false)}>
-                    <Ionicons name="close" size={20} color="rgba(255,255,255,0.5)" />
-                  </TouchableOpacity>
-                </View>
-
-                <View style={{ gap: 20 }}>
-                  <View>
-                    <Text style={styles.formLabel}>Promotion Image</Text>
-                    {popupConfig.image_url ? (
-                      <View style={styles.imagePreview}>
-                        <Image 
-                          source={{ uri: fixUrl(popupConfig.image_url) || undefined }} 
-                          style={{ width: '100%', height: 160, borderRadius: 12 }} 
-                          resizeMode="contain"
-                        />
-                        <TouchableOpacity style={styles.replaceBtn} onPress={() => setPopupConfig({ ...popupConfig, image_url: '' })}>
-                          <Ionicons name="swap-horizontal" size={14} color="#fff" /><Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>Replace Image</Text>
-                        </TouchableOpacity>
+            {/* ── Right column: promo table ── */}
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <AdminPanel
+                title="Promo codes"
+                kicker={`${live.length} live · ${fmtInt(totalClaims)} total claims`}
+                noPadBody
+                right={<AdminPill tone="brand">Growth</AdminPill>}
+              >
+                {loading ? (
+                  <ActivityIndicator color={C.primary} style={{ marginVertical: 40 }} />
+                ) : (
+                  <>
+                    {/* Table header */}
+                    <View style={{ flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 10, backgroundColor: C.surfaceContainerHighest, borderBottomWidth: 1, borderBottomColor: C.border }}>
+                      {['Code', 'Gift', 'Claims', 'Expires', 'Status', ''].map((h, i) => (
+                        <Text key={h || `col${i}`} style={{ flex: i === 0 ? 1.3 : 1, fontSize: 10, fontWeight: '700', color: C.onSurfaceVariant, textTransform: 'uppercase', letterSpacing: 1 }}>
+                          {h}
+                        </Text>
+                      ))}
+                    </View>
+                    {/* Rows */}
+                    {paged.map(p => {
+                      const expired = p.expires_at ? new Date(p.expires_at).getTime() <= now : false;
+                      const tone = expired ? 'muted' as const : p.is_active ? 'positive' as const : 'gold' as const;
+                      const statusLabel = expired ? 'Expired' : p.is_active ? 'Active' : 'Paused';
+                      return (
+                        <View key={p.id} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.border }}>
+                          <Text style={{ flex: 1.3, fontSize: 12, fontWeight: '800', color: C.onSurface, fontFamily: Platform.OS === 'web' ? 'monospace' : 'Courier' }}>{p.code}</Text>
+                          <Text style={{ flex: 1, fontSize: 12, fontWeight: '700', color: C.primary }}>{fmtETB(p.bonus_amount)}</Text>
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ fontSize: 11, color: C.onSurfaceVariant }}>{fmtInt(p.total_claims || 0)}</Text>
+                            <View style={{ marginTop: 4, width: 80 }}>
+                              <AdminMeter value={cap ? ((p.total_claims || 0) / Number(cap)) * 100 : 0} tone="brand" />
+                            </View>
+                          </View>
+                          <Text style={{ flex: 1, fontSize: 11, color: C.onSurfaceVariant }}>{p.expires_at ? fmtDay(p.expires_at) : 'Never'}</Text>
+                          <View style={{ flex: 1 }}>
+                            <AdminPill tone={tone}>{statusLabel}</AdminPill>
+                          </View>
+                          <View style={{ flex: 1, alignItems: 'flex-end' }}>
+                            <AdminButton size="xs" tone="ghost" onPress={() => togglePromo(p)} disabled={expired}>
+                              {p.is_active ? 'Pause' : 'Activate'}
+                            </AdminButton>
+                          </View>
+                        </View>
+                      );
+                    })}
+                    {links.length === 0 && (
+                      <Text style={{ textAlign: 'center', color: C.onSurfaceVariant, paddingVertical: 40, fontSize: 12 }}>
+                        No promo codes yet. Create one to start a campaign.
+                      </Text>
+                    )}
+                    {totalPages > 1 && (
+                      <View style={{ paddingVertical: 12, paddingHorizontal: 16 }}>
+                        <AdminPager page={page} pages={totalPages} count={links.length} size={PER_PAGE} label="promo codes" onPage={setPage} />
                       </View>
-                    ) : (
-                      <TouchableOpacity style={[styles.dropZone, { padding: 30 }]} onPress={() => Platform.OS === 'web' && document.getElementById('promo-image-upload')?.click()}>
-                        <Ionicons name="cloud-upload-outline" size={32} color="rgba(167,139,250,0.3)" />
-                        <Text style={{ color: '#a78bfa', fontSize: 12, marginTop: 8 }}>Click to upload image</Text>
-                      </TouchableOpacity>
                     )}
-                    {Platform.OS === 'web' && (
-                      <input 
-                        type="file" id="promo-image-upload" style={{ display: 'none' }} accept="image/*" 
-                        onChange={handleImageUpload} 
-                      />
-                    )}
-                    <TextInput style={[styles.input, { marginTop: 10 }]} placeholder="Or enter URL here..." placeholderTextColor="rgba(168,167,212,0.3)" value={popupConfig.image_url} onChangeText={t => setPopupConfig({ ...popupConfig, image_url: t })} />
-                  </View>
-
-                  <View style={{ flexDirection: 'row', gap: 16 }}>
+                  </>
+                )}
+              </AdminPanel>
+            </View>
+          </View>
+        ) : (
+          /* ═══ NOTIFICATIONS TAB ═══ */
+          <View style={Platform.OS === 'web' ? { flexDirection: 'row', gap: 16, alignItems: 'flex-start' } : { gap: 16 }}>
+            {/* ── Left: compose ── */}
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <AdminPanel title="Compose message" kicker="Send bulk SMS to players via GeezSMS">
+                <View style={{ gap: 16 }}>
+                  {/* Audience */}
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.formLabel}>Duration (seconds)</Text>
-                      <TextInput style={styles.input} keyboardType="numeric" value={popupConfig.display_duration} onChangeText={t => setPopupConfig({ ...popupConfig, display_duration: t })} />
-                    </View>
-                  </View>
-
-                  <View style={{ flexDirection: 'row', gap: 16 }}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.formLabel}>Start Date & Time (optional)</Text>
+                      <Text style={sLabel}>Audience</Text>
                       {Platform.OS === 'web' ? (
-                        <input
-                          type="datetime-local"
-                          value={popupConfig.starts_at || ''}
-                          onChange={(e: any) => setPopupConfig({ ...popupConfig, starts_at: e.target.value })}
+                        <select
+                          value={audience}
+                          onChange={(e: any) => setAudience(e.target.value)}
                           style={{
-                            height: 52,
-                            backgroundColor: 'rgba(167,139,250,0.08)',
-                            border: '1px solid rgba(167,139,250,0.3)',
-                            borderRadius: 16,
-                            paddingLeft: 16,
-                            paddingRight: 16,
-                            color: '#e5e3ff',
-                            fontSize: 14,
-                            fontWeight: '700',
-                            outline: 'none',
-                            width: '100%',
-                            boxSizing: 'border-box' as any,
-                          }}
-                        />
+                            height: 36, borderRadius: 8, border: `1px solid ${C.border}`,
+                            backgroundColor: C.surface, paddingLeft: 12, fontSize: 12,
+                            color: C.onSurface, outline: 'none',
+                          } as any}
+                        >
+                          {AUDIENCES.map(a => <option key={a.key} value={a.key}>{a.label}</option>)}
+                        </select>
                       ) : (
-                        <TextInput style={styles.input} placeholder="YYYY-MM-DDTHH:MM" placeholderTextColor="rgba(168,167,212,0.3)" value={popupConfig.starts_at} onChangeText={t => setPopupConfig({ ...popupConfig, starts_at: t })} />
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                          {AUDIENCES.map(a => (
+                            <TouchableOpacity
+                              key={a.key}
+                              onPress={() => setAudience(a.key)}
+                              style={{
+                                paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6,
+                                borderWidth: 1,
+                                borderColor: audience === a.key ? C.primary + '66' : C.border,
+                                backgroundColor: audience === a.key ? C.primary + '18' : C.surface,
+                              }}
+                            >
+                              <Text style={{ fontSize: 11, fontWeight: '600', color: audience === a.key ? C.primary : C.onSurfaceVariant }}>{a.label}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
                       )}
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.formLabel}>Expiry Date & Time (optional)</Text>
+                      <Text style={sLabel}>Balance filter</Text>
                       {Platform.OS === 'web' ? (
-                        <input
-                          type="datetime-local"
-                          value={popupConfig.expires_at || ''}
-                          onChange={(e: any) => setPopupConfig({ ...popupConfig, expires_at: e.target.value })}
+                        <select
+                          value={balanceRange}
+                          onChange={(e: any) => setBalanceRange(e.target.value)}
                           style={{
-                            height: 52,
-                            backgroundColor: 'rgba(167,139,250,0.08)',
-                            border: '1px solid rgba(167,139,250,0.3)',
-                            borderRadius: 16,
-                            paddingLeft: 16,
-                            paddingRight: 16,
-                            color: '#e5e3ff',
-                            fontSize: 14,
-                            fontWeight: '700',
-                            outline: 'none',
-                            width: '100%',
-                            boxSizing: 'border-box' as any,
-                          }}
-                        />
+                            height: 36, borderRadius: 8, border: `1px solid ${C.border}`,
+                            backgroundColor: C.surface, paddingLeft: 12, fontSize: 12,
+                            color: C.onSurface, outline: 'none',
+                          } as any}
+                        >
+                          {BALANCE_RANGES.map(b => <option key={b.key} value={b.key}>{b.label}</option>)}
+                        </select>
                       ) : (
-                        <TextInput style={styles.input} placeholder="YYYY-MM-DDTHH:MM" placeholderTextColor="rgba(168,167,212,0.3)" value={popupConfig.expires_at} onChangeText={t => setPopupConfig({ ...popupConfig, expires_at: t })} />
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                          {BALANCE_RANGES.map(b => (
+                            <TouchableOpacity
+                              key={b.key}
+                              onPress={() => setBalanceRange(b.key)}
+                              style={{
+                                paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6,
+                                borderWidth: 1,
+                                borderColor: balanceRange === b.key ? C.primary + '66' : C.border,
+                                backgroundColor: balanceRange === b.key ? C.primary + '18' : C.surface,
+                              }}
+                            >
+                              <Text style={{ fontSize: 11, fontWeight: '600', color: balanceRange === b.key ? C.primary : C.onSurfaceVariant }}>{b.label}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
                       )}
                     </View>
                   </View>
 
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(167,139,250,0.06)', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: 'rgba(167,139,250,0.15)' }}>
-                    <View>
-                      <Text style={{ color: '#e5e3ff', fontSize: 14, fontWeight: '700' }}>Activate Immediately</Text>
-                      <Text style={{ color: 'rgba(168,167,212,0.5)', fontSize: 11 }}>This will be shown to users upon entry</Text>
-                    </View>
-                    <Switch value={popupConfig.is_active} onValueChange={v => setPopupConfig({ ...popupConfig, is_active: v })} trackColor={{ false: '#333', true: 'rgba(0,227,253,0.3)' }} thumbColor={popupConfig.is_active ? '#00e3fd' : '#666'} />
-                  </View>
-
-                  <TouchableOpacity style={[styles.saveBtn, popupSaving && { opacity: 0.5 }]} onPress={savePopupConfig} disabled={popupSaving}>
-                    {popupSaving ? <ActivityIndicator color="#004d57" /> : <Text style={styles.saveBtnText}>Save Popup</Text>}
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ) : null}
-
-            <View style={{ gap: 12 }}>
-              {popupHistory.length === 0 && !popupLoading && (
-                <View style={[styles.emptyState, { backgroundColor: 'rgba(0,0,0,0.1)', borderRadius: 16 }]}>
-                  <Ionicons name="images-outline" size={40} color="rgba(168,167,212,0.2)" />
-                  <Text style={styles.emptyText}>No Popups Yet</Text>
-                  <Text style={styles.emptySubtext}>Create your first promotion popup.</Text>
-                </View>
-              )}
-              {popupHistory.map((popup) => (
-                <View key={popup.id} style={{ flexDirection: 'row', backgroundColor: 'rgba(24, 24, 27, 0.65)', borderRadius: 16, padding: 12, borderWidth: 1, borderColor: popup.is_active ? '#00e3fd' : 'rgba(167,139,250,0.1)', alignItems: 'center' }}>
-                  <Image source={{ uri: fixUrl(popup.image_url) || "" }} style={{ width: 60, height: 60, borderRadius: 10, marginRight: 16, backgroundColor: '#000' }} resizeMode="cover" />
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14, marginBottom: 4 }}>Popup #{popup.id}</Text>
-                    <View style={{ flexDirection: 'row', gap: 12 }}>
-                      <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}><Ionicons name="time-outline" size={10} /> {popup.display_duration}s</Text>
-                      <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}><Ionicons name="calendar-outline" size={10} /> {formatDate(popup.created_at)}</Text>
-                    </View>
-                  </View>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <View style={{ alignItems: 'flex-end' }}>
-                      <Switch 
-                        value={popup.is_active} 
-                        onValueChange={() => togglePopupStatus(popup.id, popup.is_active)} 
-                        trackColor={{ false: '#333', true: 'rgba(0,227,253,0.3)' }} 
-                        thumbColor={popup.is_active ? '#00e3fd' : '#666'} 
-                        disabled={!popup.is_active && popupHistory.some(p => p.is_active && p.id !== popup.id)}
-                      />
-                      <Text style={{ color: popup.is_active ? '#00e3fd' : 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: '800', marginTop: 4 }}>
-                        {popup.is_active ? 'ACTIVE' : 'INACTIVE'}
+                  {/* Message body */}
+                  <View>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <Text style={sLabel}>Message</Text>
+                      <Text style={{ fontSize: 10, color: C.onSurfaceVariant }}>
+                        {smsBody.length} chars · {segments} segment{segments !== 1 ? 's' : ''}{isUnicode ? ' (Amharic/Unicode)' : ''}
                       </Text>
                     </View>
-                    <TouchableOpacity
-                      onPress={() => setPopupToDelete(popup.id)}
-                      style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(253,111,133,0.1)', borderWidth: 1, borderColor: 'rgba(253,111,133,0.2)', alignItems: 'center', justifyContent: 'center' }}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons name="trash-outline" size={16} color="#fd6f85" />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ))}
-            </View>
-          </View>
-        </ScrollView>
-      ) : activeTab === 'sms' ? (
-        /* ═══ Bulk SMS Tab ═══ */
-        <ScrollView style={{ flex: 1 }}>
-          <View style={styles.popupCard}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
-              <View style={{ flex: 1, minWidth: 200 }}>
-                <Text style={{ color: textPrimary, fontSize: 22, fontWeight: '800', letterSpacing: -0.5, marginBottom: 4 }}>Targeted Bulk SMS</Text>
-                <Text style={{ color: textSecondary, fontSize: 13 }}>Send promotional SMS directly to user phone numbers using targeted filters.</Text>
-              </View>
-              <TouchableOpacity 
-                style={[styles.tabBtn, { height: 38, paddingHorizontal: 14 }]} 
-                onPress={async () => {
-                  try {
-                    let url = `${API_URL}/admin/bulk-sms/preview?targetMode=${smsForm.targetMode}`;
-                    if (smsForm.targetMode === 'specific') {
-                      if (smsForm.specificPhone) url += `&specific_phone=${encodeURIComponent(smsForm.specificPhone)}`;
-                      else {
-                        if (smsForm.role !== 'all') url += `&role=${smsForm.role}`;
-                        if (smsForm.balanceRange !== 'all') {
-                          const [min, max] = smsForm.balanceRange.split('-');
-                          if (min) url += `&min_balance=${min}`;
-                          if (max) url += `&max_balance=${max}`;
-                        }
-                      }
-                    }
-                    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}`, 'x-platform': 'web' } });
-                    const json = await res.json();
-                    if (res.ok && json.users) {
-                      const csv = json.users.map((u: any) => `${u.username || ''}, ${u.name || ''}, ${u.phone || ''}`).join('\n');
-                      if (Platform.OS === 'web' && navigator?.clipboard) {
-                         navigator.clipboard.writeText(csv);
-                         showAlert('Copied', `Copied ${json.users.length} users' aggregated data to clipboard`);
-                      } else {
-                         showAlert('Copied', `Found ${json.users.length} users. Copy is only supported on Web.`);
-                      }
-                    } else {
-                      showAlert('Error', 'Failed to fetch audience list');
-                    }
-                  } catch (e) {
-                    showAlert('Error', 'Network error');
-                  }
-                }}
-              >
-                <Ionicons name="copy-outline" size={15} color={textPrimary} />
-                <Text style={{ color: textPrimary, fontSize: 12, fontWeight: '700' }}>Copy / Export User Data</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={{ gap: 20 }}>
-              <View>
-                <Text style={styles.formLabel}>Message Body</Text>
-                <TextInput 
-                  style={[styles.input, { minHeight: 110, height: 110, textAlignVertical: 'top', paddingTop: 14 }]} 
-                  multiline 
-                  placeholder="Enter SMS promotional message here..." 
-                  placeholderTextColor={textSecondary} 
-                  value={smsForm.message} 
-                  onChangeText={t => setSmsForm({ ...smsForm, message: t })} 
-                />
-              </View>
-
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: isDark ? 'rgba(255, 45, 85, 0.05)' : '#f8fafc', borderRadius: 12, padding: 16, borderWidth: 1, borderColor }}>
-                <View>
-                  <Text style={{ color: textPrimary, fontSize: 14, fontWeight: '700' }}>Target Audience</Text>
-                  <Text style={{ color: textSecondary, fontSize: 12, marginTop: 2 }}>{smsForm.targetMode === 'all' ? 'Sending to ALL registered users' : 'Filtered audience selection'}</Text>
-                </View>
-                <View style={{ flexDirection: 'row', backgroundColor: bgCard, borderRadius: 8, padding: 3, borderWidth: 1, borderColor }}>
-                  <TouchableOpacity 
-                    style={[styles.modeBtn, smsForm.targetMode === 'all' && styles.modeBtnActive]} 
-                    onPress={() => setSmsForm({ ...smsForm, targetMode: 'all' })}
-                  >
-                    <Text style={[styles.modeBtnText, smsForm.targetMode === 'all' && styles.modeBtnTextActive]}>All Users</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={[styles.modeBtn, smsForm.targetMode === 'specific' && styles.modeBtnActive]} 
-                    onPress={() => setSmsForm({ ...smsForm, targetMode: 'specific' })}
-                  >
-                    <Text style={[styles.modeBtnText, smsForm.targetMode === 'specific' && styles.modeBtnTextActive]}>Specific</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {smsForm.targetMode === 'specific' && (
-                <View style={{ gap: 16, padding: 18, backgroundColor: bgCard, borderRadius: 12, borderWidth: 1, borderColor }}>
-                  <Text style={[styles.formLabel, { color: C.primary }]}>Targeting Filters</Text>
-                  
-                  <View style={{ flexDirection: 'row', gap: 16, zIndex: 10 }}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.formLabel}>User Role</Text>
-                      {Platform.OS === 'web' ? (
-                        <select 
-                          style={styles.webSelect} 
-                          value={smsForm.role} 
-                          onChange={(e) => setSmsForm({ ...smsForm, role: e.target.value })}
-                          disabled={!!smsForm.specificPhone}
-                        >
-                          <option value="all" style={{ backgroundColor: bgSurface, color: textPrimary }}>Any Role</option>
-                          <option value="user" style={{ backgroundColor: bgSurface, color: textPrimary }}>User</option>
-                          <option value="admin" style={{ backgroundColor: bgSurface, color: textPrimary }}>Admin</option>
-                          <option value="maintenance" style={{ backgroundColor: bgSurface, color: textPrimary }}>Maintenance Admin</option>
-                          <option value="superadmin" style={{ backgroundColor: bgSurface, color: textPrimary }}>Superadmin</option>
-                        </select>
-                      ) : (
-                        <TextInput style={[styles.input, !!smsForm.specificPhone && { opacity: 0.5 }]} placeholder="Role..." value={smsForm.role} editable={!smsForm.specificPhone} />
-                      )}
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.formLabel}>Balance Range</Text>
-                      {Platform.OS === 'web' ? (
-                        <select 
-                          style={styles.webSelect} 
-                          value={smsForm.balanceRange} 
-                          onChange={(e) => setSmsForm({ ...smsForm, balanceRange: e.target.value })}
-                          disabled={!!smsForm.specificPhone}
-                        >
-                          <option value="all" style={{ backgroundColor: bgSurface, color: textPrimary }}>Any Balance</option>
-                          <option value="0-100" style={{ backgroundColor: bgSurface, color: textPrimary }}>0 - 100 ETB</option>
-                          <option value="100-1000" style={{ backgroundColor: bgSurface, color: textPrimary }}>100 - 1,000 ETB</option>
-                          <option value="1000-10000" style={{ backgroundColor: bgSurface, color: textPrimary }}>1,000 - 10,000 ETB</option>
-                          <option value="10000-100000" style={{ backgroundColor: bgSurface, color: textPrimary }}>10,000 - 100,000 ETB</option>
-                        </select>
-                      ) : (
-                        <TextInput style={[styles.input, !!smsForm.specificPhone && { opacity: 0.5 }]} placeholder="Range..." value={smsForm.balanceRange} editable={!smsForm.specificPhone} />
-                      )}
-                    </View>
-                  </View>
-
-                  <View style={{ marginTop: 8 }}>
-                    <Text style={styles.formLabel}>Specific Phone Number (Overrides other filters)</Text>
-                    <TextInput 
-                      style={[styles.input, { minHeight: 70, textAlignVertical: 'top', paddingTop: 10 }]} 
-                      placeholder="+251..., 09..." 
-                      placeholderTextColor={textSecondary} 
-                      value={smsForm.specificPhone} 
-                      onChangeText={t => setSmsForm({ ...smsForm, specificPhone: t })} 
-                      multiline={true}
-                      numberOfLines={3}
+                    <TextInput
+                      value={smsBody}
+                      onChangeText={setSmsBody}
+                      placeholder="Write the message players will receive..."
+                      placeholderTextColor={C.onSurfaceVariant}
+                      multiline
+                      numberOfLines={4}
+                      style={[sInput, { height: 100, paddingVertical: 8, textAlignVertical: 'top' }]}
                     />
-                    {!!smsForm.specificPhone && (
-                      <Text style={{ color: C.accentCyan, fontSize: 11, marginTop: 4 }}>Note: Role and Balance filters are ignored when a specific phone is provided.</Text>
-                    )}
                   </View>
-                </View>
-              )}
 
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginTop: 8 }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: C.accentCyan, fontSize: 13, fontWeight: '700' }}>
-                     {previewLoading ? 'Calculating audience...' : `Estimated Audience: ${Number(previewCount ?? 0).toLocaleString()} users`}
-                  </Text>
-                  <Text style={{ color: textSecondary, fontSize: 11, marginTop: 2 }}>Carrier delivery rate applied upon dispatch</Text>
-                </View>
-                <TouchableOpacity 
-                  style={[styles.sendCampaignBtn, (!smsForm.message.trim() || smsSending) && { opacity: 0.5 }]} 
-                  onPress={() => setConfirmSms(true)} 
-                  disabled={!smsForm.message.trim() || smsSending}
-                >
-                  {smsSending ? (
-                    <ActivityIndicator color="#ffffff" size="small" />
-                  ) : (
-                    <>
-                      <Ionicons name="paper-plane" size={16} color="#ffffff" />
-                      <Text style={styles.sendCampaignBtnText}>Send SMS Campaign</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              </View>
-
-              <ActionConfirmModal
-                visible={confirmSms}
-                title="Confirm Bulk SMS"
-                message={`You are about to queue this SMS to ${smsForm.targetMode === 'all' ? 'ALL USERS' : (smsForm.specificPhone ? `user ${smsForm.specificPhone}` : 'users matching the selected filters')}.\n\nThis action cannot be undone and will incur SMS costs.`}
-                confirmText="Yes, Send Now"
-                confirmColor="red"
-                iconName="warning-outline"
-                isLoading={smsSending}
-                onCancel={() => setConfirmSms(false)}
-                onConfirm={sendBulkSms}
-              />
-            </View>
-          </View>
-          
-          {/* SMS History Section */}
-          <View style={[styles.popupCard, { marginTop: 20 }]}>
-             <Text style={{ color: textPrimary, fontSize: 16, fontWeight: '800', marginBottom: 16 }}>Campaign History</Text>
-             {historyLoading ? (
-               <ActivityIndicator color={C.primary} style={{ padding: 20 }} />
-             ) : smsHistory.length === 0 ? (
-               <Text style={{ color: textSecondary, fontSize: 12, fontStyle: 'italic' }}>No SMS campaigns sent yet.</Text>
-             ) : (
-               <View style={{ gap: 12 }}>
-                 {smsHistory.map((item, idx) => {
-                    const filters = typeof item.filters === 'string' ? JSON.parse(item.filters) : (item.filters || {});
-                    let targetDesc = "All Users";
-                    if (filters.specific_phone) targetDesc = `Phone: ${filters.specific_phone}`;
-                    else if (filters.role || filters.min_balance) targetDesc = `Role: ${filters.role || 'Any'}, Balance: ${filters.min_balance || 0}-${filters.max_balance || '∞'}`;
-                    
-                    return (
-                     <View key={item.id || idx} style={{ padding: 14, backgroundColor: bgCard, borderRadius: 10, borderWidth: 1, borderColor }}>
-                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-                         <Text style={{ color: textPrimary, fontWeight: '700', fontSize: 13 }} numberOfLines={1}>{item.message}</Text>
-                       </View>
-                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                         <View>
-                           <Text style={{ color: textSecondary, fontSize: 11 }}>Target: {targetDesc}</Text>
-                           <Text style={{ color: textSecondary, fontSize: 11, marginTop: 2 }}>Sent by: {item.admin_name || 'Admin'} • {formatDate(item.created_at)}</Text>
-                         </View>
-                         <View style={{ alignItems: 'flex-end' }}>
-                           <Text style={{ color: C.secondary, fontSize: 13, fontWeight: '800' }}>{item.success_count} / {item.target_count}</Text>
-                           <Text style={{ color: textSecondary, fontSize: 10, fontWeight: '600' }}>Delivered</Text>
-                         </View>
-                       </View>
-                     </View>
-                    );
-                 })}
-               </View>
-             )}
-          </View>
-        </ScrollView>
-      ) : (
-      /* ═══ Referral Links Tab (existing) ═══ */
-      <View style={{ flex: 1 }}>
-      <View style={styles.header}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.title}>Promotion Links</Text>
-          <Text style={styles.subtitle}>Track and manage referral promotion campaigns</Text>
-        </View>
-        <TouchableOpacity style={styles.createBtn} onPress={() => setCreateModalVisible(true)}>
-          <Ionicons name="add-circle" size={18} color="#0c0c1f" />
-          <Text style={styles.createBtnText}>New Link</Text>
-        </TouchableOpacity>
-      </View>
-      {/* Stats Summary */}
-      <View style={styles.statsRow}>
-        <View style={styles.statCard}>
-          <Text style={styles.statLabel}>Total Links</Text>
-          <Text style={styles.statValue}>{links.length}</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statLabel}>Total Registrations</Text>
-          <Text style={styles.statValue}>{links.reduce((sum, l) => sum + l.total_registrations, 0)}</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statLabel}>Active</Text>
-          <Text style={styles.statValue}>{links.filter(l => l.is_active).length}</Text>
-        </View>
-      </View>
-
-      {loading ? (
-        <ActivityIndicator color={C.primary} style={{ marginTop: 40 }} />
-      ) : (
-        <ScrollView style={styles.list}>
-          {links.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Ionicons name="link-outline" size={48} color="rgba(167,139,250,0.2)" />
-              <Text style={styles.emptyText}>No promotion links yet</Text>
-              <Text style={styles.emptySubtext}>Create your first promotion campaign above</Text>
-            </View>
-          ) : (
-            links.map(link => (
-              <View key={link.id} style={styles.linkCard}>
-                <View style={styles.linkHeader}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.linkName}>{link.name}</Text>
-                    <Text style={styles.linkCode}>
-                      {`${APP_URL}/?promo=${link.code}`}
-                    </Text>
-                  </View>
-                  <Switch 
-                    value={link.is_active} 
-                    onValueChange={() => setConfirmAction({ type: 'toggle', link })}
-                    trackColor={{ false: '#333', true: 'rgba(0,227,253,0.3)' }}
-                    thumbColor={link.is_active ? '#00e3fd' : '#666'}
-                  />
-                </View>
-
-                <View style={styles.linkStats}>
-                  <View style={styles.linkStat}>
-                    <Text style={styles.linkStatLabel}>Bonus</Text>
-                    <Text style={styles.linkStatValue}>ETB {link.bonus_amount}</Text>
-                  </View>
-                  <View style={styles.linkStat}>
-                    <Text style={styles.linkStatLabel}>Registrations</Text>
-                    <Text style={styles.linkStatValue}>{link.total_registrations}</Text>
-                  </View>
-                  <View style={styles.linkStat}>
-                    <Text style={styles.linkStatLabel}>Claimed</Text>
-                    <Text style={styles.linkStatValue}>{link.total_claims}</Text>
-                  </View>
-                  <View style={styles.linkStat}>
-                    <Text style={styles.linkStatLabel}>Created</Text>
-                    <Text style={styles.linkStatValue}>{formatDate(link.created_at)}</Text>
-                  </View>
-                </View>
-
-                <View style={styles.linkActions}>
-                  <TouchableOpacity 
-                    style={styles.actionBtn} 
-                    onPress={() => { setSelectedLink(link); loadClaims(link); }}
-                  >
-                    <Ionicons name="eye-outline" size={16} color="#a78bfa" />
-                    <Text style={styles.actionBtnText}>View Claims</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={[styles.actionBtn, { borderColor: copiedId === link.id ? '#34d399' : '#00daf3' }]} 
-                    onPress={() => {
-                      const url = `${APP_URL}/?promo=${link.code}`;
-                      if (Platform.OS === 'web' && navigator?.clipboard) {
-                        navigator.clipboard.writeText(url);
-                      }
-                      setCopiedId(link.id);
-                      setTimeout(() => setCopiedId(null), 2000);
-                    }}
-                  >
-                    <Ionicons name={copiedId === link.id ? "checkmark-circle" : "copy-outline"} size={16} color={copiedId === link.id ? '#34d399' : '#00daf3'} />
-                    <Text style={[styles.actionBtnText, { color: copiedId === link.id ? '#34d399' : '#00daf3' }]}>{copiedId === link.id ? 'Copied!' : 'Copy Link'}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={[styles.actionBtn, { borderColor: '#ff6f7c' }]} 
-                    onPress={() => setConfirmAction({ type: 'delete', link })}
-                  >
-                    <Ionicons name="trash-outline" size={16} color="#ff6f7c" />
-                    <Text style={[styles.actionBtnText, { color: '#ff6f7c' }]}>Delete</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))
-          )}
-        </ScrollView>
-      )}
-
-      {/* Create Modal */}
-      <Modal visible={createModalVisible} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalBox}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Create Promotion Link</Text>
-              <TouchableOpacity onPress={() => setCreateModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#fff" />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.form}>
-              <View>
-                <Text style={styles.formLabel}>Campaign Name</Text>
-                <TextInput 
-                  style={styles.input}
-                  placeholder="e.g. Social Media Launch"
-                  value={newLink.name}
-                  onChangeText={t => setNewLink({ ...newLink, name: t })}
-                />
-              </View>
-
-              <View>
-                <Text style={styles.formLabel}>Bonus Amount (ETB)</Text>
-                <TextInput 
-                  style={styles.input}
-                  keyboardType="numeric"
-                  value={newLink.bonus_amount}
-                  onChangeText={t => setNewLink({ ...newLink, bonus_amount: t })}
-                />
-              </View>
-
-              <View>
-                <Text style={styles.formLabel}>Custom Code (optional)</Text>
-                <TextInput 
-                  style={styles.input}
-                  placeholder="Leave empty for auto-generated"
-                  autoCapitalize="characters"
-                  value={newLink.code}
-                  onChangeText={t => setNewLink({ ...newLink, code: t })}
-                />
-              </View>
-
-              <TouchableOpacity style={styles.saveBtn} onPress={createLink} disabled={!newLink.name}>
-                <Text style={styles.saveBtnText}>Create Link</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Claims Detail Modal */}
-      <Modal visible={!!selectedLink} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalBox, { maxHeight: '80%' }]}>
-            <View style={styles.modalHeader}>
-              <View>
-                <Text style={styles.modalTitle}>{selectedLink?.name}</Text>
-                <Text style={styles.modalSubtitle}>Code: {selectedLink?.code}</Text>
-              </View>
-              <TouchableOpacity onPress={() => { setSelectedLink(null); setClaims([]); }}>
-                <Ionicons name="close" size={24} color="#fff" />
-              </TouchableOpacity>
-            </View>
-
-            {claimsLoading ? (
-              <ActivityIndicator color={C.primary} style={{ padding: 40 }} />
-            ) : claims.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyText}>No claims yet for this promotion</Text>
-              </View>
-            ) : (
-              <ScrollView style={{ maxHeight: 350, marginTop: 10 }} contentContainerStyle={{ paddingBottom: 20 }} showsVerticalScrollIndicator={true}>
-                {claims.map((c, i) => (
-                  <View key={i} style={styles.claimItem}>
-                    <View>
-                      <Text style={styles.claimUser}>{c.username || 'Unknown User'}</Text>
-                      <Text style={styles.claimPhone}>{c.number}</Text>
+                  {/* KPI row */}
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <View style={{ flex: 1, borderRadius: 12, backgroundColor: C.surfaceContainerLow, padding: 12 }}>
+                      <Text style={{ fontSize: 10, color: C.onSurfaceVariant }}>Recipients</Text>
+                      <Text style={{ fontSize: 15, fontWeight: '800', color: C.onSurface, marginTop: 4 }}>
+                        {previewLoading ? '...' : fmtInt(recipients)}
+                      </Text>
                     </View>
-                    <Text style={styles.claimDate}>{formatDate(c.created_at || c.claimed_at)}</Text>
+                    <View style={{ flex: 1, borderRadius: 12, backgroundColor: C.surfaceContainerLow, padding: 12 }}>
+                      <Text style={{ fontSize: 10, color: C.onSurfaceVariant }}>SMS segments</Text>
+                      <Text style={{ fontSize: 15, fontWeight: '800', color: C.onSurface, marginTop: 4 }}>
+                        {fmtInt(recipients * segments)}
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1, borderRadius: 12, backgroundColor: C.surfaceContainerLow, padding: 12 }}>
+                      <Text style={{ fontSize: 10, color: C.onSurfaceVariant }}>Est. SMS cost</Text>
+                      <Text style={{ fontSize: 15, fontWeight: '800', color: C.primary, marginTop: 4 }}>
+                        {fmtETB(estCost)}
+                      </Text>
+                    </View>
                   </View>
-                ))}
-              </ScrollView>
-            )}
+
+                  {/* Send */}
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={{ fontSize: 10, color: C.onSurfaceVariant, maxWidth: '60%' as any }}>
+                      Banned accounts are excluded automatically. SMS at ETB 0.35/segment.
+                    </Text>
+                    <AdminButton tone="brand" icon="send-outline" onPress={() => setConfirmSms(true)} disabled={!isSuperAdmin || !smsBody}>
+                      Send now
+                    </AdminButton>
+                  </View>
+                </View>
+              </AdminPanel>
+            </View>
+
+            {/* ── Right: preview + history ── */}
+            <View style={Platform.OS === 'web' ? { width: 400, gap: 16 } : { gap: 16 }}>
+              {/* Preview */}
+              <AdminPanel title="Preview" kicker="How players see it">
+                <View style={{
+                  marginLeft: 'auto' as any,
+                  maxWidth: '85%' as any,
+                  backgroundColor: C.primary,
+                  borderRadius: 16,
+                  borderBottomRightRadius: 4,
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                }}>
+                  <Text style={{ fontSize: 11, lineHeight: 18, color: '#fff' }}>
+                    {smsBody || 'SMS text appears here.'}
+                  </Text>
+                  <Text style={{ fontSize: 9, color: 'rgba(255,255,255,0.75)', textAlign: 'right', marginTop: 4 }}>
+                    XOETHIOPIA
+                  </Text>
+                </View>
+              </AdminPanel>
+
+              {/* Sent history */}
+              <AdminPanel title="Sent history" kicker={`${smsHistory.length} broadcasts`} noPadBody>
+                {historyLoading ? (
+                  <ActivityIndicator color={C.primary} style={{ marginVertical: 30 }} />
+                ) : smsHistory.length === 0 ? (
+                  <Text style={{ textAlign: 'center', color: C.onSurfaceVariant, paddingVertical: 30, fontSize: 12 }}>
+                    No broadcasts sent yet.
+                  </Text>
+                ) : (
+                  smsHistory.slice(0, 10).map(b => (
+                    <View key={b.id} style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.border }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Text style={{ fontSize: 12, fontWeight: '700', color: C.onSurface, flex: 1 }} numberOfLines={1}>
+                          {b.message?.slice(0, 40)}...
+                        </Text>
+                        <AdminPill tone={b.status === 'delivered' || b.status === 'completed' ? 'positive' : b.status === 'sending' ? 'gold' : 'muted'}>
+                          {b.status || 'sent'}
+                        </AdminPill>
+                      </View>
+                      <Text style={{ fontSize: 10, color: C.onSurfaceVariant, marginTop: 4 }} numberOfLines={2}>
+                        {b.message}
+                      </Text>
+                      <View style={{ marginTop: 6 }}>
+                        <AdminMeter value={b.target_count ? ((b.sent_count || 0) / b.target_count) * 100 : 100} tone="brand" />
+                      </View>
+                      <Text style={{ fontSize: 10, color: C.onSurfaceVariant, marginTop: 4 }}>
+                        {fmtInt(b.sent_count || 0)}/{fmtInt(b.target_count || 0)} · {timeSince(b.created_at)}
+                      </Text>
+                    </View>
+                  ))
+                )}
+              </AdminPanel>
+            </View>
+          </View>
+        )}
+        <View style={{ height: 40 }} />
+      </ScrollView>
+
+      {/* ── Confirm SMS modal ── */}
+      <Modal visible={confirmSms} transparent animationType="fade">
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <View style={{ width: 400, maxWidth: '90%' as any, borderRadius: 16, backgroundColor: C.surface, padding: 24 }}>
+            <Text style={{ fontSize: 17, fontWeight: '800', color: C.onSurface }}>Confirm bulk SMS</Text>
+            <Text style={{ fontSize: 11, color: C.onSurfaceVariant, marginTop: 4 }}>
+              {`Send ${fmtInt(recipients)} messages (${fmtInt(recipients * segments)} segments) for an estimated cost of ${fmtETB(estCost)}.`}
+            </Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
+              <AdminButton tone="ghost" onPress={() => setConfirmSms(false)}>Cancel</AdminButton>
+              <AdminButton tone="brand" icon="send-outline" onPress={sendBulkSms} disabled={smsSending}>
+                {smsSending ? 'Sending...' : 'Confirm and send'}
+              </AdminButton>
+            </View>
           </View>
         </View>
       </Modal>
-    
-      <ActionConfirmModal
-        visible={!!confirmAction}
-        title={confirmAction?.type === 'delete' ? 'Delete Promotion Link' : (confirmAction?.link.is_active ? 'Disable Link' : 'Enable Link')}
-        message={
-          confirmAction?.type === 'delete' 
-            ? 'Are you sure you want to permanently delete this promotion link? All associated tracking data and claims will be removed. This cannot be undone.' 
-            : `Are you sure you want to ${confirmAction?.link.is_active ? 'disable' : 'enable'} this promotion link? ${confirmAction?.link.is_active ? 'Users will no longer be able to claim it.' : 'Users will be able to claim it again.'}`
-        }
-        confirmText={confirmAction?.type === 'delete' ? 'Delete Link' : (confirmAction?.link.is_active ? 'Disable' : 'Enable')}
-        confirmColor={confirmAction?.type === 'delete' ? 'red' : 'blue'}
-        iconName={confirmAction?.type === 'delete' ? 'trash-outline' : 'power-outline'}
-        onCancel={() => setConfirmAction(null)}
-        onConfirm={() => {
-          if (!confirmAction) return;
-          if (confirmAction.type === 'delete') {
-            deleteLink(confirmAction.link.id);
-          } else {
-            toggleActive(confirmAction.link);
-          }
-          setConfirmAction(null);
-        }}
-      />
-      </View>
-      )}
-
-      {/* Popup Delete Confirm — rendered outside tab conditional so it works on popup tab */}
-      <ActionConfirmModal
-        visible={popupToDelete !== null}
-        title="Delete Promotion Popup"
-        message="Are you sure you want to permanently delete this promotion popup? This cannot be undone."
-        confirmText="Delete Popup"
-        confirmColor="red"
-        iconName="trash-outline"
-        onCancel={() => setPopupToDelete(null)}
-        onConfirm={() => {
-          if (popupToDelete !== null) {
-            deletePopup(popupToDelete);
-          }
-        }}
-      />
     </View>
   );
 }
-
-const getStyles = (C: any, isDark: boolean) => {
-  const bgSurface = isDark ? '#0c1424' : '#ffffff';
-  const bgCard = isDark ? '#080e1b' : '#f8fafc';
-  const borderColor = isDark ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0';
-  const textPrimary = isDark ? '#ffffff' : '#0f172a';
-  const textSecondary = isDark ? '#94a3b8' : '#64748b';
-
-  return StyleSheet.create({
-    container: {
-      flex: 1,
-      padding: 16,
-      backgroundColor: 'transparent',
-    },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 20,
-    },
-    title: {
-      color: textPrimary,
-      fontSize: 22,
-      fontWeight: '900',
-    },
-    subtitle: {
-      color: textSecondary,
-      fontSize: 12,
-      fontWeight: '600',
-      marginTop: 2,
-    },
-    createBtn: {
-      backgroundColor: '#FF2D55',
-      paddingHorizontal: 16,
-      paddingVertical: 10,
-      borderRadius: 12,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-    },
-    createBtnText: {
-      color: '#ffffff',
-      fontWeight: '800',
-      fontSize: 12,
-    },
-    statsRow: {
-      flexDirection: 'row',
-      gap: 12,
-      marginBottom: 20,
-    },
-    statCard: {
-      flex: 1,
-      backgroundColor: bgSurface,
-      borderRadius: 16,
-      padding: 16,
-      borderWidth: 1,
-      borderColor: borderColor,
-    },
-    popupCard: {
-      backgroundColor: bgSurface,
-      borderRadius: 24,
-      padding: 24,
-      borderWidth: 1,
-      borderColor: borderColor,
-    },
-    modeBtn: {
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      borderRadius: 6,
-    },
-    modeBtnActive: {
-      backgroundColor: '#FF2D55',
-    },
-    modeBtnText: {
-      color: textSecondary,
-      fontSize: 12,
-      fontWeight: '700',
-    },
-    modeBtnTextActive: {
-      color: '#ffffff',
-    },
-    webSelect: {
-      height: 52,
-      backgroundColor: bgCard,
-      borderWidth: 1,
-      borderColor: borderColor,
-      borderRadius: 16,
-      paddingHorizontal: 16,
-      color: textPrimary,
-      fontSize: 14,
-      fontWeight: '700',
-      ...({ outlineStyle: 'none' } as any),
-    },
-    statLabel: {
-      color: textSecondary,
-      fontSize: 10,
-      fontWeight: '800',
-      textTransform: 'uppercase',
-      marginBottom: 4,
-    },
-    statValue: {
-      color: textPrimary,
-      fontSize: 18,
-      fontWeight: '800',
-    },
-    list: {
-      flex: 1,
-    },
-    linkCard: {
-      backgroundColor: bgSurface,
-      borderRadius: 10,
-      borderWidth: 1,
-      borderColor: borderColor,
-      padding: 20,
-      marginBottom: 12,
-    },
-    linkHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginBottom: 16,
-    },
-    linkName: {
-      color: textPrimary,
-      fontSize: 16,
-      fontWeight: '700',
-      marginBottom: 4,
-    },
-    linkCode: {
-      color: '#FF2D55',
-      fontSize: 11,
-      fontWeight: '700',
-    },
-    linkStats: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 16,
-      marginBottom: 16,
-    },
-    linkStat: {
-      minWidth: 80,
-    },
-    linkStatLabel: {
-      color: textSecondary,
-      fontSize: 10,
-      fontWeight: '700',
-      textTransform: 'uppercase',
-      marginBottom: 2,
-    },
-    linkStatValue: {
-      color: textPrimary,
-      fontSize: 14,
-      fontWeight: '700',
-    },
-    linkActions: {
-      flexDirection: 'row',
-      gap: 12,
-      borderTopWidth: 1,
-      borderTopColor: borderColor,
-      paddingTop: 12,
-    },
-    actionBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      borderRadius: 8,
-      borderWidth: 1,
-      borderColor: borderColor,
-      backgroundColor: bgCard,
-    },
-    actionBtnText: {
-      color: textSecondary,
-      fontSize: 12,
-      fontWeight: '600',
-    },
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.75)',
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: 20,
-    },
-    modalBox: {
-      width: '100%',
-      maxWidth: 480,
-      backgroundColor: bgSurface,
-      borderRadius: 10,
-      padding: 24,
-      borderWidth: 1,
-      borderColor: borderColor,
-    },
-    modalHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 24,
-    },
-    modalTitle: {
-      color: textPrimary,
-      fontSize: 18,
-      fontWeight: '700',
-    },
-    modalSubtitle: {
-      color: textSecondary,
-      fontSize: 12,
-      fontWeight: '600',
-      marginTop: 2,
-    },
-    form: {
-      gap: 16,
-    },
-    formLabel: {
-      color: textSecondary,
-      fontSize: 11,
-      fontWeight: '700',
-      textTransform: 'uppercase',
-      marginBottom: 6,
-    },
-    input: {
-      height: 46,
-      backgroundColor: bgCard,
-      borderWidth: 1,
-      borderColor: borderColor,
-      borderRadius: 8,
-      paddingHorizontal: 16,
-      color: textPrimary,
-      fontSize: 14,
-      fontWeight: '600',
-    },
-    saveBtn: {
-      width: '100%',
-      height: 48,
-      borderRadius: 8,
-      backgroundColor: '#FF2D55',
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginTop: 8,
-    },
-    saveBtnText: {
-      color: '#ffffff',
-      fontSize: 14,
-      fontWeight: '700',
-      textTransform: 'uppercase',
-      letterSpacing: 0.5,
-    },
-    emptyState: {
-      alignItems: 'center',
-      padding: 40,
-      gap: 12,
-    },
-    emptyText: {
-      color: textPrimary,
-      fontSize: 16,
-      fontWeight: '700',
-    },
-    emptySubtext: {
-      color: textSecondary,
-      fontSize: 13,
-      fontWeight: '500',
-      textAlign: 'center',
-    },
-    claimItem: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingVertical: 12,
-      borderBottomWidth: 1,
-      borderBottomColor: borderColor,
-    },
-    claimUser: {
-      color: textPrimary,
-      fontSize: 14,
-      fontWeight: '700',
-    },
-    claimPhone: {
-      color: textSecondary,
-      fontSize: 12,
-      fontWeight: '600',
-    },
-    claimDate: {
-      color: textSecondary,
-      fontSize: 11,
-      fontWeight: '500',
-    },
-    // Tab styles
-    tabBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      borderRadius: 8,
-      backgroundColor: bgCard,
-      borderWidth: 1,
-      borderColor: borderColor,
-    },
-    tabBtnActive: {
-      backgroundColor: '#FF2D55',
-      borderColor: '#FF2D55',
-    },
-    tabBtnText: {
-      color: textSecondary,
-      fontSize: 13,
-      fontWeight: '600',
-    },
-    tabBtnTextActive: {
-      color: '#ffffff',
-    },
-    // Popup config styles
-    imagePreview: {
-      borderRadius: 8,
-      overflow: 'hidden',
-      backgroundColor: bgCard,
-      marginBottom: 8,
-    },
-    replaceBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      backgroundColor: 'rgba(0,0,0,0.5)',
-      borderRadius: 6,
-      position: 'absolute',
-      bottom: 12,
-      right: 12,
-    },
-    dropZone: {
-      borderWidth: 1,
-      borderColor: borderColor,
-      borderStyle: 'dashed',
-      borderRadius: 8,
-      padding: 32,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    addBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      borderRadius: 8,
-      backgroundColor: '#FF2D55',
-    },
-    addBtnText: {
-      color: '#ffffff',
-      fontSize: 13,
-      fontWeight: '700',
-      textTransform: 'uppercase',
-    },
-    sendCampaignBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 8,
-      backgroundColor: C.primary,
-      paddingHorizontal: 24,
-      paddingVertical: 14,
-      borderRadius: 8,
-    },
-    sendCampaignBtnText: {
-      color: '#ffffff',
-      fontSize: 14,
-      fontWeight: '800',
-      letterSpacing: 0.3,
-    },
-  });
-};
