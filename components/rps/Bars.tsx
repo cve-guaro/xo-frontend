@@ -5,6 +5,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { colors } from '../../theme/tokens';
+import Avatar from '../ui/Avatar';
 
 // ── ScoreBar ────────────────────────────────────────────────────────────────
 interface ScoreBarProps {
@@ -13,6 +14,8 @@ interface ScoreBarProps {
   winsNeeded: number;
   youName: string;
   opponentName: string;
+  youAvatar?: string | null;
+  opponentAvatar?: string | null;
 }
 
 export const ScoreBar: React.FC<ScoreBarProps> = ({
@@ -21,14 +24,18 @@ export const ScoreBar: React.FC<ScoreBarProps> = ({
   winsNeeded,
   youName,
   opponentName,
+  youAvatar,
+  opponentAvatar,
 }) => {
   return (
     <View style={styles.scoreContainer}>
       {/* Opponent Score (Top) */}
       <View style={styles.scoreSide}>
-        <View style={[styles.avatar, { borderColor: colors.primary }]}>
-          <Text style={styles.avatarText}>{opponentName.slice(0, 2).toUpperCase()}</Text>
-        </View>
+        <Avatar
+          uri={opponentAvatar}
+          name={opponentName}
+          size="md"
+        />
         <Text style={styles.playerName} numberOfLines={1}>
           {opponentName}
         </Text>
@@ -67,9 +74,11 @@ export const ScoreBar: React.FC<ScoreBarProps> = ({
         <Text style={styles.playerName} numberOfLines={1}>
           You
         </Text>
-        <View style={[styles.avatar, { borderColor: colors.violet }]}>
-          <Text style={styles.avatarText}>{youName.slice(0, 2).toUpperCase()}</Text>
-        </View>
+        <Avatar
+          uri={youAvatar}
+          name={youName}
+          size="md"
+        />
       </View>
     </View>
   );

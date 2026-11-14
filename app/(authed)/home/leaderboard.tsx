@@ -28,6 +28,7 @@ import ReferralModal from "../../../components/ReferralModal";
 import { useBackgroundMusic } from "../../../context/BackgroundMusicProvider";
 import PwaInstallModal from "../../../components/game/PwaInstallModal";
 import CongratulationsModal from "../../../components/CongratulationsModal";
+import Avatar from "../../../components/ui/Avatar";
 import { SlidingNumber } from "../../../components/game/SlidingNumber";
 import NotificationsPopover from "../../../components/NotificationsPopover";
 import { SkeletonRow } from "../../../components/SkeletonLoading";
@@ -452,13 +453,11 @@ export default function LeaderboardScreen() {
                         justifyContent: "center",
                         overflow: "hidden",
                       }}>
-                        {top2?.avatar ? (
-                          <Image source={{ uri: top2.avatar }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
-                        ) : (
-                          <Text style={{ color: "#94a3b8", fontSize: 28, fontWeight: "900" }}>
-                            {top2?.username ? top2.username.charAt(0).toUpperCase() : "--"}
-                          </Text>
-                        )}
+                        <Avatar
+                          uri={top2?.avatar}
+                          name={top2?.username}
+                          size={96}
+                        />
                       </View>
                       {/* Badge 2 intersecting bottom */}
                       <View style={{
@@ -503,15 +502,12 @@ export default function LeaderboardScreen() {
                         alignItems: "center",
                         justifyContent: "center",
                         overflow: "hidden",
-                        boxShadow: "0 0 25px rgba(245, 158, 11, 0.4)",
                       } as any}>
-                        {top1?.avatar ? (
-                          <Image source={{ uri: top1.avatar }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
-                        ) : (
-                          <Text style={{ color: "#f59e0b", fontSize: 36, fontWeight: "900" }}>
-                            {top1?.username ? top1.username.charAt(0).toUpperCase() : "--"}
-                          </Text>
-                        )}
+                        <Avatar
+                          uri={top1?.avatar}
+                          name={top1?.username}
+                          size={120}
+                        />
                       </View>
                       {/* Badge 1 intersecting bottom */}
                       <View style={{
@@ -555,13 +551,11 @@ export default function LeaderboardScreen() {
                         justifyContent: "center",
                         overflow: "hidden",
                       }}>
-                        {top3User?.avatar ? (
-                          <Image source={{ uri: top3User.avatar }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
-                        ) : (
-                          <Text style={{ color: "#f97316", fontSize: 28, fontWeight: "900" }}>
-                            {top3User?.username ? top3User.username.charAt(0).toUpperCase() : "--"}
-                          </Text>
-                        )}
+                        <Avatar
+                          uri={top3User?.avatar}
+                          name={top3User?.username}
+                          size={96}
+                        />
                       </View>
                       {/* Badge 3 intersecting bottom */}
                       <View style={{
@@ -648,13 +642,11 @@ export default function LeaderboardScreen() {
                             </View>
 
                             {/* Avatar */}
-                            <View style={s.rankRowAvatar}>
-                              {item.avatar ? (
-                                <Image source={{ uri: item.avatar }} style={s.rankRowAvatarImg} />
-                              ) : (
-                                <Text style={s.rankRowAvatarText}>{item.username.slice(0, 2).toUpperCase()}</Text>
-                              )}
-                            </View>
+                            <Avatar
+                              uri={item.avatar}
+                              name={item.username}
+                              size={38}
+                            />
 
                             {/* Info */}
                             <View>
@@ -846,13 +838,11 @@ export default function LeaderboardScreen() {
                 justifyContent: "center",
                 overflow: "hidden",
               }}>
-                {top2?.avatar ? (
-                  <Image source={{ uri: top2.avatar }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
-                ) : (
-                  <Text style={{ color: "#94a3b8", fontSize: 20, fontWeight: "900" }}>
-                    {top2?.username ? top2.username.charAt(0).toUpperCase() : "--"}
-                  </Text>
-                )}
+                <Avatar
+                  uri={top2?.avatar}
+                  name={top2?.username}
+                  size={72}
+                />
               </View>
               {/* Badge 2 intersecting bottom */}
               <View style={{
@@ -898,15 +888,12 @@ export default function LeaderboardScreen() {
                 alignItems: "center",
                 justifyContent: "center",
                 overflow: "hidden",
-                boxShadow: "0 0 20px rgba(245, 158, 11, 0.35)",
               } as any}>
-                {top1?.avatar ? (
-                  <Image source={{ uri: top1.avatar }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
-                ) : (
-                  <Text style={{ color: "#f59e0b", fontSize: 26, fontWeight: "900" }}>
-                    {top1?.username ? top1.username.charAt(0).toUpperCase() : "--"}
-                  </Text>
-                )}
+                <Avatar
+                  uri={top1?.avatar}
+                  name={top1?.username}
+                  size={90}
+                />
               </View>
               {/* Badge 1 intersecting bottom */}
               <View style={{
@@ -951,13 +938,11 @@ export default function LeaderboardScreen() {
                 justifyContent: "center",
                 overflow: "hidden",
               }}>
-                {top3User?.avatar ? (
-                  <Image source={{ uri: top3User.avatar }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
-                ) : (
-                  <Text style={{ color: "#f97316", fontSize: 20, fontWeight: "900" }}>
-                    {top3User?.username ? top3User.username.charAt(0).toUpperCase() : "--"}
-                  </Text>
-                )}
+                <Avatar
+                  uri={top3User?.avatar}
+                  name={top3User?.username}
+                  size={72}
+                />
               </View>
               {/* Badge 3 intersecting bottom */}
               <View style={{
@@ -1048,22 +1033,11 @@ export default function LeaderboardScreen() {
                       <Text style={{ color: badgeTextCol, fontSize: 12, fontWeight: "900" }}>#{item.rank}</Text>
                     </View>
 
-                    <View style={{
-                      width: 38,
-                      height: 38,
-                      borderRadius: 19,
-                      backgroundColor: "#1e293b",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}>
-                      {item.avatar ? (
-                        <Image source={{ uri: item.avatar }} style={{ width: "100%", height: "100%", borderRadius: 19 }} resizeMode="cover" />
-                      ) : (
-                        <Text style={{ color: "#cbd5e1", fontSize: 14, fontWeight: "800" }}>
-                          {(item.username || "P").charAt(0).toUpperCase()}
-                        </Text>
-                      )}
-                    </View>
+                    <Avatar
+                      uri={item.avatar}
+                      name={item.username}
+                      size={38}
+                    />
 
                     <View>
                       <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "800" }}>

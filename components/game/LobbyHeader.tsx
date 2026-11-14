@@ -23,6 +23,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Notification01 } from "../animate-ui/icons/hugeicons/notification-01";
 import { SyncIcon } from "../SvgIcons";
 import { colors, type, radius, space, metrics, elevation } from "../../theme/tokens";
+import Avatar from "../ui/Avatar";
 import { haptics } from "../../lib/haptcs";
 import { playTickSound, playNotificationSound } from "../../lib/pinTickAudio";
 
@@ -205,9 +206,11 @@ export const LobbyHeader = memo(function LobbyHeader({
           activeOpacity={0.8}
           style={styles.avatarButton}
         >
-          <View style={styles.avatarWrap}>
-            <Ionicons name="person" size={19} color="#00daf3" />
-          </View>
+          <Avatar
+            uri={(user as any)?.avatar}
+            name={(user as any)?.display_name || user?.username}
+            size="sm"
+          />
           <View style={styles.userInfo}>
             <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "900", letterSpacing: 0.3 }} numberOfLines={1}>
               {(user as any)?.display_name || user?.username || "Player"}

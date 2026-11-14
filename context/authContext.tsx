@@ -433,6 +433,7 @@ type Ctx = {
 
   // Profile & session
   refreshProfile: (force?: boolean) => Promise<void>;
+  updateAvatar: (newAvatar: string | null) => void;
   logout: () => Promise<void>;
 
   // Payment methods
@@ -1317,6 +1318,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const closeAlert = () => setAlertConfig(prev => ({ ...prev, visible: false }));
 
+  const updateAvatar = useCallback((newAvatar: string | null) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, avatar: newAvatar };
+      storage.setItemAsync(USER_KEY, JSON.stringify(updated)).catch(() => {});
+      return updated;
+    });
+  }, []);
+
   const refreshProfile = useCallback(async (force: boolean | any = false) => {
     if (!token) return;
 
@@ -1442,6 +1452,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       loginWithToken,
 
       refreshProfile,
+      updateAvatar,
       logout,
 
       // Methods

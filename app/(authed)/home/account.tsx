@@ -23,10 +23,12 @@ import { WebDepositModal, WebWithdrawModal } from "../../../components/WebModals
 import DesktopHeader from "../../../components/game/DesktopHeader";
 import DesktopSidebar from "../../../components/game/DesktopSidebar";
 import ReferralModal from "../../../components/ReferralModal";
+import ProfileEditModal from "../../../components/ProfileEditModal";
 import PwaInstallModal from "../../../components/game/PwaInstallModal";
 import { useBackgroundMusic } from "../../../context/BackgroundMusicProvider";
 import LogoutConfirmation from "../../../components/LogoutConfirmation";
 import { SlidingNumber } from "../../../components/game/SlidingNumber";
+import Avatar from "../../../components/ui/Avatar";
 import NotificationsPopover from "../../../components/NotificationsPopover";
 import { SkeletonBox, SkeletonRow } from "../../../components/SkeletonLoading";
 import { haptics } from "../../../lib/haptcs";
@@ -53,7 +55,7 @@ export default function ProfileScreen() {
   const isTablet = Platform.OS === "web" && width >= 768 && width < 1024;
   const isLargeScreen = isDesktop || isTablet;
 
-  const { user, token, language, refreshProfile, logout, switchLanguage, isSuperAdmin } = useAuth();
+  const { user, token, language, refreshProfile, logout, switchLanguage, isSuperAdmin, fixUrl } = useAuth();
   const { isPlaying, toggleMusic } = useBackgroundMusic();
   const [notificationsVisible, setNotificationsVisible] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -245,34 +247,19 @@ export default function ProfileScreen() {
         <LogoutConfirmation visible={exitModalVisible} onCancel={() => setExitModalVisible(false)} onConfirm={confirmExit} />
         <NotificationsPopover visible={notificationsVisible} onClose={() => setNotificationsVisible(false)} onUnreadCountChange={setUnreadCount} />
 
-        {/* Edit Profile Dialog Modal */}
-        {editModalVisible && (
-          <View style={s.dialogOverlay}>
-            <View style={s.dialogCard}>
-              <View style={s.dialogHeader}>
-                <Text style={s.dialogTitle}>{isEN ? "Edit Profile" : "መገለጫ አርትዕ"}</Text>
-                <TouchableOpacity onPress={() => setEditModalVisible(false)}>
-                  <Ionicons name="close" size={20} color="#8b93a7" />
-                </TouchableOpacity>
-              </View>
-              <View style={s.dialogBody}>
-                <Text style={s.inputLabel}>{isEN ? "USERNAME" : "የተጠቃሚ ስም"}</Text>
-                <TextInput value={editUsername} onChangeText={setEditUsername} style={s.dialogInput} placeholder={isEN ? "Username" : "የተጠቃሚ ስም"} placeholderTextColor="rgba(255,255,255,0.2)" />
-
-                <Text style={[s.inputLabel, { marginTop: 14 }]}>{isEN ? "DISPLAY NAME" : "የሚታይ ስም"}</Text>
-                <TextInput value={editDisplayName} onChangeText={setEditDisplayName} style={s.dialogInput} placeholder={isEN ? "Display Name" : "የሚታይ ስም"} placeholderTextColor="rgba(255,255,255,0.2)" />
-              </View>
-              <View style={s.dialogFooter}>
-                <TouchableOpacity onPress={() => setEditModalVisible(false)} style={s.cancelBtn}>
-                  <Text style={s.cancelBtnText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={handleSaveProfile} style={s.saveBtn} disabled={savingProfile}>
-                  {savingProfile ? <ActivityIndicator color="#0a0e1a" /> : <Text style={s.saveBtnText}>Save</Text>}
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        )}
+        {/* Profile Edit & Avatar Upload Modal */}
+        <ProfileEditModal
+          visible={editModalVisible}
+          onClose={() => setEditModalVisible(false)}
+          initialUsername={user?.username}
+          initialDisplayName={user?.display_name}
+          initialAvatar={user?.avatar}
+          language={language}
+          onSaved={() => {
+            refreshProfile?.(true);
+            setEditModalVisible(false);
+          }}
+        />
 
         {/* ── HEADER BAR ── */}
         <DesktopHeader
@@ -308,17 +295,64 @@ export default function ProfileScreen() {
                 {/* 1. Large Profile Header Card */}
                 <View style={s.profileHeaderCard}>
                   <View style={s.profileCardInfoRow}>
-                    {/* Big Avatar */}
-                    <View style={s.profileBigAvatarShell}>
-                      <Text style={s.profileBigAvatarText}>
-                        {user?.username ? user.username.slice(0, 2).toUpperCase() : "ME"}
-                      </Text>
-                    </View>
+                    {/* Big Avatar with Photo Change Action */}
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      onPress={() => {
+                        playTickSound();
+                        haptics.tap();
+                        setEditModalVisible(true);
+                      }}
+                      style={[s.profileBigAvatarShell, { position: "relative" }]}
+                      accessibilityRole="button"
+                      accessibilityLabel="Edit profile photo"
+                    >
+                      <Avatar
+                        uri={user?.avatar}
+                        name={(user as any)?.display_name || user?.username}
+                        size={76}
+                      />
+                      {/* Camera badge overlay */}
+                      <View style={s.cameraBadgeOverlay}>
+                        <Ionicons name="camera" size={13} color="#ffffff" />
+                      </View>
+                    </TouchableOpacity>
 
                     {/* Meta details */}
                     <View style={{ flex: 1 }}>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                        <Text style={s.profileUsernameText}>{user?.username || (user?.number ? `User ${user.number.slice(-4)}` : "Set Your Name")}</Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                          <Text style={s.profileUsernameText}>{user?.username || (user?.number ? `User ${user.number.slice(-4)}` : "Set Your Name")}</Text>
+                          <TouchableOpacity
+                            onPress={() => {
+                              playTickSound();
+                              haptics.tap();
+                              setEditModalVisible(true);
+                            }}
+                            activeOpacity={0.8}
+                            style={s.editProfileChip}
+                          >
+                            <Ionicons name="pencil" size={12} color="#00daf3" />
+                            <Text style={s.editProfileChipText}>{isEN ? "Change Photo / Edit" : "ፎቶ ቀይር / አርትዕ"}</Text>
+                          </TouchableOpacity>
+                        </View>
+
+                        {/* Admin Panel Entry Button for Admin Accounts (e.g. Guest 5) */}
+                        {(user?.role === "admin" || user?.username === "guest_5" || isSuperAdmin) && (
+                          <TouchableOpacity
+                            activeOpacity={0.85}
+                            onPress={() => {
+                              playTickSound();
+                              haptics.impact();
+                              router.push("/(authed)/admin");
+                            }}
+                            style={s.adminControlPill}
+                          >
+                            <Ionicons name="shield-checkmark" size={15} color="#ffffff" />
+                            <Text style={s.adminControlPillText}>ADMIN CONTROL PANEL</Text>
+                            <Ionicons name="arrow-forward" size={13} color="#ffffff" />
+                          </TouchableOpacity>
+                        )}
                       </View>
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 6 }}>
                         <Ionicons name="checkmark-circle" size={14} color="#22d3ee" />
@@ -660,26 +694,49 @@ export default function ProfileScreen() {
         }}>
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 14, flex: 1, minWidth: 0 }}>
-              {/* Circular Avatar with Cyan Accent */}
-              <View style={{
-                width: 54,
-                height: 54,
-                borderRadius: 27,
-                backgroundColor: "#161c2e",
-                borderWidth: 2,
-                borderColor: "#00daf3",
-                alignItems: "center",
-                justifyContent: "center",
-                overflow: "hidden",
-              }}>
-                {(user as any)?.avatar ? (
-                  <Image source={{ uri: (user as any).avatar }} style={{ width: 54, height: 54 }} />
-                ) : (
-                  <Text style={{ color: "#00daf3", fontSize: 20, fontWeight: "900" }}>
-                    {user?.username ? user.username.slice(0, 2).toUpperCase() : "XO"}
-                  </Text>
-                )}
-              </View>
+              {/* Circular Avatar with Camera overlay */}
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => {
+                  playTickSound();
+                  haptics.tap();
+                  setEditModalVisible(true);
+                }}
+                style={{
+                  width: 54,
+                  height: 54,
+                  borderRadius: 27,
+                  backgroundColor: "#161c2e",
+                  borderWidth: 2,
+                  borderColor: "#00daf3",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  position: "relative",
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Edit profile photo"
+              >
+                <Avatar
+                  uri={(user as any)?.avatar}
+                  name={(user as any)?.display_name || user?.username}
+                  size={50}
+                />
+                <View style={{
+                  position: "absolute",
+                  bottom: -2,
+                  right: -2,
+                  width: 20,
+                  height: 20,
+                  borderRadius: 10,
+                  backgroundColor: "#00daf3",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderWidth: 1.5,
+                  borderColor: "#090918",
+                }}>
+                  <Ionicons name="camera" size={10} color="#04040a" />
+                </View>
+              </TouchableOpacity>
 
               {/* Name & Phone */}
               <View style={{ flex: 1, minWidth: 0 }}>
@@ -745,6 +802,37 @@ export default function ProfileScreen() {
               </Text>
             </View>
           </View>
+
+          {/* Admin Control Panel Access for Admin Accounts (e.g. Guest 5) */}
+          {(user?.role === "admin" || user?.username === "guest_5" || isSuperAdmin) && (
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => {
+                playTickSound();
+                haptics.impact();
+                router.push("/(authed)/admin");
+              }}
+              style={{
+                marginTop: 14,
+                backgroundColor: "rgba(168, 85, 247, 0.16)",
+                borderWidth: 1.2,
+                borderColor: "#a855f7",
+                borderRadius: 14,
+                paddingVertical: 10,
+                paddingHorizontal: 14,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+              }}
+            >
+              <Ionicons name="shield-checkmark" size={16} color="#a855f7" />
+              <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "900", letterSpacing: 0.5 }}>
+                OPEN ADMIN CONTROL PANEL
+              </Text>
+              <Ionicons name="arrow-forward" size={14} color="#a855f7" />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* 2. Gaming Performance Stats Bar */}
@@ -1285,34 +1373,19 @@ export default function ProfileScreen() {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Edit Profile Dialog Modal */}
-      {editModalVisible && (
-        <View style={s.dialogOverlay}>
-          <View style={s.dialogCard}>
-            <View style={s.dialogHeader}>
-              <Text style={s.dialogTitle}>{isEN ? "Edit Profile" : "መገለጫ አርትዕ"}</Text>
-              <TouchableOpacity onPress={handleAttemptCloseEditModal}>
-                <Ionicons name="close" size={20} color="#8b93a7" />
-              </TouchableOpacity>
-            </View>
-            <View style={s.dialogBody}>
-              <Text style={s.inputLabel}>{isEN ? "USERNAME" : "የተጠቃሚ ስም"}</Text>
-              <TextInput value={editUsername} onChangeText={setEditUsername} style={s.dialogInput} placeholder={isEN ? "Username" : "የተጠቃሚ ስም"} placeholderTextColor="rgba(255,255,255,0.2)" />
-
-              <Text style={[s.inputLabel, { marginTop: 14 }]}>{isEN ? "DISPLAY NAME" : "የሚታይ ስም"}</Text>
-              <TextInput value={editDisplayName} onChangeText={setEditDisplayName} style={s.dialogInput} placeholder={isEN ? "Display Name" : "የሚታይ ስም"} placeholderTextColor="rgba(255,255,255,0.2)" />
-            </View>
-            <View style={s.dialogFooter}>
-              <TouchableOpacity onPress={handleAttemptCloseEditModal} style={s.cancelBtn}>
-                <Text style={s.cancelBtnText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleSaveProfile} style={s.saveBtn} disabled={savingProfile}>
-                {savingProfile ? <ActivityIndicator color="#0a0e1a" /> : <Text style={s.saveBtnText}>Save</Text>}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      )}
+      {/* Profile Edit & Avatar Upload Modal */}
+      <ProfileEditModal
+        visible={editModalVisible}
+        onClose={() => setEditModalVisible(false)}
+        initialUsername={user?.username}
+        initialDisplayName={user?.display_name}
+        initialAvatar={user?.avatar}
+        language={language}
+        onSaved={() => {
+          refreshProfile?.(true);
+          setEditModalVisible(false);
+        }}
+      />
 
       {/* Logout Confirmation Modal */}
       <LogoutConfirmation visible={exitModalVisible} onCancel={() => setExitModalVisible(false)} onConfirm={confirmExit} />
@@ -1609,6 +1682,64 @@ const s = StyleSheet.create({
     borderColor: "#00BFFF",
     boxShadow: "0 0 15px rgba(0, 191, 255, 0.25)",
   } as any,
+  cameraBadgeOverlay: {
+    position: "absolute",
+    bottom: -2,
+    right: -2,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "#00BFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#0A0E1A",
+    shadowColor: "#00BFFF",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  editProfileChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    backgroundColor: "rgba(0, 218, 243, 0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(0, 218, 243, 0.3)",
+    cursor: "pointer",
+  } as any,
+  editProfileChipText: {
+    color: "#00daf3",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  adminControlPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 14,
+    backgroundColor: "rgba(168, 85, 247, 0.2)",
+    borderWidth: 1.5,
+    borderColor: "#a855f7",
+    shadowColor: "#a855f7",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 4,
+    cursor: "pointer",
+  } as any,
+  adminControlPillText: {
+    color: "#ffffff",
+    fontSize: 12.5,
+    fontWeight: "900",
+    letterSpacing: 0.6,
+  },
   profileBigAvatarText: {
     color: "#00BFFF",
     fontSize: 26,

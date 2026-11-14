@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../context/authContext";
+import Avatar from "../ui/Avatar";
 
 export interface SymbolPillProps {
   symbol: "X" | "O";
@@ -65,16 +66,14 @@ export const PlayerHeroBadge: React.FC<PlayerHeroBadgeProps> = ({
 
       {/* Row 1: Avatar + Name */}
       <View style={styles.playerRow}>
-        {/* Avatar with Neon Ring */}
+        {/* Avatar with Ring */}
         <View style={[styles.avatarRing, { borderColor: ring }]}>
           <View style={[styles.avatarRingInner, { borderColor: ring2 }]}>
-            <View style={styles.avatarCore}>
-              {avatar ? (
-                <Image source={{ uri: fixUrl(avatar) || undefined }} style={styles.avatarImg} />
-              ) : (
-                <Ionicons name="person" size={16} color="rgba(255,255,255,0.90)" />
-              )}
-            </View>
+            <Avatar
+              uri={avatar}
+              name={name}
+              size={36}
+            />
 
             {/* Status dot */}
             <View

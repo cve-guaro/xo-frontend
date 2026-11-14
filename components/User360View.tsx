@@ -9,6 +9,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Avatar from './ui/Avatar';
 
 const C = {
   primary: '#3C50E0',
@@ -130,9 +131,11 @@ export default function User360View({
               <View style={[s.card, { flex: 1.5 }]}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
                   <View style={s.avatarContainer}>
-                    <View style={s.avatar}>
-                      <Text style={s.avatarText}>{initials}</Text>
-                    </View>
+                    <Avatar
+                      uri={targetUser?.avatar}
+                      name={targetUser?.username}
+                      size={54}
+                    />
                     <View style={[s.statusBadge, { backgroundColor: isBanned ? C.error : C.success }]} />
                   </View>
                   <View style={{ flex: 1 }}>

@@ -23,6 +23,7 @@ import { ROOMS, type RoomConfig, type SheetStep } from "./gameplayConstants";
 import { haptics } from "../../lib/haptcs";
 import { playClickSound, playTickSound, playNotificationSound } from "../../lib/pinTickAudio";
 import { useAuth } from "../../context/authContext";
+import Avatar from "../ui/Avatar";
 import { API_URL } from "../../config";
 
 export type RoomSheetMode = "STAKES" | "FRIENDS";
@@ -739,13 +740,14 @@ const RoomSheet = memo(function RoomSheet({
 
                       return (
                         <View key={userItem.id} style={styles.playerRow}>
-                          {/* Avatar & Red Online Dot */}
-                          <View style={styles.avatarShell}>
-                            <Text style={styles.avatarLetter}>
-                              {userItem.username.slice(0, 1).toUpperCase()}
-                            </Text>
-                            {userItem.isOnline && <View style={styles.onlineStatusDotRed} />}
-                          </View>
+                          {/* Avatar & Online Dot */}
+                          <Avatar
+                            uri={userItem.avatar}
+                            name={userItem.username}
+                            size="md"
+                            showOnlineDot={userItem.isOnline}
+                            style={{ marginRight: 12 }}
+                          />
 
                           {/* Username & Online Status */}
                           <View style={styles.playerInfo}>
@@ -803,11 +805,13 @@ const RoomSheet = memo(function RoomSheet({
                       return (
                         <View key={userItem.id} style={styles.playerRow}>
                           {/* Avatar */}
-                          <View style={styles.avatarShell}>
-                            <Text style={styles.avatarLetter}>
-                              {userItem.username.slice(0, 1).toUpperCase()}
-                            </Text>
-                          </View>
+                          <Avatar
+                            uri={userItem.avatar}
+                            name={userItem.username}
+                            size="md"
+                            showOnlineDot={userItem.isOnline}
+                            style={{ marginRight: 12 }}
+                          />
 
                           {/* Username & Subtitle */}
                           <View style={styles.playerInfo}>

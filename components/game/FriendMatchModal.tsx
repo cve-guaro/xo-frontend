@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Modal, ActivityIndicator, StyleSheet, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/authContext';
+import Avatar from '../ui/Avatar';
 
 const BET_OPTIONS = [10, 15, 25, 50, 99, 100, 250, 500];
 const CAP_LIMIT = 25;
@@ -170,7 +171,12 @@ export default function FriendMatchModal({ visible, onClose, onSendInvite, invit
           {target && (
             <View style={s.targetCard}>
               <View style={s.targetRow}>
-                <View style={s.avatar}><Text style={s.avatarText}>{target.username?.[0]?.toUpperCase()}</Text></View>
+                <Avatar
+                  uri={(target as any)?.avatar}
+                  name={target.username}
+                  size="md"
+                  style={{ marginRight: 10 }}
+                />
                 <View style={{ flex: 1 }}>
                   <Text style={s.targetName}>{target.username}</Text>
                 </View>

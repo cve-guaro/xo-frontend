@@ -423,6 +423,7 @@ export default function RPSScreen() {
           onCancel={handleCancelSearch}
           betMin={selectedTier}
           betMax={selectedTier}
+          gameType="rps"
         />
       </View>
     );
@@ -490,6 +491,8 @@ export default function RPSScreen() {
         winsNeeded={match?.winsNeeded || 2}
         youName={user?.display_name || user?.username || 'You'}
         opponentName={match?.opponentUsername || 'Opponent'}
+        youAvatar={user?.avatar}
+        opponentAvatar={(match as any)?.opponentAvatar}
       />
 
       {/* Countdown Overlay */}

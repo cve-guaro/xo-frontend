@@ -5,6 +5,7 @@ import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   Easing,
   Image,
@@ -21,6 +22,7 @@ import {
 
 import { API_URL } from "../config";
 import { useAuth } from "../context/authContext";
+import Avatar from "./ui/Avatar";
 
 export type ProfileEditModalProps = {
   visible: boolean;
@@ -53,11 +55,12 @@ export default function ProfileEditModal({
   const [avatar, setAvatar] = useState<string | null>(initialAvatar ?? null);
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [removingAvatar, setRemovingAvatar] = useState(false);
   const [banner, setBanner] = useState<{ type: "error" | "info"; text: string } | null>(null);
 
-  const compressAndUploadImage = useCallback((file: File) => {
+  const compressAndUploadImage = useCallback((file: any) => {
     if (!file) return;
-    if (!file.type.startsWith('image/')) {
+    if (file.type && !file.type.startsWith('image/')) {
       setBanner({ type: 'error', text: isEN ? 'Please select an image file.' : 'እባክዎ የምስል ፋይል ይምረጡ።' });
       return;
     }
@@ -65,28 +68,51 @@ export default function ProfileEditModal({
     setUploadingAvatar(true);
     setBanner(null);
 
+    // If not web, upload directly via FormData
+    if (Platform.OS !== 'web' || typeof document === 'undefined') {
+      const formData = new FormData();
+      formData.append('avatar', file, 'avatar.jpg');
+      fetch(`${API_URL}/account/avatar`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      })
+        .then((r) => r.json())
+        .then(async (data) => {
+          if (data?.avatar) {
+            setAvatar(data.avatar);
+            setBanner({ type: 'info', text: isEN ? 'Profile photo updated!' : 'የመለያ ፎቶ ተቀይሯል!' });
+            await refreshProfile(true);
+          } else {
+            throw new Error(data?.message || 'Upload failed');
+          }
+        })
+        .catch((err) => {
+          setBanner({ type: 'error', text: err?.message || 'Could not upload avatar.' });
+        })
+        .finally(() => setUploadingAvatar(false));
+      return;
+    }
+
+    // Web canvas compression: max 512x512, JPEG quality 0.8
     const reader = new FileReader();
     reader.onload = (e) => {
-      if (typeof window === 'undefined') return;
       const img = new (window as any).Image();
       img.onload = () => {
         try {
-          // Crop and resize to max 256x256 square to guarantee ultra-fast loads & tiny storage footprint (< 25KB)
           const canvas = document.createElement('canvas');
-          const maxDim = 256;
+          const maxDim = 512;
           const minSide = Math.min(img.width, img.height);
           const sx = (img.width - minSide) / 2;
           const sy = (img.height - minSide) / 2;
 
-          canvas.width = maxDim;
-          canvas.height = maxDim;
+          canvas.width = Math.min(minSide, maxDim);
+          canvas.height = Math.min(minSide, maxDim);
           const ctx = canvas.getContext('2d');
           if (!ctx) throw new Error('Canvas not available');
 
-          // Draw square cropped & scaled image
-          ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, maxDim, maxDim);
+          ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, canvas.width, canvas.height);
 
-          // Export compressed JPEG at quality 0.82
           canvas.toBlob(async (blob) => {
             if (!blob) {
               setUploadingAvatar(false);
@@ -111,14 +137,14 @@ export default function ProfileEditModal({
 
               setAvatar(data.avatar);
               setBanner({ type: 'info', text: isEN ? 'Profile photo updated!' : 'የመለያ ፎቶ ተቀይሯል!' });
-              await refreshProfile();
+              await refreshProfile(true);
             } catch (err: any) {
               console.error('Avatar upload err:', err);
               setBanner({ type: 'error', text: err?.message || 'Could not upload avatar.' });
             } finally {
               setUploadingAvatar(false);
             }
-          }, 'image/jpeg', 0.82);
+          }, 'image/jpeg', 0.8);
         } catch (err: any) {
           console.error('Compression err:', err);
           setUploadingAvatar(false);
@@ -137,6 +163,44 @@ export default function ProfileEditModal({
     };
     reader.readAsDataURL(file);
   }, [token, isEN, refreshProfile]);
+
+  const handleRemoveAvatar = useCallback(async () => {
+    if (!token) return;
+    try {
+      setRemovingAvatar(true);
+      const res = await fetch(`${API_URL}/account/avatar`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.message || 'Failed to remove avatar');
+      setAvatar(null);
+      setBanner({ type: 'info', text: isEN ? 'Profile photo removed.' : 'የመለያ ፎቶ ተሰርዟል።' });
+      await refreshProfile(true);
+    } catch (err: any) {
+      console.error('Avatar delete error:', err);
+      setBanner({ type: 'error', text: err?.message || 'Could not remove avatar.' });
+    } finally {
+      setRemovingAvatar(false);
+    }
+  }, [token, isEN, refreshProfile]);
+
+  const confirmRemoveAvatar = () => {
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.confirm(isEN ? 'Are you sure you want to remove your profile photo?' : 'እርግጠኛ ነዎት የመለያ ፎቶዎን መሰረዝ ይፈልጋሉ?')) {
+        handleRemoveAvatar();
+      }
+    } else {
+      Alert.alert(
+        isEN ? 'Remove Photo' : 'ፎቶ ሰርዝ',
+        isEN ? 'Are you sure you want to remove your profile photo?' : 'እርግጠኛ ነዎት የመለያ ፎቶዎን መሰረዝ ይፈልጋሉ?',
+        [
+          { text: isEN ? 'Cancel' : 'አይ', style: 'cancel' },
+          { text: isEN ? 'Remove' : 'ሰርዝ', style: 'destructive', onPress: handleRemoveAvatar },
+        ]
+      );
+    }
+  };
 
   const handlePickAvatar = () => {
     if (uploadingAvatar) return;
@@ -260,23 +324,21 @@ export default function ProfileEditModal({
               </View>
             )}
 
-            {/* Avatar upload with client-side canvas compression */}
+            {/* Avatar Row */}
             <View style={styles.avatarRow}>
               <View style={styles.avatarWrap}>
                 <TouchableOpacity
                   activeOpacity={0.8}
                   onPress={handlePickAvatar}
-                  disabled={uploadingAvatar}
-                  style={{ borderRadius: 42 }}
+                  disabled={uploadingAvatar || removingAvatar}
+                  accessibilityLabel="Change profile photo"
                 >
-                  {avatar ? (
-                    <Image source={{ uri: fixUrl(avatar) || undefined }} style={styles.avatar} />
-                  ) : (
-                    <View style={[styles.avatar, styles.avatarPlaceholder]}>
-                      <Ionicons name="person" size={30} color="#94A3B8" />
-                    </View>
-                  )}
-                  {uploadingAvatar && (
+                  <Avatar
+                    uri={avatar}
+                    name={displayName || username}
+                    size="2xl"
+                  />
+                  {(uploadingAvatar || removingAvatar) && (
                     <View style={[styles.avatar, { position: 'absolute', backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' }]}>
                       <ActivityIndicator size="small" color="#00daf3" />
                     </View>
@@ -286,24 +348,35 @@ export default function ProfileEditModal({
                 <TouchableOpacity
                   activeOpacity={0.8}
                   onPress={handlePickAvatar}
-                  disabled={uploadingAvatar}
+                  disabled={uploadingAvatar || removingAvatar}
                   style={styles.cameraBtn}
+                  accessibilityLabel="Pick photo"
                 >
-                  <LinearGradient colors={["#00daf3", "#00a3ff"]} style={styles.cameraInner}>
+                  <View style={styles.cameraInner}>
                     <Ionicons name="camera" size={16} color="#0c0c1f" />
-                  </LinearGradient>
+                  </View>
                 </TouchableOpacity>
               </View>
 
-              <View style={{ flex: 1 }}>
+              <View style={{ flex: 1, gap: 6 }}>
                 <Text style={styles.label}>{isEN ? "Profile Photo" : "የመለያ ፎቶ"}</Text>
-                <TouchableOpacity activeOpacity={0.7} onPress={handlePickAvatar} disabled={uploadingAvatar}>
-                  <Text style={[styles.hint, { color: "#00daf3", fontWeight: "600", marginTop: 2 }]}>
-                    {uploadingAvatar
-                      ? (isEN ? "Optimizing & uploading..." : "እየተዘጋጀ ነው...")
-                      : (isEN ? "Tap to change photo (auto-compressed)" : "ፎቶ ለመቀየር ይንኩ")}
-                  </Text>
-                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <TouchableOpacity activeOpacity={0.7} onPress={handlePickAvatar} disabled={uploadingAvatar || removingAvatar}>
+                    <Text style={[styles.hint, { color: "#00daf3", fontWeight: "600", marginTop: 2 }]}>
+                      {uploadingAvatar
+                        ? (isEN ? "Optimizing & uploading..." : "እየተዘጋጀ ነው...")
+                        : (isEN ? "Change photo" : "ፎቶ ቀይር")}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {Boolean(avatar) && (
+                    <TouchableOpacity activeOpacity={0.7} onPress={confirmRemoveAvatar} disabled={uploadingAvatar || removingAvatar}>
+                      <Text style={{ color: "#ef4444", fontSize: 13, fontWeight: "600" }}>
+                        {removingAvatar ? (isEN ? "Removing..." : "እየተሰረዘ ነው...") : (isEN ? "Remove photo" : "ፎቶ ሰርዝ")}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
             </View>
 

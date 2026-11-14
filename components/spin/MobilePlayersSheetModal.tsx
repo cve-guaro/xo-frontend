@@ -9,6 +9,7 @@ import {
   StyleSheet,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import Avatar from "../ui/Avatar";
 
 export interface MobilePlayersSheetModalProps {
   visible: boolean;
@@ -148,18 +149,12 @@ export const MobilePlayersSheetModal: React.FC<MobilePlayersSheetModalProps> = (
                   ]}
                 >
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flex: 1 }}>
-                    {/* Avatar Circle with matching board slice color */}
-                    <View
-                      style={[
-                        styles.avatarCircle,
-                        {
-                          backgroundColor: avatarBg,
-                          borderColor: avatarBorder,
-                        },
-                      ]}
-                    >
-                      <Ionicons name="person" size={22} color="#ffffff" />
-                    </View>
+                    {/* Avatar */}
+                    <Avatar
+                      uri={p.avatar}
+                      name={cleanName}
+                      size="md"
+                    />
 
                     {/* Name & Stake Column */}
                     <View style={{ flex: 1 }}>

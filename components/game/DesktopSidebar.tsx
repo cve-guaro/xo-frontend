@@ -3,13 +3,14 @@
 // Strictly conforms to XOET Visual System (Deep Navy, Slate, Gray Blue, Signal Red, Electric Blue, White).
 import React, { useState, useEffect, useRef } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Animated, Easing, Platform, useWindowDimensions } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { SyncIcon } from "../SvgIcons";
+import { Ionicons, FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons";
+import { SyncIcon, TelegramPlaneIcon } from "../SvgIcons";
 import { Home01, Time01, Trophy01, Wallet01, User01, Shield01 } from "../animate-ui/icons/hugeicons/sidebar-icons";
 import { haptics } from "../../lib/haptcs";
 import { playTickSound } from "../../lib/pinTickAudio";
 import { useAuth } from "../../context/authContext";
 import { API_URL } from "../../config";
+import Avatar from "../ui/Avatar";
 
 export type DesktopNavScreen = "home" | "history" | "leaderboard" | "transactions" | "profile" | "admin";
 
@@ -92,24 +93,28 @@ export default function DesktopSidebar({
           {isRail ? (
             <TouchableOpacity
               onPress={() => handleNavClick("profile")}
-              style={s.userCardAvatarRail}
+              style={{ alignItems: "center", justifyContent: "center" }}
               activeOpacity={0.8}
               accessibilityRole="button"
               accessibilityLabel="Profile"
             >
-              <Text style={s.userCardAvatarText}>
-                {user?.username ? user.username.slice(0, 1).toUpperCase() : "A"}
-              </Text>
-              <View style={s.onlineDotRail} />
+              <Avatar
+                uri={user?.avatar}
+                name={(user as any)?.display_name || user?.username}
+                size="md"
+                showOnlineDot
+              />
             </TouchableOpacity>
           ) : (
             <>
               <View style={s.userCardHeader}>
-                <View style={s.userCardAvatar}>
-                  <Text style={s.userCardAvatarText}>
-                    {user?.username ? user.username.slice(0, 1).toUpperCase() : "A"}
-                  </Text>
-                </View>
+                <TouchableOpacity onPress={() => handleNavClick("profile")} activeOpacity={0.8}>
+                  <Avatar
+                    uri={user?.avatar}
+                    name={(user as any)?.display_name || user?.username}
+                    size="md"
+                  />
+                </TouchableOpacity>
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                     <Text style={s.userCardName} numberOfLines={1}>
@@ -259,7 +264,7 @@ export default function DesktopSidebar({
         {!isRail ? (
           <View style={s.card}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 }}>
-              <Ionicons name="globe-outline" size={17} color="#00BFFF" />
+              <MaterialCommunityIcons name="account-group" size={18} color="#00BFFF" />
               <Text style={s.communityTitle}>COMMUNITY & SUPPORT</Text>
             </View>
 
@@ -270,7 +275,7 @@ export default function DesktopSidebar({
               style={[s.supportLinkBtn, { backgroundColor: "rgba(0, 191, 255, 0.12)", borderColor: "rgba(0, 191, 255, 0.4)" }]}
               accessibilityLabel="Join Telegram Channel"
             >
-              <Ionicons name="paper-plane" size={15} color="#00BFFF" />
+              <TelegramPlaneIcon size={17} color="#00BFFF" />
               <Text style={[s.supportLinkBtnText, { color: "#00BFFF" }]}>JOIN TELEGRAM CHANNEL</Text>
             </TouchableOpacity>
 
@@ -281,7 +286,7 @@ export default function DesktopSidebar({
               style={[s.supportLinkBtn, { backgroundColor: "rgba(16, 185, 129, 0.12)", borderColor: "rgba(16, 185, 129, 0.4)", marginTop: 10 }]}
               accessibilityLabel="24/7 Live Support"
             >
-              <Ionicons name="headset" size={15} color="#10B981" />
+              <MaterialCommunityIcons name="headset" size={17} color="#10B981" />
               <Text style={[s.supportLinkBtnText, { color: "#10B981" }]}>24/7 LIVE SUPPORT</Text>
             </TouchableOpacity>
           </View>
@@ -294,7 +299,7 @@ export default function DesktopSidebar({
               style={[s.supportRailBtn, { backgroundColor: "rgba(0, 191, 255, 0.14)", borderColor: "rgba(0, 191, 255, 0.45)" }]}
               accessibilityLabel="Join Telegram Channel"
             >
-              <Ionicons name="paper-plane" size={17} color="#00BFFF" />
+              <TelegramPlaneIcon size={18} color="#00BFFF" />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -303,7 +308,7 @@ export default function DesktopSidebar({
               style={[s.supportRailBtn, { backgroundColor: "rgba(16, 185, 129, 0.14)", borderColor: "rgba(16, 185, 129, 0.45)" }]}
               accessibilityLabel="24/7 Live Support"
             >
-              <Ionicons name="headset" size={17} color="#10B981" />
+              <MaterialCommunityIcons name="headset" size={18} color="#10B981" />
             </TouchableOpacity>
           </View>
         )}

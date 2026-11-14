@@ -22,6 +22,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../context/authContext";
 import { useSocket } from "../../context/socketContext";
 import { API_URL } from "../../config";
+import Avatar from "../ui/Avatar";
 
 type FriendItem = {
   id: string;
@@ -335,19 +336,14 @@ export default function InviteFriendsModal({
                   <View key={item.id} style={s.userRow}>
                     {/* User Info (Left) */}
                     <View style={s.userInfoLeft}>
-                      {/* Avatar Circle with Online Status Indicator Dot */}
-                      <View style={s.avatarWrap}>
-                        <View style={s.avatarCircle}>
-                          <Ionicons name="person" size={20} color="#ffffff" />
-                        </View>
-                        {/* Status dot: Green = Online, Gray = Offline */}
-                        <View
-                          style={[
-                            s.statusDot,
-                            { backgroundColor: item.is_online ? "#22c55e" : "#64748b" },
-                          ]}
-                        />
-                      </View>
+                      {/* Avatar with Online Status */}
+                      <Avatar
+                        uri={item.avatar}
+                        name={item.display_name || item.username}
+                        size="md"
+                        showOnlineDot={item.is_online}
+                        style={{ marginRight: 12 }}
+                      />
 
                       {/* Username & Status Column */}
                       <View style={{ flex: 1, minWidth: 0 }}>
