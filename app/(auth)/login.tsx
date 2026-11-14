@@ -295,6 +295,7 @@ export default function LoginScreen() {
     { index: 2, name: "Guest 2 (Sara)", amount: "1,000 ETB" },
     { index: 3, name: "Guest 3 (Dawit)", amount: "1,000 ETB" },
     { index: 4, name: "Guest 4 (Tigist)", amount: "1,000 ETB" },
+    { index: 5, name: "Guest 5 (Admin)", amount: "1,000 ETB" },
   ];
 
   const handleGuestLogin = useCallback(async (guestIndex: number) => {
@@ -952,10 +953,10 @@ export default function LoginScreen() {
             </View>
 
             <Text style={{ color: "rgba(255, 255, 255, 0.65)", fontSize: 13, marginBottom: 16, lineHeight: 18 }}>
-              Choose one of the 4 test accounts to bypass login. Each guest account is treated like a normal player with full game, spin & wallet access:
+              Choose one of the test accounts to bypass login. Guest 5 includes Admin Center access:
             </Text>
 
-            {/* 4 Guest Cards */}
+            {/* Test Guest Cards */}
             <View style={{ gap: 10, marginBottom: 18 }}>
               {TEST_GUEST_OPTIONS.map((g) => {
                 const isLoadingThis = guestLoading === g.index;

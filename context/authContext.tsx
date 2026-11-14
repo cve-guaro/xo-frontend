@@ -665,14 +665,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshingRef = useRef<Promise<void> | null>(null);
   const methodsFetchingRef = useRef<Promise<PaymentMethod[]> | null>(null);
 
-  // Sound effects methods using synthesized Web Audio / Haptics
-  const playSuccessSound = async () => {
-    if (!user || !user.sound_muted) {
-      try {
-        playWinSound();
-      } catch (_) {}
-    }
-  };
+  // Sound effects methods: silent on auth/login/logout/boot per user specification
+  const playSuccessSound = async () => {};
   const playErrorSound = async () => {
     if (!user || !user.sound_muted) {
       try {
@@ -1428,7 +1422,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setToken(null);
     setUser(null);
     setPendingNumber(null);
-    await playSuccessSound();
   };
 
   const value = useMemo(
