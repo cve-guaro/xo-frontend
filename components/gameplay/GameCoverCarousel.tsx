@@ -44,6 +44,7 @@ export interface GameCoverCarouselProps {
   setActiveGameMode: (mode: any) => void;
   router: any;
   setSpinBetModalVisible: (visible: boolean) => void;
+  setRpsBetModalVisible?: (visible: boolean) => void;
   openRoomSheet: (mode?: "FRIENDS") => void;
 }
 
@@ -58,6 +59,7 @@ export const GameCoverCarousel: React.FC<GameCoverCarouselProps> = ({
   setActiveGameMode,
   router,
   setSpinBetModalVisible,
+  setRpsBetModalVisible,
   openRoomSheet,
 }) => {
   const { height: winH } = useWindowDimensions();
@@ -629,7 +631,11 @@ export const GameCoverCarousel: React.FC<GameCoverCarouselProps> = ({
           activeOpacity={0.88}
           onPress={() => {
             haptics.impact();
-            router.push("/(authed)/games/rps");
+            if (setRpsBetModalVisible) {
+              setRpsBetModalVisible(true);
+            } else {
+              router.push("/(authed)/games/rps");
+            }
           }}
           style={{
             width: "100%",
@@ -720,7 +726,7 @@ export const GameCoverCarousel: React.FC<GameCoverCarouselProps> = ({
       if (item === "XO_GAME") return renderXoCard();
       return renderRpsCard();
     },
-    [isEN, openRoomSheet, setSpinBetModalVisible, router]
+    [isEN, openRoomSheet, setSpinBetModalVisible, setRpsBetModalVisible, router]
   );
 
   return (

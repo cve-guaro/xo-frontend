@@ -220,6 +220,7 @@ import ExitModal from "../../../components/game/ExitModal";
 import SearchingView from "../../../components/game/SearchingView";
 import RoomSheet from "../../../components/game/RoomSheet";
 import SpinBetSelectModal from "../../../components/game/SpinBetSelectModal";
+import RpsBetSelectModal from "../../../components/game/RpsBetSelectModal";
 import MobileQuickTile from "../../../components/game/MobileQuickTile";
 import DesktopLayout from "../../../components/game/DesktopLayout";
 import WinTicker from "../../../components/game/WinTicker";
@@ -1005,6 +1006,37 @@ export default function Landing() {
   const [sheetStep, setSheetStep] = useState<SheetStep>("ROOMS");
   const [selectedRoomId, setSelectedRoomId] = useState<RoomConfig["id"]>("R1");
   const [spinBetModalVisible, setSpinBetModalVisible] = useState(false);
+  const [rpsBetModalVisible, setRpsBetModalVisible] = useState(false);
+  const [searchingRps, setSearchingRps] = useState(false);
+  const [rpsStake, setRpsStake] = useState(10);
+
+  const handleStartRpsMatchmaking = useCallback((stake: number) => {
+    setRpsStake(stake);
+    setSearchingRps(true);
+    send('rps:find_match', { stakeAmount: stake });
+  }, [send]);
+
+  const handleCancelRpsSearch = useCallback(() => {
+    send('rps:cancel_search');
+    setSearchingRps(false);
+  }, [send]);
+
+  useEffect(() => {
+    const off = onMessage((msg: any) => {
+      if (msg.type === 'rps:match_found') {
+        setSearchingRps(false);
+        router.push({
+          pathname: '/(authed)/games/rps',
+          params: { roomId: msg.payload?.roomId },
+        } as any);
+      } else if (msg.type === 'rps:match_cancelled' || msg.type === 'rps:error') {
+        setSearchingRps(false);
+      }
+    });
+    return () => {
+      try { off(); } catch {}
+    };
+  }, [onMessage, router]);
 
   const selectedRoom = useMemo(() => ROOMS.find((r) => r.id === selectedRoomId) || ROOMS[0], [selectedRoomId]);
 
@@ -1194,6 +1226,7 @@ export default function Landing() {
           goBackToRooms={goBackToRooms}
           onSelectRoom={onSelectRoom}
           selectAmount={selectAmount}
+          onStartRpsMatchmaking={handleStartRpsMatchmaking}
           refreshProfile={refreshProfile}
           handleLanguageToggle={handleLanguageToggle}
           handleSendInvite={handleSendInvite}
@@ -1267,24 +1300,14 @@ export default function Landing() {
               (Platform.OS === 'web' && typeof window !== 'undefined' && window.sessionStorage?.getItem('xoet_bonus_claimed') === 'true')
             );
 
-            // Top 3 champions for the weekly showcase
-            const champions = [
-              {
-                rank: 1,
-                username: weeklyLeaderboard[0]?.username || "Dawit_K",
-                prize: 5000,
-              },
-              {
-                rank: 2,
-                username: weeklyLeaderboard[1]?.username || "Sara_M",
-                prize: 3000,
-              },
-              {
-                rank: 3,
-                username: weeklyLeaderboard[2]?.username || "Abebe_B",
-                prize: 1500,
-              },
-            ];
+            // Top 3 champions for the weekly showcase (Real data only, no mock names)
+            const champions = (weeklyLeaderboard && weeklyLeaderboard.length > 0)
+              ? weeklyLeaderboard.slice(0, 3).map((p, idx) => ({
+                  rank: idx + 1,
+                  username: p.username || `Player_${idx + 1}`,
+                  prize: idx === 0 ? 5000 : idx === 1 ? 3000 : 1500,
+                }))
+              : [];
 
             return (
               <View style={{ width: "100%", alignItems: "center" }}>
@@ -1300,6 +1323,7 @@ export default function Landing() {
                   setActiveGameMode={setActiveGameMode}
                   router={router}
                   setSpinBetModalVisible={setSpinBetModalVisible}
+                  setRpsBetModalVisible={setRpsBetModalVisible}
                   openRoomSheet={openRoomSheet}
                 />
 
@@ -1444,36 +1468,43 @@ export default function Landing() {
                   </View>
 
                   {/* Horizontal Scrollable Pill Capsules (Restrained Slate palette, Bold Rank Numbers) */}
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={{ gap: 10, paddingVertical: 2, paddingHorizontal: 2 }}
-                  >
-                    {champions.map((champ) => {
-                      const rankColor = champ.rank === 1 ? "#F5B642" : champ.rank === 2 ? "#00BFFF" : "#FF1744";
-                      const rankOrdinal = champ.rank === 1 ? "1st" : champ.rank === 2 ? "2nd" : "3rd";
-                      return (
-                        <TouchableOpacity
-                          key={champ.rank}
-                          activeOpacity={0.8}
-                          onPress={() => {
-                            try { playTickSound(); } catch {}
-                            haptics.tap();
-                            router.push("/(authed)/home/leaderboard" as any);
-                          }}
-                          style={{
-                            flexDirection: "row",
-                            alignItems: "center",
-                            gap: 10,
-                            backgroundColor: "#111827",
-                            borderRadius: 20,
-                            borderWidth: 1.2,
-                            borderColor: "#233041",
-                            paddingVertical: 8,
-                            paddingHorizontal: 10,
-                            paddingRight: 16,
-                          }}
-                        >
+                  {champions.length === 0 ? (
+                    <View style={{ paddingVertical: 14, alignItems: "center", justifyContent: "center" }}>
+                      <Text style={{ color: "#8893A7", fontSize: 12, fontStyle: "italic" }}>
+                        {isEN ? "Weekly leaderboard active! Play matches to claim rank 1." : "ሳምንታዊ መሪ ሰሌዳ ገቢር ነው! ደረጃ 1 ለመያዝ ይጫወቱ።"}
+                      </Text>
+                    </View>
+                  ) : (
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={{ gap: 10, paddingVertical: 2, paddingHorizontal: 2 }}
+                    >
+                      {champions.map((champ) => {
+                        const rankColor = champ.rank === 1 ? "#F5B642" : champ.rank === 2 ? "#00BFFF" : "#FF1744";
+                        const rankOrdinal = champ.rank === 1 ? "1st" : champ.rank === 2 ? "2nd" : "3rd";
+                        return (
+                          <TouchableOpacity
+                            key={champ.rank}
+                            activeOpacity={0.8}
+                            onPress={() => {
+                              try { playTickSound(); } catch {}
+                              haptics.tap();
+                              router.push("/(authed)/home/leaderboard" as any);
+                            }}
+                            style={{
+                              flexDirection: "row",
+                              alignItems: "center",
+                              gap: 10,
+                              backgroundColor: "#111827",
+                              borderRadius: 20,
+                              borderWidth: 1.2,
+                              borderColor: "#233041",
+                              paddingVertical: 8,
+                              paddingHorizontal: 10,
+                              paddingRight: 16,
+                            }}
+                          >
                           {/* Rank Number Circle Badge (Replacing avatar) */}
                           <View style={{
                             width: 38,
@@ -1516,6 +1547,7 @@ export default function Landing() {
                       );
                     })}
                   </ScrollView>
+                  )}
                 </View>
               </View>
             );
@@ -1613,6 +1645,37 @@ export default function Landing() {
           } as any);
         }}
       />
+
+      {/* Rock Paper Scissors Stake Select Popup Modal */}
+      <RpsBetSelectModal
+        visible={rpsBetModalVisible}
+        onClose={() => setRpsBetModalVisible(false)}
+        userBalance={balance}
+        language={language}
+        onConfirm={(amount) => {
+          handleStartRpsMatchmaking(amount);
+        }}
+        onOpenFriendMatch={() => {
+          setFriendModalVisible(true);
+        }}
+        defaultAmount={rpsStake}
+      />
+
+      {/* Rock Paper Scissors Matchmaking Radar Scan Modal */}
+      <Modal
+        visible={searchingRps}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCancelRpsSearch}
+      >
+        <View style={{ flex: 1, backgroundColor: "#06090e" }}>
+          <SearchingView
+            onCancel={handleCancelRpsSearch}
+            betMin={rpsStake}
+            betMax={rpsStake}
+          />
+        </View>
+      </Modal>
 
       {/* Notifications Popover */}
       <NotificationsPopover

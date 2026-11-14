@@ -53,6 +53,8 @@ import {
   MatchFinalSheet,
 } from '../../../components/rps/RPSOverlays';
 import FriendMatchModal from '../../../components/game/FriendMatchModal';
+import SearchingView from '../../../components/game/SearchingView';
+import RpsBetSelectModal from '../../../components/game/RpsBetSelectModal';
 
 export default function RPSScreen() {
   const router = useRouter();
@@ -413,176 +415,41 @@ export default function RPSScreen() {
     return 'fist'; // Hidden until reveal
   };
 
-  // ── Render: Searching State ───────────────────────────────────────────────
+  // ── Render: Searching State (Standard XOET Radar Scan View) ───────────────
   if (phase === 'searching') {
-    const { pot, prize } = calculatePrize(selectedTier);
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={handleCancelSearch} style={styles.backButton}>
-            <Feather name="x" size={24} color={colors.text} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Matchmaking</Text>
-          <View style={{ width: 40 }} />
-        </View>
-
-        <View style={styles.searchingBody}>
-          <Animated.View
-            style={[
-              styles.radarCircle,
-              {
-                transform: [{ scale: radarAnim }],
-                opacity: radarAnim.interpolate({
-                  inputRange: [0.4, 1],
-                  outputRange: [0.8, 0.2],
-                }),
-              },
-            ]}
-          />
-          <View style={styles.radarCenter}>
-            <MaterialCommunityIcons name="sword-cross" size={36} color={colors.primary} />
-          </View>
-
-          <Text style={styles.searchingTitle}>Searching for Opponent...</Text>
-          <Text style={styles.searchingSub}>
-            Stake: {selectedTier} ETB • Prize: {prize} ETB
-          </Text>
-          <Text style={styles.queuePosText}>Queue position: #{queuePosition}</Text>
-
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={handleCancelSearch}
-            style={styles.cancelSearchButton}
-          >
-            <Text style={styles.cancelSearchText}>Cancel Search</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
+      <View style={{ flex: 1, backgroundColor: '#06090e' }}>
+        <SearchingView
+          onCancel={handleCancelSearch}
+          betMin={selectedTier}
+          betMax={selectedTier}
+        />
+      </View>
     );
   }
 
-  // ── Render: Idle / Lobby State ────────────────────────────────────────────
+  // ── Render: Idle / Pre-match State (Clean Popup Modal, No Foreign Lobby) ──
   if (phase === 'idle') {
     const totalBalance = (user?.available_balance || 0) + (user?.bonus_balance || 0);
-    const { pot, fee, prize } = calculatePrize(selectedTier);
 
     return (
-      <SafeAreaView style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Feather name="arrow-left" size={24} color={colors.text} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Rock Paper Scissors</Text>
-          <View style={styles.walletPill}>
-            <Ionicons name="wallet-outline" size={14} color={colors.gold} />
-            <Text style={styles.walletText}>{totalBalance} ETB</Text>
-          </View>
-        </View>
-
-        <ScrollView contentContainerStyle={styles.lobbyContent}>
-          {/* Hero Card */}
-          <View style={styles.heroCard}>
-            <View style={styles.heroIconsRow}>
-              <FontAwesome5 name="hand-rock" size={26} color={colors.primary} />
-              <FontAwesome5 name="hand-paper" size={26} color={colors.violet} />
-              <FontAwesome5 name="hand-scissors" size={26} color={colors.gold} />
-            </View>
-            <Text style={styles.heroTitle}>Multiplayer Arena</Text>
-            <Text style={styles.heroSubtitle}>
-              Best of 3 rounds. First to 2 wins takes the pot. Commit-reveal fair play.
-            </Text>
-          </View>
-
-          {/* Tier Selector */}
-          <Text style={styles.sectionTitle}>Select Stake Amount</Text>
-          <View style={styles.tierGrid}>
-            {BET_TIERS.map((tier) => {
-              const isSelected = selectedTier === tier;
-              const { prize: tierPrize } = calculatePrize(tier);
-              const canAfford = totalBalance >= tier;
-
-              return (
-                <TouchableOpacity
-                  key={`tier-${tier}`}
-                  activeOpacity={0.8}
-                  disabled={!canAfford}
-                  onPress={() => setSelectedTier(tier)}
-                  style={[
-                    styles.tierCard,
-                    isSelected && styles.tierCardSelected,
-                    !canAfford && styles.tierCardDisabled,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.tierStake,
-                      isSelected && { color: colors.primary },
-                    ]}
-                  >
-                    {tier} <Text style={{ fontSize: 13 }}>ETB</Text>
-                  </Text>
-                  <Text style={styles.tierPrizeLabel}>Winner Takes</Text>
-                  <Text style={styles.tierPrizeAmount}>{tierPrize} ETB</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {/* Prize breakdown */}
-          <View style={styles.breakdownCard}>
-            <View style={styles.breakdownRow}>
-              <Text style={styles.breakdownLabel}>Total Match Pot (2x)</Text>
-              <Text style={styles.breakdownValue}>{pot} ETB</Text>
-            </View>
-            <View style={styles.breakdownRow}>
-              <Text style={styles.breakdownLabel}>Platform Fee (20%)</Text>
-              <Text style={styles.breakdownValue}>-{fee} ETB</Text>
-            </View>
-            <View style={[styles.breakdownRow, styles.breakdownHighlight]}>
-              <Text style={[styles.breakdownLabel, { color: colors.text, fontWeight: '700' }]}>
-                Winner Payout
-              </Text>
-              <Text style={[styles.breakdownValue, { color: colors.gold, fontWeight: '800' }]}>
-                {prize} ETB
-              </Text>
-            </View>
-          </View>
-
-          {/* Play Button */}
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={handleFindMatch}
-            style={styles.findMatchButton}
-          >
-            <MaterialCommunityIcons name="sword-cross" size={22} color={colors.bgDeep} />
-            <Text style={styles.findMatchText}>FIND OPPONENT ({selectedTier} ETB)</Text>
-          </TouchableOpacity>
-
-          {/* Friend Match Button */}
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => setFriendModalVisible(true)}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
-              backgroundColor: 'rgba(245, 158, 11, 0.12)',
-              borderRadius: 16,
-              borderWidth: 1.2,
-              borderColor: 'rgba(245, 158, 11, 0.4)',
-              paddingVertical: 14,
-              marginTop: 12,
-            }}
-          >
-            <Ionicons name="people" size={19} color="#f59e0b" />
-            <Text style={{ color: '#f59e0b', fontSize: 14, fontWeight: '800', letterSpacing: 0.5 }}>
-              PLAY WITH FRIEND
-            </Text>
-          </TouchableOpacity>
-        </ScrollView>
-
+      <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <RpsBetSelectModal
+          visible={true}
+          onClose={() => router.back()}
+          onConfirm={(stake) => {
+            setSelectedTier(stake);
+            setPhase('searching');
+            socketApi?.send('rps:find_match', { stakeAmount: stake });
+          }}
+          onOpenFriendMatch={(stake) => {
+            setSelectedTier(stake);
+            setFriendModalVisible(true);
+          }}
+          userBalance={totalBalance}
+          language="en"
+          defaultAmount={selectedTier}
+        />
         <FriendMatchModal
           visible={friendModalVisible}
           onClose={() => { setFriendModalVisible(false); setInviteResult(null); }}

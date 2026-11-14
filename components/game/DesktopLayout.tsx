@@ -36,6 +36,7 @@ import RoomSheet from "./RoomSheet";
 import DesktopHeader, { DesktopTabType } from "./DesktopHeader";
 import DesktopSidebar from "./DesktopSidebar";
 import SpinBetSelectModal from "./SpinBetSelectModal";
+import RpsBetSelectModal from "./RpsBetSelectModal";
 import type { RoomConfig, SheetStep } from "./gameplayConstants";
 import { haptics } from "../../lib/haptcs";
 import { playTickSound } from "../../lib/pinTickAudio";
@@ -98,6 +99,7 @@ type DesktopLayoutProps = {
   onSelectRoom: (id: RoomConfig["id"]) => void;
   selectAmount: (room: RoomConfig, min: number, max: number) => void;
   handleSendInvite: (username: string, betAmount: number) => void;
+  onStartRpsMatchmaking?: (stakeAmount: number) => void;
   refreshProfile: (force?: boolean) => void;
   handleLanguageToggle: () => void;
   router: any;
@@ -163,6 +165,7 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
 
   const tabs: DesktopTabType[] = ["SPIN", "XO_GAME", "RPS"];
   const [spinBetModalVisible, setSpinBetModalVisible] = useState(false);
+  const [rpsBetModalVisible, setRpsBetModalVisible] = useState(false);
   const [sheetInitialView, setSheetInitialView] = useState<"STAKES" | "FRIENDS">("STAKES");
 
   const carouselRef = useRef<CarouselRef>(null);
@@ -521,7 +524,7 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
             activeOpacity={0.88}
             onPress={() => {
               haptics.impact();
-              router.push("/(authed)/games/rps");
+              setRpsBetModalVisible(true);
             }}
             style={[s.cardActionBtn, { height: actionBtnH }]}
           >
@@ -621,7 +624,7 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
             return;
           }
           haptics.impact();
-          openRoomSheet("FRIENDS");
+          setRpsBetModalVisible(true);
         }}
         style={[s.extraShelfBtn, { height: outerShelfH }]}
       >
@@ -638,15 +641,7 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
     );
   };
 
-  const DEFAULT_TOP5_PLAYERS = [
-    { id: "1", rank: 1, username: "Dawit_K", wins: 28, prize: 500, avatar: "" },
-    { id: "2", rank: 2, username: "Sara_M", wins: 24, prize: 300, avatar: "" },
-    { id: "3", rank: 3, username: "Abebe_B", wins: 19, prize: 200, avatar: "" },
-    { id: "4", rank: 4, username: "Tadesse_G", wins: 15, prize: 100, avatar: "" },
-    { id: "5", rank: 5, username: "Selam_T", wins: 12, prize: 100, avatar: "" },
-  ];
-
-  // Top 5 players from real server data (with active champion fallback so never blank, max 5)
+  // Top 5 players from real server data only (no mock / demo fallbacks)
   const top5Players = useMemo(() => {
     if (weeklyLeaderboard && weeklyLeaderboard.length > 0) {
       return weeklyLeaderboard.slice(0, 5).map((p, idx) => ({
@@ -658,7 +653,7 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
         avatar: p.avatar || '',
       }));
     }
-    return DEFAULT_TOP5_PLAYERS;
+    return [];
   }, [weeklyLeaderboard]);
 
   // Smooth layout animation on rank position exchanges
@@ -738,6 +733,27 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
             pathname: "/(authed)/home/spin",
             params: { mode: "RAIL", stake: String(amount) },
           } as any);
+        }}
+      />
+
+      {/* Rock Paper Scissors Stake Selector Popup Modal */}
+      <RpsBetSelectModal
+        visible={rpsBetModalVisible}
+        onClose={() => setRpsBetModalVisible(false)}
+        userBalance={balance}
+        language={language}
+        onConfirm={(amount) => {
+          if (props.onStartRpsMatchmaking) {
+            props.onStartRpsMatchmaking(amount);
+          } else {
+            router.push({
+              pathname: "/(authed)/games/rps",
+              params: { stake: String(amount) },
+            } as any);
+          }
+        }}
+        onOpenFriendMatch={() => {
+          setFriendModalVisible(true);
         }}
       />
 
