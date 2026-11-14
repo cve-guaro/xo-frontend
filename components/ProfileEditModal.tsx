@@ -45,15 +45,112 @@ export default function ProfileEditModal({
   isNewUser = false,
 }: ProfileEditModalProps) {
   const isEN = language === "en";
-  const { token, refreshProfile } = useAuth();
+  const { token, refreshProfile, fixUrl } = useAuth();
   const router = useRouter();
-
 
   const [username, setUsername] = useState(initialUsername ?? "");
   const [displayName, setDisplayName] = useState(initialDisplayName ?? "");
   const [avatar, setAvatar] = useState<string | null>(initialAvatar ?? null);
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [banner, setBanner] = useState<{ type: "error" | "info"; text: string } | null>(null);
+
+  const compressAndUploadImage = useCallback((file: File) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setBanner({ type: 'error', text: isEN ? 'Please select an image file.' : 'እባክዎ የምስል ፋይል ይምረጡ።' });
+      return;
+    }
+
+    setUploadingAvatar(true);
+    setBanner(null);
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      if (typeof window === 'undefined') return;
+      const img = new (window as any).Image();
+      img.onload = () => {
+        try {
+          // Crop and resize to max 256x256 square to guarantee ultra-fast loads & tiny storage footprint (< 25KB)
+          const canvas = document.createElement('canvas');
+          const maxDim = 256;
+          const minSide = Math.min(img.width, img.height);
+          const sx = (img.width - minSide) / 2;
+          const sy = (img.height - minSide) / 2;
+
+          canvas.width = maxDim;
+          canvas.height = maxDim;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) throw new Error('Canvas not available');
+
+          // Draw square cropped & scaled image
+          ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, maxDim, maxDim);
+
+          // Export compressed JPEG at quality 0.82
+          canvas.toBlob(async (blob) => {
+            if (!blob) {
+              setUploadingAvatar(false);
+              setBanner({ type: 'error', text: 'Image compression failed.' });
+              return;
+            }
+
+            try {
+              const formData = new FormData();
+              formData.append('avatar', blob, 'avatar.jpg');
+
+              const res = await fetch(`${API_URL}/account/avatar`, {
+                method: 'POST',
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+                body: formData,
+              });
+
+              const data = await res.json().catch(() => ({}));
+              if (!res.ok) throw new Error(data?.message || 'Avatar upload failed');
+
+              setAvatar(data.avatar);
+              setBanner({ type: 'info', text: isEN ? 'Profile photo updated!' : 'የመለያ ፎቶ ተቀይሯል!' });
+              await refreshProfile();
+            } catch (err: any) {
+              console.error('Avatar upload err:', err);
+              setBanner({ type: 'error', text: err?.message || 'Could not upload avatar.' });
+            } finally {
+              setUploadingAvatar(false);
+            }
+          }, 'image/jpeg', 0.82);
+        } catch (err: any) {
+          console.error('Compression err:', err);
+          setUploadingAvatar(false);
+          setBanner({ type: 'error', text: 'Could not process image.' });
+        }
+      };
+      img.onerror = () => {
+        setUploadingAvatar(false);
+        setBanner({ type: 'error', text: 'Could not load image.' });
+      };
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = () => {
+      setUploadingAvatar(false);
+      setBanner({ type: 'error', text: 'Could not read file.' });
+    };
+    reader.readAsDataURL(file);
+  }, [token, isEN, refreshProfile]);
+
+  const handlePickAvatar = () => {
+    if (uploadingAvatar) return;
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/jpeg,image/png,image/webp';
+      input.onchange = (e: any) => {
+        const file = e.target?.files?.[0];
+        if (file) compressAndUploadImage(file);
+      };
+      input.click();
+    }
+  };
   
   const { width } = useWindowDimensions();
   const isDesktop = width > 768 && Platform.OS === 'web';
@@ -163,28 +260,50 @@ export default function ProfileEditModal({
               </View>
             )}
 
-            {/* Avatar (click does nothing now) */}
+            {/* Avatar upload with client-side canvas compression */}
             <View style={styles.avatarRow}>
               <View style={styles.avatarWrap}>
-                <TouchableOpacity activeOpacity={0.9} onPress={() => {}} style={{ borderRadius: 42 }}>
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={handlePickAvatar}
+                  disabled={uploadingAvatar}
+                  style={{ borderRadius: 42 }}
+                >
                   {avatar ? (
-                    <Image source={{ uri: avatar }} style={styles.avatar} />
+                    <Image source={{ uri: fixUrl(avatar) || undefined }} style={styles.avatar} />
                   ) : (
                     <View style={[styles.avatar, styles.avatarPlaceholder]}>
                       <Ionicons name="person" size={30} color="#94A3B8" />
                     </View>
                   )}
+                  {uploadingAvatar && (
+                    <View style={[styles.avatar, { position: 'absolute', backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' }]}>
+                      <ActivityIndicator size="small" color="#00daf3" />
+                    </View>
+                  )}
                 </TouchableOpacity>
 
-                <View style={styles.cameraBtn}>
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={handlePickAvatar}
+                  disabled={uploadingAvatar}
+                  style={styles.cameraBtn}
+                >
                   <LinearGradient colors={["#00daf3", "#00a3ff"]} style={styles.cameraInner}>
                     <Ionicons name="camera" size={16} color="#0c0c1f" />
                   </LinearGradient>
-                </View>
+                </TouchableOpacity>
               </View>
 
               <View style={{ flex: 1 }}>
-                <Text style={styles.hint}>{isEN ? "Avatar upload is disabled" : "የምስል መቀየሪያው ለጊዜው አይሰራም"}</Text>
+                <Text style={styles.label}>{isEN ? "Profile Photo" : "የመለያ ፎቶ"}</Text>
+                <TouchableOpacity activeOpacity={0.7} onPress={handlePickAvatar} disabled={uploadingAvatar}>
+                  <Text style={[styles.hint, { color: "#00daf3", fontWeight: "600", marginTop: 2 }]}>
+                    {uploadingAvatar
+                      ? (isEN ? "Optimizing & uploading..." : "እየተዘጋጀ ነው...")
+                      : (isEN ? "Tap to change photo (auto-compressed)" : "ፎቶ ለመቀየር ይንኩ")}
+                  </Text>
+                </TouchableOpacity>
               </View>
             </View>
 
