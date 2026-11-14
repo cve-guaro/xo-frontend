@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { Modal, View, Text, TouchableOpacity, StyleSheet, Animated, Easing, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { playWinSound } from '../lib/pinTickAudio';
 import { useAuth } from '../context/authContext';
 
 export default function WelcomePopup({ visible, onClose }: { visible: boolean; onClose: () => void }) {

@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Animated, Easing, Platform, useWindowDimensions } from "react-native";
 import { Ionicons, FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons";
-import { SyncIcon, TelegramPlaneIcon } from "../SvgIcons";
+import { SyncIcon, TelegramPlaneIcon, ChatBubbleIcon } from "../SvgIcons";
 import { Home01, Time01, Trophy01, Wallet01, User01, Shield01 } from "../animate-ui/icons/hugeicons/sidebar-icons";
 import { haptics } from "../../lib/haptcs";
 import { playTickSound } from "../../lib/pinTickAudio";
@@ -264,30 +264,30 @@ export default function DesktopSidebar({
         {!isRail ? (
           <View style={s.card}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 }}>
-              <MaterialCommunityIcons name="account-group" size={18} color="#00BFFF" />
-              <Text style={s.communityTitle}>COMMUNITY & SUPPORT</Text>
+              <Ionicons name="chatbubbles-outline" size={17} color="#00daf3" />
+              <Text style={s.communityTitle}>Community & support</Text>
             </View>
 
             {/* Link 1: Telegram Channel */}
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={() => router?.push?.("https://t.me/xoethiopia" as any)}
-              style={[s.supportLinkBtn, { backgroundColor: "rgba(0, 191, 255, 0.12)", borderColor: "rgba(0, 191, 255, 0.4)" }]}
-              accessibilityLabel="Join Telegram Channel"
+              style={[s.supportLinkBtn, { backgroundColor: "rgba(0, 218, 243, 0.08)", borderColor: "rgba(0, 218, 243, 0.25)" }]}
+              accessibilityLabel="Join Telegram channel"
             >
-              <TelegramPlaneIcon size={17} color="#00BFFF" />
-              <Text style={[s.supportLinkBtnText, { color: "#00BFFF" }]}>JOIN TELEGRAM CHANNEL</Text>
+              <TelegramPlaneIcon size={16} color="#00daf3" />
+              <Text style={[s.supportLinkBtnText, { color: "#00daf3" }]}>Join Telegram channel</Text>
             </TouchableOpacity>
 
             {/* Link 2: 24/7 Live Support */}
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={() => router?.push?.("https://t.me/xoetsupport" as any)}
-              style={[s.supportLinkBtn, { backgroundColor: "rgba(16, 185, 129, 0.12)", borderColor: "rgba(16, 185, 129, 0.4)", marginTop: 10 }]}
-              accessibilityLabel="24/7 Live Support"
+              style={[s.supportLinkBtn, { backgroundColor: "rgba(16, 185, 129, 0.08)", borderColor: "rgba(16, 185, 129, 0.25)", marginTop: 10 }]}
+              accessibilityLabel="24/7 live support"
             >
-              <MaterialCommunityIcons name="headset" size={17} color="#10B981" />
-              <Text style={[s.supportLinkBtnText, { color: "#10B981" }]}>24/7 LIVE SUPPORT</Text>
+              <ChatBubbleIcon size={16} color="#10B981" />
+              <Text style={[s.supportLinkBtnText, { color: "#10B981" }]}>24/7 live support</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -296,19 +296,19 @@ export default function DesktopSidebar({
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={() => router?.push?.("https://t.me/xoethiopia" as any)}
-              style={[s.supportRailBtn, { backgroundColor: "rgba(0, 191, 255, 0.14)", borderColor: "rgba(0, 191, 255, 0.45)" }]}
-              accessibilityLabel="Join Telegram Channel"
+              style={[s.supportRailBtn, { backgroundColor: "rgba(0, 218, 243, 0.10)", borderColor: "rgba(0, 218, 243, 0.3)" }]}
+              accessibilityLabel="Join Telegram channel"
             >
-              <TelegramPlaneIcon size={18} color="#00BFFF" />
+              <TelegramPlaneIcon size={17} color="#00daf3" />
             </TouchableOpacity>
 
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={() => router?.push?.("https://t.me/xoetsupport" as any)}
-              style={[s.supportRailBtn, { backgroundColor: "rgba(16, 185, 129, 0.14)", borderColor: "rgba(16, 185, 129, 0.45)" }]}
-              accessibilityLabel="24/7 Live Support"
+              style={[s.supportRailBtn, { backgroundColor: "rgba(16, 185, 129, 0.10)", borderColor: "rgba(16, 185, 129, 0.3)" }]}
+              accessibilityLabel="24/7 live support"
             >
-              <MaterialCommunityIcons name="headset" size={18} color="#10B981" />
+              <ChatBubbleIcon size={17} color="#10B981" />
             </TouchableOpacity>
           </View>
         )}

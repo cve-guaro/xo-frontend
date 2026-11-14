@@ -101,6 +101,7 @@ type DesktopLayoutProps = {
   selectAmount: (room: RoomConfig, min: number, max: number) => void;
   handleSendInvite: (username: string, betAmount: number) => void;
   onStartRpsMatchmaking?: (stakeAmount: number) => void;
+  onOpenRpsFriendMatch?: () => void;
   refreshProfile: (force?: boolean) => void;
   handleLanguageToggle: () => void;
   router: any;
@@ -625,8 +626,11 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
             return;
           }
           haptics.impact();
-          setSheetInitialView("FRIENDS");
-          openRoomSheet("FRIENDS");
+          if (props.onOpenRpsFriendMatch) {
+            props.onOpenRpsFriendMatch();
+          } else {
+            props.setFriendModalVisible?.(true);
+          }
         }}
         style={[s.extraShelfBtn, { height: outerShelfH }]}
       >
@@ -643,11 +647,23 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
     );
   };
 
+  const isDemoAccount = useCallback((name?: string) => {
+    if (!name) return true;
+    const lower = name.toLowerCase().trim();
+    return (
+      lower.startsWith("guest") ||
+      lower.startsWith("test") ||
+      lower.startsWith("demo") ||
+      lower.includes("guest_") ||
+      lower.includes("test_")
+    );
+  }, []);
+
   // Top 5 players from real server data only (no mock / demo fallbacks)
   const top5Players = useMemo(() => {
     if (weeklyLeaderboard && weeklyLeaderboard.length > 0) {
       return weeklyLeaderboard
-        .filter((p) => p.username && !p.username.toLowerCase().startsWith("guest_") && !p.username.toLowerCase().startsWith("test_"))
+        .filter((p) => !isDemoAccount(p.username))
         .slice(0, 5)
         .map((p, idx) => ({
           id: p.id || String(idx + 1),
@@ -659,7 +675,7 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
         }));
     }
     return [];
-  }, [weeklyLeaderboard]);
+  }, [weeklyLeaderboard, isDemoAccount]);
 
   // Smooth layout animation on rank position exchanges
   useEffect(() => {
@@ -853,7 +869,7 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
         const renderLiveWinnersCard = () => {
           const liveList = (props.rawTickerList && props.rawTickerList.length > 0)
             ? props.rawTickerList
-                .filter((item) => item.username && !item.username.toLowerCase().startsWith("guest_") && !item.username.toLowerCase().startsWith("test_"))
+                .filter((item) => !isDemoAccount(item.username))
                 .slice(0, 5)
                 .map((item, idx) => ({
                   id: `ticker_${idx}_${item.username}`,

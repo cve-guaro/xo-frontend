@@ -86,11 +86,6 @@ const SingleToast = memo(function SingleToast({
     : VARIANT_CONFIG[item.variant] || VARIANT_CONFIG.info;
 
   useEffect(() => {
-    // Notification chime on toast appearance
-    try {
-      playNotificationChime();
-    } catch {}
-
     // Slide in with motion tokens (200ms ease-out, transform & opacity only)
     Animated.parallel([
       Animated.timing(translateY, {

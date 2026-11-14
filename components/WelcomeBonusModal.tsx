@@ -27,9 +27,6 @@ export default function WelcomeBonusModal({ visible, onClose }: WelcomeBonusModa
 
   useEffect(() => {
     if (visible) {
-      try {
-        playNotificationChime();
-      } catch {}
       Animated.parallel([
         Animated.spring(scale, {
           toValue: 1,
