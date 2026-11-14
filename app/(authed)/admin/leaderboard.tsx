@@ -1,318 +1,176 @@
-import React, { useCallback, useEffect, useState, useMemo } from "react";
-import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
+// app/(authed)/admin/leaderboard.tsx — Weekly Leaderboard Admin
+// Redesigned to match reference LeaderboardPanel layout.
+// Uses real backend APIs for standings, snapshots, and giveaway.
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-  ActivityIndicator,
-  Dimensions,
-  Modal,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useAuth } from "../../../context/authContext";
-import { API_URL } from "../../../config";
-import ActionConfirmModal from "../../../components/ActionConfirmModal";
-import User360View from "../../../components/User360View";
-import { useAdminTheme } from "./_layout";
+  View, Text, ScrollView, TouchableOpacity, TextInput,
+  ActivityIndicator, StyleSheet, Platform, Modal,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../../../context/authContext';
+import { API_URL } from '../../../config';
+import { useAdminTheme } from '../../../constants/adminTheme';
+import {
+  AdminPanel, AdminPill, AdminButton, AdminToggle, AdminPager,
+} from '../../../components/admin/ui';
 
+/* ── helpers ─────────────────────────────────────────── */
+const fmtInt = (n: number) => n.toLocaleString('en-US');
+const fmtETB = (n: number) => `ETB ${fmtInt(n)}`;
+const fmtDay = (iso: string) => {
+  if (!iso) return '--';
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+
+/* ── Countdown component ─────────────────────────────── */
+function Countdown({ to }: { to: number }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const left = Math.max(0, to - now);
+  const parts = [
+    { l: 'Days', v: Math.floor(left / 86_400_000) },
+    { l: 'Hours', v: Math.floor((left % 86_400_000) / 3_600_000) },
+    { l: 'Min', v: Math.floor((left % 3_600_000) / 60_000) },
+    { l: 'Sec', v: Math.floor((left % 60_000) / 1000) },
+  ];
+
+  return (
+    <View style={{ flexDirection: 'row', gap: 8 }}>
+      {parts.map(p => (
+        <View
+          key={p.l}
+          style={{
+            flex: 1, borderRadius: 12, paddingVertical: 12,
+            alignItems: 'center',
+            backgroundColor: '#FF2D55',
+          }}
+        >
+          <Text style={{ fontSize: 24, fontWeight: '800', color: '#fff' }}>
+            {String(p.v).padStart(2, '0')}
+          </Text>
+          <Text style={{ fontSize: 9, fontWeight: '700', color: 'rgba(255,255,255,0.8)', textTransform: 'uppercase', letterSpacing: 1, marginTop: 2 }}>
+            {p.l}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/* ── types ───────────────────────────────────────────── */
 type Standing = { id: string; username: string; number: string; wins: number; rank: number };
-type Snapshot = { id: string; week_start: string; week_end: string; user_id: string; username: string; wins: number; rank: number; prize_amount: number; prize_status: string };
-type FakeTicker = { id: number; username: string; amount: number; active: boolean };
+type Snapshot = {
+  id: string; week_start: string; week_end: string;
+  user_id: string; username: string; wins: number;
+  rank: number; prize_amount: number; prize_status: string;
+};
 
+/* ── rank styling ────────────────────────────────────── */
+const RANK_BG = ['#fde7ad', '#e2e8f0', '#f3d0b3'];
+const RANK_FG = ['#855f14', '#475569', '#8c5128'];
+
+/* ════════════════════════════════════════════════════════════════════ */
 export default function AdminLeaderboardPage() {
-  const { theme: adminTheme, isDark } = useAdminTheme();
-  const C = useMemo(() => ({
-    bg: adminTheme.background,
-    card: adminTheme.surface,
-    cardHeader: adminTheme.surfaceContainerHighest,
-    border: adminTheme.border,
-    borderActive: adminTheme.primary,
-    accent: adminTheme.primary,
-    accentDim: adminTheme.primaryContainer,
-    secondary: adminTheme.secondary,
-    gold: '#F0950C',
-    silver: isDark ? '#8A99AD' : '#64748B',
-    bronze: '#d97706',
-    green: adminTheme.secondary,
-    red: adminTheme.error,
-    txt: adminTheme.onSurface,
-    dim: adminTheme.onSurfaceVariant,
-    bgGlass: adminTheme.surfaceContainerLow,
-    surfaceContainerHighest: adminTheme.surfaceContainerHighest,
-  }), [adminTheme, isDark]);
-
-  const s = useMemo(() => getStyles(C, isDark), [C, isDark]);
-
-  const { token, language, showAlert } = useAuth();
-  const isEN = language === 'en';
-  const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'x-platform': 'web' };
+  const { theme: C, isDark } = useAdminTheme();
+  const { token, isSuperAdmin, showAlert } = useAuth();
+  const headers = useMemo(
+    () => ({ Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'x-platform': 'web' }),
+    [token],
+  );
 
   const [loading, setLoading] = useState(true);
   const [standings, setStandings] = useState<Standing[]>([]);
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
-  const [fakeEntries, setFakeEntries] = useState<FakeTicker[]>([]);
   const [weekStart, setWeekStart] = useState('');
   const [weekEnd, setWeekEnd] = useState('');
-  const [timeLeft, setTimeLeft] = useState('');
-
-  // Pagination and search
-  const [standingsSearch, setStandingsSearch] = useState('');
-  const [standingsPage, setStandingsPage] = useState(1);
-  const [standingsTotal, setStandingsTotal] = useState(0);
-  const STANDINGS_LIMIT = 15;
-
-  // Fake ticker form
-  const [newFakeName, setNewFakeName] = useState('');
-  const [newFakeAmount, setNewFakeAmount] = useState('');
-
-  // Settings
-  const [fakeTickerEnabled, setFakeTickerEnabled] = useState(false);
   const [autoApprove, setAutoApprove] = useState(false);
 
-  // Giveaway Controller
-  const [giveawayData, setGiveawayData] = useState<any>(null);
-  const [giveawayLoading, setGiveawayLoading] = useState(false);
-  const [smsMessage, setSmsMessage] = useState('🏆 Congratulations {username}! You ranked #{rank} on the XO ET weekly leaderboard and won {prize} ETB! Keep playing and winning!');
-  const [sendingGiveaway, setSendingGiveaway] = useState(false);
-  const [giveawayResults, setGiveawayResults] = useState<any[]>([]);
-  const [prizeAmounts, setPrizeAmounts] = useState<Record<string, string>>({});
-  const [showSMSConfirm, setShowSMSConfirm] = useState(false);
-  const adjustPrize = (userId: string, amount: number) => {
-    setPrizeAmounts(prev => {
-      const winner = giveawayData?.winners?.find((w: any) => w.id === userId);
-      const defaultPrize = winner ? (winner.rank === 1 ? 500 : winner.rank === 2 ? 300 : 200) : 0;
-      const current = Number(prev[userId] || defaultPrize);
-      return { ...prev, [userId]: String(current + amount) };
-    });
-  };
+  // Pagination
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const LIMIT = 15;
+  const totalPages = Math.max(1, Math.ceil(total / LIMIT));
 
-  const resetPrize = (userId: string) => {
-    setPrizeAmounts(prev => {
-      const { [userId]: _, ...rest } = prev;
-      return rest;
-    });
-  };
+  // Confirm dialog
+  const [confirm, setConfirm] = useState(false);
 
-  // Winner audit / anti-cheat review modal states
-  const [selectedWinnerForReview, setSelectedWinnerForReview] = useState<any | null>(null);
-  const [reviewLoading, setReviewLoading] = useState(false);
-  const [reviewUserData, setReviewUserData] = useState<any | null>(null);
-  const [replacementTargetId, setReplacementTargetId] = useState<string>('');
-  const [showReplacementPicker, setShowReplacementPicker] = useState(false);
-  
-  // Replay sub-modal states
-  const [replayGame, setReplayGame] = useState<any | null>(null);
-  const [replayMoves, setReplayMoves] = useState<any[]>([]);
-  const [replayBoardStep, setReplayBoardStep] = useState(0);
-
-  const fetchReviewUser = async (userId: string) => {
-    setReviewLoading(true);
-    try {
-      const res = await fetch(`${API_URL}/admin/users/${userId}/360`, { headers });
-      const data = await res.json();
-      if (data.user) {
-        setReviewUserData(data);
-      } else {
-        showAlert('Error', 'Failed to load user details');
-      }
-    } catch (e) {
-      console.error('Fetch review user error:', e);
-      showAlert('Error', 'Failed to load user details');
-    } finally {
-      setReviewLoading(false);
-    }
-  };
-
-  const confirmReplacement = () => {
-    if (!selectedWinnerForReview) return;
-    const rank = selectedWinnerForReview.rank;
-    
-    setGiveawayData((prev: any) => {
-      if (!prev || !prev.winners) return prev;
-      
-      const newWinners = prev.winners.map((w: any) => {
-        if (w.rank === rank) {
-          if (replacementTargetId === 'none') {
-            return {
-              id: 'none',
-              username: 'Disqualified',
-              number: 'N/A',
-              rank: rank,
-              wins: 0,
-              avatar: null
-            };
-          } else {
-            const repl = standings.find(s => s.id === replacementTargetId);
-            if (repl) {
-              return {
-                id: repl.id,
-                username: repl.username,
-                number: repl.number,
-                rank: rank,
-                wins: repl.wins,
-                avatar: null
-              };
-            }
-          }
-        }
-        return w;
-      });
-      
-      return { ...prev, winners: newWinners };
-    });
-    
-    setSelectedWinnerForReview(null);
-    setReviewUserData(null);
-    setReplacementTargetId('');
-  };
-
-  // Responsive state for dual column layout
-  const [width, setWidth] = useState(Platform.OS === 'web' ? window.innerWidth : Dimensions.get('window').width);
-
-  useEffect(() => {
-    if (Platform.OS !== 'web') return;
-    const handleResize = () => setWidth(window.innerWidth);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
+  /* ── fetch ─────────────────────────────────────────── */
   const fetchStandings = useCallback(async () => {
     if (!token) return;
     try {
-      const offset = (standingsPage - 1) * STANDINGS_LIMIT;
-      const searchParams = new URLSearchParams({ limit: String(STANDINGS_LIMIT), offset: String(offset) });
-      if (standingsSearch) searchParams.append('search', standingsSearch);
-
-      const res = await fetch(`${API_URL}/admin/leaderboard/current?${searchParams.toString()}`, { headers });
+      const offset = (page - 1) * LIMIT;
+      const params = new URLSearchParams({ limit: String(LIMIT), offset: String(offset) });
+      const res = await fetch(`${API_URL}/admin/leaderboard/current?${params}`, { headers });
       const data = await res.json();
       if (data.ok) {
         setStandings(data.standings || []);
-        setStandingsTotal(data.total || 0);
+        setTotal(data.total || 0);
         setWeekStart(data.weekStart || '');
         setWeekEnd(data.weekEnd || '');
       }
-    } catch (e) {
-      console.error('Fetch standings error:', e);
-    }
-  }, [token, standingsPage, standingsSearch]);
+    } catch (e) { console.error('[leaderboard/standings]', e); }
+  }, [token, page]);
 
   const fetchAll = useCallback(async () => {
     if (!token) return;
     setLoading(true);
     try {
-      const offset = (standingsPage - 1) * STANDINGS_LIMIT;
-      const searchParams = new URLSearchParams({ limit: String(STANDINGS_LIMIT), offset: String(offset) });
-      if (standingsSearch) searchParams.append('search', standingsSearch);
-
-      const [standingsRes, snapshotsRes, fakeRes, settingsRes] = await Promise.all([
-        fetch(`${API_URL}/admin/leaderboard/current?${searchParams.toString()}`, { headers }).then(r => r.json()),
+      const offset = (page - 1) * LIMIT;
+      const params = new URLSearchParams({ limit: String(LIMIT), offset: String(offset) });
+      const [standingsRes, snapshotsRes, settingsRes] = await Promise.all([
+        fetch(`${API_URL}/admin/leaderboard/current?${params}`, { headers }).then(r => r.json()),
         fetch(`${API_URL}/admin/leaderboard/snapshots`, { headers }).then(r => r.json()),
-        fetch(`${API_URL}/admin/leaderboard/fake-ticker`, { headers }).then(r => r.json()),
         fetch(`${API_URL}/admin/settings`, { headers }).then(r => r.json()),
       ]);
-
       if (standingsRes.ok) {
         setStandings(standingsRes.standings || []);
-        setStandingsTotal(standingsRes.total || 0);
+        setTotal(standingsRes.total || 0);
         setWeekStart(standingsRes.weekStart || '');
         setWeekEnd(standingsRes.weekEnd || '');
       }
       if (snapshotsRes.ok) setSnapshots(snapshotsRes.snapshots || []);
-      if (fakeRes.ok) setFakeEntries(fakeRes.entries || []);
-      if (settingsRes.ok) {
-        setFakeTickerEnabled(settingsRes.config?.fake_ticker_enabled === true);
-        setAutoApprove(settingsRes.config?.leaderboard_auto_approve === true);
-      }
-    } catch (e) {
-      console.error('Admin LB fetch error:', e);
-    } finally {
-      setLoading(false);
-    }
-  }, [token]); // removed standingsPage and standingsSearch from dep array to avoid full page reload loop, but added it to fetchStandings instead.
-
-  useEffect(() => { fetchAll(); }, [fetchAll]);
-
-  // Separate effect for pagination and search
-  useEffect(() => {
-    fetchStandings();
-  }, [standingsPage, standingsSearch, fetchStandings]);
-
-  // Timer countdown to next Sunday midnight UTC (matches backend/user bounds)
-  useEffect(() => {
-    if (!weekEnd) return;
-    const calc = () => {
-      const now = new Date().getTime();
-      const target = new Date(weekEnd).getTime() + 1; // reset point
-      const diff = target - now;
-      if (diff <= 0) {
-        setTimeLeft('00d : 00h : 00m : 00s');
-        return;
-      }
-      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
-      const minutes = Math.floor((diff / 1000 / 60) % 60);
-      const seconds = Math.floor((diff / 1000) % 60);
-
-      const dStr = String(days).padStart(2, '0');
-      const hStr = String(hours).padStart(2, '0');
-      const mStr = String(minutes).padStart(2, '0');
-      const sStr = String(seconds).padStart(2, '0');
-
-      setTimeLeft(`${dStr}d : ${hStr}h : ${mStr}m : ${sStr}s`);
-    };
-
-    calc();
-    const interval = setInterval(calc, 1000);
-    return () => clearInterval(interval);
-  }, [weekEnd]);
-
-  // Fetch giveaway status
-  const fetchGiveawayStatus = useCallback(async () => {
-    setGiveawayLoading(true);
-    try {
-      const res = await fetch(`${API_URL}/admin/leaderboard/giveaway-status`, { headers });
-      if (res.ok) setGiveawayData(await res.json());
-    } catch (e) { console.error('Giveaway status error:', e); }
-    finally { setGiveawayLoading(false); }
+      if (settingsRes.ok) setAutoApprove(settingsRes.config?.leaderboard_auto_approve === true);
+    } catch (e) { console.error('[leaderboard/fetchAll]', e); }
+    finally { setLoading(false); }
   }, [token]);
 
-  useEffect(() => { fetchGiveawayStatus(); }, [fetchGiveawayStatus]);
+  useEffect(() => { fetchAll(); }, [fetchAll]);
+  useEffect(() => { fetchStandings(); }, [page]);
 
-  const sendGiveawaySMS = async (dryRun: boolean) => {
-    if (!giveawayData?.winners?.length) return;
-    setSendingGiveaway(true);
+  const weekEndMs = weekEnd ? new Date(weekEnd).getTime() : 0;
+  const leader = standings[0];
+  const pendingSnapshots = snapshots.filter(s => s.prize_status === 'pending');
+  const pendingTotal = pendingSnapshots.reduce((s, r) => s + (r.prize_amount || 0), 0);
+  const paidCount = snapshots.filter(s => s.prize_status === 'approved' || s.prize_status === 'paid').length;
+
+  // Last week winners (from snapshots)
+  const lastWeekWinners = snapshots
+    .filter(s => s.prize_status === 'approved' || s.prize_status === 'paid')
+    .sort((a, b) => a.rank - b.rank)
+    .slice(0, 5);
+
+  const createSnapshot = async () => {
     try {
-      const winners = giveawayData.winners.slice(0, 3).map((w: any) => ({
-        userId: w.id,
-        username: w.username,
-        phone: w.number,
-        rank: w.rank,
-        wins: w.wins || 0,
-        prize: prizeAmounts[w.id] || (w.rank === 1 ? '500' : w.rank === 2 ? '300' : '200'),
-      }));
-      const res = await fetch(`${API_URL}/admin/leaderboard/send-giveaway`, {
+      const res = await fetch(`${API_URL}/admin/leaderboard/snapshot`, {
         method: 'POST', headers,
-        body: JSON.stringify({ winners, message: smsMessage, dryRun }),
+        body: JSON.stringify({ autoApprove }),
       });
       const data = await res.json();
       if (data.ok) {
-        setGiveawayResults(data.results || []);
-        if (!dryRun) {
-          showAlert('Success', data.message || 'Giveaway distributed successfully!');
-          fetchAll();
-          fetchGiveawayStatus();
-        }
+        showAlert('Success', data.message || 'Snapshot created');
+        setConfirm(false);
+        fetchAll();
       } else {
-        showAlert('Error', data.error || 'Failed to process giveaway');
+        showAlert('Error', data.error || 'Failed');
       }
-    } catch (e) { console.error('Send giveaway error:', e); }
-    finally { setSendingGiveaway(false); }
+    } catch (e) {
+      showAlert('Error', 'Network error');
+    }
   };
 
   const updateSetting = async (key: string, value: boolean) => {
@@ -324,1813 +182,278 @@ export default function AdminLeaderboardPage() {
     } catch {}
   };
 
-  const createSnapshot = async () => {
-    try {
-      const res = await fetch(`${API_URL}/admin/leaderboard/snapshot`, {
-        method: 'POST', headers,
-        body: JSON.stringify({ autoApprove }),
-      });
-      const data = await res.json();
-      if (data.ok) {
-        showAlert('Success', data.message);
-        fetchAll();
-      } else {
-        showAlert('Error', data.error);
-      }
-    } catch (e) {
-      console.error('Snapshot error:', e);
-    }
-  };
-
-  const approvePrize = async (snapshotId: string) => {
-    try {
-      const res = await fetch(`${API_URL}/admin/leaderboard/approve/${snapshotId}`, {
-        method: 'POST', headers,
-      });
-      const data = await res.json();
-      if (data.ok) {
-        showAlert('Success', data.message);
-        fetchAll();
-      } else {
-        showAlert('Error', data.error);
-      }
-    } catch {}
-  };
-
-  const approveAllPrizes = async () => {
-    try {
-      const res = await fetch(`${API_URL}/admin/leaderboard/approve-all`, {
-        method: 'POST', headers,
-      });
-      const data = await res.json();
-      if (data.ok) {
-        showAlert('Success', data.message);
-        fetchAll();
-      } else {
-        showAlert('Error', data.error);
-      }
-    } catch (e) {
-      console.error('Approve all error:', e);
-    }
-  };
-
-  const addFakeEntry = async () => {
-    if (!newFakeName || !newFakeAmount) return;
-    try {
-      await fetch(`${API_URL}/admin/leaderboard/fake-ticker`, {
-        method: 'POST', headers,
-        body: JSON.stringify({ username: newFakeName, amount: Number(newFakeAmount) }),
-      });
-      setNewFakeName('');
-      setNewFakeAmount('');
-      fetchAll();
-    } catch {}
-  };
-
-  const deleteFakeEntry = async (id: number) => {
-    try {
-      await fetch(`${API_URL}/admin/leaderboard/fake-ticker/${id}`, {
-        method: 'DELETE', headers,
-      });
-      fetchAll();
-    } catch {}
-  };
-
-  if (loading) {
-    return (
-      <View style={s.loadWrap}>
-        <ActivityIndicator size="large" color={C.accent} />
-        <Text style={s.loadText}>Loading Leaderboard Hub...</Text>
-      </View>
-    );
-  }
-
-  const rankColor = (r: number) => r === 1 ? C.gold : r === 2 ? C.silver : r === 3 ? C.bronze : C.dim;
-  const isLargeScreen = width > 900;
-
+  /* ═══════════════════════════════════════════════════════════════ */
   return (
-    <View style={s.root}>
-      {isDark ? (
-        <LinearGradient colors={['#070C16', '#0C1424', '#070C16']} style={StyleSheet.absoluteFill} />
-      ) : (
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: C.bg }]} />
-      )}
-      <SafeAreaView style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
-          
-          {/* ================= HEADER SECTION ================= */}
-          <View style={s.headerContainer}>
-            <View style={s.headerLeft}>
-              <View style={s.crownGlow}>
-                <Ionicons name="trophy" size={24} color={C.gold} />
-              </View>
-              <View>
-                <Text style={s.headerTitle}>XOET ADMIN</Text>
-                <Text style={s.headerSubTitle}>Super Administrator Control Panel</Text>
-              </View>
-            </View>
-            <View style={s.headerRight}>
-              <View style={s.activeBadge}>
-                <View style={s.pulseDot} />
-                <Text style={s.activeBadgeText}>Live Server Connection</Text>
-              </View>
-              <TouchableOpacity onPress={fetchAll} style={s.refreshBtn} activeOpacity={0.7}>
-                <Ionicons name="refresh" size={18} color={C.txt} />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* ================= CURRENT WEEK BANNER & COUNTDOWN ================= */}
-          <View style={s.bannerCard}>
-            <LinearGradient 
-              colors={['rgba(0, 229, 255, 0.08)', 'rgba(0, 229, 255, 0.03)']} 
-              start={{ x: 0, y: 0 }} 
-              end={{ x: 1, y: 1 }}
-              style={s.bannerInner}
-            >
-              <View style={s.bannerCol}>
-                <View style={s.bannerHeaderLabel}>
-                  <Ionicons name="calendar-outline" size={14} color={C.secondary} />
-                  <Text style={s.bannerLabelText}>CURRENT STANDINGS INTERVAL</Text>
-                </View>
-                <Text style={s.bannerDatesText}>
-                  {weekStart ? new Date(weekStart).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—'} 
-                  {"   "}→{"   "} 
-                  {weekEnd ? new Date(weekEnd).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
-                </Text>
-              </View>
-              <View style={s.bannerDivider} />
-              <View style={s.bannerCol}>
-                <View style={s.bannerHeaderLabel}>
-                  <Ionicons name="time-outline" size={14} color={C.accent} style={s.pulseIcon} />
-                  <Text style={s.bannerLabelText}>WEEK ENDS IN (UTC SYNCHRONIZED)</Text>
-                </View>
-                <Text style={s.bannerTimerText}>{timeLeft}</Text>
-              </View>
-            </LinearGradient>
-          </View>
-
-          {/* ================= PAYOUT MODE SELECTOR ================= */}
-          <View style={s.modeSelectorCard}>
-            <View style={s.modeSelectorHeader}>
-              <Ionicons name="git-network-outline" size={16} color={C.accent} />
-              <Text style={s.modeSelectorTitle}>PAYOUT MODE</Text>
-            </View>
-            <View style={s.modeBtnContainer}>
-              <TouchableOpacity 
-                activeOpacity={0.8} 
-                onPress={() => { setAutoApprove(true); updateSetting('leaderboard_auto_approve', true); }}
-                style={[s.modeBtn, autoApprove ? s.modeBtnActive : null, { borderTopLeftRadius: 12, borderBottomLeftRadius: 12 }]}
-              >
-                <Ionicons name="flash-sharp" size={16} color={autoApprove ? (isDark ? "#000" : "#fff") : C.green} style={{ marginRight: 6 }} />
-                <Text style={[s.modeBtnText, autoApprove ? s.modeBtnTextActive : null]}>AUTOMATIC</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                activeOpacity={0.8} 
-                onPress={() => { setAutoApprove(false); updateSetting('leaderboard_auto_approve', false); }}
-                style={[s.modeBtn, !autoApprove ? s.modeBtnActive : null, { borderTopRightRadius: 12, borderBottomRightRadius: 12 }]}
-              >
-                <Ionicons name="hammer-sharp" size={16} color={!autoApprove ? (isDark ? "#000" : "#fff") : "#f59e0b"} style={{ marginRight: 6 }} />
-                <Text style={[s.modeBtnText, !autoApprove ? s.modeBtnTextActive : null]}>MANUAL</Text>
-              </TouchableOpacity>
-            </View>
-            <Text style={s.modeHintText}>
-              {autoApprove 
-                ? "Auto Mode: Standard distributions settle automatically at countdown expiry with instant payout & congratulations notification."
-                : "Manual Mode: Standings snapshots are taken manually at any time with custom prize values and manual payout trigger controls."
-              }
-            </Text>
-          </View>
-
-          {/* ================= WORKSPACE GRID (TWO COLUMNS ON DESKTOP) ================= */}
-          <View style={[s.gridRow, isLargeScreen ? s.rowLayout : s.columnLayout]}>
-            
-            {/* ----------------- COLUMN 1: STANDINGS (LEFT) ----------------- */}
-            <View style={[s.gridCol, isLargeScreen ? { flex: 1.3 } : null]}>
-              <View style={s.card}>
-                <View style={s.cardHeader}>
-                  <View style={s.titleRow}>
-                    <Ionicons name="stats-chart" size={16} color={C.secondary} />
-                    <Text style={s.cardTitle}>Current Week Standings</Text>
-                  </View>
-                  <View style={s.countBadge}>
-                    <Text style={s.countBadgeText}>{standingsTotal} Active</Text>
-                  </View>
-                </View>
-
-                {/* Search Bar */}
-                <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
-                  <View style={s.searchWrap}>
-                    <Ionicons name="search" size={18} color={C.dim} style={{ marginLeft: 12 }} />
-                    <TextInput
-                      style={s.searchInput}
-                      placeholder={isEN ? "Search username or phone..." : "ስም ወይም ስልክ ይፈልጉ..."}
-                      placeholderTextColor={C.dim}
-                      value={standingsSearch}
-                      onChangeText={(t) => { setStandingsSearch(t); setStandingsPage(1); }}
-                    />
-                  </View>
-                </View>
-
-                <View style={s.cardContent}>
-                  {standings.length === 0 ? (
-                    <View style={s.emptyState}>
-                      <Ionicons name="people-outline" size={48} color={C.dim} style={{ marginBottom: 12, opacity: 0.5 }} />
-                      <Text style={s.emptyText}>{isEN ? 'No winners yet this week' : 'በዚህ ሳምንት ገና ምንም አሸናፊ የለም'}</Text>
+    <View style={{ flex: 1, backgroundColor: C.background }}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 24, gap: 16 }} showsVerticalScrollIndicator={false}>
+        {loading ? (
+          <ActivityIndicator color={C.primary} size="large" style={{ marginTop: 80 }} />
+        ) : (
+          <>
+            {/* ── Top row: countdown + award mode ── */}
+            <View style={Platform.OS === 'web' ? { flexDirection: 'row', gap: 16 } : { gap: 16 }}>
+              {/* Countdown */}
+              <View style={{ flex: 1.1 }}>
+                <AdminPanel
+                  title="This week ends in"
+                  kicker={`Cycle ${fmtDay(weekStart)} - ${fmtDay(weekEnd)} · snapshot taken at 23:59 EAT`}
+                >
+                  <Countdown to={weekEndMs} />
+                  {/* KPIs */}
+                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>
+                    <View style={{ flex: 1, borderRadius: 12, backgroundColor: C.surfaceContainerLow, padding: 12 }}>
+                      <Text style={{ fontSize: 10, color: C.onSurfaceVariant }}>Prize pool</Text>
+                      <Text style={{ fontSize: 15, fontWeight: '800', color: C.primary, marginTop: 4 }}>
+                        {fmtETB(pendingTotal)}
+                      </Text>
                     </View>
-                  ) : (
-                    standings.map((u, index) => {
-                      const maxWins = standings[0]?.wins || 1;
-                      const ratio = u.wins / maxWins;
+                    <View style={{ flex: 1, borderRadius: 12, backgroundColor: C.surfaceContainerLow, padding: 12 }}>
+                      <Text style={{ fontSize: 10, color: C.onSurfaceVariant }}>Current leader</Text>
+                      <Text style={{ fontSize: 13, fontWeight: '800', color: C.onSurface, marginTop: 4 }} numberOfLines={1}>
+                        {leader?.username || '--'}
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1, borderRadius: 12, backgroundColor: C.surfaceContainerLow, padding: 12 }}>
+                      <Text style={{ fontSize: 10, color: C.onSurfaceVariant }}>Paid</Text>
+                      <Text style={{ fontSize: 15, fontWeight: '800', color: C.onSurface, marginTop: 4 }}>
+                        {`${paidCount}/${snapshots.length}`}
+                      </Text>
+                    </View>
+                  </View>
+                </AdminPanel>
+              </View>
+
+              {/* Prize award mode */}
+              <View style={{ flex: 1 }}>
+                <AdminPanel title="Prize award mode" kicker="How winners are paid when the countdown reaches zero">
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    {(['auto', 'manual'] as const).map(m => {
+                      const active = autoApprove === (m === 'auto');
                       return (
-                        <View key={u.id} style={s.standingRow}>
-                          <View style={s.standingLeft}>
-                            <View style={[s.rankPill, { backgroundColor: rankColor(u.rank) + '15', borderColor: rankColor(u.rank) + '40' }]}>
-                              <Text style={[s.rankText, { color: rankColor(u.rank) }]}>#{u.rank}</Text>
-                            </View>
-                            <View>
-                              <Text style={s.standingName}>{u.username}</Text>
-                              <Text style={s.standingPhone}>{u.number}</Text>
-                            </View>
-                          </View>
-                          <View style={s.standingRight}>
-                            <View style={{ alignItems: 'flex-end', marginBottom: 4 }}>
-                              <Text style={s.standingWins}>{u.wins} {isEN ? 'Wins' : 'ድሎች'}</Text>
-                            </View>
-                            {/* Visual Progress Bar */}
-                            <View style={s.barContainer}>
-                              <View style={[s.barFill, { width: `${ratio * 100}%`, backgroundColor: u.rank === 1 ? C.gold : C.accent }]} />
-                            </View>
-                          </View>
-                        </View>
+                        <TouchableOpacity
+                          key={m}
+                          onPress={() => {
+                            const val = m === 'auto';
+                            setAutoApprove(val);
+                            updateSetting('leaderboard_auto_approve', val);
+                          }}
+                          disabled={!isSuperAdmin}
+                          style={{
+                            flex: 1, borderRadius: 12, borderWidth: 1, padding: 14,
+                            borderColor: active ? C.primary + '66' : C.border,
+                            backgroundColor: active ? C.primary + '18' : C.surface,
+                            opacity: !isSuperAdmin ? 0.55 : 1,
+                          }}
+                        >
+                          <Text style={{ fontSize: 12, fontWeight: '800', color: active ? C.primary : C.onSurface }}>
+                            {m === 'auto' ? 'Automatic' : 'Manual approval'}
+                          </Text>
+                          <Text style={{ fontSize: 10, color: C.onSurfaceVariant, marginTop: 4, lineHeight: 15 }}>
+                            {m === 'auto'
+                              ? 'Prizes credit to withdrawable wallets the moment the week closes.'
+                              : 'Week closes, then an admin reviews and confirms each payout.'}
+                          </Text>
+                        </TouchableOpacity>
                       );
-                    })
-                  )}
+                    })}
+                  </View>
+                  <View style={{ marginTop: 16 }}>
+                    <AdminButton
+                      tone="brand"
+                      icon="trophy-outline"
+                      onPress={() => setConfirm(true)}
+                      disabled={!isSuperAdmin || pendingTotal === 0}
+                    >
+                      {pendingTotal ? `Review and pay ${fmtETB(pendingTotal)}` : 'All prizes paid'}
+                    </AdminButton>
+                  </View>
+                </AdminPanel>
+              </View>
+            </View>
 
-                  {/* Pagination Controls */}
-                  {standingsTotal > STANDINGS_LIMIT && (
-                    <View style={s.paginationRow}>
-                      <TouchableOpacity 
-                        style={[s.pageBtn, standingsPage === 1 && s.pageBtnDisabled]}
-                        disabled={standingsPage === 1}
-                        onPress={() => setStandingsPage(p => Math.max(1, p - 1))}
+            {/* ── Bottom row: standings table + last week ── */}
+            <View style={Platform.OS === 'web' ? { flexDirection: 'row', gap: 16, alignItems: 'flex-start' } : { gap: 16 }}>
+              {/* Live standings */}
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <AdminPanel
+                  title="Live weekly standings"
+                  kicker="Ranked by wins · prizes are credited to the withdrawable wallet"
+                  noPadBody
+                  right={<AdminPill tone="brand">Week live</AdminPill>}
+                >
+                  {/* Table header */}
+                  <View style={{
+                    flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 10,
+                    backgroundColor: C.surfaceContainerHighest,
+                    borderBottomWidth: 1, borderBottomColor: C.border,
+                  }}>
+                    {['Rank', 'Player', 'Total wins', 'Prize', 'Status'].map((h, i) => (
+                      <Text
+                        key={h}
+                        style={{
+                          flex: i === 1 ? 2 : 1,
+                          fontSize: 10, fontWeight: '700', color: C.onSurfaceVariant,
+                          textTransform: 'uppercase', letterSpacing: 1,
+                          textAlign: i >= 2 ? 'right' : 'left',
+                        }}
                       >
-                        <Ionicons name="chevron-back" size={16} color={standingsPage === 1 ? C.dim : C.txt} />
-                      </TouchableOpacity>
-                      <Text style={s.pageText}>
-                        Page {standingsPage} of {Math.ceil(standingsTotal / STANDINGS_LIMIT)}
+                        {h}
                       </Text>
-                      <TouchableOpacity 
-                        style={[s.pageBtn, standingsPage >= Math.ceil(standingsTotal / STANDINGS_LIMIT) && s.pageBtnDisabled]}
-                        disabled={standingsPage >= Math.ceil(standingsTotal / STANDINGS_LIMIT)}
-                        onPress={() => setStandingsPage(p => p + 1)}
-                      >
-                        <Ionicons name="chevron-forward" size={16} color={standingsPage >= Math.ceil(standingsTotal / STANDINGS_LIMIT) ? C.dim : C.txt} />
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                </View>
-              </View>
-            </View>
-
-            {/* ----------------- COLUMN 2: CONTROLS & SNAPSHOTS (RIGHT) ----------------- */}
-            <View style={[s.gridCol, isLargeScreen ? { flex: 1 } : null]}>
-              
-              {/* Settings Card */}
-              <View style={s.card}>
-                <View style={s.cardHeader}>
-                  <View style={s.titleRow}>
-                    <Ionicons name="settings-sharp" size={16} color={C.accent} />
-                    <Text style={s.cardTitle}>Global Settings</Text>
-                  </View>
-                </View>
-
-                <View style={s.cardContent}>
-                  <View style={s.settingRow}>
-                    <View style={s.settingInfo}>
-                      <Text style={s.settingLabel}>{isEN ? 'Auto-Approve Prizes' : 'ሽልማቶችን ራስ-ፈቅድ'}</Text>
-                      <Text style={s.settingDesc}>Distribute weekly payouts automatically at midnight</Text>
-                    </View>
-                    <Switch
-                      value={autoApprove}
-                      onValueChange={(v) => { setAutoApprove(v); updateSetting('leaderboard_auto_approve', v); }}
-                      trackColor={{ false: '#221c38', true: C.accent + '50' }}
-                      thumbColor={autoApprove ? C.accent : '#555'}
-                    />
-                  </View>
-
-                  <View style={[s.settingRow, { borderBottomWidth: 0 }]}>
-                    <View style={s.settingInfo}>
-                      <Text style={s.settingLabel}>{isEN ? 'Live Winner Ticker' : 'ሐሰት ቲከር አንቃ'}</Text>
-                      <Text style={s.settingDesc}>Use tickers for promotional fake winner alerts</Text>
-                    </View>
-                    <Switch
-                      value={fakeTickerEnabled}
-                      onValueChange={(v) => { setFakeTickerEnabled(v); updateSetting('fake_ticker_enabled', v); }}
-                      trackColor={{ false: '#221c38', true: C.accent + '50' }}
-                      thumbColor={fakeTickerEnabled ? C.accent : '#555'}
-                    />
-                  </View>
-                </View>
-              </View>
-
-              {/* Past Snapshots Card */}
-              <View style={[s.card, { marginTop: 16 }]}>
-                <View style={s.cardHeader}>
-                  <View style={s.titleRow}>
-                    <Ionicons name="folder-open" size={16} color={C.gold} />
-                    <Text style={s.cardTitle}>{isEN ? 'Past Snapshots' : 'ያለፉ ቅጽበቶች'}</Text>
-                  </View>
-                  {!autoApprove && snapshots.some(snap => snap.prize_status === 'pending') && (
-                    <TouchableOpacity onPress={approveAllPrizes} style={s.approveAllBtn} activeOpacity={0.8}>
-                      <Ionicons name="checkmark-done" size={12} color="#fff" />
-                      <Text style={s.approveAllText}>Approve All</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-
-                <View style={s.cardContent}>
-                  {snapshots.length === 0 ? (
-                    <View style={s.emptyState}>
-                      <Ionicons name="archive-outline" size={32} color={C.dim} style={{ marginBottom: 8, opacity: 0.5 }} />
-                      <Text style={s.emptyText}>{isEN ? 'No snapshots yet' : 'ገና ምንም ቅጽበቶች የሉም'}</Text>
-                    </View>
-                  ) : (
-                    Object.entries(
-                      snapshots.reduce((groups: Record<string, Snapshot[]>, s: Snapshot) => {
-                        const key = `${s.week_start} → ${s.week_end}`;
-                        if (!groups[key]) groups[key] = [];
-                        groups[key].push(s);
-                        return groups;
-                      }, {} as Record<string, Snapshot[]>)
-                    ).slice(0, 3).map(([weekRange, snaps]) => (
-                      <View key={weekRange} style={s.snapshotGroup}>
-                        <View style={s.snapshotGroupHeader}>
-                          <Ionicons name="time" size={12} color={C.secondary} />
-                          <Text style={s.snapshotGroupTitle}>{weekRange}</Text>
-                        </View>
-                        {snaps.sort((a,b) => a.rank - b.rank).slice(0, 3).map(snap => (
-                          <View key={snap.id} style={s.snapRow}>
-                            <View style={s.snapInfo}>
-                              <Text style={s.snapName}>#{snap.rank} {snap.username}</Text>
-                              <Text style={s.snapMeta}>{snap.wins} wins · {snap.prize_amount} ETB</Text>
-                            </View>
-                            {!autoApprove && snap.prize_status === 'pending' ? (
-                              <TouchableOpacity onPress={() => approvePrize(snap.id)} style={s.approveBtn} activeOpacity={0.7}>
-                                <Text style={s.approveBtnText}>Approve</Text>
-                              </TouchableOpacity>
-                            ) : (
-                              <View style={[s.statusBadge, { borderColor: (snap.prize_status === 'approved' || snap.prize_status === 'paid') ? C.green + '40' : C.dim + '40', backgroundColor: (snap.prize_status === 'approved' || snap.prize_status === 'paid') ? C.green + '10' : C.dim + '10' }]}>
-                                <Ionicons name={(snap.prize_status === 'approved' || snap.prize_status === 'paid') ? "checkmark-circle" : "time-outline"} size={10} color={(snap.prize_status === 'approved' || snap.prize_status === 'paid') ? C.green : C.dim} />
-                                <Text style={[s.statusBadgeText, { color: (snap.prize_status === 'approved' || snap.prize_status === 'paid') ? C.green : C.dim }]}>
-                                  {(snap.prize_status === 'approved' || snap.prize_status === 'paid') ? 'Paid' : 'Pending'}
-                                </Text>
-                              </View>
-                            )}
-                          </View>
-                        ))}
-                      </View>
-                    ))
-                  )}
-                </View>
-              </View>
-
-            </View>
-          </View>
-
-          {/* ================= BOTTOM CONDITIONAL DISTRIBUTION MODULE ================= */}
-          <View style={s.moduleDivider} />
-
-          {autoApprove ? (
-            /* ================= MODE: AUTOMATIC ACTIVE ================= */
-            <View style={s.card}>
-              <View style={[s.cardHeader, { borderBottomColor: C.green + '30' }]}>
-                <View style={s.titleRow}>
-                  <Ionicons name="flash-sharp" size={20} color={C.green} />
-                  <Text style={[s.cardTitle, { color: C.green, fontSize: 16 }]}>AUTOMATIC DISTRIBUTION PROTOCOL</Text>
-                </View>
-                <View style={[s.activeStatusBadge, { backgroundColor: C.green + '20', borderColor: C.green + '40' }]}>
-                  <Text style={{ color: C.green, fontSize: 11, fontWeight: '900' }}>ACTIVE</Text>
-                </View>
-              </View>
-
-              <View style={s.cardContent}>
-                <Text style={s.modeDescription}>
-                  Weekly prizes, standing snapshots, and automated SMS announcements are fully managed by the core background workers. Standings lock and distribute instantly on the Sunday countdown expiry.
-                </Text>
-
-                <View style={[s.gridRow, isLargeScreen ? s.rowLayout : s.columnLayout, { marginTop: 18, gap: 14 }]}>
-                  
-                  {/* Prize Tier Standings */}
-                  <View style={[s.gridCol, { backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: C.border }]}>
-                    <Text style={s.subSectionTitle}>Prize Pool Distribution</Text>
-                    <View style={s.prizeRow}>
-                      <View style={[s.prizeMedal, { backgroundColor: C.gold + '20' }]}><Text style={{ color: C.gold, fontWeight: '900' }}>1</Text></View>
-                      <Text style={s.prizeLabel}>Rank #1 Champion</Text>
-                      <Text style={s.prizeValue}>500 ETB</Text>
-                    </View>
-                    <View style={s.prizeRow}>
-                      <View style={[s.prizeMedal, { backgroundColor: C.silver + '20' }]}><Text style={{ color: C.silver, fontWeight: '900' }}>2</Text></View>
-                      <Text style={s.prizeLabel}>Rank #2 Second</Text>
-                      <Text style={s.prizeValue}>300 ETB</Text>
-                    </View>
-                    <View style={s.prizeRow}>
-                      <View style={[s.prizeMedal, { backgroundColor: C.bronze + '20' }]}><Text style={{ color: C.bronze, fontWeight: '900' }}>3</Text></View>
-                      <Text style={s.prizeLabel}>Rank #3 Third</Text>
-                      <Text style={s.prizeValue}>200 ETB</Text>
-                    </View>
-                  </View>
-
-                  {/* SMS / In-App Notification Preview */}
-                  <View style={[s.gridCol, { backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: C.border }]}>
-                    <Text style={s.subSectionTitle}>User Notification Previews</Text>
-                    
-                    {/* Victory notification mockup */}
-                    <Text style={s.notificationPreviewHeader}>IN-APP VICTORY NOTIFICATION</Text>
-                    <View style={s.mockNotification}>
-                      <View style={s.mockNotificationHeader}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <Ionicons name="trophy" size={14} color={C.gold} />
-                          <Text style={s.mockNotifTitle}>Weekly Leaderboard Champion</Text>
-                        </View>
-                        <Text style={s.mockNotifTime}>Just now</Text>
-                      </View>
-                      <Text style={s.mockNotifBody}>
-                        Congratulations! You finished the week as one of our champion players! A reward of 500 ETB has been credited directly to your wallet balance. Keep playing!
-                      </Text>
-                    </View>
-                  </View>
-
-                </View>
-              </View>
-            </View>
-          ) : (
-            /* ================= MODE: MANUAL CONTROL ================= */
-            <View style={s.card}>
-              <View style={[s.cardHeader, { borderBottomColor: '#f59e0b40' }]}>
-                <View style={s.titleRow}>
-                  <Ionicons name="hammer-sharp" size={20} color="#f59e0b" />
-                  <Text style={[s.cardTitle, { color: '#f59e0b', fontSize: 16 }]}>MANUAL CONSOLE & WEEK SNAPSHOT</Text>
-                </View>
-                <View style={[s.activeStatusBadge, { backgroundColor: '#f59e0b20', borderColor: '#f59e0b40' }]}>
-                  <Text style={{ color: '#f59e0b', fontSize: 11, fontWeight: '900' }}>MANUAL</Text>
-                </View>
-              </View>
-
-              <View style={s.cardContent}>
-                <Text style={s.modeDescription}>
-                  Audit standings and trigger distributions manually. You can set customized rewards for the weekly winners and distribute notifications at any time.
-                </Text>
-
-                {giveawayLoading ? (
-                  <ActivityIndicator color={C.accent} style={{ marginVertical: 20 }} />
-                ) : giveawayData?.winners?.length ? (
-                  <View style={[s.gridRow, isLargeScreen ? s.rowLayout : s.columnLayout, { marginTop: 18, gap: 14 }]}>
-                    
-                    {/* Top 3 Winners custom inputs */}
-                    <View style={[s.gridCol, { backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: C.border }]}>
-                      <Text style={s.subSectionTitle}>Configure Champion Rewards</Text>
-                      
-                      {giveawayData.winners.slice(0, 3).map((w: any) => {
-                        const defaultPrize = w.rank === 1 ? '500' : w.rank === 2 ? '300' : '200';
-                        return (
-                          <View key={w.id} style={{ marginBottom: 16 }}>
-                            <View style={s.giveawayWinnerRow}>
-                              <TouchableOpacity
-                                style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}
-                                onPress={() => {
-                                  setSelectedWinnerForReview(w);
-                                  setReplacementTargetId(w.id);
-                                  if (w.id !== 'none' && w.id !== 'null' && w.id) {
-                                    fetchReviewUser(w.id);
-                                  }
-                                }}
-                                activeOpacity={0.7}
-                              >
-                                <View style={[s.prizeMedal, { backgroundColor: rankColor(w.rank) + '20', width: 26, height: 26 }]}>
-                                  <Text style={{ color: rankColor(w.rank), fontWeight: '900', fontSize: 12 }}>#{w.rank}</Text>
-                                </View>
-                                <View style={{ flex: 1, marginLeft: 10 }}>
-                                  <Text style={s.giveawayWinnerName}>{w.username}</Text>
-                                  <Text style={s.giveawayWinnerWins}>{w.wins} wins · {w.number}</Text>
-                                </View>
-                              </TouchableOpacity>
-                              <View style={s.giveawayInputContainer}>
-                                <TextInput
-                                  style={s.giveawayPrizeInput}
-                                  placeholder={defaultPrize}
-                                  placeholderTextColor="rgba(255,255,255,0.2)"
-                                  value={prizeAmounts[w.id] || ''}
-                                  onChangeText={(v) => setPrizeAmounts(p => ({ ...p, [w.id]: v }))}
-                                  keyboardType="numeric"
-                                />
-                                <Text style={s.giveawayCurrencyLabel}>ETB</Text>
-                              </View>
-                            </View>
-                            
-                            {/* Quick Adjust Suggestions */}
-                            <View style={{ flexDirection: 'row', gap: 6, paddingLeft: 36, marginTop: 2 }}>
-                              <TouchableOpacity 
-                                style={s.quickAdjBtn} 
-                                onPress={() => adjustPrize(w.id, 50)}
-                                activeOpacity={0.7}
-                              >
-                                <Text style={s.quickAdjText}>+50</Text>
-                              </TouchableOpacity>
-                              <TouchableOpacity 
-                                style={s.quickAdjBtn} 
-                                onPress={() => adjustPrize(w.id, 100)}
-                                activeOpacity={0.7}
-                              >
-                                <Text style={s.quickAdjText}>+100</Text>
-                              </TouchableOpacity>
-                              <TouchableOpacity 
-                                style={[s.quickAdjBtn, { borderColor: 'rgba(239, 68, 68, 0.2)' }]} 
-                                onPress={() => resetPrize(w.id)}
-                                activeOpacity={0.7}
-                              >
-                                <Text style={[s.quickAdjText, { color: C.red }]}>Reset</Text>
-                              </TouchableOpacity>
-                            </View>
-                          </View>
-                        );
-                      })}
-                    </View>
-
-                    {/* SMS Message Customizer */}
-                    <View style={[s.gridCol, { backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: C.border }]}>
-                      <Text style={s.subSectionTitle}>SMS Announcement Template</Text>
-                      
-                      <TextInput
-                        style={s.smsTextInput}
-                        multiline
-                        numberOfLines={4}
-                        value={smsMessage}
-                        onChangeText={setSmsMessage}
-                        placeholder="Write SMS template..."
-                        placeholderTextColor="rgba(255,255,255,0.2)"
-                      />
-
-                      {/* Clickable Variable Tag Badges */}
-                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8, marginBottom: 12, alignItems: 'center' }}>
-                        <Text style={[s.smsVariablesDesc, { marginTop: 0, marginRight: 4, fontWeight: '700' }]}>Insert Tag:</Text>
-                        <TouchableOpacity 
-                          style={s.tagBadge}
-                          onPress={() => setSmsMessage(prev => prev + ' {username}')}
-                          activeOpacity={0.7}
-                        >
-                          <Text style={s.tagBadgeText}>{'{username}'}</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity 
-                          style={s.tagBadge}
-                          onPress={() => setSmsMessage(prev => prev + ' {rank}')}
-                          activeOpacity={0.7}
-                        >
-                          <Text style={s.tagBadgeText}>{'{rank}'}</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity 
-                          style={s.tagBadge}
-                          onPress={() => setSmsMessage(prev => prev + ' {prize}')}
-                          activeOpacity={0.7}
-                        >
-                          <Text style={s.tagBadgeText}>{'{prize}'}</Text>
-                        </TouchableOpacity>
-                      </View>
-
-                      <View style={s.manualActionRow}>
-                        <TouchableOpacity
-                          onPress={() => sendGiveawaySMS(true)}
-                          disabled={sendingGiveaway}
-                          style={s.dryRunBtn}
-                          activeOpacity={0.7}
-                        >
-                          {sendingGiveaway ? (
-                            <ActivityIndicator color={C.accent} size="small" />
-                          ) : (
-                            <Text style={s.dryRunBtnText}>🧪 Preview SMS</Text>
-                          )}
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          onPress={() => setShowSMSConfirm(true)}
-                          disabled={sendingGiveaway}
-                          style={s.payoutBtn}
-                          activeOpacity={0.8}
-                        >
-                          <LinearGradient colors={[C.accent, '#00b4cc']} style={s.payoutInner}>
-                            <Ionicons name="paper-plane" size={14} color="#0a0a1a" />
-                            <Text style={s.payoutBtnText}>Send & Snapshot</Text>
-                          </LinearGradient>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-
-                  </View>
-                ) : (
-                  <View style={{ padding: 16, alignItems: 'center' }}>
-                    <Text style={{ color: C.dim }}>No current standings data for award calculations.</Text>
-                  </View>
-                )}
-
-                {/* Dry Run Preview Log */}
-                {giveawayResults.length > 0 && (
-                  <View style={s.resultsCard}>
-                    <Text style={s.resultsTitle}>Dry Run Distribution Output</Text>
-                    {giveawayResults.map((r: any, i: number) => (
-                      <View key={i} style={s.resultItem}>
-                        <Text style={{ color: C.txt, fontSize: 12 }}>{r.phone} ({r.username || 'User'})</Text>
-                        <View style={[s.statusBadge, { backgroundColor: r.status === 'dry_run' ? C.accent + '20' : C.green + '20', borderColor: r.status === 'dry_run' ? C.accent + '40' : C.green + '40' }]}>
-                          <Text style={{ color: r.status === 'dry_run' ? C.accent : C.green, fontSize: 9, fontWeight: '900' }}>{r.status.toUpperCase()}</Text>
-                        </View>
-                      </View>
                     ))}
                   </View>
-                )}
-
-                {/* Manual snapshot fallback */}
-                <TouchableOpacity onPress={createSnapshot} style={[s.snapshotBtn, { marginTop: 14 }]} activeOpacity={0.85}>
-                  <LinearGradient colors={['#111118', '#0c0c15']} style={s.snapshotInner}>
-                    <Ionicons name="camera-outline" size={16} color="#fff" />
-                    <Text style={s.snapshotText}>Trigger Emergency Standings Capture</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-
-              </View>
-            </View>
-          )}
-
-          {/* ================= MOCK/FAKE TICKER MANAGER ================= */}
-          <View style={[s.card, { marginTop: 16 }]}>
-            <View style={s.cardHeader}>
-              <View style={s.titleRow}>
-                <Ionicons name="megaphone-outline" size={16} color={C.secondary} />
-                <Text style={s.cardTitle}>Home Page Ticker Manager</Text>
-              </View>
-            </View>
-
-            <View style={s.cardContent}>
-              <Text style={s.modeDescription}>
-                Manage the scrolling winner ticker that appears on the home page. These entries appear in the live "🔥 WON" feed at the bottom of the gameplay screen — they do NOT affect the leaderboard standings.
-              </Text>
-
-              <View style={s.fakeForm}>
-                <TextInput
-                  style={s.fakeInput}
-                  placeholder="Username"
-                  placeholderTextColor="rgba(255,255,255,0.2)"
-                  value={newFakeName}
-                  onChangeText={setNewFakeName}
-                />
-                <TextInput
-                  style={[s.fakeInput, { width: 100 }]}
-                  placeholder="Amount (ETB)"
-                  placeholderTextColor="rgba(255,255,255,0.2)"
-                  keyboardType="numeric"
-                  value={newFakeAmount}
-                  onChangeText={setNewFakeAmount}
-                />
-                <TouchableOpacity onPress={addFakeEntry} style={s.fakeAddBtn} activeOpacity={0.8}>
-                  <Ionicons name="add" size={20} color="#fff" />
-                </TouchableOpacity>
-              </View>
-
-              {fakeEntries.length === 0 ? (
-                <Text style={s.emptyText}>No manual overrides active. Ticker relies on real user transactions.</Text>
-              ) : (
-                <View style={s.fakeEntriesContainer}>
-                  {fakeEntries.map(entry => (
-                    <View key={entry.id} style={s.fakeRow}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        <Ionicons name="gift-outline" size={14} color={C.secondary} />
-                        <Text style={s.fakeName}>{entry.username}</Text>
+                  {/* Rows */}
+                  {standings.map((row, idx) => {
+                    const globalIdx = (page - 1) * LIMIT + idx;
+                    const snap = snapshots.find(s => s.user_id === row.id);
+                    const status = snap?.prize_status || 'PENDING';
+                    return (
+                      <View
+                        key={row.id}
+                        style={{
+                          flexDirection: 'row', alignItems: 'center',
+                          paddingHorizontal: 16, paddingVertical: 12,
+                          borderBottomWidth: 1, borderBottomColor: C.border,
+                        }}
+                      >
+                        <View style={{ flex: 1 }}>
+                          <View style={{
+                            width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center',
+                            backgroundColor: globalIdx < 3 ? RANK_BG[globalIdx] : C.surfaceContainerLow,
+                          }}>
+                            <Text style={{
+                              fontSize: 11, fontWeight: '800',
+                              color: globalIdx < 3 ? RANK_FG[globalIdx] : C.onSurfaceVariant,
+                              fontFamily: Platform.OS === 'web' ? 'monospace' : 'Courier',
+                            }}>
+                              {globalIdx + 1}
+                            </Text>
+                          </View>
+                        </View>
+                        <Text style={{ flex: 2, fontSize: 12, fontWeight: '800', color: C.onSurface }}>{row.username}</Text>
+                        <Text style={{ flex: 1, fontSize: 12, fontWeight: '700', color: C.onSurface, textAlign: 'right' }}>
+                          {fmtInt(row.wins)}
+                        </Text>
+                        <Text style={{ flex: 1, fontSize: 12, fontWeight: '800', color: C.primary, textAlign: 'right' }}>
+                          {snap ? fmtETB(snap.prize_amount) : '--'}
+                        </Text>
+                        <View style={{ flex: 1, alignItems: 'flex-end' }}>
+                          <AdminPill tone={status.toLowerCase().includes('paid') || status.toLowerCase().includes('approved') ? 'positive' : 'gold'}>
+                            {status.toUpperCase()}
+                          </AdminPill>
+                        </View>
                       </View>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                        <Text style={s.fakeAmount}>{entry.amount} ETB</Text>
-                        <TouchableOpacity onPress={() => deleteFakeEntry(entry.id)} style={s.fakeDeleteBtn} activeOpacity={0.7}>
-                          <Ionicons name="trash-outline" size={14} color={C.red} />
-                        </TouchableOpacity>
-                      </View>
+                    );
+                  })}
+                  {standings.length === 0 && (
+                    <Text style={{ textAlign: 'center', color: C.onSurfaceVariant, paddingVertical: 40, fontSize: 12 }}>
+                      No standings available this week.
+                    </Text>
+                  )}
+                  {totalPages > 1 && (
+                    <View style={{ paddingVertical: 12, paddingHorizontal: 16 }}>
+                      <AdminPager page={page} pages={totalPages} count={total} size={LIMIT} label="standings" onPage={setPage} />
                     </View>
-                  ))}
+                  )}
+                </AdminPanel>
+              </View>
+
+              {/* Last week winners */}
+              <View style={Platform.OS === 'web' ? { width: 360 } : {}}>
+                <AdminPanel
+                  title="Last week's winners"
+                  kicker={lastWeekWinners.length > 0 ? `${fmtDay(lastWeekWinners[0]?.week_start || '')} - ${fmtDay(lastWeekWinners[0]?.week_end || '')}` : 'No data'}
+                >
+                  {lastWeekWinners.length === 0 ? (
+                    <Text style={{ color: C.onSurfaceVariant, fontSize: 12, textAlign: 'center', paddingVertical: 20 }}>
+                      No past winners yet.
+                    </Text>
+                  ) : (
+                    <View style={{ gap: 8 }}>
+                      {lastWeekWinners.map((row, i) => (
+                        <View
+                          key={row.id || `${i}`}
+                          style={{
+                            flexDirection: 'row', alignItems: 'center', gap: 12,
+                            borderRadius: 12, borderWidth: 1, borderColor: C.border, padding: 12,
+                          }}
+                        >
+                          <View style={{
+                            width: 32, height: 32, borderRadius: 16,
+                            alignItems: 'center', justifyContent: 'center',
+                            backgroundColor: i < 3 ? RANK_BG[i] : C.surfaceContainerLow,
+                          }}>
+                            <Text style={{
+                              fontSize: 11, fontWeight: '800',
+                              color: i < 3 ? RANK_FG[i] : C.onSurfaceVariant,
+                              fontFamily: Platform.OS === 'web' ? 'monospace' : 'Courier',
+                            }}>
+                              {i + 1}
+                            </Text>
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ fontSize: 12, fontWeight: '800', color: C.onSurface }}>{row.username}</Text>
+                            <Text style={{ fontSize: 10, color: C.onSurfaceVariant }}>{fmtInt(row.wins)} wins</Text>
+                          </View>
+                          <View style={{ alignItems: 'flex-end' }}>
+                            <Text style={{ fontSize: 12, fontWeight: '800', color: C.primary }}>{fmtETB(row.prize_amount)}</Text>
+                            <AdminPill tone="positive">PAID</AdminPill>
+                          </View>
+                        </View>
+                      ))}
+                      <Text style={{ fontSize: 10, color: C.onSurfaceVariant, marginTop: 4 }}>
+                        {`Total paid ${fmtETB(lastWeekWinners.reduce((s, r) => s + r.prize_amount, 0))}`}
+                      </Text>
+                    </View>
+                  )}
+                </AdminPanel>
+              </View>
+            </View>
+          </>
+        )}
+        <View style={{ height: 40 }} />
+      </ScrollView>
+
+      {/* ── Confirm payout modal ── */}
+      <Modal visible={confirm} transparent animationType="fade">
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <View style={{ width: 460, maxWidth: '90%' as any, borderRadius: 16, backgroundColor: C.surface, padding: 24 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <View>
+                <Text style={{ fontSize: 17, fontWeight: '800', color: C.onSurface }}>Confirm weekly prize payout</Text>
+                <Text style={{ fontSize: 11, color: C.onSurfaceVariant, marginTop: 4 }}>
+                  These amounts will be credited to each winner's withdrawable balance and written to the ledger.
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setConfirm(false)}>
+                <Ionicons name="close" size={20} color={C.onSurfaceVariant} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={{ maxHeight: 260, marginTop: 16, borderWidth: 1, borderColor: C.border, borderRadius: 12 }}>
+              {pendingSnapshots.map((r, i) => (
+                <View key={r.id} style={{
+                  flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+                  paddingHorizontal: 12, paddingVertical: 8,
+                  borderBottomWidth: i < pendingSnapshots.length - 1 ? 1 : 0, borderBottomColor: C.border,
+                }}>
+                  <Text style={{ fontSize: 11, color: C.onSurfaceVariant }}>
+                    <Text style={{ fontFamily: Platform.OS === 'web' ? 'monospace' : 'Courier', color: C.onSurfaceVariant }}>#{r.rank} </Text>
+                    {r.username}
+                  </Text>
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: C.primary }}>{fmtETB(r.prize_amount)}</Text>
                 </View>
-              )}
+              ))}
+            </ScrollView>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
+              <Text style={{ fontSize: 12, color: C.onSurfaceVariant }}>Total</Text>
+              <Text style={{ fontSize: 12, fontWeight: '800', color: C.onSurface }}>{fmtETB(pendingTotal)}</Text>
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
+              <AdminButton tone="ghost" onPress={() => setConfirm(false)}>Cancel</AdminButton>
+              <AdminButton tone="brand" icon="trophy-outline" onPress={createSnapshot}>Confirm and pay</AdminButton>
             </View>
           </View>
-
-          <View style={{ height: 60 }} />
-        </ScrollView>
-
-        <ActionConfirmModal
-          visible={showSMSConfirm}
-          title={isEN ? "Trigger Prize Disbursement" : "ለአሸናፊዎች ሽልማት ላክ"}
-          message={isEN 
-            ? "Are you sure you want to capture the standings snapshot, commit prize wallets, and distribute real SMS notifications to top winners?" 
-            : "ቅጽበታዊ መረጃዎችን ለመያዝ ፣ የኪስ ቦርሳዎችን ለመሙላት እና ለእውነተኛ አሸናፊዎች የኤስኤስኤምኤስ ማሳወቂያዎችን ለመላክ እርግጠኛ ነዎት?"
-          }
-          confirmText={isEN ? "Confirm & Settle" : "አዎ ፣ ፈቅድ"}
-          confirmColor="yellow"
-          iconName="paper-plane-outline"
-          isLoading={sendingGiveaway}
-          onCancel={() => setShowSMSConfirm(false)}
-          onConfirm={async () => {
-            await sendGiveawaySMS(false);
-            setShowSMSConfirm(false);
-          }}
-        />
-
-        {/* ================= USER DETAIL / REVIEW / REPLACE MODAL ================= */}
-        {selectedWinnerForReview && (
-          <Modal visible transparent animationType="slide">
-            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center', padding: 16 }}>
-              <View style={{ backgroundColor: '#0f1423', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', width: '100%', maxWidth: 640, maxHeight: '90%', padding: 20 }}>
-                {/* Header */}
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)', paddingBottom: 12 }}>
-                  <View>
-                    <Text style={{ color: '#fff', fontSize: 16, fontWeight: '900' }}>
-                      Review & Replace: Rank #{selectedWinnerForReview.rank}
-                    </Text>
-                    <Text style={{ color: C.dim, fontSize: 11 }}>
-                      Current Winner: {selectedWinnerForReview.username} ({selectedWinnerForReview.wins} wins)
-                    </Text>
-                  </View>
-                  <TouchableOpacity 
-                    onPress={() => {
-                      setSelectedWinnerForReview(null);
-                      setReviewUserData(null);
-                      setReplacementTargetId('');
-                    }}
-                    style={{ padding: 4 }}
-                  >
-                    <Ionicons name="close" size={24} color="#fff" />
-                  </TouchableOpacity>
-                </View>
-
-                <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-                  {/* Replacement Selector */}
-                  <View style={{ backgroundColor: 'rgba(255,255,255,0.02)', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', marginBottom: 16 }}>
-                    <Text style={{ color: C.accent, fontSize: 11, fontWeight: '800', letterSpacing: 0.5, marginBottom: 8 }}>REPLACE WINNER</Text>
-                    <View style={{ gap: 8 }}>
-                      <Text style={{ color: C.dim, fontSize: 11 }}>
-                        Choose another active leaderboard player to swap into this rank, or disqualify this rank entirely:
-                      </Text>
-                      <View style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', height: 40, justifyContent: 'center', paddingHorizontal: 12 }}>
-                        {Platform.OS === 'web' ? (
-                          <select
-                            value={replacementTargetId}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setReplacementTargetId(val);
-                              if (val !== 'none' && val !== '') {
-                                fetchReviewUser(val);
-                              } else {
-                                setReviewUserData(null);
-                              }
-                            }}
-                            style={{
-                              backgroundColor: 'transparent',
-                              color: '#fff',
-                              border: 'none',
-                              outlineStyle: 'none',
-                              width: '100%',
-                              fontSize: 13,
-                              fontFamily: 'inherit',
-                            }}
-                          >
-                            <option value="" disabled style={{ backgroundColor: '#0f1423', color: '#fff' }}>Select player to swap...</option>
-                            <option value="none" style={{ backgroundColor: '#0f1423', color: C.red }}>None (Disqualify Rank)</option>
-                            {standings.map(st => (
-                              <option key={st.id} value={st.id} style={{ backgroundColor: '#0f1423', color: '#fff' }}>
-                                Rank #{st.rank}: {st.username} ({st.wins} wins)
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <TouchableOpacity 
-                            style={{ width: '100%', height: '100%', justifyContent: 'center' }}
-                            onPress={() => setShowReplacementPicker(true)}
-                          >
-                            <Text style={{ color: '#fff', fontSize: 13 }}>
-                              {replacementTargetId === 'none' ? 'None (Disqualify)' : 
-                               standings.find(s => s.id === replacementTargetId)?.username || 'Tap to select replacement...'}
-                            </Text>
-                          </TouchableOpacity>
-                        )}
-                      </View>
-                    </View>
-                  </View>
-
-                  {/* Native Picker Overlay */}
-                  {Platform.OS !== 'web' && showReplacementPicker && (
-                    <Modal visible transparent animationType="fade">
-                      <TouchableOpacity 
-                        style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 24 }}
-                        onPress={() => setShowReplacementPicker(false)}
-                      >
-                        <View style={{ backgroundColor: '#161b2e', borderRadius: 12, padding: 16, maxHeight: '80%' }}>
-                          <Text style={{ color: '#fff', fontWeight: '800', fontSize: 14, marginBottom: 12 }}>Select Replacement</Text>
-                          <ScrollView>
-                            <TouchableOpacity 
-                              style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}
-                              onPress={() => {
-                                setReplacementTargetId('none');
-                                setReviewUserData(null);
-                                setShowReplacementPicker(false);
-                              }}
-                            >
-                              <Text style={{ color: C.red, fontWeight: '700' }}>None (Disqualify Rank)</Text>
-                            </TouchableOpacity>
-                            {standings.map(st => (
-                              <TouchableOpacity 
-                                key={st.id}
-                                style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}
-                                onPress={() => {
-                                  setReplacementTargetId(st.id);
-                                  fetchReviewUser(st.id);
-                                  setShowReplacementPicker(false);
-                                }}
-                              >
-                                <Text style={{ color: '#fff' }}>Rank #{st.rank}: {st.username} ({st.wins} wins)</Text>
-                              </TouchableOpacity>
-                            ))}
-                          </ScrollView>
-                        </View>
-                      </TouchableOpacity>
-                    </Modal>
-                  )}
-
-                  {/* Audited User Info */}
-                  {reviewLoading ? (
-                    <ActivityIndicator color={C.accent} style={{ marginVertical: 30 }} />
-                  ) : replacementTargetId === 'none' ? (
-                    <View style={{ padding: 16, alignItems: 'center', backgroundColor: 'rgba(239, 68, 68, 0.05)', borderRadius: 10, borderStyle: 'dashed', borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.2)' }}>
-                      <Ionicons name="trash-outline" size={32} color={C.red} style={{ marginBottom: 8 }} />
-                      <Text style={{ color: C.red, fontSize: 13, fontWeight: '700' }}>Marking Rank as Disqualified</Text>
-                      <Text style={{ color: C.dim, fontSize: 11, textAlign: 'center', marginTop: 4 }}>
-                        This rank's prize will be set to 0. No wallets will be credited, and the weekly standings slot will display "Disqualified" for users.
-                      </Text>
-                    </View>
-                  ) : reviewUserData ? (
-                    <View style={{ height: 440 }}>
-                      <User360View
-                        data={reviewUserData}
-                        onReplayGame={async (g) => {
-                          try {
-                            const res = await fetch(`${API_URL}/admin/games/${g.id}/moves`, { headers });
-                            const movesJson = await res.json();
-                            if (res.ok) {
-                              setReplayGame(g);
-                              setReplayMoves(movesJson.moves || []);
-                              setReplayBoardStep(0);
-                            } else {
-                              showAlert('Error', 'Failed to load game moves');
-                            }
-                          } catch (err) {
-                            showAlert('Error', 'Failed to load game moves');
-                          }
-                        }}
-                      />
-                    </View>
-                  ) : (
-                    <Text style={{ color: C.dim, fontSize: 12, textAlign: 'center', marginVertical: 20 }}>Select a player to load details</Text>
-                  )}
-                </ScrollView>
-
-                {/* Footer buttons */}
-                <View style={{ flexDirection: 'row', gap: 10, marginTop: 16, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', paddingTop: 12 }}>
-                  <TouchableOpacity 
-                    onPress={() => {
-                      setSelectedWinnerForReview(null);
-                      setReviewUserData(null);
-                      setReplacementTargetId('');
-                    }}
-                    style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', height: 42, borderRadius: 10, alignItems: 'center', justifyContent: 'center' }}
-                  >
-                    <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>Cancel</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity 
-                    onPress={confirmReplacement}
-                    disabled={replacementTargetId === '' || reviewLoading}
-                    style={{ flex: 1.2, backgroundColor: replacementTargetId === 'none' ? C.red : C.accent, height: 42, borderRadius: 10, alignItems: 'center', justifyContent: 'center', opacity: (replacementTargetId === '' || reviewLoading) ? 0.5 : 1 }}
-                  >
-                    <Text style={{ color: '#0a0a1a', fontSize: 13, fontWeight: '900' }}>
-                      {replacementTargetId === 'none' ? 'Disqualify Winner' : 'Confirm Replacement'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-          </Modal>
-        )}
-
-        {/* ================= GAME REPLAY SUB-MODAL ================= */}
-        {replayGame && (
-          <Modal visible transparent animationType="fade">
-            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center', padding: 16 }}>
-              <View style={{ backgroundColor: '#0f1423', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', width: '100%', maxWidth: 440, padding: 20 }}>
-                
-                {/* Header */}
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                  <View>
-                    <Text style={{ color: '#fff', fontSize: 16, fontWeight: '900' }}>Game Replay</Text>
-                    <Text style={{ color: C.dim, fontSize: 10 }}>ID: {replayGame.id?.slice(0, 8)} · Bet: {replayGame.bet_amount} ETB</Text>
-                  </View>
-                  <TouchableOpacity onPress={() => setReplayGame(null)} style={{ padding: 4 }}>
-                    <Ionicons name="close" size={20} color="#fff" />
-                  </TouchableOpacity>
-                </View>
-
-                {/* 3x3 Board rendering */}
-                {(() => {
-                  const board: (string | null)[] = Array(9).fill(null);
-                  const visibleMoves = replayMoves.slice(0, replayBoardStep);
-                  visibleMoves.forEach((m: any, idx: number) => {
-                    const cell = typeof m.cell === 'number' ? m.cell : (typeof m.index === 'number' ? m.index : idx);
-                    const symbol = m.symbol || m.player || (idx % 2 === 0 ? 'X' : 'O');
-                    if (cell >= 0 && cell < 9) board[cell] = symbol;
-                  });
-
-                  return (
-                    <View style={{ marginBottom: 14 }}>
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                        <Text style={{ color: '#64748b', fontSize: 9, fontWeight: '800' }}>STEP {replayBoardStep}/{replayMoves.length}</Text>
-                        <Text style={{ color: C.secondary, fontSize: 10, fontWeight: '700' }}>
-                          {replayGame.winner ? `Winner: ${replayGame.winner === reviewUserData?.user?.id ? reviewUserData.user.username : 'Opponent'}` : 'Draw'}
-                        </Text>
-                      </View>
-
-                      {/* 3x3 Grid */}
-                      <View style={{ alignSelf: 'center', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 12, padding: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
-                        {[0, 1, 2].map(row => (
-                          <View key={row} style={{ flexDirection: 'row' }}>
-                            {[0, 1, 2].map(col => {
-                              const idx = row * 3 + col;
-                              const sym = board[idx];
-                              const isLatest = replayBoardStep > 0 && (() => {
-                                const lastMove = replayMoves[replayBoardStep - 1];
-                                const lastCell = typeof lastMove?.cell === 'number' ? lastMove.cell : (typeof lastMove?.index === 'number' ? lastMove.index : replayBoardStep - 1);
-                                return lastCell === idx;
-                              })();
-                              return (
-                                <View key={col} style={{
-                                  width: 56, height: 56, alignItems: 'center', justifyContent: 'center',
-                                  borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)',
-                                  backgroundColor: isLatest ? 'rgba(0,229,255,0.06)' : 'transparent',
-                                  borderRadius: row === 0 && col === 0 ? 10 : row === 0 && col === 2 ? 10 : row === 2 && col === 0 ? 10 : row === 2 && col === 2 ? 10 : 0,
-                                }}>
-                                  <Text style={{ fontSize: 26, fontWeight: '900', color: sym === 'X' ? '#00daf3' : sym === 'O' ? '#fd6f85' : 'transparent' }}>
-                                    {sym || '·'}
-                                  </Text>
-                                </View>
-                              );
-                            })}
-                          </View>
-                        ))}
-                      </View>
-
-                      {/* Control buttons */}
-                      <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 14, marginTop: 14 }}>
-                        <TouchableOpacity onPress={() => setReplayBoardStep(0)} style={{ padding: 6, opacity: replayBoardStep === 0 ? 0.3 : 1 }}>
-                          <Ionicons name="play-skip-back" size={16} color={C.accent} />
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={() => setReplayBoardStep(p => Math.max(0, p - 1))} style={{ padding: 6, opacity: replayBoardStep === 0 ? 0.3 : 1 }}>
-                          <Ionicons name="caret-back" size={20} color={C.accent} />
-                        </TouchableOpacity>
-                        <TouchableOpacity 
-                          onPress={() => {
-                            setReplayBoardStep(0);
-                            let step = 0;
-                            const iv = setInterval(() => {
-                              step++;
-                              setReplayBoardStep(step);
-                              if (step >= replayMoves.length) clearInterval(iv);
-                            }, 500);
-                          }}
-                          style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0,229,255,0.15)', alignItems: 'center', justifyContent: 'center' }}
-                        >
-                          <Ionicons name="play" size={16} color={C.accent} />
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={() => setReplayBoardStep(p => Math.min(replayMoves.length, p + 1))} style={{ padding: 6, opacity: replayBoardStep >= replayMoves.length ? 0.3 : 1 }}>
-                          <Ionicons name="caret-forward" size={20} color={C.accent} />
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={() => setReplayBoardStep(replayMoves.length)} style={{ padding: 6, opacity: replayBoardStep >= replayMoves.length ? 0.3 : 1 }}>
-                          <Ionicons name="play-skip-forward" size={16} color={C.accent} />
-                        </TouchableOpacity>
-                      </View>
-
-                      {/* Move timeline scrollable */}
-                      <ScrollView style={{ maxHeight: 120, marginTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', paddingTop: 8 }} nestedScrollEnabled>
-                        {replayMoves.map((m: any, i: number) => {
-                          const sym = m.symbol || m.player || (i % 2 === 0 ? 'X' : 'O');
-                          const cell = typeof m.cell === 'number' ? m.cell : (typeof m.index === 'number' ? m.index : i);
-                          const isActive = i < replayBoardStep;
-                          return (
-                            <TouchableOpacity key={i} onPress={() => setReplayBoardStep(i + 1)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4, opacity: isActive ? 1 : 0.4 }}>
-                              <Text style={{ color: '#475569', fontSize: 10, width: 20, fontWeight: '700' }}>{i + 1}</Text>
-                              <Text style={{ color: sym === 'X' ? '#00daf3' : '#fd6f85', fontSize: 11, fontWeight: '900', width: 14 }}>{sym}</Text>
-                              <Text style={{ color: C.dim, fontSize: 10 }}>Cell {cell}</Text>
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </ScrollView>
-                    </View>
-                  );
-                })()}
-
-                <TouchableOpacity 
-                  onPress={() => setReplayGame(null)}
-                  style={{ backgroundColor: 'rgba(255,255,255,0.05)', height: 38, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginTop: 6 }}
-                >
-                  <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>Close Replay</Text>
-                </TouchableOpacity>
-
-              </View>
-            </View>
-          </Modal>
-        )}
-      </SafeAreaView>
+        </View>
+      </Modal>
     </View>
   );
 }
-
-const getStyles = (C: any, isDark: boolean) => StyleSheet.create({
-  root: { flex: 1, backgroundColor: C.bg },
-  scroll: { padding: 18 },
-  modeSelectorCard: {
-    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : C.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: C.border,
-    padding: 16,
-    marginBottom: 20,
-  },
-  modeSelectorHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
-  },
-  modeSelectorTitle: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: C.dim,
-    letterSpacing: 1,
-  },
-  modeBtnContainer: {
-    flexDirection: 'row',
-    height: 46,
-    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.02)' : C.bgGlass,
-    borderWidth: 1,
-    borderColor: isDark ? 'rgba(255, 255, 255, 0.05)' : C.border,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  modeBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'transparent',
-  },
-  modeBtnActive: {
-    backgroundColor: isDark ? '#fff' : C.accent,
-  },
-  modeBtnText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: C.dim,
-    letterSpacing: 0.5,
-  },
-  modeBtnTextActive: {
-    color: isDark ? '#000' : '#fff',
-    fontWeight: '900',
-  },
-  modeHintText: {
-    fontSize: 11,
-    color: C.dim,
-    marginTop: 10,
-    lineHeight: 15,
-    paddingHorizontal: 2,
-  },
-  loadWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.bg },
-  loadText: { color: C.dim, fontSize: 13, marginTop: 10, fontWeight: '600' },
-
-  // Header styles
-  headerContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-    paddingHorizontal: 4,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  crownGlow: {
-    width: 44,
-    height: 44,
-    borderRadius: 8,
-    backgroundColor: isDark ? '#313D4A' : C.cardHeader,
-    borderWidth: 1,
-    borderColor: C.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: C.txt,
-    letterSpacing: 1,
-  },
-  headerSubTitle: {
-    fontSize: 11,
-    color: C.dim,
-    fontWeight: '500',
-    marginTop: 2,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  activeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(16, 185, 129, 0.06)',
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.2)',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    ...Platform.select({
-      web: { display: 'flex' },
-      default: { display: 'none' }
-    })
-  },
-  pulseDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: C.green,
-  },
-  activeBadgeText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: C.green,
-    letterSpacing: 0.5,
-  },
-  refreshBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : C.surfaceContainerHighest,
-    borderWidth: 1,
-    borderColor: C.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  // Week Banner Card
-  bannerCard: {
-    borderRadius: 10,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: C.border,
-    marginBottom: 20,
-  },
-  bannerInner: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    padding: 16,
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  bannerCol: {
-    flex: 1,
-    minWidth: 200,
-    paddingVertical: 4,
-  },
-  bannerDivider: {
-    width: 1,
-    height: 38,
-    backgroundColor: C.border,
-    marginHorizontal: 20,
-    ...Platform.select({
-      web: { display: 'flex' },
-      default: { display: 'none' }
-    })
-  },
-  bannerHeaderLabel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 6,
-  },
-  bannerLabelText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: C.dim,
-    letterSpacing: 0.8,
-  },
-  bannerDatesText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: C.txt,
-  },
-  bannerTimerText: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: C.secondary,
-    letterSpacing: 1.5,
-  },
-  pulseIcon: {
-    transform: [{ scale: 1 }],
-  },
-
-  // Workspace Grid
-  gridRow: {
-    gap: 16,
-  },
-  rowLayout: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  columnLayout: {
-    flexDirection: 'column',
-  },
-  gridCol: {
-    minWidth: '30%',
-  },
-
-  // Core Premium Card
-  card: {
-    backgroundColor: C.card,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: C.border,
-    overflow: 'hidden',
-  },
-  cardHeader: {
-    backgroundColor: C.cardHeader,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  cardTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: C.txt,
-    letterSpacing: 0.5,
-  },
-  cardContent: {
-    padding: 16,
-  },
-
-  // Standings Lists
-  countBadge: {
-    backgroundColor: C.accentDim,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 45, 85, 0.25)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  countBadgeText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: C.accent,
-  },
-  standingRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
-  },
-  standingLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  rankPill: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  rankText: {
-    fontSize: 12,
-    fontWeight: '900',
-  },
-  standingName: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: C.txt,
-  },
-  standingPhone: {
-    fontSize: 10,
-    color: C.dim,
-    marginTop: 2,
-  },
-  standingRight: {
-    alignItems: 'stretch',
-    minWidth: 110,
-  },
-  standingWins: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: C.gold,
-  },
-  barContainer: {
-    height: 4,
-    backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.06)',
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  barFill: {
-    height: '100%',
-    borderRadius: 2,
-  },
-
-  // Settings Layout
-  settingRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
-  },
-  settingInfo: {
-    flex: 1,
-    paddingRight: 10,
-  },
-  settingLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: C.txt,
-  },
-  settingDesc: {
-    fontSize: 10,
-    color: C.dim,
-    marginTop: 2,
-  },
-
-  // Past Snapshots
-  approveAllBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: C.green + '15',
-    borderWidth: 1,
-    borderColor: C.green + '40',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-  },
-  approveAllText: {
-    color: C.green,
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  snapshotGroup: {
-    marginBottom: 16,
-  },
-  snapshotGroupHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 8,
-  },
-  snapshotGroupTitle: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: C.secondary,
-    letterSpacing: 0.5,
-  },
-  snapRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
-  },
-  snapInfo: {
-    flex: 1,
-  },
-  snapName: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: C.txt,
-  },
-  snapMeta: {
-    fontSize: 10,
-    color: C.dim,
-    marginTop: 2,
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    borderWidth: 1,
-  },
-  statusBadgeText: {
-    fontSize: 9,
-    fontWeight: '900',
-  },
-  approveBtn: {
-    backgroundColor: C.accent,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 6,
-  },
-  approveBtnText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: '800',
-  },
-
-  // Bottom Conditional Mode Sections
-  moduleDivider: {
-    height: 1,
-    backgroundColor: C.border,
-    marginVertical: 10,
-  },
-  activeStatusBadge: {
-    borderWidth: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  modeDescription: {
-    fontSize: 12,
-    color: C.dim,
-    lineHeight: 18,
-    marginBottom: 8,
-  },
-  subSectionTitle: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: C.txt,
-    marginBottom: 12,
-    letterSpacing: 0.5,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
-    paddingBottom: 6,
-  },
-  prizeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 6,
-  },
-  prizeMedal: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  prizeLabel: {
-    fontSize: 12,
-    color: C.txt,
-    fontWeight: '600',
-    marginLeft: 10,
-    flex: 1,
-  },
-  prizeValue: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: C.secondary,
-  },
-
-  // Mock Notifications
-  notificationPreviewHeader: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: C.accent,
-    letterSpacing: 0.5,
-    marginBottom: 6,
-  },
-  mockNotification: {
-    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.02)' : C.bgGlass,
-    borderRadius: 10,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  mockNotificationHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  mockNotifTitle: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: C.txt,
-  },
-  mockNotifTime: {
-    fontSize: 8,
-    color: C.dim,
-  },
-  mockNotifBody: {
-    fontSize: 10,
-    color: C.dim,
-    lineHeight: 14,
-  },
-
-  // Manual configuration inputs
-  giveawayWinnerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  giveawayWinnerName: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: C.txt,
-  },
-  giveawayWinnerWins: {
-    fontSize: 10,
-    color: C.dim,
-    marginTop: 1,
-  },
-  giveawayInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : C.bgGlass,
-    borderWidth: 1,
-    borderColor: C.border,
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    width: 90,
-  },
-  giveawayPrizeInput: {
-    flex: 1,
-    paddingVertical: 5,
-    color: C.gold,
-    fontSize: 12,
-    fontWeight: '800',
-    textAlign: 'center',
-  },
-  giveawayCurrencyLabel: {
-    fontSize: 9,
-    color: C.dim,
-    fontWeight: '800',
-  },
-  smsTextInput: {
-    backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : C.bgGlass,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: C.border,
-    padding: 10,
-    color: C.txt,
-    fontSize: 11,
-    minHeight: 65,
-    textAlignVertical: 'top',
-  },
-  smsVariablesDesc: {
-    fontSize: 9,
-    color: C.dim,
-    marginTop: 4,
-  },
-  manualActionRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 12,
-  },
-  dryRunBtn: {
-    flex: 1,
-    backgroundColor: 'rgba(0,229,255,0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(0,229,255,0.25)',
-    borderRadius: 10,
-    paddingVertical: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dryRunBtnText: {
-    color: C.accent,
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  payoutBtn: {
-    flex: 1.2,
-    borderRadius: 10,
-    overflow: 'hidden',
-  },
-  payoutInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    borderRadius: 10,
-  },
-  payoutBtnText: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '900',
-  },
-
-  // Dry run result logs
-  resultsCard: {
-    marginTop: 14,
-    backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : C.card,
-    borderWidth: 1,
-    borderColor: C.border,
-    borderRadius: 10,
-    padding: 12,
-  },
-  resultsTitle: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: C.secondary,
-    marginBottom: 8,
-  },
-  resultItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 4,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
-  },
-
-  // Manual snapshot fallback action
-  snapshotBtn: {
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  snapshotInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-  },
-  snapshotText: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '800',
-  },
-
-  // Mock winner overrides
-  fakeForm: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 12,
-  },
-  fakeInput: {
-    flex: 1,
-    backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : C.bgGlass,
-    borderWidth: 1,
-    borderColor: C.border,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    color: C.txt,
-    fontSize: 12,
-  },
-  fakeAddBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: C.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fakeEntriesContainer: {
-    backgroundColor: isDark ? 'rgba(255,255,255,0.01)' : C.card,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: C.border,
-    paddingHorizontal: 10,
-  },
-  fakeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
-  },
-  fakeName: {
-    fontSize: 12,
-    color: C.txt,
-    fontWeight: '600',
-  },
-  fakeAmount: {
-    fontSize: 12,
-    color: C.secondary,
-    fontWeight: '800',
-  },
-  fakeDeleteBtn: {
-    width: 26,
-    height: 26,
-    borderRadius: 6,
-    backgroundColor: C.red + '15',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  quickAdjBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 229, 255, 0.2)',
-    backgroundColor: 'rgba(0, 229, 255, 0.03)',
-  },
-  quickAdjText: {
-    color: '#00e5ff',
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  tagBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 184, 77, 0.25)',
-    backgroundColor: 'rgba(255, 184, 77, 0.05)',
-  },
-  tagBadgeText: {
-    color: '#ffb84d',
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 32,
-  },
-  emptyText: {
-    color: C.dim,
-    fontSize: 12,
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-  searchWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : C.bgGlass,
-    borderWidth: 1,
-    borderColor: C.border,
-    borderRadius: 10,
-    height: 38,
-    paddingHorizontal: 8,
-    marginBottom: 12,
-  },
-  searchInput: {
-    flex: 1,
-    color: C.txt,
-    fontSize: 12,
-    paddingVertical: 6,
-    paddingLeft: 8,
-  },
-  paginationRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 12,
-    marginTop: 12,
-    paddingTop: 8,
-  },
-  pageBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : C.surfaceContainerHighest,
-    borderWidth: 1,
-    borderColor: C.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pageBtnDisabled: {
-    opacity: 0.3,
-  },
-  pageText: {
-    color: C.dim,
-    fontSize: 11,
-    fontWeight: '600',
-  },
-});
