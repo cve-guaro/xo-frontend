@@ -17,12 +17,6 @@ export default function WelcomePopup({ visible, onClose }: { visible: boolean; o
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }).start();
-      // Play a subtle success chime
-      try {
-        playWinSound();
-      } catch (e) {
-        console.warn('Welcome sound error', e);
-      }
     } else {
       slide.setValue(0);
     }

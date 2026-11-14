@@ -41,6 +41,7 @@ import type { RoomConfig, SheetStep } from "./gameplayConstants";
 import { haptics } from "../../lib/haptcs";
 import { playTickSound } from "../../lib/pinTickAudio";
 import { BREAKPOINTS, HEIGHT_THRESHOLDS, clamp, getResponsiveLayout } from "../../constants/breakpoints";
+import { TelegramPlaneIcon, ChatBubbleIcon } from "../SvgIcons";
 
 const spinBgRedImg = require("../../assets/images/spin-background-red-desktop.webp");
 const xoBgBlueImg = require("../../assets/images/xo-background-blue.webp");
@@ -71,7 +72,7 @@ type DesktopLayoutProps = {
   secondsRemaining: number;
   winRate: number;
   rankMeta: { label: string; tone: string };
-  rawTickerList: { username: string; amount: number | string }[];
+  rawTickerList: { username: string; amount: number | string; game?: string }[];
   roomSheetVisible: boolean;
   sheetStep: SheetStep;
   selectedRoom: RoomConfig;
@@ -624,7 +625,8 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
             return;
           }
           haptics.impact();
-          setRpsBetModalVisible(true);
+          setSheetInitialView("FRIENDS");
+          openRoomSheet("FRIENDS");
         }}
         style={[s.extraShelfBtn, { height: outerShelfH }]}
       >
@@ -644,14 +646,17 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
   // Top 5 players from real server data only (no mock / demo fallbacks)
   const top5Players = useMemo(() => {
     if (weeklyLeaderboard && weeklyLeaderboard.length > 0) {
-      return weeklyLeaderboard.slice(0, 5).map((p, idx) => ({
-        id: p.id || String(idx + 1),
-        rank: idx + 1,
-        username: p.username || `Player_${idx + 1}`,
-        wins: p.wins || 0,
-        prize: idx === 0 ? 500 : idx === 1 ? 300 : idx === 2 ? 200 : 100,
-        avatar: p.avatar || '',
-      }));
+      return weeklyLeaderboard
+        .filter((p) => p.username && !p.username.toLowerCase().startsWith("guest_") && !p.username.toLowerCase().startsWith("test_"))
+        .slice(0, 5)
+        .map((p, idx) => ({
+          id: p.id || String(idx + 1),
+          rank: idx + 1,
+          username: p.username || `Player_${idx + 1}`,
+          wins: p.wins || 0,
+          prize: idx === 0 ? 500 : idx === 1 ? 300 : idx === 2 ? 200 : 100,
+          avatar: p.avatar || '',
+        }));
     }
     return [];
   }, [weeklyLeaderboard]);
@@ -847,13 +852,16 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
 
         const renderLiveWinnersCard = () => {
           const liveList = (props.rawTickerList && props.rawTickerList.length > 0)
-            ? props.rawTickerList.slice(0, 5).map((item, idx) => ({
-                id: `ticker_${idx}_${item.username}`,
-                username: item.username || `Player_${idx + 1}`,
-                amount: typeof item.amount === "number" ? item.amount : Number(item.amount) || 0,
-                game: idx % 2 === 0 ? "XO Battle" : "5-Player Spin",
-                time: idx === 0 ? "Just now" : `${idx * 2 + 1}m ago`,
-              }))
+            ? props.rawTickerList
+                .filter((item) => item.username && !item.username.toLowerCase().startsWith("guest_") && !item.username.toLowerCase().startsWith("test_"))
+                .slice(0, 5)
+                .map((item, idx) => ({
+                  id: `ticker_${idx}_${item.username}`,
+                  username: item.username,
+                  amount: typeof item.amount === "number" ? item.amount : Number(item.amount) || 0,
+                  game: item.game || (idx % 2 === 0 ? "XO Battle" : "5-Player Spin"),
+                  time: idx === 0 ? "Just now" : `${idx * 2 + 1}m ago`,
+                }))
             : [];
 
           return (
@@ -911,28 +919,30 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
         const renderCommunityCard = () => (
           <View style={[s.leaderboardCard, { marginTop: isTabletLayout ? 0 : 16 }]}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 }}>
-              <Ionicons name="globe-outline" size={17} color="#00BFFF" />
-              <Text style={s.leaderboardTitle}>COMMUNITY & SUPPORT</Text>
+              <Ionicons name="chatbubbles-outline" size={17} color="#00daf3" />
+              <Text style={s.leaderboardTitle}>Community & support</Text>
             </View>
 
             {/* Link 1: Telegram Channel */}
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={() => router.push('https://t.me/xoethiopia' as any)}
-              style={[s.supportLinkBtn, { backgroundColor: "rgba(0, 191, 255, 0.12)", borderColor: "rgba(0, 191, 255, 0.4)" }]}
+              style={[s.supportLinkBtn, { backgroundColor: "rgba(0, 191, 255, 0.08)", borderColor: "rgba(0, 191, 255, 0.25)" }]}
+              accessibilityLabel="Join Telegram channel"
             >
-              <Ionicons name="paper-plane" size={15} color="#00BFFF" />
-              <Text style={[s.supportLinkBtnText, { color: "#00BFFF" }]}>JOIN TELEGRAM CHANNEL</Text>
+              <TelegramPlaneIcon size={16} color="#00daf3" />
+              <Text style={[s.supportLinkBtnText, { color: "#00daf3" }]}>Join Telegram channel</Text>
             </TouchableOpacity>
 
             {/* Link 2: 24/7 Live Support */}
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={() => router.push('https://t.me/xoetsupport' as any)}
-              style={[s.supportLinkBtn, { backgroundColor: "rgba(16, 185, 129, 0.12)", borderColor: "rgba(16, 185, 129, 0.4)", marginTop: 10 }]}
+              style={[s.supportLinkBtn, { backgroundColor: "rgba(16, 185, 129, 0.08)", borderColor: "rgba(16, 185, 129, 0.25)", marginTop: 10 }]}
+              accessibilityLabel="24/7 live support"
             >
-              <Ionicons name="headset" size={15} color="#10B981" />
-              <Text style={[s.supportLinkBtnText, { color: "#10B981" }]}>24/7 LIVE SUPPORT</Text>
+              <ChatBubbleIcon size={16} color="#10B981" />
+              <Text style={[s.supportLinkBtnText, { color: "#10B981" }]}>24/7 live support</Text>
             </TouchableOpacity>
           </View>
         );

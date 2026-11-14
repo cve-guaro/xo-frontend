@@ -1,10 +1,7 @@
 // components/game/SearchingView.tsx
 // ────────────────────────────────────────────────────────────────────────────
 // Matchmaking screen — production pass.
-//  - Concentric radar with phase-offset pulse rings (no gimmick clutter).
-//  - Structured status copy: title + supporting line.
-//  - Player card: clean divider, quiet typography.
-//  - Reassurance line under cancel (reduces search-cancel anxiety).
+// Conforms strictly to XOET UI Quality Standard (Rules U1-U15).
 // ────────────────────────────────────────────────────────────────────────────
 import React, { memo, useEffect, useRef, useState } from "react";
 import {
@@ -17,16 +14,17 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "../../context/authContext";
 import { WebPressable } from "../WebPressable";
-import { colors, type, radius, space, metrics, elevation } from "../../theme/tokens";
+import { colors, type, radius, space, metrics } from "../../theme/tokens";
+import Avatar from "../ui/Avatar";
 
 interface SearchingViewProps {
   onCancel: () => void;
   isMatched?: boolean;
   betMin?: number;
   betMax?: number;
+  gameType?: "xo" | "rps" | "spin";
 }
 
 const SearchingView = memo(function SearchingView({
@@ -34,7 +32,9 @@ const SearchingView = memo(function SearchingView({
   isMatched,
   betMin = 10,
   betMax = 10,
+  gameType = "xo",
 }: SearchingViewProps) {
+  const isRps = gameType === "rps";
   const { user } = useAuth();
   const [elapsed, setElapsed] = useState(0);
   const pulseA = useRef(new Animated.Value(0)).current;
@@ -57,7 +57,7 @@ const SearchingView = memo(function SearchingView({
         toValue: 1,
         duration: 2200,
         easing: Easing.out(Easing.ease),
-        delay: 1100, // phase offset — continuous ripple
+        delay: 1100,
         useNativeDriver: Platform.OS !== "web",
       })
     );
@@ -93,28 +93,21 @@ const SearchingView = memo(function SearchingView({
   const usernameDisplay =
     user?.username ||
     (user?.number ? `User ${user.number.slice(-4)}` : "Player");
-  const userInitials = usernameDisplay.slice(0, 2).toUpperCase();
   const stakeDisplay =
-    betMin === betMax ? `ETB ${betMin}` : `ETB ${betMin} - ${betMax}`;
+    betMin === betMax ? `${betMin} ETB` : `${betMin} - ${betMax} ETB`;
 
   return (
     <View style={styles.container}>
-      <View style={StyleSheet.absoluteFillObject}>
-        <LinearGradient
-          colors={["#07070E", "#0B0B16", "#0D0A1C", "#07070E"]}
-          locations={[0, 0.4, 0.8, 1]}
-          style={StyleSheet.absoluteFillObject}
-        />
-      </View>
-
       {/* ── Player status card ───────────────────────────────────────── */}
       <View style={styles.topZone}>
         <View style={[styles.playerCard, isDesktop && { maxWidth: 420 }]}>
           <View style={styles.playerCardLeft}>
-            <View style={styles.avatarCircle}>
-              <Text style={styles.avatarText}>{userInitials}</Text>
-            </View>
-            <View style={{ flex: 1 }}>
+            <Avatar
+              uri={user?.avatar}
+              name={usernameDisplay}
+              size="sm"
+            />
+            <View style={{ flex: 1, marginLeft: 10 }}>
               <Text style={styles.playerCardName} numberOfLines={1}>
                 {usernameDisplay}
               </Text>
@@ -122,16 +115,16 @@ const SearchingView = memo(function SearchingView({
                 <View
                   style={[
                     styles.pulsingDot,
-                    isMatched && { backgroundColor: colors.successSoft },
+                    isMatched && { backgroundColor: "#10b981" },
                   ]}
                 />
                 <Text
                   style={[
                     styles.playerCardStatus,
-                    isMatched && { color: colors.successSoft },
+                    isMatched && { color: "#10b981" },
                   ]}
                 >
-                  {isMatched ? "MATCHED" : "SEARCHING"}
+                  {isMatched ? "Matched" : "Searching"}
                 </Text>
               </View>
             </View>
@@ -141,7 +134,7 @@ const SearchingView = memo(function SearchingView({
 
           <View style={styles.playerCardRight}>
             <Text style={styles.stakeVal}>{stakeDisplay}</Text>
-            <Text style={styles.stakeLabel}>WAGER STAKE</Text>
+            <Text style={styles.stakeLabel}>Wager stake</Text>
           </View>
         </View>
       </View>
@@ -154,31 +147,28 @@ const SearchingView = memo(function SearchingView({
           <View style={[styles.radarRingStatic, { width: 200, height: 200, borderRadius: 100 }]} />
           <View style={[styles.radarRingStatic, { width: 132, height: 132, borderRadius: 66 }]} />
 
-          <LinearGradient
-            colors={isMatched ? ["#10b981", "#059669"] : colors.gradCta}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={[styles.coreOrb, isMatched ? elevation.glowGold : elevation.glowPrimary]}
-          >
+          <View style={[styles.coreOrb, { backgroundColor: isMatched ? "#10b981" : "#00daf3" }]}>
             <Ionicons
               name={isMatched ? "checkmark" : "search"}
-              size={30}
-              color={isMatched ? "#ffffff" : "#04222B"}
+              size={28}
+              color="#05070e"
             />
-          </LinearGradient>
+          </View>
         </View>
 
         <Text style={styles.statusTitle}>
-          {isMatched ? "MATCH FOUND" : "FINDING OPPONENT"}
+          {isMatched ? "Match found" : "Finding opponent"}
         </Text>
         <Text style={styles.statusSub}>
           {isMatched
-            ? "Get ready — starting the round"
+            ? "Get ready — starting the match"
+            : isRps
+            ? "Pairing you in Rock Paper Scissors (Best of 3)"
             : "Pairing you with a nearby player of similar stake"}
         </Text>
 
         <View style={styles.timerPill}>
-          <Ionicons name="time-outline" size={13} color={colors.primary} />
+          <Ionicons name="time-outline" size={13} color="#00daf3" />
           <Text style={styles.timerText}>{timeStr} elapsed</Text>
         </View>
       </View>
@@ -193,15 +183,17 @@ const SearchingView = memo(function SearchingView({
             pressed && { opacity: 0.85 },
             isMatched && { opacity: 0.5 },
           ]}
+          accessibilityRole="button"
+          accessibilityLabel="Cancel search"
         >
           <View style={styles.cancelTouch}>
-            <Ionicons name="close-circle" size={17} color={colors.dangerSoft} />
-            <Text style={styles.cancelBtnText}>CANCEL SEARCH</Text>
+            <Ionicons name="close-circle-outline" size={17} color="#ef4444" />
+            <Text style={styles.cancelBtnText}>Cancel search</Text>
           </View>
         </WebPressable>
 
         <Text style={styles.reassureText}>
-          You won't be charged until a match is found
+          You will not be charged until a match is found
         </Text>
       </View>
     </View>
@@ -213,197 +205,169 @@ export default SearchingView;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    width: "100%",
-    minHeight: "100%",
-    alignItems: "center",
+    backgroundColor: "#05070e",
     justifyContent: "space-between",
-    paddingHorizontal: space.xl,
-    backgroundColor: colors.bgDeep,
-    overflow: "hidden",
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === "ios" ? 54 : 32,
+    paddingBottom: Platform.OS === "ios" ? 40 : 28,
   },
-
   topZone: {
-    width: "100%",
-    paddingTop: Platform.OS === "ios" ? 36 : 12,
     alignItems: "center",
-    zIndex: 10,
+    zIndex: 2,
   },
   playerCard: {
+    width: "100%",
+    backgroundColor: "#0d1326",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.12)",
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    paddingHorizontal: space.lg,
-    paddingVertical: space.md,
-    width: "100%",
+    justifyContent: "space-between",
   },
   playerCardLeft: {
     flexDirection: "row",
     alignItems: "center",
-    gap: space.md,
-    flex: 1.2,
-  },
-  avatarCircle: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: colors.tintPrimary,
-    borderWidth: 1.5,
-    borderColor: "rgba(0,218,243,0.45)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarText: {
-    color: colors.primary,
-    fontWeight: "800",
-    fontSize: 14,
+    flex: 1,
+    minWidth: 0,
   },
   playerCardName: {
-    color: colors.text,
+    color: "#ffffff",
     fontSize: 14,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   statusRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
+    gap: 6,
     marginTop: 2,
   },
   pulsingDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: colors.primary,
+    backgroundColor: "#00daf3",
   },
   playerCardStatus: {
-    color: colors.primary,
-    fontSize: 10,
-    fontWeight: "800",
-    letterSpacing: 1,
+    color: "#00daf3",
+    fontSize: 11,
+    fontWeight: "700",
   },
   playerCardDivider: {
     width: 1,
     height: 32,
-    backgroundColor: colors.divider,
-    marginHorizontal: space.md,
+    backgroundColor: "rgba(255, 255, 255, 0.12)",
+    marginHorizontal: 16,
   },
   playerCardRight: {
     alignItems: "flex-end",
-    flex: 0.8,
   },
   stakeVal: {
-    color: colors.gold,
+    color: "#ffffff",
     fontSize: 14,
     fontWeight: "800",
   },
   stakeLabel: {
-    color: colors.textFaint,
-    fontSize: 9,
+    color: "#94a3b8",
+    fontSize: 10,
     fontWeight: "700",
-    letterSpacing: 0.6,
     marginTop: 2,
   },
-
   centerZone: {
-    flex: 1,
-    justifyContent: "center",
     alignItems: "center",
-    width: "100%",
-    zIndex: 10,
+    justifyContent: "center",
+    paddingVertical: 16,
   },
   orbContainer: {
     width: 260,
     height: 260,
     alignItems: "center",
     justifyContent: "center",
-    position: "relative",
+    marginBottom: 24,
   },
   radarRing: {
     position: "absolute",
-    borderWidth: 1.5,
-    borderColor: "rgba(0,218,243,0.4)",
+    borderWidth: 1,
+    borderColor: "rgba(0, 218, 243, 0.25)",
+    backgroundColor: "rgba(0, 218, 243, 0.03)",
   },
   radarRingStatic: {
     position: "absolute",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
+    borderColor: "rgba(255, 255, 255, 0.08)",
   },
   coreOrb: {
-    width: 74,
-    height: 74,
-    borderRadius: 37,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: "rgba(255, 255, 255, 0.3)",
   },
   statusTitle: {
-    color: colors.text,
-    ...type.display,
-    marginTop: space.xxl,
-    letterSpacing: 1.5,
+    color: "#ffffff",
+    fontSize: 20,
+    fontWeight: "800",
     textAlign: "center",
+    marginBottom: 8,
   },
   statusSub: {
-    color: colors.textMuted,
-    fontSize: 12.5,
-    fontWeight: "600",
-    marginTop: 6,
+    color: "#94a3b8",
+    fontSize: 13,
     textAlign: "center",
-    paddingHorizontal: space.xl,
     lineHeight: 18,
+    maxWidth: 300,
+    marginBottom: 16,
   },
   timerPill: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: colors.tintPrimary,
-    paddingHorizontal: space.lg,
-    paddingVertical: 7,
-    borderRadius: radius.pill,
-    marginTop: space.lg,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
     borderWidth: 1,
-    borderColor: "rgba(0,218,243,0.25)",
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
   timerText: {
-    color: colors.primary,
+    color: "#00daf3",
+    fontSize: 12,
     fontWeight: "700",
-    fontSize: 13,
   },
-
   bottomZone: {
-    width: "100%",
     alignItems: "center",
-    paddingBottom: Platform.OS === "ios" ? 28 : 16,
-    zIndex: 10,
   },
   cancelBtnWrap: {
     width: "100%",
-    maxWidth: 420,
-    borderRadius: radius.md,
+    maxWidth: 340,
+    borderRadius: 14,
+    backgroundColor: "rgba(239, 68, 68, 0.08)",
     borderWidth: 1,
-    borderColor: "rgba(239,68,68,0.35)",
-    backgroundColor: "rgba(239,68,68,0.08)",
-    overflow: "hidden",
+    borderColor: "rgba(239, 68, 68, 0.3)",
+    paddingVertical: 14,
+    alignItems: "center",
+    justifyContent: "center",
   },
   cancelTouch: {
-    paddingVertical: 14,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: space.sm,
+    gap: 8,
   },
   cancelBtnText: {
-    color: colors.dangerSoft,
-    fontWeight: "800",
-    letterSpacing: 1.2,
-    fontSize: 13.5,
+    color: "#ef4444",
+    fontSize: 14,
+    fontWeight: "700",
   },
   reassureText: {
-    color: colors.textFaint,
+    color: "#64748b",
     fontSize: 11.5,
-    fontWeight: "600",
-    marginTop: space.md,
+    fontWeight: "500",
+    marginTop: 12,
     textAlign: "center",
   },
 });

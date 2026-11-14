@@ -3,10 +3,14 @@
 // Production:  Set via Vercel environment variables (never hardcode production URLs here)
 import { Platform } from 'react-native';
 
-const LIVE_BACKEND_URL = 'https://xo-backend-production-fdff.up.railway.app';
-
 const getApiUrl = () => {
-  return LIVE_BACKEND_URL;
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    return process.env.EXPO_PUBLIC_API_URL;
+  }
+  if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    return 'http://localhost:2000';
+  }
+  return 'https://xo-backend-production-fdff.up.railway.app';
 };
 
 export const API_URL = getApiUrl();
