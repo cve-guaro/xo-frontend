@@ -1,7 +1,11 @@
 // components/game/RpsBetSelectModal.tsx
 // ────────────────────────────────────────────────────────────────────────────
 // Pre-join Stake Selection Modal for Rock Paper Scissors.
-// Conforms strictly to XOET UI Quality Standard (Rules U1-U15).
+// Conforms strictly to XOET UI Quality Standard (Rules U1-U15):
+// - 4 clean stake choices only (10, 25, 50, 100 ETB)
+// - Dedicated RPS warm amber (#f59e0b) theme
+// - Single primary CTA: Find opponent
+// - No clutter, no redundant math, play-with-friend belongs strictly outside
 // ────────────────────────────────────────────────────────────────────────────
 import React, { useState } from "react";
 import {
@@ -67,7 +71,7 @@ export default function RpsBetSelectModal({
           <View style={s.headerRow}>
             <View style={s.headerTitleGroup}>
               <View style={s.iconBadge}>
-                <Ionicons name="game-controller-outline" size={18} color="#00daf3" />
+                <Ionicons name="game-controller-outline" size={18} color="#f59e0b" />
               </View>
               <View>
                 <Text style={s.modalTitle}>
@@ -91,7 +95,7 @@ export default function RpsBetSelectModal({
           {/* Balance Bar */}
           <View style={s.balanceBar}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-              <Ionicons name="wallet-outline" size={15} color="#00daf3" />
+              <Ionicons name="wallet-outline" size={15} color="#f59e0b" />
               <Text style={s.balanceLabel}>{isAmharic ? "ቀሪ ሂሳብ" : "Wallet balance"}:</Text>
             </View>
             <Text style={s.balanceValue}>{userBalance.toLocaleString()} ETB</Text>
@@ -125,7 +129,7 @@ export default function RpsBetSelectModal({
             })}
           </View>
 
-          {/* Stake Detail (Single plain line, no fake client rake math) */}
+          {/* Stake Detail */}
           <View style={s.payoutRow}>
             <Text style={s.payoutLabel}>{isAmharic ? "የተመረጠ ውርርድ:" : "Selected stake:"}</Text>
             <Text style={s.payoutValue}>{selectedAmount} ETB</Text>
@@ -189,11 +193,11 @@ const s = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: "rgba(0, 218, 243, 0.12)",
+    backgroundColor: "rgba(245, 158, 11, 0.12)",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "rgba(0, 218, 243, 0.25)",
+    borderColor: "rgba(245, 158, 11, 0.3)",
   },
   modalTitle: {
     color: "#ffffff",
@@ -232,7 +236,7 @@ const s = StyleSheet.create({
     fontWeight: "600",
   },
   balanceValue: {
-    color: "#00daf3",
+    color: "#f59e0b",
     fontSize: 13,
     fontWeight: "800",
   },
@@ -254,8 +258,8 @@ const s = StyleSheet.create({
     justifyContent: "center",
   },
   presetChipActive: {
-    backgroundColor: "rgba(0, 218, 243, 0.12)",
-    borderColor: "#00daf3",
+    backgroundColor: "rgba(245, 158, 11, 0.15)",
+    borderColor: "#f59e0b",
   },
   presetText: {
     color: "#94a3b8",
@@ -263,7 +267,7 @@ const s = StyleSheet.create({
     fontWeight: "700",
   },
   presetTextActive: {
-    color: "#00daf3",
+    color: "#f59e0b",
     fontWeight: "800",
   },
   payoutRow: {
@@ -290,7 +294,7 @@ const s = StyleSheet.create({
     justifyContent: "center",
   },
   confirmBtnActive: {
-    backgroundColor: "#00daf3",
+    backgroundColor: "#f59e0b",
   },
   confirmBtnDisabled: {
     backgroundColor: "rgba(255, 255, 255, 0.08)",

@@ -46,6 +46,7 @@ export interface GameCoverCarouselProps {
   setSpinBetModalVisible: (visible: boolean) => void;
   setRpsBetModalVisible?: (visible: boolean) => void;
   openRoomSheet: (mode?: "FRIENDS") => void;
+  onOpenRpsFriendMatch?: () => void;
 }
 
 export const GameCoverCarousel: React.FC<GameCoverCarouselProps> = ({
@@ -61,6 +62,7 @@ export const GameCoverCarousel: React.FC<GameCoverCarouselProps> = ({
   setSpinBetModalVisible,
   setRpsBetModalVisible,
   openRoomSheet,
+  onOpenRpsFriendMatch,
 }) => {
   const { height: winH } = useWindowDimensions();
   const isCompactHeight = winH < 780;
@@ -694,7 +696,11 @@ export const GameCoverCarousel: React.FC<GameCoverCarouselProps> = ({
         activeOpacity={0.8}
         onPress={() => {
           haptics.impact();
-          openRoomSheet("FRIENDS");
+          if (onOpenRpsFriendMatch) {
+            onOpenRpsFriendMatch();
+          } else {
+            openRoomSheet("FRIENDS");
+          }
         }}
         style={{
           width: "100%",

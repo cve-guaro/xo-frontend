@@ -441,6 +441,7 @@ export default function Landing() {
   const [referralStats, setReferralStats] = useState({ totalReferred: 0, totalBonusEarned: 0 });
   const [showReferralModal, setShowReferralModal] = useState(false);
   const [friendModalVisible, setFriendModalVisible] = useState(false);
+  const [friendGameType, setFriendGameType] = useState<'xo' | 'rps'>('xo');
   const [inviteResult, setInviteResult] = useState<any>(null);
   const [rulesVisible, setRulesVisible] = useState(false);
   const params = useLocalSearchParams();
@@ -1227,6 +1228,10 @@ export default function Landing() {
           onSelectRoom={onSelectRoom}
           selectAmount={selectAmount}
           onStartRpsMatchmaking={handleStartRpsMatchmaking}
+          onOpenRpsFriendMatch={() => {
+            setFriendGameType('rps');
+            setFriendModalVisible(true);
+          }}
           refreshProfile={refreshProfile}
           handleLanguageToggle={handleLanguageToggle}
           handleSendInvite={handleSendInvite}
@@ -1325,6 +1330,10 @@ export default function Landing() {
                   setSpinBetModalVisible={setSpinBetModalVisible}
                   setRpsBetModalVisible={setRpsBetModalVisible}
                   openRoomSheet={openRoomSheet}
+                  onOpenRpsFriendMatch={() => {
+                    setFriendGameType('rps');
+                    setFriendModalVisible(true);
+                  }}
                 />
 
                 {/* Welcome Bonus Mini Card (10 ETB Giveaway) with Claimed/Unclaimed State */}
@@ -1593,9 +1602,10 @@ export default function Landing() {
 
       <FriendMatchModal
         visible={friendModalVisible}
-        onClose={() => { setFriendModalVisible(false); setInviteResult(null); }}
+        onClose={() => { setFriendModalVisible(false); setInviteResult(null); setFriendGameType('xo'); }}
         onSendInvite={handleSendInvite}
         inviteResult={inviteResult}
+        gameType={friendGameType}
       />
       <IncomingInviteModal
         invite={incomingInvite}
@@ -1656,6 +1666,7 @@ export default function Landing() {
           handleStartRpsMatchmaking(amount);
         }}
         onOpenFriendMatch={() => {
+          setFriendGameType('rps');
           setFriendModalVisible(true);
         }}
         defaultAmount={rpsStake}
@@ -1673,6 +1684,7 @@ export default function Landing() {
             onCancel={handleCancelRpsSearch}
             betMin={rpsStake}
             betMax={rpsStake}
+            gameType="rps"
           />
         </View>
       </Modal>

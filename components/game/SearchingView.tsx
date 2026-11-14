@@ -142,14 +142,38 @@ const SearchingView = memo(function SearchingView({
       {/* ── Radar + status ───────────────────────────────────────────── */}
       <View style={styles.centerZone}>
         <View style={styles.orbContainer}>
-          <Animated.View style={[styles.radarRing, ringA(260)]} />
-          <Animated.View style={[styles.radarRing, ringB(260)]} />
-          <View style={[styles.radarRingStatic, { width: 200, height: 200, borderRadius: 100 }]} />
-          <View style={[styles.radarRingStatic, { width: 132, height: 132, borderRadius: 66 }]} />
+          <Animated.View
+            style={[
+              styles.radarRing,
+              isRps && { borderColor: "rgba(245, 158, 11, 0.35)", backgroundColor: "rgba(245, 158, 11, 0.05)" },
+              ringA(260),
+            ]}
+          />
+          <Animated.View
+            style={[
+              styles.radarRing,
+              isRps && { borderColor: "rgba(245, 158, 11, 0.35)", backgroundColor: "rgba(245, 158, 11, 0.05)" },
+              ringB(260),
+            ]}
+          />
+          <View
+            style={[
+              styles.radarRingStatic,
+              isRps && { borderColor: "rgba(245, 158, 11, 0.15)" },
+              { width: 200, height: 200, borderRadius: 100 },
+            ]}
+          />
+          <View
+            style={[
+              styles.radarRingStatic,
+              isRps && { borderColor: "rgba(245, 158, 11, 0.2)" },
+              { width: 132, height: 132, borderRadius: 66 },
+            ]}
+          />
 
-          <View style={[styles.coreOrb, { backgroundColor: isMatched ? "#10b981" : "#00daf3" }]}>
+          <View style={[styles.coreOrb, { backgroundColor: isMatched ? "#10b981" : isRps ? "#f59e0b" : "#00daf3" }]}>
             <Ionicons
-              name={isMatched ? "checkmark" : "search"}
+              name={isMatched ? "checkmark" : isRps ? "flash" : "search"}
               size={28}
               color="#05070e"
             />
@@ -167,9 +191,9 @@ const SearchingView = memo(function SearchingView({
             : "Pairing you with a nearby player of similar stake"}
         </Text>
 
-        <View style={styles.timerPill}>
-          <Ionicons name="time-outline" size={13} color="#00daf3" />
-          <Text style={styles.timerText}>{timeStr} elapsed</Text>
+        <View style={[styles.timerPill, isRps && { borderColor: "rgba(245, 158, 11, 0.3)" }]}>
+          <Ionicons name="time-outline" size={13} color={isRps ? "#f59e0b" : "#00daf3"} />
+          <Text style={[styles.timerText, isRps && { color: "#f59e0b" }]}>{timeStr} elapsed</Text>
         </View>
       </View>
 

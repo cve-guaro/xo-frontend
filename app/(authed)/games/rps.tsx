@@ -438,13 +438,13 @@ export default function RPSScreen() {
         <RpsBetSelectModal
           visible={true}
           onClose={() => router.back()}
-          onConfirm={(stake) => {
+          onConfirm={(stake: number) => {
             setSelectedTier(stake);
             setPhase('searching');
             socketApi?.send('rps:find_match', { stakeAmount: stake });
           }}
-          onOpenFriendMatch={(stake) => {
-            setSelectedTier(stake);
+          onOpenFriendMatch={(stake?: number) => {
+            if (typeof stake === 'number') setSelectedTier(stake);
             setFriendModalVisible(true);
           }}
           userBalance={totalBalance}
@@ -456,6 +456,7 @@ export default function RPSScreen() {
           onClose={() => { setFriendModalVisible(false); setInviteResult(null); }}
           onSendInvite={handleSendInvite}
           inviteResult={inviteResult}
+          gameType="rps"
         />
       </SafeAreaView>
     );

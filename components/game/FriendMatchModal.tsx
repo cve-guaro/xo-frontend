@@ -6,6 +6,7 @@ import { useAuth } from '../../context/authContext';
 import Avatar from '../ui/Avatar';
 
 const BET_OPTIONS = [10, 15, 25, 50, 99, 100, 250, 500];
+const RPS_BET_OPTIONS = [10, 25, 50, 100];
 const CAP_LIMIT = 25;
 const SEND_COOLDOWN_MS = 45000;
 
@@ -24,11 +25,15 @@ interface Props {
   onClose: () => void;
   onSendInvite: (username: string, betAmount: number) => void;
   inviteResult: any;
+  gameType?: 'xo' | 'rps';
 }
 
-export default function FriendMatchModal({ visible, onClose, onSendInvite, inviteResult }: Props) {
+export default function FriendMatchModal({ visible, onClose, onSendInvite, inviteResult, gameType = 'xo' }: Props) {
   const { t, language } = useAuth();
   const isEN = language === "en";
+  const isRps = gameType === 'rps';
+  const activeBets = isRps ? RPS_BET_OPTIONS : BET_OPTIONS;
+  const primaryColor = isRps ? '#f59e0b' : '#00daf3';
   const [username, setUsername] = useState('');
   const [selectedBet, setSelectedBet] = useState<number | null>(null);
   const [searching, setSearching] = useState(false);
@@ -131,7 +136,11 @@ export default function FriendMatchModal({ visible, onClose, onSendInvite, invit
       <View style={s.overlay}>
         <View style={s.box}>
           <View style={s.header}>
-            <Text style={s.title}>{isEN ? "Challenge a Friend" : "ከጓደኛ ጋር ይጫወቱ"}</Text>
+            <Text style={s.title}>
+              {isEN 
+                ? (isRps ? "Rock Paper Scissors — Challenge Friend" : "Challenge a Friend") 
+                : (isRps ? "ሮክ ፔፐር ሲዘርስ — ከጓደኛ ጋር ይጫወቱ" : "ከጓደኛ ጋር ይጫወቱ")}
+            </Text>
             <TouchableOpacity onPress={onClose} style={s.closeBtn}>
               <Ionicons name="close" size={20} color="#e5e3ff" />
             </TouchableOpacity>
@@ -149,7 +158,7 @@ export default function FriendMatchModal({ visible, onClose, onSendInvite, invit
               autoCapitalize="none"
               {...(Platform.OS === 'web' ? { outlineStyle: 'none' } as any : {})}
             />
-            <TouchableOpacity style={s.searchBtn} onPress={handleSearch} disabled={searching || !username.trim()}>
+            <TouchableOpacity style={[s.searchBtn, { backgroundColor: primaryColor }]} onPress={handleSearch} disabled={searching || !username.trim()}>
               {searching ? <ActivityIndicator size="small" color="#0c0c1f" /> : <Ionicons name="search" size={18} color="#0c0c1f" />}
             </TouchableOpacity>
           </View>
@@ -185,26 +194,30 @@ export default function FriendMatchModal({ visible, onClose, onSendInvite, invit
               </View>
 
               {/* Your balance context */}
-              <View style={s.balanceRow}>
-                <Ionicons name="wallet-outline" size={14} color="#00daf3" />
-                <Text style={s.balanceText}>{isEN ? "Your balance: " : "ቀሪ ሂሳብዎ: "}<Text style={{ color: '#e5e3ff', fontWeight: '900' }}>{senderBalance.toLocaleString()} {isEN ? "ETB" : "ብር"}</Text></Text>
+              <View style={[s.balanceRow, isRps && { backgroundColor: 'rgba(245, 158, 11, 0.08)' }]}>
+                <Ionicons name="wallet-outline" size={14} color={primaryColor} />
+                <Text style={[s.balanceText, { color: primaryColor }]}>{isEN ? "Your balance: " : "ቀሪ ሂሳብዎ: "}<Text style={{ color: '#e5e3ff', fontWeight: '900' }}>{senderBalance.toLocaleString()} {isEN ? "ETB" : "ብር"}</Text></Text>
               </View>
 
               {/* Bet Selection */}
               <Text style={[s.label, { marginTop: 12 }]}>{isEN ? "SELECT BET AMOUNT" : "የውርርድ መጠን ይምረጡ"}</Text>
               <View style={s.betGrid}>
-                {BET_OPTIONS.map(amt => {
+                {activeBets.map(amt => {
                   const { locked, reason } = getLockInfo(amt);
                   const selected = selectedBet === amt;
                   return (
                     <TouchableOpacity
                       key={amt}
-                      style={[s.betBtn, selected && s.betBtnSelected, locked && s.betBtnLocked]}
+                      style={[
+                        s.betBtn,
+                        selected && [s.betBtnSelected, { borderColor: primaryColor, backgroundColor: isRps ? 'rgba(245, 158, 11, 0.15)' : 'rgba(0, 227, 253, 0.15)' }],
+                        locked && s.betBtnLocked,
+                      ]}
                       onPress={() => !locked && setSelectedBet(amt)}
                       disabled={locked}
                     >
                       {locked && <Ionicons name="lock-closed" size={10} color="#64748b" style={{ position: 'absolute', top: 4, right: 4 }} />}
-                      <Text style={[s.betText, selected && s.betTextSelected, locked && s.betTextLocked]}>{amt} {isEN ? "ETB" : "ብር"}</Text>
+                      <Text style={[s.betText, selected && { color: primaryColor }, locked && s.betTextLocked]}>{amt} {isEN ? "ETB" : "ብር"}</Text>
                       {locked && <Text style={s.lockedHint}>{reason}</Text>}
                     </TouchableOpacity>
                   );
@@ -213,7 +226,7 @@ export default function FriendMatchModal({ visible, onClose, onSendInvite, invit
 
               {/* Send Invite Button with Cooldown */}
               <TouchableOpacity
-                style={[s.inviteBtn, isSendDisabled && { opacity: 0.4 }]}
+                style={[s.inviteBtn, { backgroundColor: primaryColor }, isSendDisabled && { opacity: 0.4 }]}
                 onPress={handleInvite}
                 disabled={isSendDisabled}
               >
