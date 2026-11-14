@@ -331,9 +331,11 @@ export default function ProfileScreen() {
                             }}
                             activeOpacity={0.8}
                             style={s.editProfileChip}
+                            accessibilityRole="button"
+                            accessibilityLabel="Change profile photo"
                           >
-                            <Ionicons name="pencil" size={12} color="#00daf3" />
-                            <Text style={s.editProfileChipText}>{isEN ? "Change Photo / Edit" : "ፎቶ ቀይር / አርትዕ"}</Text>
+                            <Ionicons name="camera-outline" size={14} color="#00daf3" />
+                            <Text style={s.editProfileChipText}>{isEN ? "Change photo" : "ፎቶ ቀይር"}</Text>
                           </TouchableOpacity>
                         </View>
 
@@ -703,12 +705,11 @@ export default function ProfileScreen() {
                   setEditModalVisible(true);
                 }}
                 style={{
-                  width: 54,
-                  height: 54,
-                  borderRadius: 27,
-                  backgroundColor: "#161c2e",
-                  borderWidth: 2,
-                  borderColor: "#00daf3",
+                  padding: 2,
+                  borderRadius: 999,
+                  backgroundColor: "transparent",
+                  borderWidth: 1.5,
+                  borderColor: "rgba(255, 255, 255, 0.2)",
                   alignItems: "center",
                   justifyContent: "center",
                   position: "relative",
@@ -719,7 +720,7 @@ export default function ProfileScreen() {
                 <Avatar
                   uri={(user as any)?.avatar}
                   name={(user as any)?.display_name || user?.username}
-                  size={50}
+                  size={48}
                 />
                 <View style={{
                   position: "absolute",
@@ -728,13 +729,13 @@ export default function ProfileScreen() {
                   width: 20,
                   height: 20,
                   borderRadius: 10,
-                  backgroundColor: "#00daf3",
+                  backgroundColor: "#161b2e",
                   alignItems: "center",
                   justifyContent: "center",
                   borderWidth: 1.5,
-                  borderColor: "#090918",
+                  borderColor: "rgba(255, 255, 255, 0.3)",
                 }}>
-                  <Ionicons name="camera" size={10} color="#04040a" />
+                  <Ionicons name="camera" size={10} color="#e5e3ff" />
                 </View>
               </TouchableOpacity>
 
@@ -759,7 +760,7 @@ export default function ProfileScreen() {
               </View>
             </View>
 
-            {/* Pencil Edit Icon Button */}
+            {/* Change Photo Button */}
             <TouchableOpacity
               onPress={() => {
                 playTickSound();
@@ -768,19 +769,25 @@ export default function ProfileScreen() {
                 setEditDisplayName(user?.display_name || user?.username || "");
                 setEditModalVisible(true);
               }}
-              activeOpacity={0.7}
+              activeOpacity={0.75}
               style={{
-                width: 38,
-                height: 38,
-                borderRadius: 19,
-                backgroundColor: "#161c2e",
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 6,
+                paddingHorizontal: 12,
+                paddingVertical: 7,
+                borderRadius: 12,
+                backgroundColor: "rgba(0, 218, 243, 0.1)",
                 borderWidth: 1,
                 borderColor: "rgba(0, 218, 243, 0.3)",
-                alignItems: "center",
-                justifyContent: "center",
               }}
+              accessibilityRole="button"
+              accessibilityLabel="Change profile photo"
             >
-              <Ionicons name="pencil-outline" size={17} color="#00daf3" />
+              <Ionicons name="camera-outline" size={15} color="#00daf3" />
+              <Text style={{ color: "#00daf3", fontSize: 12, fontWeight: "700" }}>
+                {isEN ? "Change photo" : "ፎቶ ቀይር"}
+              </Text>
             </TouchableOpacity>
           </View>
 
@@ -827,8 +834,8 @@ export default function ProfileScreen() {
               }}
             >
               <Ionicons name="shield-checkmark" size={16} color="#a855f7" />
-              <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "900", letterSpacing: 0.5 }}>
-                OPEN ADMIN CONTROL PANEL
+              <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "700" }}>
+                {isEN ? "Open admin center" : "የአስተዳዳሪ ማዕከል ክፈት"}
               </Text>
               <Ionicons name="arrow-forward" size={14} color="#a855f7" />
             </TouchableOpacity>
@@ -1672,33 +1679,26 @@ const s = StyleSheet.create({
     gap: 22,
   },
   profileBigAvatarShell: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    backgroundColor: "rgba(0, 191, 255, 0.15)",
+    padding: 3,
+    borderRadius: 999,
+    backgroundColor: "transparent",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 2.5,
-    borderColor: "#00BFFF",
-    boxShadow: "0 0 15px rgba(0, 191, 255, 0.25)",
+    borderWidth: 1.5,
+    borderColor: "rgba(255, 255, 255, 0.2)",
   } as any,
   cameraBadgeOverlay: {
     position: "absolute",
-    bottom: -2,
-    right: -2,
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: "#00BFFF",
+    bottom: 0,
+    right: 0,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#161b2e",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 2,
-    borderColor: "#0A0E1A",
-    shadowColor: "#00BFFF",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.5,
-    shadowRadius: 6,
-    elevation: 4,
+    borderWidth: 1.5,
+    borderColor: "rgba(255, 255, 255, 0.3)",
   },
   editProfileChip: {
     flexDirection: "row",

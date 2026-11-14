@@ -9,6 +9,7 @@ import { useRouter } from 'expo-router';
 import { useAdminTheme } from './_layout';
 import ActionConfirmModal from '../../../components/ActionConfirmModal';
 import User360View from '../../../components/User360View';
+import Avatar from '../../../components/ui/Avatar';
 
 const glass: any = {
   backgroundColor: 'rgba(24, 24, 27, 0.65)',
@@ -22,6 +23,7 @@ interface User {
   role?: 'user' | 'admin' | 'superadmin';
   new_user?: boolean;
   display_name?: string;
+  avatar?: string | null;
 }
 
 export default function AdminUsers() {
@@ -513,9 +515,11 @@ export default function AdminUsers() {
                   <TouchableOpacity onPress={() => router.push(`/admin/user-detail?id=${u.id}` as any)} style={{ width: '100%', gap: 12 }}>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
                       <View style={[styles.tdUser, { flex: undefined }]}>
-                        <View style={[styles.avatar, { backgroundColor: u.banned ? 'rgba(251,84,84,0.15)' : '#313D4A', borderColor: u.banned ? 'rgba(251,84,84,0.3)' : C.border }]}>
-                          <Text style={[styles.avatarText, { color: u.banned ? C.error : C.onSurface }]}>{initials(u)}</Text>
-                        </View>
+                        <Avatar
+                          uri={u.avatar}
+                          name={u.display_name || u.username}
+                          size="sm"
+                        />
                         <View>
                           <Text style={styles.tdName} numberOfLines={1}>{u.username || 'Unknown'}</Text>
                           <Text style={styles.tdPhone} numberOfLines={1}>{u.number}</Text>
@@ -542,9 +546,11 @@ export default function AdminUsers() {
                   <>
                     <Text style={styles.tdId}>#{u.id.slice(0,8).toUpperCase()}</Text>
                     <View style={styles.tdUser}>
-                      <View style={[styles.avatar, { backgroundColor: u.banned ? 'rgba(251,84,84,0.15)' : '#313D4A', borderColor: u.banned ? 'rgba(251,84,84,0.3)' : C.border }]}>
-                        <Text style={[styles.avatarText, { color: u.banned ? C.error : C.onSurface }]}>{initials(u)}</Text>
-                      </View>
+                      <Avatar
+                        uri={u.avatar}
+                        name={u.display_name || u.username}
+                        size="sm"
+                      />
                       <View style={{ flex: 1, minWidth: 0 }}>
                         <Text style={styles.tdName} numberOfLines={1}>{u.username || 'Unknown'}</Text>
                         <Text style={styles.tdPhone} numberOfLines={1}>{u.number}</Text>

@@ -360,19 +360,55 @@ export default function ProfileEditModal({
 
               <View style={{ flex: 1, gap: 6 }}>
                 <Text style={styles.label}>{isEN ? "Profile Photo" : "የመለያ ፎቶ"}</Text>
-                <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <TouchableOpacity activeOpacity={0.7} onPress={handlePickAvatar} disabled={uploadingAvatar || removingAvatar}>
-                    <Text style={[styles.hint, { color: "#00daf3", fontWeight: "600", marginTop: 2 }]}>
-                      {uploadingAvatar
-                        ? (isEN ? "Optimizing & uploading..." : "እየተዘጋጀ ነው...")
-                        : (isEN ? "Change photo" : "ፎቶ ቀይር")}
+                <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 4 }}>
+                  {/* Upload / Replace Photo Icon Button */}
+                  <TouchableOpacity
+                    activeOpacity={0.75}
+                    onPress={handlePickAvatar}
+                    disabled={uploadingAvatar || removingAvatar}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 6,
+                      paddingVertical: 7,
+                      paddingHorizontal: 12,
+                      borderRadius: 8,
+                      backgroundColor: 'rgba(255, 255, 255, 0.07)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(255, 255, 255, 0.15)',
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={isEN ? "Upload or replace photo" : "ፎቶ ቀይር"}
+                  >
+                    <Ionicons name="camera-outline" size={16} color="#e5e3ff" />
+                    <Text style={{ color: '#e5e3ff', fontSize: 12, fontWeight: '600' }}>
+                      {uploadingAvatar ? (isEN ? "Uploading..." : "እየተጫነ...") : (isEN ? "Replace" : "ቀይር")}
                     </Text>
                   </TouchableOpacity>
 
+                  {/* Remove Photo Icon Button */}
                   {Boolean(avatar) && (
-                    <TouchableOpacity activeOpacity={0.7} onPress={confirmRemoveAvatar} disabled={uploadingAvatar || removingAvatar}>
-                      <Text style={{ color: "#ef4444", fontSize: 13, fontWeight: "600" }}>
-                        {removingAvatar ? (isEN ? "Removing..." : "እየተሰረዘ ነው...") : (isEN ? "Remove photo" : "ፎቶ ሰርዝ")}
+                    <TouchableOpacity
+                      activeOpacity={0.75}
+                      onPress={confirmRemoveAvatar}
+                      disabled={uploadingAvatar || removingAvatar}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 6,
+                        paddingVertical: 7,
+                        paddingHorizontal: 12,
+                        borderRadius: 8,
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        borderWidth: 1,
+                        borderColor: 'rgba(239, 68, 68, 0.25)',
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel={isEN ? "Remove photo" : "ፎቶ ሰርዝ"}
+                    >
+                      <Ionicons name="trash-outline" size={15} color="#ef4444" />
+                      <Text style={{ color: '#ef4444', fontSize: 12, fontWeight: '600' }}>
+                        {removingAvatar ? (isEN ? "..." : "...") : (isEN ? "Delete" : "ሰርዝ")}
                       </Text>
                     </TouchableOpacity>
                   )}

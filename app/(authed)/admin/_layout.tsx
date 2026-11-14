@@ -14,6 +14,7 @@ import { API_URL } from '../../../config';
 import LogoutConfirmation from '../../../components/LogoutConfirmation';
 import { useBackgroundMusic } from '../../../context/BackgroundMusicProvider';
 import AdminGlobalSearch from '../../../components/AdminGlobalSearch';
+import Avatar from '../../../components/ui/Avatar';
 
 // ─── Design Tokens (XO Brand + TailAdmin Dark/Light System) ──
 export * from '../../../constants/adminTheme';
@@ -798,9 +799,7 @@ export default function AdminLayout() {
 
             {/* Admin User Chip matching mockups */}
             <View style={[s.userChip, { backgroundColor: currentTheme.surfaceContainer, borderColor: currentTheme.border }]}>
-              <View style={[s.userAvatar, { backgroundColor: currentTheme.primary }]}>
-                <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '900' }}>{user?.username?.[0]?.toUpperCase() || 'Y'}</Text>
-              </View>
+              <Avatar uri={(user as any)?.avatar} name={user?.username} size={30} />
               <View style={{ marginLeft: 8 }}>
                 <Text style={[s.userName, { color: currentTheme.onSurface }]} numberOfLines={1}>{user?.username || 'yared'}</Text>
                 <Text style={[s.userOnline, { color: currentTheme.onSurfaceVariant }]}>{isSuperAdmin ? 'SuperAdmin' : 'Admin'}</Text>

@@ -449,7 +449,7 @@ export default function LoginScreen() {
                             >
                               <Ionicons name="flash" size={19} color="#facc15" />
                               <Text style={[styles.secondaryActionBtnText, { color: "#facc15" }]}>
-                                {language === 'am' ? 'በእንግዳ አካውንት ሞክር (1,000 ብር)' : 'Test Guest Accounts (1,000 ETB)'}
+                                {language === 'am' ? 'በእንግዳ አካውንት ግባ (ፈጣን መግቢያ)' : 'Test guest accounts (skip login)'}
                               </Text>
                             </TouchableOpacity>
                           )}
@@ -715,7 +715,7 @@ export default function LoginScreen() {
                             >
                               <Ionicons name="flash" size={19} color="#facc15" />
                               <Text style={[styles.secondaryActionBtnText, { color: "#facc15" }]}>
-                                {language === 'am' ? 'በእንግዳ አካውንት ሞክር (1,000 ብር)' : 'Test Guest Accounts (1,000 ETB)'}
+                                {language === 'am' ? 'በእንግዳ አካውንት ግባ (ፈጣን መግቢያ)' : 'Test guest accounts (skip login)'}
                               </Text>
                             </TouchableOpacity>
                           )}
