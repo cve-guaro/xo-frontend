@@ -179,7 +179,25 @@ export default function FinancialDashboard() {
     },
   }), [data, tab, fetchDrillDown, C]);
 
-  if (loading) return (
+  // Daily cash-flow groups
+  const dailyGroups = useMemo(() => {
+    const timeline = data?.depositTimeline || [];
+    const wTimeline = data?.withdrawalTimeline || [];
+    const map = new Map<string, { date: string; deposits: number; withdrawals: number }>();
+    timeline.forEach((t: any) => {
+      const g = map.get(t.date) || { date: t.date, deposits: 0, withdrawals: 0 };
+      g.deposits += t.amount || 0;
+      map.set(t.date, g);
+    });
+    wTimeline.forEach((t: any) => {
+      const g = map.get(t.date) || { date: t.date, deposits: 0, withdrawals: 0 };
+      g.withdrawals += t.amount || 0;
+      map.set(t.date, g);
+    });
+    return [...map.values()].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 7);
+  }, [data?.depositTimeline, data?.withdrawalTimeline]);
+
+  if (loading && !data) return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
       <ActivityIndicator size="large" color={C.primary} />
       <Text style={{ color: C.onSurfaceVariant, marginTop: 12, fontSize: 12 }}>Loading financial data...</Text>
@@ -198,24 +216,6 @@ export default function FinancialDashboard() {
   const autoEligible = withdrawals.filter((w: any) =>
     w.status === 'pending' && w.amount <= Number(autoThreshold) && w.kyc_verified,
   ).length;
-
-  // Daily cash-flow groups
-  const dailyGroups = useMemo(() => {
-    const timeline = d.depositTimeline || [];
-    const wTimeline = d.withdrawalTimeline || [];
-    const map = new Map<string, { date: string; deposits: number; withdrawals: number }>();
-    timeline.forEach((t: any) => {
-      const g = map.get(t.date) || { date: t.date, deposits: 0, withdrawals: 0 };
-      g.deposits += t.amount || 0;
-      map.set(t.date, g);
-    });
-    wTimeline.forEach((t: any) => {
-      const g = map.get(t.date) || { date: t.date, deposits: 0, withdrawals: 0 };
-      g.withdrawals += t.amount || 0;
-      map.set(t.date, g);
-    });
-    return [...map.values()].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 7);
-  }, [d.depositTimeline, d.withdrawalTimeline]);
 
   return (
     <ScrollView
