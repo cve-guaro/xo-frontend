@@ -1,6 +1,18 @@
-// app/(authed)/admin/user-detail.tsx — Full User Profile (matches design)
+// app/(authed)/admin/user-detail.tsx — Redesigned Admin User Details (dark theme)
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, Platform, useWindowDimensions, Alert, TextInput, Modal } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+  StyleSheet,
+  Platform,
+  useWindowDimensions,
+  Alert,
+  TextInput,
+  Modal,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import ActionConfirmModal from '../../../components/ActionConfirmModal';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -8,10 +20,11 @@ import { useAuth } from '../../../context/authContext';
 import { API_URL } from '../../../config';
 import User360View from '../../../components/User360View';
 import { useAdminTheme } from './_layout';
+import { alpha } from '../../../components/admin/ui';
 
 const fmt = (n: number) => {
   const num = Number(n || 0);
-  if (Number.isNaN(num)) return "0.00";
+  if (Number.isNaN(num)) return '0.00';
   return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 const timeFmt = (d: string) => {
@@ -20,17 +33,10 @@ const timeFmt = (d: string) => {
   if (Number.isNaN(parsed.getTime())) return '-';
   return parsed.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
-const dateFmt = (d: string) => {
-  if (!d) return '-';
-  const parsed = new Date(d);
-  if (Number.isNaN(parsed.getTime())) return '-';
-  return parsed.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }).toUpperCase();
-};
 
 export default function UserDetail() {
   const { theme: C, isDark } = useAdminTheme();
-  const s = useMemo(() => getStyles(C, isDark), [C, isDark]);
-  const { token, user: authUser } = useAuth();
+  const { token, user: authUser, fixUrl } = useAuth();
   const router = useRouter();
   const params = useLocalSearchParams();
   const userId = params.id as string;
@@ -46,18 +52,9 @@ export default function UserDetail() {
   const [editFullName, setEditFullName] = useState('');
   const [editRole, setEditRole] = useState('user');
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
-  const [txPage, setTxPage] = useState(0);
-  const [gamePage, setGamePage] = useState(0);
-  const [txFilter, setTxFilter] = useState<string>('all');
-  const [showFilterMenu, setShowFilterMenu] = useState(false);
-  const [txTypeFilter, setTxTypeFilter] = useState('all');
-  const [txAmountRange, setTxAmountRange] = useState('all');
   const [gameDetailModal, setGameDetailModal] = useState<any>(null);
   const [txDetailModal, setTxDetailModal] = useState<any>(null);
   const [boardStep, setBoardStep] = useState(0);
-  const [gameFilter, setGameFilter] = useState<'all'|'wins'|'losses'>('all');
-  const [fetchingMovesFor, setFetchingMovesFor] = useState<string | null>(null);
-  const PAGE_SIZE = 20;
   const [confirmAction, setConfirmAction] = useState<'ban' | 'delete' | null>(null);
 
   const fetchData = useCallback(async () => {
@@ -78,7 +75,7 @@ export default function UserDetail() {
   }, [userId, token]);
 
   const handleOpenGameReplay = async (g: any) => {
-    setFetchingMovesFor(g.id);
+    setBoardStep(0);
     try {
       const res = await fetch(`${API_URL}/admin/games/${g.id}/moves`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -91,28 +88,30 @@ export default function UserDetail() {
       }
     } catch (e) {
       Alert.alert('Error', 'Failed to fetch moves');
-    } finally {
-      setFetchingMovesFor(null);
     }
   };
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // Guard: no userId provided (auto-mounted by expo-router)
   if (!userId) {
     return (
-      <View style={s.center}>
-        <Text style={{ color: '#475569', fontSize: 14 }}>Select a user from the Player Matrix</Text>
+      <View style={[s.empty, { backgroundColor: C.background }]}>
+        <Ionicons name="person-outline" size={32} color={C.onSurfaceVariant} />
+        <Text style={[s.emptyText, { color: C.onSurfaceVariant }]}>Select a user from the Player Matrix</Text>
       </View>
     );
   }
 
-  if (loading) return <View style={s.center}><ActivityIndicator size="large" color="#00A3FF" /></View>;
+  if (loading) return (
+    <View style={[s.empty, { backgroundColor: C.background }]}>
+      <ActivityIndicator size="large" color={C.primary} />
+    </View>
+  );
   if (!data || !data.user) return (
-    <View style={s.center}>
-      <Text style={{ color: '#475569', fontSize: 14 }}>User not found</Text>
-      <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 16 }}>
-        <Text style={{ color: '#00e5ff', fontWeight: '700' }}>← Back</Text>
+    <View style={[s.empty, { backgroundColor: C.background }]}>
+      <Text style={[s.emptyText, { color: C.onSurfaceVariant }]}>User not found</Text>
+      <TouchableOpacity onPress={() => router.back()} style={s.backLink}>
+        <Text style={[s.backLinkText, { color: C.accentCyan }]}>← Back</Text>
       </TouchableOpacity>
     </View>
   );
@@ -122,63 +121,169 @@ export default function UserDetail() {
   const isBanned = targetUser.banned;
   const tier = stats.totalGames > 50 ? 'PRO' : stats.totalGames > 10 ? 'REGULAR' : 'STANDARD';
 
+  const avatarUrl = fixUrl ? fixUrl(targetUser?.avatar) : null;
+
   const statusColor = (st: string) => {
     const s = String(st).toUpperCase();
-    if (s === 'COMPLETED' || s === 'SUCCESS' || s === 'SUCCEEDED') return '#34d399';
-    if (s === 'FAILED') return '#f87171';
-    return '#f59e0b';
+    if (s === 'COMPLETED' || s === 'SUCCESS' || s === 'SUCCEEDED') return C.success;
+    if (s === 'FAILED') return C.error;
+    return C.accentGold;
   };
 
   const txTypeLabel = (t: string) => {
     const map: Record<string, { label: string; icon: string; color: string }> = {
-      'DEPOSIT': { label: 'DEPOSIT', icon: 'arrow-down', color: '#34d399' },
-      'WITHDRAW_REQUEST': { label: 'WITHDRAWAL', icon: 'arrow-up', color: '#f87171' },
-      'WITHDRAW_SETTLED': { label: 'WITHDRAWAL', icon: 'arrow-up', color: '#f87171' },
-      'PRIZE': { label: 'PRIZE', icon: 'trophy', color: '#fbbf24' },
-      'BONUS': { label: 'BONUS', icon: 'gift', color: '#a78bfa' },
-      'GIFT': { label: 'GIFT', icon: 'gift', color: '#34d399' },
-      'GIVEAWAY': { label: 'GIVEAWAY', icon: 'gift', color: '#34d399' },
-      'WELCOME_BONUS': { label: 'WELCOME BONUS', icon: 'gift', color: '#34d399' },
-      'REFERRAL': { label: 'REFERRAL', icon: 'people', color: '#a78bfa' },
-      'REFERRAL_BONUS': { label: 'REFERRAL BONUS', icon: 'people', color: '#a78bfa' },
-      'PROMO': { label: 'PROMO', icon: 'pricetag', color: '#34d399' },
-      'STAKE': { label: 'STAKE', icon: 'game-controller', color: '#00daf3' },
-      'ADMIN_CREDIT': { label: 'ADMIN CREDIT', icon: 'build', color: '#a78bfa' },
-      'ADMIN_DEBIT': { label: 'ADMIN DEBIT', icon: 'build', color: '#f87171' },
+      'DEPOSIT': { label: 'DEPOSIT', icon: 'arrow-down', color: C.success },
+      'WITHDRAW_REQUEST': { label: 'WITHDRAWAL', icon: 'arrow-up', color: C.error },
+      'WITHDRAW_SETTLED': { label: 'WITHDRAWAL', icon: 'arrow-up', color: C.error },
+      'PRIZE': { label: 'PRIZE', icon: 'trophy', color: C.accentGold },
+      'BONUS': { label: 'BONUS', icon: 'gift', color: C.accentViolet },
+      'GIFT': { label: 'GIFT', icon: 'gift', color: C.success },
+      'GIVEAWAY': { label: 'GIVEAWAY', icon: 'gift', color: C.success },
+      'WELCOME_BONUS': { label: 'WELCOME BONUS', icon: 'gift', color: C.success },
+      'REFERRAL': { label: 'REFERRAL', icon: 'people', color: C.accentViolet },
+      'REFERRAL_BONUS': { label: 'REFERRAL BONUS', icon: 'people', color: C.accentViolet },
+      'PROMO': { label: 'PROMO', icon: 'pricetag', color: C.success },
+      'STAKE': { label: 'STAKE', icon: 'game-controller', color: C.accentCyan },
+      'ADMIN_CREDIT': { label: 'ADMIN CREDIT', icon: 'build', color: C.accentViolet },
+      'ADMIN_DEBIT': { label: 'ADMIN DEBIT', icon: 'build', color: C.error },
     };
-    return map[t] || { label: t, icon: 'ellipse', color: '#64748b' };
+    return map[t] || { label: t, icon: 'ellipse', color: C.onSurfaceVariant };
   };
 
   return (
-    <ScrollView style={[s.container, isMobile && { padding: 12, paddingTop: 12 }]} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
-      {/* Header Bar */}
-      <View style={[s.headerBar, isMobile && { flexDirection: 'column', alignItems: 'flex-start' }]}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: C.background }}
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={{
+        padding: isMobile ? 14 : 24,
+        paddingBottom: 100,
+        maxWidth: 1300,
+        width: '100%',
+        alignSelf: 'center',
+      }}
+    >
+      {/* Header Bar — Minimal Clean Header (Dark/Light Dynamic) */}
+      <View style={{
+        backgroundColor: C.surface,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: C.border,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        marginBottom: 16,
+        flexDirection: isMobile ? 'column' : 'row',
+        justifyContent: 'space-between',
+        alignItems: isMobile ? 'flex-start' : 'center',
+        gap: 12,
+        ...(Platform.OS === 'web' ? { boxShadow: isDark ? '0 1px 3px rgba(0,0,0,0.2)' : '0 1px 3px rgba(0,0,0,0.04)' } : {}),
+      }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <TouchableOpacity onPress={() => router.back()} style={s.backCircle}>
-            <Ionicons name="arrow-back" size={18} color={C.onSurface} />
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 8,
+              backgroundColor: C.surfaceContainerLow,
+              borderWidth: 1,
+              borderColor: C.border,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Ionicons name="arrow-back" size={16} color={C.onSurface} />
           </TouchableOpacity>
+
           <View>
-            <Text style={s.headerTitle}>User Profile: <Text style={{ color: C.primary }}>#{targetUser.id.slice(0, 6).toUpperCase()}</Text></Text>
-            <Text style={s.headerSub}>USER MANAGEMENT / DETAIL VIEW</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text style={{ fontSize: 16, fontWeight: '800', color: C.onSurface }}>
+                {targetUser.display_name || targetUser.username || 'User Profile'}
+              </Text>
+              <View style={{
+                paddingHorizontal: 7,
+                paddingVertical: 2,
+                borderRadius: 6,
+                backgroundColor: alpha(C.primary, 0.12),
+              }}>
+                <Text style={{ color: C.primary, fontSize: 10, fontWeight: '800' }}>
+                  #{targetUser.id.slice(0, 8).toUpperCase()}
+                </Text>
+              </View>
+            </View>
+            <Text style={{ fontSize: 11, color: C.onSurfaceVariant, marginTop: 2 }}>
+              @{targetUser.username || 'unknown'} · {targetUser.number || 'No phone'} · Joined {timeFmt(targetUser.created_at)}
+            </Text>
           </View>
         </View>
-        <View style={[{ flexDirection: 'row', gap: 8 }, isMobile && { flexWrap: 'wrap', marginTop: 8 }]}>
-          <TouchableOpacity style={[s.headerBtn, { backgroundColor: C.primary }]} onPress={() => { setEditUsername(targetUser.username || ''); setEditNumber(targetUser.number || ''); setEditFullName(targetUser.display_name || ''); setEditRole(targetUser.role || 'user'); setShowRoleDropdown(false); setEditModal(true); }}>
-            <Ionicons name="create" size={14} color="#ffffff" />
-            <Text style={[s.headerBtnText, { color: '#ffffff' }]}>Edit Data</Text>
+
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <TouchableOpacity
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              borderRadius: 8,
+              backgroundColor: C.primary,
+            }}
+            onPress={() => {
+              setEditUsername(targetUser.username || '');
+              setEditNumber(targetUser.number || '');
+              setEditFullName(targetUser.display_name || '');
+              setEditRole(targetUser.role || 'user');
+              setShowRoleDropdown(false);
+              setEditModal(true);
+            }}
+          >
+            <Ionicons name="create-outline" size={14} color="#FFFFFF" />
+            <Text style={{ color: '#FFFFFF', fontSize: 11.5, fontWeight: '700' }}>Edit Profile</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[s.headerBtn, { backgroundColor: C.error }]} disabled={actionLoading} onPress={() => setConfirmAction('ban')}>
-            <Ionicons name="ban" size={14} color="#fff" />
-            <Text style={s.headerBtnText}>{isBanned ? 'Unban User' : 'Ban User'}</Text>
+
+          <TouchableOpacity
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              borderRadius: 8,
+              backgroundColor: isBanned ? alpha(C.success, 0.12) : alpha(C.error, 0.12),
+              borderWidth: 1,
+              borderColor: isBanned ? alpha(C.success, 0.3) : alpha(C.error, 0.3),
+            }}
+            disabled={actionLoading}
+            onPress={() => setConfirmAction('ban')}
+          >
+            <Ionicons name={isBanned ? "checkmark-circle-outline" : "ban-outline"} size={14} color={isBanned ? C.success : C.error} />
+            <Text style={{ color: isBanned ? C.success : C.error, fontSize: 11.5, fontWeight: '700' }}>
+              {isBanned ? 'Restore Access' : 'Ban Player'}
+            </Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[s.headerBtn, { backgroundColor: 'transparent', borderWidth: 1, borderColor: C.error }]} disabled={actionLoading} onPress={() => setConfirmAction('delete')}>
-            <Ionicons name="trash" size={14} color={C.error} />
-            <Text style={[s.headerBtnText, { color: C.error }]}>Delete Account</Text>
+
+          <TouchableOpacity
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              borderRadius: 8,
+              backgroundColor: C.surfaceContainerLow,
+              borderWidth: 1,
+              borderColor: C.border,
+            }}
+            disabled={actionLoading}
+            onPress={() => setConfirmAction('delete')}
+          >
+            <Ionicons name="trash-outline" size={14} color={C.error} />
+            <Text style={{ color: C.error, fontSize: 11.5, fontWeight: '700' }}>Delete</Text>
           </TouchableOpacity>
         </View>
       </View>
-      {/* User 360 Audit View */}
-      <View style={{ flex: 1, marginTop: 24 }}>
+
+      {/* User 360 View */}
+      <View>
         <User360View data={data} onReplayGame={handleOpenGameReplay} />
       </View>
 
@@ -188,9 +293,10 @@ export default function UserDetail() {
         const moves = Array.isArray(g.moves) ? g.moves : [];
         const isAnomaly = g.status === 'completed' && !g.winner;
         const won = g.winner === userId;
-        const duration = g.finished_at && g.created_at ? Math.round((new Date(g.finished_at).getTime() - new Date(g.created_at).getTime()) / 1000) : 0;
+        const duration = g.finished_at && g.created_at
+          ? Math.round((new Date(g.finished_at).getTime() - new Date(g.created_at).getTime()) / 1000)
+          : 0;
 
-        // Build board state at current step
         const board: (string | null)[] = Array(9).fill(null);
         const visibleMoves = moves.slice(0, boardStep);
         visibleMoves.forEach((m: any, idx: number) => {
@@ -200,247 +306,326 @@ export default function UserDetail() {
         });
 
         return (
-        <Modal visible transparent animationType="fade">
-          <ScrollView style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)' }} contentContainerStyle={{ justifyContent: 'center', alignItems: 'center', padding: 20, minHeight: '100%' }}>
-            <View style={{ backgroundColor: C.surface, borderRadius: 20, padding: 24, width: '100%', maxWidth: 480, borderWidth: 1, borderColor: isAnomaly ? C.error : C.border }}>
-              {/* Header */}
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <Text style={{ color: C.onSurface, fontSize: 18, fontWeight: '900' }}>Game Replay</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  {isAnomaly && (
-                    <View style={{ backgroundColor: 'rgba(248,113,113,0.15)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(248,113,113,0.3)' }}>
-                      <Text style={{ color: '#f87171', fontSize: 9, fontWeight: '900' }}>⚠ ANOMALY</Text>
-                    </View>
-                  )}
-                  <View style={{ backgroundColor: won ? 'rgba(52,211,153,0.15)' : isAnomaly ? 'rgba(248,113,113,0.15)' : 'rgba(248,113,113,0.15)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, borderColor: won ? 'rgba(52,211,153,0.3)' : 'rgba(248,113,113,0.3)' }}>
-                    <Text style={{ color: won ? '#34d399' : '#f87171', fontSize: 9, fontWeight: '900' }}>{isAnomaly ? 'NO WINNER' : won ? 'WON' : 'LOST'}</Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* Anomaly Banner */}
-              {isAnomaly && (
-                <View style={{ backgroundColor: 'rgba(248,113,113,0.08)', padding: 12, borderRadius: 10, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(248,113,113,0.2)' }}>
-                  <Text style={{ color: '#f87171', fontSize: 12, fontWeight: '900', marginBottom: 4 }}>⚠ ANOMALY: Both Players Lost</Text>
-                  <Text style={{ color: C.onSurfaceVariant, fontSize: 11, lineHeight: 16 }}>This game completed with no winner recorded. Both players were charged {fmt(Number(g.bet_amount || 0))} ETB. A refund should be issued to both players.</Text>
-                </View>
-              )}
-
-              {/* Info Grid */}
-              <View style={{ gap: 8, marginBottom: 16 }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text style={{ color: C.onSurfaceVariant, fontSize: 11 }}>Game ID</Text><Text style={{ color: C.onSurface, fontSize: 11, fontWeight: '700' }}>{g.id?.slice(0, 8)}</Text></View>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text style={{ color: C.onSurfaceVariant, fontSize: 11 }}>Bet</Text><Text style={{ color: C.onSurface, fontSize: 11, fontWeight: '900' }}>ETB {fmt(Number(g.bet_amount || 0))}</Text></View>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text style={{ color: '#00daf3', fontSize: 11 }}>✕ {g.player_x_name || g.player_x?.slice(0, 6)}</Text><Text style={{ color: C.onSurfaceVariant, fontSize: 10 }}>{g.player_x_number || ''}</Text></View>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text style={{ color: '#fd6f85', fontSize: 11 }}>○ {g.player_o_name || g.player_o?.slice(0, 6)}</Text><Text style={{ color: C.onSurfaceVariant, fontSize: 10 }}>{g.player_o_number || ''}</Text></View>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text style={{ color: C.onSurfaceVariant, fontSize: 11 }}>Duration</Text><Text style={{ color: C.onSurface, fontSize: 11, fontWeight: '700' }}>{duration > 0 ? `${Math.floor(duration / 60)}m ${duration % 60}s` : '—'}</Text></View>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text style={{ color: C.onSurfaceVariant, fontSize: 11 }}>Status</Text><Text style={{ color: '#fbbf24', fontSize: 11, fontWeight: '700' }}>{g.status}</Text></View>
-              </View>
-
-              {/* Board Replay */}
-              {moves.length > 0 && (
-                <View style={{ marginBottom: 14 }}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                    <Text style={{ color: '#475569', fontSize: 9, fontWeight: '800', letterSpacing: 1 }}>BOARD REPLAY</Text>
-                    <Text style={{ color: '#64748b', fontSize: 10, fontWeight: '700' }}>Move {boardStep}/{moves.length}</Text>
-                  </View>
-
-                  {/* 3x3 Grid */}
-                  <View style={{ alignSelf: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 12, padding: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
-                    {[0, 1, 2].map(row => (
-                      <View key={row} style={{ flexDirection: 'row' }}>
-                        {[0, 1, 2].map(col => {
-                          const idx = row * 3 + col;
-                          const sym = board[idx];
-                          const isLatest = boardStep > 0 && (() => {
-                            const lastMove = moves[boardStep - 1];
-                            const lastCell = typeof lastMove?.cell === 'number' ? lastMove.cell : (typeof lastMove?.index === 'number' ? lastMove.index : boardStep - 1);
-                            return lastCell === idx;
-                          })();
-                          return (
-                            <View key={col} style={{
-                              width: 52, height: 52, alignItems: 'center', justifyContent: 'center',
-                              borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
-                              backgroundColor: isLatest ? 'rgba(0,229,255,0.08)' : 'transparent',
-                              borderRadius: row === 0 && col === 0 ? 10 : row === 0 && col === 2 ? 10 : row === 2 && col === 0 ? 10 : row === 2 && col === 2 ? 10 : 0,
-                            }}>
-                              <Text style={{ fontSize: 24, fontWeight: '900', color: sym === 'X' ? '#00daf3' : sym === 'O' ? '#fd6f85' : 'transparent' }}>
-                                {sym || '·'}
-                              </Text>
-                            </View>
-                          );
-                        })}
+          <Modal visible transparent animationType="fade">
+            <ScrollView
+              style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' }}
+              contentContainerStyle={{ justifyContent: 'center', alignItems: 'center', padding: 24, minHeight: '100%' }}
+            >
+              <View style={[s.modalContainer, { backgroundColor: C.surface, borderColor: C.border }]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                  <Text style={s.modalTitle}>Game Replay</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    {isAnomaly && (
+                      <View style={[s.modalPill, { backgroundColor: C.errorContainer, borderColor: C.error }]}>
+                        <Text style={{ color: C.error, fontSize: 9, fontWeight: '800' }}>⚠ ANOMALY</Text>
                       </View>
-                    ))}
-                  </View>
-
-                  {/* Controls */}
-                  <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 12, marginTop: 10 }}>
-                    <TouchableOpacity onPress={() => setBoardStep(0)} style={{ padding: 6, opacity: boardStep === 0 ? 0.3 : 1 }}>
-                      <Ionicons name="play-skip-back" size={16} color="#00e5ff" />
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => setBoardStep(p => Math.max(0, p - 1))} style={{ padding: 6, opacity: boardStep === 0 ? 0.3 : 1 }}>
-                      <Ionicons name="caret-back" size={20} color="#00e5ff" />
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => { let step = 0; const iv = setInterval(() => { step++; setBoardStep(step); if (step >= moves.length) clearInterval(iv); }, 400); }} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0,229,255,0.15)', alignItems: 'center', justifyContent: 'center' }}>
-                      <Ionicons name="play" size={16} color="#00e5ff" />
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => setBoardStep(p => Math.min(moves.length, p + 1))} style={{ padding: 6, opacity: boardStep >= moves.length ? 0.3 : 1 }}>
-                      <Ionicons name="caret-forward" size={20} color="#00e5ff" />
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => setBoardStep(moves.length)} style={{ padding: 6, opacity: boardStep >= moves.length ? 0.3 : 1 }}>
-                      <Ionicons name="play-skip-forward" size={16} color="#00e5ff" />
-                    </TouchableOpacity>
+                    )}
+                    <View style={[s.modalPill, { backgroundColor: won ? alpha(C.success, 0.08) : C.errorContainer, borderColor: won ? C.success : C.error }]}>
+                      <Text style={{ color: won ? C.success : C.error, fontSize: 9, fontWeight: '800' }}>
+                        {isAnomaly ? 'NO WINNER' : won ? 'WON' : 'LOST'}
+                      </Text>
+                    </View>
                   </View>
                 </View>
-              )}
 
-              {/* Move Timeline */}
-              {moves.length > 0 && (
-                <View style={{ marginBottom: 14 }}>
-                  <Text style={{ color: '#475569', fontSize: 9, fontWeight: '800', letterSpacing: 1, marginBottom: 8 }}>MOVE TIMELINE</Text>
-                  <View style={{ maxHeight: 120 }}>
-                    <ScrollView nestedScrollEnabled style={{ maxHeight: 120 }}>
+                {isAnomaly && (
+                  <View style={[s.modalAlert, { backgroundColor: C.errorContainer, borderColor: C.error }]}>
+                    <Text style={{ color: C.error, fontSize: 10, fontWeight: '800', marginBottom: 4 }}>
+                      ⚠ ANOMALY: Both Players Lost
+                    </Text>
+                    <Text style={{ color: C.onSurfaceVariant, fontSize: 9, lineHeight: 14 }}>
+                      This game completed with no winner recorded. Both players were charged {fmt(Number(g.bet_amount || 0))} ETB.
+                    </Text>
+                  </View>
+                )}
+
+                <View style={s.modalInfoGrid}>
+                  <View style={s.infoRow}>
+                    <Text style={s.infoLabel}>Game ID</Text>
+                    <Text style={s.infoValue}>{g.id?.slice(0, 8)}</Text>
+                  </View>
+                  <View style={s.infoRow}>
+                    <Text style={s.infoLabel}>Bet</Text>
+                    <Text style={[s.infoValue, { fontWeight: '800' }]}>ETB {fmt(Number(g.bet_amount || 0))}</Text>
+                  </View>
+                  <View style={s.infoRow}>
+                    <Text style={{ color: C.accentCyan, fontSize: 9, fontWeight: '700' }}>✕ {g.player_x_name || g.player_x?.slice(0, 6)}</Text>
+                    <Text style={s.infoValueSmall}>{g.player_x_number || ''}</Text>
+                  </View>
+                  <View style={s.infoRow}>
+                    <Text style={{ color: '#F43F5E', fontSize: 9, fontWeight: '700' }}>○ {g.player_o_name || g.player_o?.slice(0, 6)}</Text>
+                    <Text style={s.infoValueSmall}>{g.player_o_number || ''}</Text>
+                  </View>
+                  <View style={s.infoRow}>
+                    <Text style={s.infoLabel}>Duration</Text>
+                    <Text style={s.infoValue}>{duration > 0 ? `${Math.floor(duration / 60)}m ${duration % 60}s` : '—'}</Text>
+                  </View>
+                  <View style={s.infoRow}>
+                    <Text style={s.infoLabel}>Status</Text>
+                    <Text style={{ color: C.accentGold, fontSize: 9, fontWeight: '800' }}>{g.status}</Text>
+                  </View>
+                </View>
+
+                {moves.length > 0 && (
+                  <View style={s.replaySection}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                      <Text style={s.sectionKicker}>BOARD REPLAY</Text>
+                      <Text style={s.sectionMeta}>Move {boardStep}/{moves.length}</Text>
+                    </View>
+
+                    <View style={[s.boardWrap, { backgroundColor: C.surfaceContainerLow, borderColor: C.border }]}>
+                      {[0, 1, 2].map(row => (
+                        <View key={row} style={{ flexDirection: 'row' }}>
+                          {[0, 1, 2].map(col => {
+                            const idx = row * 3 + col;
+                            const sym = board[idx];
+                            const isLatest = boardStep > 0 && (() => {
+                              const lastMove = moves[boardStep - 1];
+                              const lastCell = typeof lastMove?.cell === 'number' ? lastMove.cell : (typeof lastMove?.index === 'number' ? lastMove.index : boardStep - 1);
+                              return lastCell === idx;
+                            })();
+                            return (
+                              <View
+                                key={col}
+                                style={{
+                                  width: 44, height: 44, alignItems: 'center', justifyContent: 'center',
+                                  borderWidth: 1, borderColor: C.border,
+                                  backgroundColor: isLatest ? 'rgba(0, 191, 255, 0.08)' : C.surfaceContainer,
+                                  borderRadius: row === 0 && col === 0 ? 8 : row === 0 && col === 2 ? 8 : row === 2 && col === 0 ? 8 : row === 2 && col === 2 ? 8 : 0,
+                                }}
+                              >
+                                <Text style={{ fontSize: 20, fontWeight: '800', color: sym === 'X' ? C.accentCyan : sym === 'O' ? '#F43F5E' : 'transparent' }}>
+                                  {sym || '·'}
+                                </Text>
+                              </View>
+                            );
+                          })}
+                        </View>
+                      ))}
+                    </View>
+
+                    <View style={s.boardControls}>
+                      <TouchableOpacity onPress={() => setBoardStep(0)} style={s.navBtn} activeOpacity={0.6}>
+                        <Ionicons name="play-skip-back" size={14} color={C.onSurfaceVariant} />
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => setBoardStep(p => Math.max(0, p - 1))} style={s.navBtn} activeOpacity={0.6}>
+                        <Ionicons name="caret-back" size={18} color={C.onSurfaceVariant} />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => {
+                          let step = 0;
+                          const iv = setInterval(() => {
+                            step++;
+                            setBoardStep(step);
+                            if (step >= moves.length) clearInterval(iv);
+                          }, 400);
+                        }}
+                        style={[s.navBtn, { width: 32, height: 32, borderRadius: 16, backgroundColor: C.primaryContainer, alignItems: 'center', justifyContent: 'center' }]}
+                        activeOpacity={0.6}
+                      >
+                        <Ionicons name="play" size={14} color={C.primary} />
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => setBoardStep(p => Math.min(moves.length, p + 1))} style={s.navBtn} activeOpacity={0.6}>
+                        <Ionicons name="caret-forward" size={18} color={C.onSurfaceVariant} />
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => setBoardStep(moves.length)} style={s.navBtn} activeOpacity={0.6}>
+                        <Ionicons name="play-skip-forward" size={14} color={C.onSurfaceVariant} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+
+                {moves.length > 0 && (
+                  <View style={s.timelineSection}>
+                    <Text style={s.sectionKicker}>MOVE TIMELINE</Text>
+                    <View style={s.timelineWrap}>
                       {moves.map((m: any, i: number) => {
                         const sym = m.symbol || m.player || (i % 2 === 0 ? 'X' : 'O');
                         const cell = typeof m.cell === 'number' ? m.cell : (typeof m.index === 'number' ? m.index : i);
                         const ts = m.ts || m.timestamp;
                         const isActive = i < boardStep;
                         return (
-                          <TouchableOpacity key={i} onPress={() => setBoardStep(i + 1)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4, opacity: isActive ? 1 : 0.4 }}>
-                            <Text style={{ color: '#334155', fontSize: 10, width: 20, textAlign: 'center', fontWeight: '700' }}>{i + 1}</Text>
-                            <Text style={{ color: sym === 'X' ? '#00daf3' : '#fd6f85', fontSize: 12, fontWeight: '900', width: 16 }}>{sym}</Text>
-                            <Text style={{ color: '#64748b', fontSize: 10 }}>Cell {cell}</Text>
-                            {ts && <Text style={{ color: '#334155', fontSize: 9, marginLeft: 'auto' }}>{new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</Text>}
+                          <TouchableOpacity
+                            key={i}
+                            onPress={() => setBoardStep(i + 1)}
+                            style={[s.timelineRow, isActive && s.timelineRowActive]}
+                            activeOpacity={0.6}
+                          >
+                            <Text style={{ color: C.onSurfaceVariant, fontSize: 9, fontWeight: '800', width: 20, textAlign: 'center' }}>{i + 1}</Text>
+                            <Text style={{ color: sym === 'X' ? C.accentCyan : '#F43F5E', fontSize: 12, fontWeight: '800', width: 16 }}>{sym}</Text>
+                            <Text style={{ color: C.onSurfaceVariant, fontSize: 9 }}>Cell {cell}</Text>
+                            {ts && <Text style={{ color: C.onSurfaceVariant, fontSize: 8, marginLeft: 'auto' }}>{new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</Text>}
                           </TouchableOpacity>
                         );
                       })}
-                    </ScrollView>
+                    </View>
                   </View>
-                </View>
-              )}
+                )}
 
-              {/* Loss Reason */}
-              {!isAnomaly && g.winner !== userId && (
-                <View style={{ marginTop: 4, backgroundColor: 'rgba(248,113,113,0.08)', padding: 10, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(248,113,113,0.2)' }}>
-                  <Text style={{ color: '#f87171', fontSize: 11, fontWeight: '800', marginBottom: 4 }}>⚠️ LOSS REASON</Text>
-                  <Text style={{ color: '#94a3b8', fontSize: 11, lineHeight: 16 }}>
-                    {g.end_reason === 'forfeit' || g.forfeit ? 'This user left the game or forfeited the match.' :
-                     g.end_reason === 'timeout' ? 'This user ran out of time.' :
-                     g.end_reason === 'disconnect' ? 'This user disconnected (internet issue).' :
-                     'Opponent outplayed this user in normal gameplay.'}
-                  </Text>
-                </View>
-              )}
+                {!isAnomaly && g.winner !== userId && (
+                  <View style={[s.lossReason, { backgroundColor: C.errorContainer, borderColor: C.error }]}>
+                    <Text style={{ color: C.error, fontSize: 9, fontWeight: '800', marginBottom: 4 }}>⚠ LOSS REASON</Text>
+                    <Text style={{ color: C.onSurfaceVariant, fontSize: 9, lineHeight: 14 }}>
+                      {g.end_reason === 'forfeit' || g.forfeit ? 'This user left the game or forfeited the match.' :
+                       g.end_reason === 'timeout' ? 'This user ran out of time.' :
+                       g.end_reason === 'disconnect' ? 'This user disconnected (internet issue).' :
+                       'Opponent outplayed this user in normal gameplay.'}
+                    </Text>
+                  </View>
+                )}
 
-              <TouchableOpacity onPress={() => { setGameDetailModal(null); setBoardStep(0); }} style={{ marginTop: 16, backgroundColor: C.primary, paddingVertical: 10, borderRadius: 10, alignItems: 'center' }}>
-                <Text style={{ color: '#ffffff', fontWeight: '900', fontSize: 13 }}>Close</Text>
-              </TouchableOpacity>
-            </View>
-          </ScrollView>
-        </Modal>
+                <TouchableOpacity
+                  onPress={() => { setGameDetailModal(null); setBoardStep(0); }}
+                  style={s.modalClose}
+                >
+                  <Text style={s.modalCloseText}>Close</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </Modal>
         );
       })()}
 
-      {/* Edit Data Modal — Modern Glassmorphism UI */}
+      {/* Edit Data Modal */}
       {editModal && (
         <Modal visible transparent animationType="fade">
-          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-            <View style={{ backgroundColor: C.surface, borderRadius: 24, padding: 28, width: '100%', maxWidth: 420, borderWidth: 1, borderColor: C.border }}>
-              {/* Header */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: C.primaryContainer, alignItems: 'center', justifyContent: 'center' }}>
-                    <Ionicons name="person-circle" size={22} color={C.primary} />
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+            <View style={[s.modalContainer, { backgroundColor: C.surface, borderColor: C.border, width: '100%', maxWidth: 440 }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: C.primaryContainer, alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="person-circle" size={20} color={C.primary} />
                   </View>
                   <View>
-                    <Text style={{ color: C.onSurface, fontSize: 18, fontWeight: '900' }}>Edit User</Text>
-                    <Text style={{ color: C.onSurfaceVariant, fontSize: 11, fontWeight: '600' }}>Update profile information</Text>
+                    <Text style={s.modalTitle}>Edit User</Text>
+                    <Text style={s.modalSub}>Update profile information</Text>
                   </View>
                 </View>
-                <TouchableOpacity onPress={() => setEditModal(false)} style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: C.surfaceContainerLowest, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.border }}>
-                  <Ionicons name="close" size={16} color={C.onSurfaceVariant} />
+                <TouchableOpacity onPress={() => setEditModal(false)} style={s.modalCloseBtn}>
+                  <Ionicons name="close" size={18} color={C.onSurfaceVariant} />
                 </TouchableOpacity>
               </View>
 
-              {/* Full Name */}
-              <Text style={{ color: C.primary, fontSize: 9, fontWeight: '800', letterSpacing: 2, marginBottom: 6 }}>FULL NAME</Text>
-              <View style={{ backgroundColor: C.surfaceContainerLowest, borderRadius: 12, borderWidth: 1, borderColor: C.border, marginBottom: 14, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12 }}>
-                <Ionicons name="person-outline" size={16} color={C.onSurfaceVariant} />
-                <TextInput value={editFullName} onChangeText={setEditFullName} placeholder="Enter full name" style={{ flex: 1, color: C.onSurface, padding: 12, fontSize: 14 }} placeholderTextColor={C.onSurfaceVariant} />
-              </View>
-
-              {/* Username */}
-              <Text style={{ color: C.primary, fontSize: 9, fontWeight: '800', letterSpacing: 2, marginBottom: 6 }}>USERNAME</Text>
-              <View style={{ backgroundColor: C.surfaceContainerLowest, borderRadius: 12, borderWidth: 1, borderColor: C.border, marginBottom: 14, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12 }}>
-                <Ionicons name="at" size={16} color={C.onSurfaceVariant} />
-                <TextInput value={editUsername} onChangeText={setEditUsername} placeholder="Enter username" style={{ flex: 1, color: C.onSurface, padding: 12, fontSize: 14 }} placeholderTextColor={C.onSurfaceVariant} />
-              </View>
-
-              {/* Phone Number */}
-              <Text style={{ color: C.primary, fontSize: 9, fontWeight: '800', letterSpacing: 2, marginBottom: 6 }}>PHONE NUMBER</Text>
-              <View style={{ backgroundColor: C.surfaceContainerLowest, borderRadius: 12, borderWidth: 1, borderColor: C.border, marginBottom: 14, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12 }}>
-                <Ionicons name="call-outline" size={16} color={C.onSurfaceVariant} />
-                <TextInput value={editNumber} onChangeText={setEditNumber} placeholder="251..." style={{ flex: 1, color: C.onSurface, padding: 12, fontSize: 14 }} placeholderTextColor={C.onSurfaceVariant} inputMode="tel" />
-              </View>
-
-              {/* Role Dropdown */}
-              <Text style={{ color: C.primary, fontSize: 9, fontWeight: '800', letterSpacing: 2, marginBottom: 6 }}>ROLE</Text>
-              <TouchableOpacity 
-                onPress={() => setShowRoleDropdown(!showRoleDropdown)}
-                style={{ backgroundColor: C.surfaceContainerLowest, borderRadius: 12, borderWidth: 1, borderColor: showRoleDropdown ? C.primary : C.border, padding: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: showRoleDropdown ? 2 : 20 }}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Ionicons name="shield-checkmark" size={16} color={editRole === 'admin' ? '#f59e0b' : editRole === 'maintenance' ? '#a78bfa' : '#34d399'} />
-                  <Text style={{ color: C.onSurface, fontSize: 14, fontWeight: '700', textTransform: 'capitalize' }}>{editRole}</Text>
+              <View style={s.formField}>
+                <Text style={s.fieldLabel}>FULL NAME</Text>
+                <View style={[s.fieldInput, { backgroundColor: C.surfaceContainerLowest, borderColor: C.border }]}>
+                  <Ionicons name="person-outline" size={16} color={C.onSurfaceVariant} />
+                  <TextInput
+                    value={editFullName}
+                    onChangeText={setEditFullName}
+                    placeholder="Enter full name"
+                    style={[s.textInput, { color: C.onSurface }]}
+                    placeholderTextColor={C.onSurfaceVariant}
+                  />
                 </View>
-                <Ionicons name={showRoleDropdown ? "chevron-up" : "chevron-down"} size={16} color={C.onSurfaceVariant} />
-              </TouchableOpacity>
+              </View>
 
-              {showRoleDropdown && (
-                <View style={{ backgroundColor: C.surface, borderRadius: 12, borderWidth: 1, borderColor: C.border, marginBottom: 20, overflow: 'hidden' }}>
-                  {[
-                    { value: 'user', label: 'User', icon: 'person', color: '#34d399', desc: 'Standard player account' },
-                    { value: 'admin', label: 'Admin', icon: 'shield', color: '#f59e0b', desc: 'Can manage users & settings' },
-                    { value: 'maintenance', label: 'Maintenance', icon: 'construct', color: '#a78bfa', desc: 'Full system access' },
-                  ].map((role, i) => (
-                    <TouchableOpacity 
-                      key={role.value}
-                      onPress={() => { setEditRole(role.value); setShowRoleDropdown(false); }}
-                      style={{ 
-                        flexDirection: 'row', alignItems: 'center', padding: 12, gap: 10,
-                        backgroundColor: editRole === role.value ? C.primaryContainer : 'transparent',
-                        borderTopWidth: i > 0 ? 1 : 0, borderTopColor: C.border
-                      }}
-                    >
-                      <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: `${role.color}15`, alignItems: 'center', justifyContent: 'center' }}>
-                        <Ionicons name={role.icon as any} size={16} color={role.color} />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ color: C.onSurface, fontSize: 13, fontWeight: '800' }}>{role.label}</Text>
-                        <Text style={{ color: C.onSurfaceVariant, fontSize: 10, fontWeight: '600' }}>{role.desc}</Text>
-                      </View>
-                      {editRole === role.value && <Ionicons name="checkmark-circle" size={18} color={C.primary} />}
-                    </TouchableOpacity>
-                  ))}
+              <View style={s.formField}>
+                <Text style={s.fieldLabel}>USERNAME</Text>
+                <View style={[s.fieldInput, { backgroundColor: C.surfaceContainerLowest, borderColor: C.border }]}>
+                  <Ionicons name="at" size={16} color={C.onSurfaceVariant} />
+                  <TextInput
+                    value={editUsername}
+                    onChangeText={setEditUsername}
+                    placeholder="Enter username"
+                    style={[s.textInput, { color: C.onSurface }]}
+                    placeholderTextColor={C.onSurfaceVariant}
+                  />
                 </View>
-              )}
+              </View>
 
-              {/* Action Buttons */}
-              <View style={{ flexDirection: 'row', gap: 10 }}>
-                <TouchableOpacity onPress={() => setEditModal(false)} style={{ flex: 1, paddingVertical: 14, borderRadius: 14, alignItems: 'center', borderWidth: 1, borderColor: C.border, backgroundColor: C.surfaceContainer }}>
-                  <Text style={{ color: C.onSurfaceVariant, fontWeight: '800', fontSize: 13 }}>Cancel</Text>
+              <View style={s.formField}>
+                <Text style={s.fieldLabel}>PHONE NUMBER</Text>
+                <View style={[s.fieldInput, { backgroundColor: C.surfaceContainerLowest, borderColor: C.border }]}>
+                  <Ionicons name="call-outline" size={16} color={C.onSurfaceVariant} />
+                  <TextInput
+                    value={editNumber}
+                    onChangeText={setEditNumber}
+                    placeholder="251..."
+                    style={[s.textInput, { color: C.onSurface }]}
+                    placeholderTextColor={C.onSurfaceVariant}
+                    inputMode="tel"
+                  />
+                </View>
+              </View>
+
+              <View style={s.formField}>
+                <Text style={s.fieldLabel}>ROLE</Text>
+                <TouchableOpacity
+                  onPress={() => setShowRoleDropdown(!showRoleDropdown)}
+                  style={[s.fieldInput, { borderColor: showRoleDropdown ? C.primary : C.border, backgroundColor: showRoleDropdown ? C.primaryContainer : C.surfaceContainerLowest }]}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Ionicons
+                      name="shield-checkmark"
+                      size={16}
+                      color={editRole === 'admin' ? C.accentGold : editRole === 'maintenance' ? C.accentViolet : C.success}
+                    />
+                    <Text style={{ color: C.onSurface, fontSize: 13, fontWeight: '700', textTransform: 'capitalize' }}>{editRole}</Text>
+                  </View>
+                  <Ionicons name={showRoleDropdown ? 'chevron-up' : 'chevron-down'} size={16} color={C.onSurfaceVariant} />
                 </TouchableOpacity>
-                <TouchableOpacity disabled={actionLoading} onPress={async () => {
-                  setActionLoading(true);
-                  try {
-                    await fetch(`${API_URL}/admin/users/${userId}`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'x-platform': 'web' }, body: JSON.stringify({ username: editUsername, number: editNumber, full_name: editFullName, role: editRole }) });
-                    setEditModal(false);
-                    fetchData();
-                  } catch(e) { console.error(e); }
-                  setActionLoading(false);
-                }} style={{ flex: 1.5, backgroundColor: C.primary, paddingVertical: 14, borderRadius: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6 }}>
-                  <Ionicons name="checkmark" size={16} color="#ffffff" />
-                  <Text style={{ color: '#ffffff', fontWeight: '900', fontSize: 13 }}>{actionLoading ? 'Saving...' : 'Save Changes'}</Text>
+
+                {showRoleDropdown && (
+                  <View style={[s.roleDropdown, { backgroundColor: C.surface, borderColor: C.border }]}>
+                    {[
+                      { value: 'user', label: 'User', icon: 'person', color: C.success, desc: 'Standard player account' },
+                      { value: 'admin', label: 'Admin', icon: 'shield', color: C.accentGold, desc: 'Can manage users & settings' },
+                      { value: 'maintenance', label: 'Maintenance', icon: 'construct', color: C.accentViolet, desc: 'Full system access' },
+                    ].map((role, i) => (
+                      <TouchableOpacity
+                        key={role.value}
+                        onPress={() => { setEditRole(role.value); setShowRoleDropdown(false); }}
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          padding: 10,
+                          gap: 8,
+                          backgroundColor: editRole === role.value ? C.primaryContainer : 'transparent',
+                          borderTopWidth: i > 0 ? 1 : 0,
+                          borderTopColor: C.border,
+                        }}
+                      >
+                        <View style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: `${role.color}15`, alignItems: 'center', justifyContent: 'center' }}>
+                          <Ionicons name={role.icon as any} size={14} color={role.color} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ color: C.onSurface, fontSize: 12, fontWeight: '700' }}>{role.label}</Text>
+                          <Text style={{ color: C.onSurfaceVariant, fontSize: 9, fontWeight: '600' }}>{role.desc}</Text>
+                        </View>
+                        {editRole === role.value && <Ionicons name="checkmark-circle" size={16} color={C.primary} />}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+
+              <View style={s.modalActions}>
+                <TouchableOpacity
+                  onPress={() => setEditModal(false)}
+                  style={[s.modalBtnCancel, { backgroundColor: C.surfaceContainerHighest, borderColor: C.border }]}
+                >
+                  <Text style={[s.modalBtnText, { color: C.onSurfaceVariant }]}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  disabled={actionLoading}
+                  onPress={async () => {
+                    setActionLoading(true);
+                    try {
+                      await fetch(`${API_URL}/admin/users/${userId}`, {
+                        method: 'PATCH',
+                        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'x-platform': 'web' },
+                        body: JSON.stringify({ username: editUsername, number: editNumber, full_name: editFullName, role: editRole }),
+                      });
+                      setEditModal(false);
+                      fetchData();
+                    } catch (e) { console.error(e); }
+                    setActionLoading(false);
+                  }}
+                  style={s.modalBtnSave}
+                >
+                  <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                  <Text style={s.modalBtnText}>{actionLoading ? 'Saving…' : 'Save Changes'}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -455,8 +640,7 @@ export default function UserDetail() {
         const typeInfo = txTypeLabel(tx.type);
         const isPending = st === 'PENDING' || st === 'PENDING_MANUAL';
         const isFailed = st === 'FAILED';
-        
-        // Try to extract exact reason from provider_payload stored locally
+
         let exactReason = tx.exact_reason || null;
         if (!exactReason && tx.provider_payload) {
           try {
@@ -466,9 +650,9 @@ export default function UserDetail() {
               if (!exactReason && meta.transfer_error) exactReason = meta.transfer_error;
               if (!exactReason && meta.status_message) exactReason = meta.status_message;
             }
-          } catch(e) {}
+          } catch (e) {}
         }
-        
+
         const reason = tx.failure_reason || tx.pending_reason || tx.reason;
         const reasonText = exactReason ? exactReason : (
           reason ? reason : (
@@ -478,46 +662,73 @@ export default function UserDetail() {
           )
         );
         return (
-        <Modal visible transparent animationType="fade">
-          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-            <View style={{ backgroundColor: C.surface, borderRadius: 20, padding: 24, width: '100%', maxWidth: 420, borderWidth: 1, borderColor: C.border }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <Text style={{ color: C.onSurface, fontSize: 18, fontWeight: '900' }}>Transaction Detail</Text>
-                <View style={[s.statusPill, { borderColor: statusColor(tx.status) + '60' }]}>
-                  <Text style={{ color: statusColor(tx.status), fontSize: 10, fontWeight: '800' }}>{st}</Text>
+          <Modal visible transparent animationType="fade">
+            <ScrollView
+              style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' }}
+              contentContainerStyle={{ justifyContent: 'center', alignItems: 'center', padding: 24, minHeight: '100%' }}
+            >
+              <View style={[s.modalContainer, { backgroundColor: C.surface, borderColor: C.border }]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                  <Text style={s.modalTitle}>Transaction Detail</Text>
+                  <View style={[s.modalPill, { borderColor: statusColor(tx.status) + '26' }]}>
+                    <Text style={{ color: statusColor(tx.status), fontSize: 9, fontWeight: '800' }}>{st}</Text>
+                  </View>
                 </View>
-              </View>
-              <View style={{ gap: 10 }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text style={{ color: C.onSurfaceVariant, fontSize: 12 }}>ID</Text><Text style={{ color: C.onSurface, fontSize: 12, fontWeight: '700' }}>#TRX-{String(tx.id).slice(0, 6).toUpperCase()}</Text></View>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text style={{ color: C.onSurfaceVariant, fontSize: 12 }}>Type</Text><Text style={{ color: typeInfo.color, fontSize: 12, fontWeight: '700' }}>{typeInfo.label}</Text></View>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text style={{ color: C.onSurfaceVariant, fontSize: 12 }}>Amount</Text><Text style={{ color: C.onSurface, fontSize: 12, fontWeight: '900' }}>ETB {fmt(tx.amount)}</Text></View>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text style={{ color: C.onSurfaceVariant, fontSize: 12 }}>Date</Text><Text style={{ color: C.onSurface, fontSize: 12, fontWeight: '700' }}>{timeFmt(tx.createdAt || tx.created_at)}</Text></View>
-                {tx.provider && <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text style={{ color: C.onSurfaceVariant, fontSize: 12 }}>Provider</Text><Text style={{ color: C.onSurface, fontSize: 12, fontWeight: '700' }}>{tx.provider}</Text></View>}
-                {tx.reference && <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text style={{ color: C.onSurfaceVariant, fontSize: 12 }}>Reference</Text><Text style={{ color: C.onSurface, fontSize: 12, fontWeight: '700' }}>{tx.reference}</Text></View>}
-              </View>
-              {/* Exact Reason Box */}
-              <View style={{ marginTop: 14, backgroundColor: isPending ? 'rgba(245,158,11,0.08)' : isFailed ? 'rgba(248,113,113,0.08)' : 'rgba(52,211,153,0.08)', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: isPending ? 'rgba(245,158,11,0.2)' : isFailed ? 'rgba(248,113,113,0.2)' : 'rgba(52,211,153,0.2)' }}>
-                <Text style={{ color: isPending ? '#f59e0b' : isFailed ? '#f87171' : '#34d399', fontSize: 11, fontWeight: '800', marginBottom: 4 }}>
-                  {isPending ? '⏳ PENDING REASON' : isFailed ? '❌ FAILURE REASON' : '✅ COMPLETION'}
-                </Text>
-                <Text style={{ color: exactReason ? C.onSurface : C.onSurfaceVariant, fontSize: 11, lineHeight: 16, fontWeight: exactReason ? '700' : '400' }}>{reasonText}</Text>
-                {exactReason && (
-                  <View style={{ marginTop: 6, backgroundColor: C.surfaceContainerLowest, padding: 6, borderRadius: 6 }}>
-                    <Text style={{ color: C.onSurfaceVariant, fontSize: 9, fontWeight: '800', letterSpacing: 0.5 }}>SOURCE: CHAPA PROVIDER RESPONSE</Text>
+                <View style={s.modalInfoGrid}>
+                  <View style={s.infoRow}>
+                    <Text style={s.infoLabel}>ID</Text>
+                    <Text style={s.infoValue}>#TRX-{String(tx.id).slice(0, 6).toUpperCase()}</Text>
+                  </View>
+                  <View style={s.infoRow}>
+                    <Text style={s.infoLabel}>Type</Text>
+                    <Text style={{ color: typeInfo.color, fontSize: 10, fontWeight: '800' }}>{typeInfo.label}</Text>
+                  </View>
+                  <View style={s.infoRow}>
+                    <Text style={s.infoLabel}>Amount</Text>
+                    <Text style={s.infoValue}>ETB {fmt(tx.amount)}</Text>
+                  </View>
+                  <View style={s.infoRow}>
+                    <Text style={s.infoLabel}>Date</Text>
+                    <Text style={s.infoValue}>{timeFmt(tx.createdAt || tx.created_at)}</Text>
+                  </View>
+                  {tx.provider && (
+                    <View style={s.infoRow}>
+                      <Text style={s.infoLabel}>Provider</Text>
+                      <Text style={s.infoValue}>{tx.provider}</Text>
+                    </View>
+                  )}
+                  {tx.reference && (
+                    <View style={s.infoRow}>
+                      <Text style={s.infoLabel}>Reference</Text>
+                      <Text style={s.infoValue}>{tx.reference}</Text>
+                    </View>
+                  )}
+                </View>
+
+                <View style={[s.reasonBox, { backgroundColor: isPending ? alpha(C.accentGold, 0.08) : isFailed ? C.errorContainer : alpha(C.success, 0.08), borderColor: isPending ? C.accentGold : isFailed ? C.error : C.success }]}>
+                  <Text style={{ color: isPending ? C.accentGold : isFailed ? C.error : C.success, fontSize: 9, fontWeight: '800', marginBottom: 4 }}>
+                    {isPending ? '⏳ PENDING REASON' : isFailed ? '❌ FAILURE REASON' : '✅ COMPLETION'}
+                  </Text>
+                  <Text style={{ color: exactReason ? C.onSurface : C.onSurfaceVariant, fontSize: 9, lineHeight: 14, fontWeight: exactReason ? '700' : '400' }}>{reasonText}</Text>
+                  {exactReason && (
+                    <View style={{ marginTop: 6, backgroundColor: C.surfaceContainerHighest, padding: 5, borderRadius: 6 }}>
+                      <Text style={{ color: C.onSurfaceVariant, fontSize: 8, fontWeight: '800', letterSpacing: 0.5 }}>SOURCE: CHAPA PROVIDER RESPONSE</Text>
+                    </View>
+                  )}
+                </View>
+                {isPending && (
+                  <View style={[s.hintBox, { backgroundColor: 'rgba(0, 191, 255, 0.06)' }]}>
+                    <Text style={{ color: C.accentCyan, fontSize: 9, fontWeight: '700' }}>
+                      💡 If this has been pending for over 24 hours and is a withdrawal, consider issuing a manual refund to the user's available balance.
+                    </Text>
                   </View>
                 )}
+                <TouchableOpacity onPress={() => setTxDetailModal(null)} style={s.modalClose}>
+                  <Text style={s.modalCloseText}>Close</Text>
+                </TouchableOpacity>
               </View>
-              {isPending && (
-                <View style={{ marginTop: 10, backgroundColor: 'rgba(0,229,255,0.06)', padding: 10, borderRadius: 8 }}>
-                  <Text style={{ color: '#00e5ff', fontSize: 10, fontWeight: '700' }}>💡 If this has been pending for over 24 hours and is a withdrawal, consider issuing a manual refund to the user's available balance.</Text>
-                </View>
-              )}
-              <TouchableOpacity onPress={() => setTxDetailModal(null)} style={{ marginTop: 16, backgroundColor: C.primary, paddingVertical: 10, borderRadius: 10, alignItems: 'center' }}>
-                <Text style={{ color: '#ffffff', fontWeight: '900', fontSize: 13 }}>Close</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
+            </ScrollView>
+          </Modal>
         );
       })()}
 
@@ -542,19 +753,17 @@ export default function UserDetail() {
               await fetch(`${API_URL}/admin/users/${userId}/ban`, {
                 method: 'PATCH',
                 headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'x-platform': 'web' },
-                body: JSON.stringify({ banned: !isBanned })
+                body: JSON.stringify({ banned: !isBanned }),
               });
               await fetchData();
             } else if (confirmAction === 'delete') {
               await fetch(`${API_URL}/admin/users/${userId}`, {
                 method: 'DELETE',
-                headers: { Authorization: `Bearer ${token}`, 'x-platform': 'web' }
+                headers: { Authorization: `Bearer ${token}`, 'x-platform': 'web' },
               });
               router.back();
             }
-          } catch (e) {
-            console.error(e);
-          } finally {
+          } catch (e) { console.error(e); } finally {
             setActionLoading(false);
             setConfirmAction(null);
           }
@@ -564,57 +773,127 @@ export default function UserDetail() {
   );
 }
 
-const getStyles = (C: any, isDark: boolean) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.background, padding: 24, paddingTop: 20 },
-  center: { flex: 1, backgroundColor: C.background, alignItems: 'center', justifyContent: 'center' },
+const s = StyleSheet.create({
+  container: { flex: 1 },
+
+  empty: { flex: 1, backgroundColor: '#070a12', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  emptyText: { fontSize: 13, fontWeight: '600', marginTop: 12 },
+  backLink: { marginTop: 16 },
+  backLinkText: { fontWeight: '700', fontSize: 13 },
 
   // Header
-  headerBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 },
-  backCircle: { width: 36, height: 36, borderRadius: 8, backgroundColor: isDark ? '#313D4A' : C.surfaceContainerHighest, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { color: C.onSurface, fontSize: 18, fontWeight: '700', letterSpacing: 0.5 },
-  headerSub: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '700', letterSpacing: 1.5, marginTop: 2 },
-  headerBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 },
-  headerBtnText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  headerBar: {
+    backgroundColor: '#0d1320',
+    borderWidth: 1,
+    borderColor: '#182234',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 10,
+    ...(Platform.OS === 'web' ? { boxShadow: '0 1px 3px rgba(0,0,0,0.3)' } : {}),
+  },
+  backBtn: {
+    width: 32, height: 32, borderRadius: 8,
+    backgroundColor: '#1a2638',
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: '#182234',
+  },
+  headerTitle: { color: '#f7f9fc', fontSize: 15, fontWeight: '700', letterSpacing: 0.2 },
+  headerSub: { color: '#bbc7d6', fontSize: 9, fontWeight: '700', letterSpacing: 1.2, marginTop: 2, textTransform: 'uppercase' },
+  headerActions: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  headerBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8,
+    borderWidth: 1, borderColor: 'transparent',
+  },
+  headerBtnText: { color: '#FFFFFF', fontSize: 10, fontWeight: '700' },
 
-  // Cards
-  card: { backgroundColor: C.surface, borderRadius: 10, padding: 20, borderWidth: 1, borderColor: C.border },
-  topGrid: { flexDirection: 'row', gap: 12, marginBottom: 12, flexWrap: 'wrap' },
-  bottomGrid: { flexDirection: 'row', gap: 12, marginBottom: 12, flexWrap: 'wrap' },
+  // Modals
+  modalContainer: {
+    backgroundColor: '#0d1320',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#182234',
+    padding: 24,
+    width: '100%',
+    maxWidth: 500,
+    ...(Platform.OS === 'web' ? { boxShadow: '0 4px 20px rgba(0,0,0,0.4)' } : {}),
+  },
+  modalTitle: { color: '#f7f9fc', fontSize: 17, fontWeight: '800' },
+  modalSub: { color: '#bbc7d6', fontSize: 10, fontWeight: '600', marginTop: 2 },
+  modalCloseBtn: {
+    width: 30, height: 30, borderRadius: 8,
+    backgroundColor: '#1a2638',
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: '#182234',
+  },
+  modalPill: {
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1,
+    alignSelf: 'flex-start',
+  },
+  modalAlert: {
+    backgroundColor: 'rgba(255, 23, 68, 0.1)',
+    borderWidth: 1,
+    borderColor: '#ff7888',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 14,
+  },
+  modalInfoGrid: { gap: 8, marginBottom: 16 },
+  infoRow: {
+    flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 2,
+  },
+  infoLabel: { color: '#9ba0a4', fontSize: 9, fontWeight: '700', letterSpacing: 0.5 },
+  infoValue: { color: '#f7f9fc', fontSize: 11, fontWeight: '700' },
+  infoValueSmall: { color: '#bbc7d6', fontSize: 9 },
 
-  // Avatar
-  avatarLarge: { width: 80, height: 80, borderRadius: 40, backgroundColor: isDark ? '#313D4A' : C.surfaceContainerHighest, borderWidth: 1, borderColor: C.border, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { color: C.onSurface, fontSize: 28, fontWeight: '700' },
-  statusDot: { position: 'absolute', bottom: 2, right: 2, width: 14, height: 14, borderRadius: 7, borderWidth: 3, borderColor: C.surface },
-  activeBadge: { position: 'absolute', top: -4, right: -20, backgroundColor: 'rgba(16,185,129,0.12)', borderWidth: 1, borderColor: 'rgba(16,185,129,0.3)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
-  activeBadgeText: { color: C.success, fontSize: 8, fontWeight: '800', letterSpacing: 0.5 },
-  profileName: { color: C.onSurface, fontSize: 16, fontWeight: '700', marginTop: 4 },
-  profilePhone: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '600' },
+  replaySection: { marginBottom: 14 },
+  sectionKicker: { color: '#9ba0a4', fontSize: 8, fontWeight: '800', letterSpacing: 1.4, marginBottom: 6, textTransform: 'uppercase' },
+  sectionMeta: { color: '#bbc7d6', fontSize: 9, fontWeight: '700' },
+  boardWrap: {
+    borderRadius: 12, borderWidth: 1, padding: 4, alignSelf: 'center',
+  },
+  boardControls: {
+    flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 10,
+  },
+  navBtn: { padding: 6 },
+  timelineSection: { marginBottom: 14 },
+  timelineWrap: { maxHeight: 120 },
+  timelineRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4,
+    borderRadius: 6,
+  },
+  timelineRowActive: { backgroundColor: 'rgba(255, 23, 68, 0.1)' },
+  lossReason: {
+    marginTop: 4, padding: 10, borderRadius: 10, borderWidth: 1,
+  },
+  modalClose: { marginTop: 16, backgroundColor: '#ff1744', paddingVertical: 10, borderRadius: 10, alignItems: 'center' },
+  modalCloseText: { color: '#FFFFFF', fontWeight: '800', fontSize: 13 },
 
-  // Stat Cards
-  statCard: { flex: 1, minWidth: 120, gap: 8 },
-  statIcon: { width: 36, height: 36, borderRadius: 8, backgroundColor: isDark ? '#313D4A' : C.surfaceContainerHighest, alignItems: 'center', justifyContent: 'center' },
-  statLabel: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '700', letterSpacing: 1 },
-  statValue: { color: C.onSurface, fontSize: 24, fontWeight: '700' },
-
-  // Balance & Big Values
-  cardLabel: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '700', letterSpacing: 1, marginBottom: 8 },
-  balanceValue: { color: C.onSurface, fontSize: 24, fontWeight: '700' },
-  bigValue: { color: C.onSurface, fontSize: 24, fontWeight: '700' },
-  cardIconBg: {},
-
-  // Mini cards
-  miniLabel: { color: C.onSurfaceVariant, fontSize: 9, fontWeight: '700', letterSpacing: 1, marginBottom: 4 },
-  miniValue: { color: C.onSurface, fontSize: 14, fontWeight: '700' },
-
-  // Table
-  tableCard: { backgroundColor: C.surface, borderRadius: 10, borderWidth: 1, borderColor: C.border, overflow: 'hidden' },
-  tableHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, borderBottomColor: C.border, flexWrap: 'wrap', gap: 8 },
-  tableTitle: { color: C.onSurface, fontSize: 15, fontWeight: '700' },
-  filterBtn: { backgroundColor: C.surfaceContainerLowest, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 8, borderWidth: 1, borderColor: C.border },
-  filterBtnText: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
-  thead: { flexDirection: 'row', paddingHorizontal: 20, paddingVertical: 12, backgroundColor: isDark ? '#313D4A' : C.surfaceContainerHighest },
-  th: { color: C.onSurfaceVariant, fontSize: 9, fontWeight: '700', letterSpacing: 1.2, textTransform: 'uppercase' },
-  trow: { flexDirection: 'row', paddingHorizontal: 20, alignItems: 'center', borderBottomWidth: 1, borderBottomColor: C.border },
-  td: { color: C.onSurface, fontSize: 12, fontWeight: '600', paddingVertical: 12 },
-  statusPill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, alignSelf: 'flex-start' },
+  // Edit form
+  formField: { marginBottom: 14 },
+  fieldLabel: { color: '#ff1744', fontSize: 8, fontWeight: '800', letterSpacing: 1.6, marginBottom: 5, textTransform: 'uppercase' },
+  fieldInput: {
+    flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12,
+    borderRadius: 10, borderWidth: 1,
+  },
+  textInput: { flex: 1, paddingVertical: 11, fontSize: 13 },
+  roleDropdown: { borderRadius: 10, borderWidth: 1, marginTop: 2, overflow: 'hidden' },
+  modalActions: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  modalBtnCancel: {
+    flex: 1, paddingVertical: 11, borderRadius: 12, alignItems: 'center',
+  },
+  modalBtnSave: {
+    flex: 1.5, backgroundColor: '#ff1744', paddingVertical: 11, borderRadius: 12,
+    alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6,
+  },
+  modalBtnText: { color: '#f7f9fc', fontWeight: '700', fontSize: 13 },
+  reasonBox: {
+    marginTop: 14, padding: 12, borderRadius: 10, borderWidth: 1,
+  },
+  hintBox: { marginTop: 10, padding: 10, borderRadius: 8 },
 });

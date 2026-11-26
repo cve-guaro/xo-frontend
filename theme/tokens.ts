@@ -93,6 +93,8 @@ export const colors = {
   tintGold: "rgba(245,182,66,0.12)",
   tintSuccess: "rgba(16,185,129,0.12)",
   tintDanger: "rgba(239,68,68,0.12)",
+  tintDangerStrong: "rgba(239,68,68,0.18)",
+  tintWarning: "rgba(249,115,22,0.12)",
 
   // Gradients (paired stops, keep count low)
   gradPrimary: ["#00DAF3", "#0891B2"] as [string, string],
@@ -100,6 +102,13 @@ export const colors = {
   gradGold: ["#F5B642", "#D99A1F"] as [string, string],
   gradCard: ["#131324", "#0D0D1C"] as [string, string],
   gradCta: ["#00E5FF", "#0099FF"] as [string, string],
+  // Semantic gradients (action variants — consume these, don't hardcode)
+  gradSuccess: ["#22C55E", "#16A34A"] as [string, string],
+  gradDanger: ["#EF4444", "#DC2626"] as [string, string],
+  gradTelegram: ["#FF3B5C", "#E02847"] as [string, string],
+  // Surface / overlay gradients (cards, banners, scrims)
+  gradCardSurface: ["rgba(19,21,28,0.82)", "rgba(15,17,23,0.82)"] as [string, string],
+  gradBannerFade: ["transparent", "rgba(4,4,10,0.2)", "rgba(4,4,10,0.9)"] as [string, string, string],
 };
 
 // ── Typography ──────────────────────────────────────────────────────────────
@@ -118,20 +127,20 @@ export const type = {
 // ── Spacing (4pt grid) ──────────────────────────────────────────────────────
 export const space = {
   xs: 4,
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 20,
-  xxl: 28,
-  xxxl: 40,
+  sm: 6,
+  md: 10,
+  lg: 14,
+  xl: 18,
+  xxl: 24,
+  xxxl: 32,
 };
 
 // ── Radius ──────────────────────────────────────────────────────────────────
 export const radius = {
-  sm: 10,
-  md: 14,
-  lg: 18,
-  xl: 24,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
   pill: 999,
 };
 
@@ -176,12 +185,12 @@ export const elevation = {
 
 // ── Component metrics (shared measurements) ─────────────────────────────────
 export const metrics = {
-  bottomBarHeight: 76,
-  screenPaddingX: 18,
-  tileIconSize: 42,
-  avatarSize: 44,
-  ctaHeight: 54,
-  ctaHeightSm: 48,
+  bottomBarHeight: 64,
+  screenPaddingX: 14,
+  tileIconSize: 36,
+  avatarSize: 36,
+  ctaHeight: 48,
+  ctaHeightSm: 42,
 };
 
 // ── Motion System Tokens (snappy, GPU-accelerated, calm) ─────────────────────
@@ -206,5 +215,11 @@ export const motion = {
     exitEasing: 'cubic-bezier(0.7, 0, 0.84, 0)',
     fast: '100ms cubic-bezier(0.16, 1, 0.3, 1)',
     normal: '200ms cubic-bezier(0.16, 1, 0.3, 1)',
+  },
+  // Spring presets (use for playful/physical interactions only — not chrome)
+  spring: {
+    snappy: { tension: 300, friction: 8 },
+    gentle: { tension: 120, friction: 14 },
+    bouncy: { tension: 180, friction: 4 },
   },
 };

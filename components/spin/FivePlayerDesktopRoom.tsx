@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, TouchableOpacity, ActivityIndicator } from "react-native";
+import { View, Text, TouchableOpacity, ActivityIndicator, useWindowDimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import SpinWheel from "../game/SpinWheel";
 
@@ -89,16 +89,20 @@ export const FivePlayerDesktopRoom: React.FC<FivePlayerDesktopRoomProps> = ({
     ? Math.round((myStake / totalPot) * 100)
     : (activePlayers.length ? Math.round(100 / Math.max(1, activePlayers.length)) : 20);
 
+  const { height: screenH } = useWindowDimensions();
+  const isCompactH = screenH < 820;
+
   // Responsive desktop scale for spacious arena
   const isWide = screenW >= 1440;
   const roomMaxWidth = isWide ? 1060 : 880;
-  const wheelBoxW = isWide ? 480 : 440;
-  const wheelSize = isWide ? 440 : 420;
+  const maxWheelByH = Math.max(240, screenH - (isCompactH ? 280 : 300));
+  const wheelSize = Math.round(Math.min(isWide ? 420 : 390, maxWheelByH));
+  const wheelBoxW = Math.max(320, wheelSize + 32);
   const rightBoxW = isWide ? 420 : 380;
-  const roomGap = isWide ? 44 : 32;
+  const roomGap = isWide ? 40 : 28;
 
   return (
-    <View style={{ width: "100%", maxWidth: roomMaxWidth, alignSelf: "center", gap: 20 }}>
+    <View style={{ width: "100%", maxWidth: roomMaxWidth, alignSelf: "center", gap: isCompactH ? 12 : 18 }}>
       {/* Top Subheader Bar */}
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>

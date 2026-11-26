@@ -27,7 +27,13 @@ export default function AdminSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('Security Protocols');
-  
+
+  // Profile edit state
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [editDisplayName, setEditDisplayName] = useState('');
+  const [editUsername, setEditUsername] = useState('');
+  const [profileSaving, setProfileSaving] = useState(false);
+
   const [maintenance, setMaintenance] = useState(false);
   const [bonusActive, setBonusActive] = useState(false); // ← FIXED: was missing, causing crash
   const [bonusAmount, setBonusAmount] = useState('10'); // displayed in ETB (DB stores cents)
@@ -303,6 +309,36 @@ export default function AdminSettings() {
     }
   };
 
+  const handleSaveProfile = async () => {
+    if (!editDisplayName.trim() || !editUsername.trim()) {
+      showAlert('Validation', 'Display name and username are required.');
+      return;
+    }
+    try {
+      setProfileSaving(true);
+      const res = await fetch(`${API_URL}/user/profile`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          'x-platform': 'web',
+        },
+        body: JSON.stringify({ display_name: editDisplayName.trim(), username: editUsername.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setEditingProfile(false);
+        showAlert('Profile Updated', 'Your profile has been updated successfully.');
+      } else {
+        showAlert('Error', data.error || 'Failed to update profile.');
+      }
+    } catch (e) {
+      showAlert('Error', 'Network request failed.');
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
   if (loading) return <View style={{flex:1, justifyContent:'center', alignItems:'center'}}><ActivityIndicator size="large" color={C.primary}/></View>;
 
   return (
@@ -440,13 +476,13 @@ export default function AdminSettings() {
         </View>
 
         {/* Referral System Card */}
-        <View style={[styles.card, glass, { borderColor: 'rgba(16,185,129,0.3)', borderTopWidth: 4, borderTopColor: '#10b981' }]}>
+        <View style={[styles.card, glass, { borderColor: C.success + '4d', borderTopWidth: 4, borderTopColor: C.success }]}>
           <View style={[styles.cardHeader, { borderBottomColor: 'rgba(16,185,129,0.2)' }]}>
             <View style={styles.cardHeaderIcon}>
-              <Ionicons name="share-social" size={20} color="#10b981" />
+              <Ionicons name="share-social" size={20} color={C.success} />
             </View>
             <View>
-              <Text style={[styles.cardTitle, { color: '#10b981' }]}>Referral System</Text>
+              <Text style={[styles.cardTitle, { color: C.success }]}>Referral System</Text>
               <Text style={styles.cardSubTitle}>Share & Earn — User Acquisition Engine</Text>
             </View>
           </View>
@@ -458,14 +494,14 @@ export default function AdminSettings() {
             </View>
             <View style={[{flexDirection: 'row', alignItems: 'center', gap: 12}, isMobile && { alignSelf: 'flex-end', width: '100%', justifyContent: 'space-between' }]}>
               <TouchableOpacity onPress={() => setReferralModalVisible(true)} style={[styles.btnSecondary, { paddingHorizontal: 12, paddingVertical: 8 }]}>
-                <Ionicons name="stats-chart" size={14} color="#10b981" />
-                <Text style={[styles.btnSecondaryText, { color: '#10b981' }]}>Detailed Metrics</Text>
+                <Ionicons name="stats-chart" size={14} color={C.success} />
+                <Text style={[styles.btnSecondaryText, { color: C.success }]}>Detailed Metrics</Text>
               </TouchableOpacity>
 
               <Switch
                 value={referralEnabled}
                 onValueChange={setReferralEnabled}
-                thumbColor={referralEnabled ? '#10b981' : '#f4f3f4'}
+                thumbColor={referralEnabled ? C.success : '#f4f3f4'}
                 trackColor={{ false: 'rgba(39, 39, 42, 0.4)', true: 'rgba(16,185,129,0.3)' }}
               />
             </View>
@@ -779,65 +815,97 @@ export default function AdminSettings() {
 
         {/* Admin Profile Tab */}
         {activeTab === 'Admin Profile' && (
-          <>
-            {/* Admin Passport Profile */}
-        <View style={[styles.card, glass, { padding: 0, overflow: 'hidden', borderColor: 'rgba(0, 218, 243, 0.3)', maxWidth: isMobile ? '100%' : 420 }]}>
-           <LinearGradient colors={['#1c1c3c', '#0b0b1e']} style={styles.passportHeader}>
-              <View style={styles.passportPattern} />
+          <View style={[styles.card, glass, { padding: 0, overflow: 'hidden', maxWidth: isMobile ? '100%' : 480 }]}>
+            <LinearGradient colors={[C.surfaceContainerHigh, C.surfaceContainer]} style={styles.passportHeader}>
               <View style={styles.passportTop}>
-                 <Text style={styles.passportBrand}>XOET ADMINISTRATIVE AUTHORITY</Text>
-                 <View style={styles.passportChip} />
+                <Text style={[styles.passportBrand, { color: C.onSurface }]}>Admin Profile</Text>
+                <TouchableOpacity onPress={() => setEditingProfile(!editingProfile)}>
+                  <Ionicons name={editingProfile ? 'close' : 'create-outline'} size={20} color={C.onSurfaceVariant} />
+                </TouchableOpacity>
               </View>
-              
-              <View style={styles.passportBody}>
-                 <View style={styles.passportAvatarWrap}>
+
+              {editingProfile ? (
+                <View style={{ padding: 24, gap: 16 }}>
+                  <View>
+                    <Text style={[styles.formLabel, { color: C.onSurfaceVariant }]}>Display Name</Text>
+                    <TextInput
+                      style={[styles.formInput, { backgroundColor: C.surfaceContainerHighest, borderColor: C.border, color: C.onSurface }]}
+                      value={editDisplayName}
+                      onChangeText={setEditDisplayName}
+                      placeholder="Enter display name"
+                      placeholderTextColor={C.onSurfaceVariant}
+                    />
+                  </View>
+                  <View>
+                    <Text style={[styles.formLabel, { color: C.onSurfaceVariant }]}>Username</Text>
+                    <TextInput
+                      style={[styles.formInput, { backgroundColor: C.surfaceContainerHighest, borderColor: C.border, color: C.onSurface }]}
+                      value={editUsername}
+                      onChangeText={setEditUsername}
+                      placeholder="Enter username"
+                      placeholderTextColor={C.onSurfaceVariant}
+                      autoCapitalize="none"
+                    />
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+                    <TouchableOpacity
+                      style={[styles.saveBtn, { flex: 1, justifyContent: 'center', opacity: profileSaving ? 0.7 : 1 }]}
+                      onPress={handleSaveProfile}
+                      disabled={profileSaving}
+                    >
+                      {profileSaving ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="save-outline" size={16} color="#fff" />}
+                      <Text style={styles.saveTxt}>Save Changes</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.saveBtn, { flex: 1, justifyContent: 'center', backgroundColor: C.surfaceContainerHighest, borderWidth: 1, borderColor: C.border }]}
+                      onPress={() => setEditingProfile(false)}
+                    >
+                      <Text style={[styles.saveTxt, { color: C.onSurface }]}>Cancel</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.passportBody}>
+                  <View style={styles.passportAvatarWrap}>
                     <Image source={require('../../../assets/images/icon.jpg')} style={styles.passportAvatar} />
-                    <View style={styles.passportLiveBadge}><Text style={styles.passportLiveText}>RE-AUTH REQUIRED</Text></View>
-                 </View>
-                 
-                 <View style={styles.passportInfo}>
+                  </View>
+                  <View style={styles.passportInfo}>
                     <View style={styles.passportField}>
-                       <Text style={styles.passportLabel}>HOLDER NAME</Text>
-                       <Text style={styles.passportValue}>{user?.username || 'SYSTEM_ROOT'}</Text>
-                    </View>
-                    <View style={{ flexDirection: 'row', gap: 24 }}>
-                       <View style={styles.passportField}>
-                          <Text style={styles.passportLabel}>PHONE SEC</Text>
-                          <Text style={styles.passportValue}>{user?.number?.slice(-4) || 'XXXX'}</Text>
-                       </View>
-                       <View style={styles.passportField}>
-                          <Text style={styles.passportLabel}>SECURITY LEVEL</Text>
-                          <Text style={[styles.passportValue, { color: C.secondary }]}>LEVEL 5</Text>
-                       </View>
+                      <Text style={[styles.passportLabel, { color: C.onSurfaceVariant }]}>Display Name</Text>
+                      <Text style={[styles.passportValue, { color: C.onSurface }]}>{user?.display_name || user?.username || '—'}</Text>
                     </View>
                     <View style={styles.passportField}>
-                       <Text style={styles.passportLabel}>SYSTEM ROLE</Text>
-                       <Text style={[styles.passportValue, { color: C.primary }]}>ROOT_ADMINISTRATOR</Text>
+                      <Text style={[styles.passportLabel, { color: C.onSurfaceVariant }]}>Username</Text>
+                      <Text style={[styles.passportValue, { color: C.onSurface }]}>{user?.username || '—'}</Text>
                     </View>
-                 </View>
-              </View>
-              
-              <View style={styles.passportFooter}>
-                 <Text style={styles.passportSerial}>P# {token?.slice(-12).toUpperCase() || 'OFFLINE'}</Text>
-                 <Ionicons name="finger-print" size={24} color="rgba(255,255,255,0.1)" />
-              </View>
-           </LinearGradient>
+                    <View style={styles.passportField}>
+                      <Text style={[styles.passportLabel, { color: C.onSurfaceVariant }]}>Phone</Text>
+                      <Text style={[styles.passportValue, { color: C.onSurface }]}>{user?.number || '—'}</Text>
+                    </View>
+                    <View style={styles.passportField}>
+                      <Text style={[styles.passportLabel, { color: C.onSurfaceVariant }]}>Role</Text>
+                      <Text style={[styles.passportValue, { color: C.primary }]}>{user?.role === 'superadmin' ? 'Super Admin' : 'Admin'}</Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+            </LinearGradient>
 
-           <View style={{ padding: 24, gap: 16 }}>
-              <TouchableOpacity style={styles.profileActionBtn} onPress={() => setShowSecurityInfo(true)}>
-                 <Ionicons name="shield-checkmark" size={18} color={C.primary} />
-                 <Text style={styles.profileActionTxt}>Review Security Protocols</Text>
-                 <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.2)" style={{ marginLeft: 'auto' }} />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.profileActionBtn} onPress={() => switchLanguage()}>
-                 <Ionicons name="globe" size={18} color={C.secondary} />
-                 <Text style={styles.profileActionTxt}>Language: {language === 'am' ? 'Amharic' : 'English'}</Text>
-                 <Ionicons name="swap-horizontal" size={16} color="rgba(255,255,255,0.2)" style={{ marginLeft: 'auto' }} />
-              </TouchableOpacity>
-           </View>
-        </View>
-
-          </>
+            {!editingProfile && (
+              <View style={{ padding: 24, gap: 16, borderTopWidth: 1, borderTopColor: C.border }}>
+                <TouchableOpacity style={styles.profileActionBtn} onPress={() => setShowSecurityInfo(true)}>
+                  <Ionicons name="shield-checkmark" size={18} color={C.primary} />
+                  <Text style={[styles.profileActionTxt, { color: C.onSurface }]}>Review Security Protocols</Text>
+                  <Ionicons name="chevron-forward" size={16} color={C.onSurfaceVariant} style={{ marginLeft: 'auto' }} />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.profileActionBtn} onPress={() => switchLanguage()}>
+                  <Ionicons name="globe" size={18} color={C.secondary} />
+                  <Text style={[styles.profileActionTxt, { color: C.onSurface }]}>Language: {language === 'am' ? 'Amharic' : 'English'}</Text>
+                  <Ionicons name="swap-horizontal" size={16} color={C.onSurfaceVariant} style={{ marginLeft: 'auto' }} />
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
         )}
 
       </View>
@@ -1043,7 +1111,7 @@ export default function AdminSettings() {
         <View style={{ flex: 1, backgroundColor: 'rgba(13,18,32,0.85)', justifyContent: 'center', alignItems: 'center' }}>
           <View style={{ width: 340, backgroundColor: C.surface, borderRadius: 16, padding: 24, borderWidth: 1, borderColor: C.border }}>
             <View style={{ alignItems: 'center', marginBottom: 16 }}>
-              <Ionicons name="warning-outline" size={40} color={confirmModal.action ? '#7c3aed' : '#ef4444'} />
+              <Ionicons name="warning-outline" size={40} color={confirmModal.action ? C.primary : C.error} />
             </View>
             <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: 'bold', textAlign: 'center', marginBottom: 8 }}>
               {confirmModal.action ? 'Enable Giveaway?' : 'Disable Giveaway?'}
@@ -1055,7 +1123,7 @@ export default function AdminSettings() {
               <TouchableOpacity style={{ flex: 1, paddingVertical: 12, backgroundColor: C.surfaceContainerLowest, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: C.border }} onPress={() => setConfirmModal({ visible: false, action: false })}>
                 <Text style={{ color: '#ffffff', fontWeight: 'bold' }}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={{ flex: 1, paddingVertical: 12, backgroundColor: confirmModal.action ? '#7c3aed' : '#ef4444', borderRadius: 8, alignItems: 'center' }} onPress={confirmBonusToggle}>
+              <TouchableOpacity style={{ flex: 1, paddingVertical: 12, backgroundColor: confirmModal.action ? C.primary : C.error, borderRadius: 8, alignItems: 'center' }} onPress={confirmBonusToggle}>
                 <Text style={{ color: '#ffffff', fontWeight: 'bold' }}>Confirm</Text>
               </TouchableOpacity>
             </View>
@@ -1182,7 +1250,7 @@ const getStyles = (C: any, isDark: boolean) => {
     modalTitle: { color: textPrimary, fontSize: 18, fontWeight: '700' },
 
     formGroup: { marginBottom: 20 },
-    formLabel: { color: textSecondary, fontSize: 11, fontWeight: '700', marginBottom: 8, textTransform: 'uppercase' },
+    formLabel: { color: textSecondary, fontSize: 12, fontWeight: '600', marginBottom: 8 },
     formInput: { backgroundColor: bgCard, borderWidth: 1, borderColor, borderRadius: 8, height: 46, paddingHorizontal: 16, color: textPrimary, fontSize: 14 },
 
     typeBtn: { flex: 1, height: 40, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: bgCard, borderWidth: 1, borderColor },

@@ -18,16 +18,21 @@ import {
   Alert,
   ActivityIndicator,
   Animated,
+  Image,
+  useWindowDimensions,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+
+const rpsBg = require('../../../assets/dashboard/rps-background.png');
 
 import { useAuth } from '../../../context/authContext';
 import { useSocket } from '../../../context/socketContext';
 import { colors } from '../../../theme/tokens';
 import { playWinSound, playLoseSound, playTickSound } from '../../../lib/pinTickAudio';
+import { triggerWinCelebration } from '../../../components/ui/confetti';
 
 import {
   Choice,
@@ -52,14 +57,35 @@ import {
   RoundResultBanner,
   MatchFinalSheet,
 } from '../../../components/rps/RPSOverlays';
+import DesktopRpsArena from '../../../components/rps/DesktopRpsArena';
 import FriendMatchModal from '../../../components/game/FriendMatchModal';
 import SearchingView from '../../../components/game/SearchingView';
 import RpsBetSelectModal from '../../../components/game/RpsBetSelectModal';
 
 export default function RPSScreen() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const isDesktop = Platform.OS === 'web' && width >= 768;
+  const params = useLocalSearchParams<{
+    roomId?: string;
+    stakeAmount?: string;
+    prizeAmount?: string;
+    youAre?: string;
+    opponentUsername?: string;
+    opponentId?: string;
+    feePercent?: string;
+    bestOf?: string;
+  }>();
   const { user, token, refreshProfile } = useAuth();
   const socketApi = useSocket();
+  const safeGoBack = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(authed)/home/gameplay' as any);
+    }
+  }, [router]);
+
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [phase, setPhase] = useState<Phase>('idle');
@@ -68,6 +94,8 @@ export default function RPSScreen() {
 
   // Match state
   const [match, setMatch] = useState<RPSMatchState | null>(null);
+  const matchRef = useRef<RPSMatchState | null>(null);
+  matchRef.current = match;
   const [selectedChoice, setSelectedChoice] = useState<Choice | null>(null);
   const [isLocked, setIsLocked] = useState<boolean>(false);
   const [opponentLocked, setOpponentLocked] = useState<boolean>(false);
@@ -88,6 +116,74 @@ export default function RPSScreen() {
 
   // Radar Pulse animation for searching state
   const radarAnim = useRef(new Animated.Value(0.4)).current;
+
+  // Initialize match from route params (handles instant redirect from match_found)
+  useEffect(() => {
+    if (params.roomId && !match) {
+      const stake = Number(params.stakeAmount) || 10;
+      const prize = Number(params.prizeAmount) || 16;
+      const fee = Number(params.feePercent) || 20;
+      const best = Number(params.bestOf) || 3;
+      setMatch({
+        roomId: params.roomId,
+        stakeAmount: stake,
+        potAmount: stake * 2,
+        feeAmount: Math.floor((stake * 2 * fee) / 100),
+        feePercent: fee,
+        prizeAmount: prize,
+        bestOf: best,
+        winsNeeded: Math.ceil(best / 2),
+        youAre: (params.youAre as any) || 'p1',
+        opponentId: params.opponentId || '',
+        opponentUsername: params.opponentUsername || 'Opponent',
+        scoreYou: 0,
+        scoreOpponent: 0,
+        currentRound: 1,
+        yourChoice: null,
+        yourLocked: false,
+        opponentLocked: false,
+      });
+      setPhase('countdown');
+      setCountdownNum(3);
+    }
+  }, [params.roomId, match, params.stakeAmount, params.prizeAmount, params.feePercent, params.bestOf, params.youAre, params.opponentId, params.opponentUsername]);
+
+  // Sync with server state on mount/reconnect
+  useEffect(() => {
+    if (!params.roomId || !socketApi?.emitAck) return;
+    socketApi.emitAck('rps:sync', { roomId: params.roomId, token }).then((resp: any) => {
+      const g = resp?.data || resp?.game;
+      if (resp?.ok && g) {
+        setMatch((prev) => ({
+          roomId: g.roomId,
+          stakeAmount: g.stakeAmount,
+          potAmount: g.potAmount,
+          feeAmount: Math.floor((g.stakeAmount * 2 * (g.feePercent || 20)) / 100),
+          feePercent: g.feePercent || 20,
+          prizeAmount: g.prizeAmount,
+          bestOf: g.bestOf || 3,
+          winsNeeded: g.winsNeeded || 2,
+          youAre: g.youAre,
+          opponentId: g.opponentId,
+          opponentUsername: g.opponentUsername || 'Opponent',
+          scoreYou: g.scoreYou || 0,
+          scoreOpponent: g.scoreOpponent || 0,
+          currentRound: g.currentRound || 1,
+          yourChoice: prev?.yourChoice || null,
+          yourLocked: !!g.yourLocked,
+          opponentLocked: !!g.opponentLocked,
+        }));
+        setIsLocked(!!g.yourLocked);
+        setOpponentLocked(!!g.opponentLocked);
+        if (g.phase) {
+          setPhase(g.phase as Phase);
+          if (g.phase === 'choose') {
+            startChooseTimer(10);
+          }
+        }
+      }
+    }).catch(() => {});
+  }, [params.roomId, socketApi?.emitAck, token]);
 
   useEffect(() => {
     if (phase === 'searching') {
@@ -158,6 +254,9 @@ export default function RPSScreen() {
             setIsLocked(false);
             setOpponentLocked(false);
             setRoundBanner(null);
+            if (msg.payload?.round) {
+              setMatch((prev) => prev ? { ...prev, currentRound: msg.payload.round } : null);
+            }
             setSecondsRemaining(Math.round((msg.payload?.duration || 10000) / 1000));
             startChooseTimer(Math.round((msg.payload?.duration || 10000) / 1000));
           } else if (nextPhase === 'reveal') {
@@ -181,12 +280,16 @@ export default function RPSScreen() {
 
         case 'rps:round_reveal': {
           const p = msg.payload;
-          const isP1 = match?.youAre === 'p1';
+          const isP1 = (matchRef.current?.youAre || params.youAre) === 'p1';
           const yourChoice = isP1 ? p.choiceP1 : p.choiceP2;
           const oppChoice = isP1 ? p.choiceP2 : p.choiceP1;
 
           let outcome: RoundOutcome = 'draw';
-          if (p.result === 'win') {
+          if (p.result === 'draw') {
+            outcome = 'draw';
+          } else if (p.roundWinner) {
+            outcome = String(p.roundWinner) === String(user?.id) ? 'win' : 'lose';
+          } else if (p.result === 'win') {
             outcome = isP1 ? 'win' : 'lose';
           } else if (p.result === 'lose') {
             outcome = isP1 ? 'lose' : 'win';
@@ -229,7 +332,11 @@ export default function RPSScreen() {
 
         case 'rps:match_result': {
           const p = msg.payload;
-          const isWinner = p.winnerId === user?.id;
+          const isWinner = String(p.winnerId) === String(user?.id);
+
+          if (isWinner) {
+            triggerWinCelebration();
+          }
 
           setMatch((prev) => {
             if (!prev) return null;
@@ -335,7 +442,8 @@ export default function RPSScreen() {
     }
 
     setPhase('searching');
-    socketApi?.send('rps:find_match', { stakeAmount: selectedTier });
+    socketApi?.ensureConnected?.(token || undefined);
+    socketApi?.send('rps:find_match', { stakeAmount: selectedTier, token });
   };
 
   const handleCancelSearch = () => {
@@ -347,13 +455,20 @@ export default function RPSScreen() {
     socketApi?.send('friend_invite', { token, targetUsername, betAmount });
   };
 
-  const handleLockChoice = () => {
-    if (!match?.roomId || !selectedChoice || isLocked) return;
+  const handleLockChoice = (choiceToLock?: Choice) => {
+    const choice = choiceToLock || selectedChoice;
+    if (!match?.roomId || !choice || isLocked) return;
+    try { playTickSound(); } catch {}
+    if (Platform.OS !== 'web') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    }
+    setSelectedChoice(choice);
+    setIsLocked(true);
     socketApi?.send('rps:lock_choice', {
       roomId: match.roomId,
-      choice: selectedChoice,
+      choice,
+      token,
     });
-    setIsLocked(true);
   };
 
   const handleLeaveGame = () => {
@@ -371,7 +486,7 @@ export default function RPSScreen() {
                 socketApi?.send('rps:leave', { roomId: match.roomId });
               }
               resetToLobby();
-              router.back();
+              safeGoBack();
             },
           },
         ]
@@ -381,7 +496,7 @@ export default function RPSScreen() {
         socketApi?.send('rps:cancel_search');
       }
       resetToLobby();
-      router.back();
+      safeGoBack();
     }
   };
 
@@ -399,7 +514,7 @@ export default function RPSScreen() {
   // ── Poses for Hand Figures ────────────────────────────────────────────────
   const getPlayerPose = (): Pose => {
     if (phase === 'reveal') return 'fist';
-    if (phase === 'roundResult' && match?.lastRound) {
+    if ((phase === 'roundResult' || phase === 'final') && match?.lastRound) {
       return match.lastRound.choiceYou;
     }
     if (isLocked && selectedChoice) return selectedChoice;
@@ -409,7 +524,7 @@ export default function RPSScreen() {
 
   const getOpponentPose = (): Pose => {
     if (phase === 'reveal') return 'fist';
-    if (phase === 'roundResult' && match?.lastRound) {
+    if ((phase === 'roundResult' || phase === 'final') && match?.lastRound) {
       return match.lastRound.choiceOpponent;
     }
     return 'fist'; // Hidden until reveal
@@ -437,11 +552,12 @@ export default function RPSScreen() {
       <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
         <RpsBetSelectModal
           visible={true}
-          onClose={() => router.back()}
+          onClose={() => safeGoBack()}
           onConfirm={(stake: number) => {
             setSelectedTier(stake);
             setPhase('searching');
-            socketApi?.send('rps:find_match', { stakeAmount: stake });
+            socketApi?.ensureConnected?.(token || undefined);
+            socketApi?.send('rps:find_match', { stakeAmount: stake, token });
           }}
           onOpenFriendMatch={(stake?: number) => {
             if (typeof stake === 'number') setSelectedTier(stake);
@@ -466,100 +582,164 @@ export default function RPSScreen() {
   const { pot, fee, prize } = calculatePrize(match?.stakeAmount || selectedTier);
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Game Header */}
-      <View style={styles.gameHeader}>
-        <TouchableOpacity onPress={handleLeaveGame} style={styles.backButton}>
-          <Feather name="arrow-left" size={22} color={colors.textSoft} />
-        </TouchableOpacity>
+    <SafeAreaView style={[styles.container, isDesktop && { backgroundColor: '#080B10' }]}>
+      {/* Background Plate & Ambient Overlay on Mobile only */}
+      {!isDesktop && (
+        <>
+          <Image source={rpsBg} style={styles.bgPlate} resizeMode="cover" />
+          <View style={styles.bgOverlay} />
+        </>
+      )}
 
-        <View style={styles.matchMeta}>
-          <Text style={styles.matchRoundText}>
-            Round {match?.currentRound || 1} of {match?.bestOf || 3}
-          </Text>
-          <Text style={styles.matchPotText}>Pot: {pot} ETB</Text>
+      {isDesktop ? (
+        <DesktopRpsArena
+          phase={phase}
+          round={match?.currentRound || 1}
+          bestOf={match?.bestOf || 3}
+          potAmount={pot}
+          scoreYou={match?.scoreYou || 0}
+          scoreOpponent={match?.scoreOpponent || 0}
+          winsNeeded={match?.winsNeeded || 2}
+          youName={user?.display_name || user?.username || 'You'}
+          opponentName={match?.opponentUsername || 'Opponent'}
+          youAvatar={user?.avatar}
+          opponentAvatar={(match as any)?.opponentAvatar}
+          selectedChoice={selectedChoice}
+          isLocked={isLocked}
+          opponentLocked={opponentLocked}
+          secondsRemaining={secondsRemaining}
+          totalSeconds={10}
+          opponentPose={getOpponentPose()}
+          playerPose={getPlayerPose()}
+          roundOutcome={match?.lastRound?.outcome}
+          onSelectChoice={handleLockChoice}
+          onLockChoice={handleLockChoice}
+          onLeaveGame={handleLeaveGame}
+        />
+      ) : (
+        <View style={styles.arenaWrapper}>
+          {/* Game Header */}
+          <View style={styles.gameHeader}>
+            <TouchableOpacity onPress={handleLeaveGame} style={styles.backButton}>
+              <Feather name="arrow-left" size={20} color={colors.textSoft} />
+            </TouchableOpacity>
+
+            <View style={styles.matchMetaRow}>
+              <View style={styles.roundBadge}>
+                <Text style={styles.matchRoundText}>
+                  Round {match?.currentRound || 1} of {match?.bestOf || 3}
+                </Text>
+              </View>
+              <View style={styles.potBadge}>
+                <Ionicons name="trophy" size={12} color="#F59E0B" />
+                <Text style={styles.matchPotText}>Pot: {pot} ETB</Text>
+              </View>
+            </View>
+
+            <View style={styles.statusBadge}>
+              <Text style={styles.statusBadgeText}>{phase.toUpperCase()}</Text>
+            </View>
+          </View>
+
+          {/* Score Bar */}
+          <ScoreBar
+            scoreYou={match?.scoreYou || 0}
+            scoreOpponent={match?.scoreOpponent || 0}
+            winsNeeded={match?.winsNeeded || 2}
+            youName={user?.display_name || user?.username || 'You'}
+            opponentName={match?.opponentUsername || 'Opponent'}
+            youAvatar={user?.avatar}
+            opponentAvatar={(match as any)?.opponentAvatar}
+          />
+
+          {/* Game Stage (Hands with Center Clash Line) */}
+          <View style={styles.gameStage}>
+            {/* Opponent Hand (Top) */}
+            <View style={styles.opponentHandArea}>
+              <HandFigure
+                side="top"
+                pose={getOpponentPose()}
+                phase={phase}
+                locked={opponentLocked}
+                outcome={match?.lastRound?.outcome}
+                scale={1}
+              />
+              {opponentLocked && phase === 'choose' && (
+                <View style={styles.opponentLockedBadge}>
+                  <Feather name="check" size={12} color={colors.success} />
+                  <Text style={styles.opponentLockedText}>Opponent Locked</Text>
+                </View>
+              )}
+            </View>
+
+            {/* Center Clash Dividing Line */}
+            <View style={styles.centerClashLineWrap}>
+              <View style={styles.clashLineBeam} />
+              <View style={styles.clashCenterNode}>
+                <Ionicons name="flash" size={13} color="#00DAF3" />
+              </View>
+            </View>
+
+            {/* Player Hand (Bottom) */}
+            <View style={styles.playerHandArea}>
+              <HandFigure
+                side="bottom"
+                pose={getPlayerPose()}
+                phase={phase}
+                locked={isLocked}
+                outcome={match?.lastRound?.outcome}
+                scale={1}
+              />
+            </View>
+          </View>
+
+          {/* Bottom Controls Area */}
+          <View style={styles.bottomControlsArea}>
+            {/* Timer Bar (during choose phase) */}
+            {phase === 'choose' && (
+              <TimerBar secondsRemaining={secondsRemaining} totalSeconds={10} />
+            )}
+
+            {/* Choice Row */}
+            <ChoiceRow
+              selected={selectedChoice}
+              locked={isLocked}
+              disabled={phase !== 'choose'}
+              onSelect={(choice) => setSelectedChoice(choice)}
+            />
+
+            {/* Lock In Button */}
+            <LockInButton
+              phase={phase}
+              selected={selectedChoice}
+              locked={isLocked}
+              onLock={handleLockChoice}
+            />
+          </View>
         </View>
-
-        <View style={styles.statusBadge}>
-          <Text style={styles.statusBadgeText}>{phase.toUpperCase()}</Text>
-        </View>
-      </View>
-
-      {/* Score Bar */}
-      <ScoreBar
-        scoreYou={match?.scoreYou || 0}
-        scoreOpponent={match?.scoreOpponent || 0}
-        winsNeeded={match?.winsNeeded || 2}
-        youName={user?.display_name || user?.username || 'You'}
-        opponentName={match?.opponentUsername || 'Opponent'}
-        youAvatar={user?.avatar}
-        opponentAvatar={(match as any)?.opponentAvatar}
-      />
+      )}
 
       {/* Countdown Overlay */}
       {phase === 'countdown' && (
         <ReadyCountdownOverlay count={countdownNum} bestOf={match?.bestOf || 3} />
       )}
 
-      {/* Game Stage (Hands) */}
-      <View style={styles.gameStage}>
-        {/* Opponent Hand (Top) */}
-        <View style={styles.opponentHandArea}>
-          <HandFigure
-            side="top"
-            pose={getOpponentPose()}
-            phase={phase}
-            locked={opponentLocked}
-            outcome={match?.lastRound?.outcome}
-          />
-          {opponentLocked && phase === 'choose' && (
-            <View style={styles.opponentLockedBadge}>
-              <Feather name="check" size={12} color={colors.success} />
-              <Text style={styles.opponentLockedText}>Opponent Locked</Text>
-            </View>
-          )}
+      {/* Center Reveal Animation Badge */}
+      {phase === 'reveal' && (
+        <View style={styles.shootBadge}>
+          <Text style={styles.shootBadgeText}>
+            ⚡ SHOOT! ⚡
+          </Text>
         </View>
-
-        {/* Center Round Banner */}
-        {roundBanner && phase === 'roundResult' && (
-          <RoundResultBanner
-            outcome={roundBanner.outcome}
-            moveDescription={roundBanner.desc}
-          />
-        )}
-
-        {/* Player Hand (Bottom) */}
-        <View style={styles.playerHandArea}>
-          <HandFigure
-            side="bottom"
-            pose={getPlayerPose()}
-            phase={phase}
-            locked={isLocked}
-            outcome={match?.lastRound?.outcome}
-          />
-        </View>
-      </View>
-
-      {/* Timer Bar (during choose phase) */}
-      {phase === 'choose' && (
-        <TimerBar secondsRemaining={secondsRemaining} totalSeconds={10} />
       )}
 
-      {/* Choice Row */}
-      <ChoiceRow
-        selected={selectedChoice}
-        locked={isLocked}
-        disabled={phase !== 'choose'}
-        onSelect={(choice) => setSelectedChoice(choice)}
-      />
-
-      {/* Lock In Button */}
-      <LockInButton
-        phase={phase}
-        selected={selectedChoice}
-        locked={isLocked}
-        onLock={handleLockChoice}
-      />
+      {/* Center Round Banner */}
+      {roundBanner && phase === 'roundResult' && (
+        <RoundResultBanner
+          outcome={roundBanner.outcome}
+          moveDescription={roundBanner.desc}
+        />
+      )}
 
       {/* Final Payout Sheet */}
       <MatchFinalSheet
@@ -577,6 +757,7 @@ export default function RPSScreen() {
         onExit={() => {
           setShowFinalSheet(false);
           resetToLobby();
+          safeGoBack();
         }}
       />
     </SafeAreaView>
@@ -811,47 +992,162 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
+  bgPlate: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+  },
+  bgOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(8, 11, 18, 0.82)',
+  },
+  arenaWrapper: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'space-between',
+  },
+  arenaWrapperDesktop: {
+    maxWidth: 840,
+    width: '100%',
+    alignSelf: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
   gameHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 10,
+    width: '100%',
   },
-  matchMeta: {
+  matchMetaRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 10,
+  },
+  roundBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  potBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(245, 158, 11, 0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.35)',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 12,
   },
   matchRoundText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.text,
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
   },
   matchPotText: {
-    fontSize: 11,
-    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#F59E0B',
+    letterSpacing: 0.5,
   },
   statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 10,
-    backgroundColor: colors.cardRaised,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0, 218, 243, 0.12)',
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: 'rgba(0, 218, 243, 0.35)',
   },
   statusBadgeText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: colors.primary,
-    letterSpacing: 0.5,
+    fontSize: 10.5,
+    fontWeight: '900',
+    color: '#00DAF3',
+    letterSpacing: 0.8,
   },
   gameStage: {
     flex: 1,
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 12,
+    position: 'relative',
+    width: '100%',
   },
   opponentHandArea: {
     alignItems: 'center',
+    justifyContent: 'flex-start',
+    zIndex: 2,
+  },
+  centerClashLineWrap: {
+    position: 'absolute',
+    top: '50%',
+    left: 0,
+    right: 0,
+    height: 24,
+    marginTop: -12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
+  },
+  clashLineBeam: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    height: 2,
+    backgroundColor: 'rgba(0, 218, 243, 0.5)',
+    shadowColor: '#00DAF3',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 8,
+  },
+  clashCenterNode: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#0D111A',
+    borderWidth: 1.5,
+    borderColor: '#00DAF3',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#00DAF3',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 8,
+  },
+  shootBadge: {
+    position: 'absolute',
+    zIndex: 20,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(0, 218, 243, 0.25)',
+    paddingHorizontal: 22,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: '#00DAF3',
+    shadowColor: '#00DAF3',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 14,
+  },
+  shootBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '900',
+    letterSpacing: 1.5,
   },
   opponentLockedBadge: {
     flexDirection: 'row',
@@ -872,5 +1168,11 @@ const styles = StyleSheet.create({
   },
   playerHandArea: {
     alignItems: 'center',
+    justifyContent: 'flex-end',
+    zIndex: 2,
+  },
+  bottomControlsArea: {
+    width: '100%',
+    paddingBottom: 6,
   },
 });

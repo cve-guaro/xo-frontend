@@ -7,7 +7,7 @@ import {
   TextInput, ActivityIndicator,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Slot, usePathname, useRouter } from 'expo-router';
+import { Redirect, Slot, usePathname, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../../context/authContext';
 import { API_URL } from '../../../config';
@@ -15,6 +15,9 @@ import LogoutConfirmation from '../../../components/LogoutConfirmation';
 import { useBackgroundMusic } from '../../../context/BackgroundMusicProvider';
 import AdminGlobalSearch from '../../../components/AdminGlobalSearch';
 import Avatar from '../../../components/ui/Avatar';
+import { alpha } from '../../../components/admin/ui';
+import { AdminNotificationProvider, useAdminNotifications } from '../../../context/AdminNotificationContext';
+import { NotificationList } from '../../../components/admin/NotificationList';
 
 // ─── Design Tokens (XO Brand + TailAdmin Dark/Light System) ──
 export * from '../../../constants/adminTheme';
@@ -30,8 +33,8 @@ import {
 const C = AdminTheme;
 
 const SIDEBAR_FULL = 244;
-const SIDEBAR_ICON = 68;
-const TOPBAR_H = 64;
+const SIDEBAR_ICON = 76;
+const TOPBAR_H = 72;
 
 // ─── NavItem for sidebar & drawer ─────────────────────────────
 function SideNavItem({
@@ -39,7 +42,7 @@ function SideNavItem({
 }: { icon: any; label: string; path: string; currentPath: string; collapsed: boolean; onSelect?: () => void }) {
   const router = useRouter();
   const { t } = useAuth();
-  const { theme: C, isDark } = useAdminTheme();
+  const { theme: C } = useAdminTheme();
   const safePath = currentPath || '';
   const isActive = path === '/admin'
     ? safePath === '/admin'
@@ -65,7 +68,7 @@ function SideNavItem({
           marginBottom: 3,
           borderWidth: 1,
           borderColor: isActive ? C.primary : 'transparent',
-          backgroundColor: isActive ? (isDark ? 'rgba(255, 45, 85, 0.14)' : 'rgba(225, 29, 72, 0.08)') : 'transparent',
+          backgroundColor: isActive ? C.primaryContainer : 'transparent',
         },
         collapsed && { justifyContent: 'center', paddingHorizontal: 0, width: 44, height: 44, alignSelf: 'center', marginBottom: 4 },
         Platform.OS === 'web' && { transition: 'background-color 0.15s ease, border-color 0.15s ease' } as any
@@ -214,21 +217,33 @@ function BottomTabItem({
 }
 
 // ─── Main Admin Layout Component ──────────────────────────────
-export default function AdminLayout() {
+function AdminLayoutInner() {
   const pathname = usePathname();
   const router = useRouter();
   const { width } = useWindowDimensions();
   const { user, t, token, logout, language, switchLanguage, fixUrl, isSuperAdmin } = useAuth();
   const { isPlaying: musicPlaying, toggleMusic } = useBackgroundMusic();
+  const { notifications, dismiss, clearAll, notify } = useAdminNotifications();
 
   const isMobile  = width < 1024;
   const isDesktop = width >= 1024;
   const isEN = language !== 'am';
+  const isAdminRole = Boolean(
+    user &&
+      (user.role === 'admin' ||
+        user.role === 'superadmin' ||
+        user.role === 'maintenance' ||
+        user.role === 'maintenance_admin' ||
+        (user as any)?.is_superadmin ||
+        (user as any)?.is_admin)
+  );
   const [logoutModalVisible, setLogoutModalVisible] = useState(false);
   const [mobileSidebarVisible, setMobileSidebarVisible] = useState(false);
 
   // Desktop sidebar collapse toggle state
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [settingsDropdownOpen, setSettingsDropdownOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const collapsed = isDesktop && sidebarCollapsed;
   const sidebarW  = isMobile ? 0 : (collapsed ? SIDEBAR_ICON : SIDEBAR_FULL);
 
@@ -252,7 +267,6 @@ export default function AdminLayout() {
   };
 
   const currentTheme = themeMode === 'light' ? LightAdminTheme : DarkAdminTheme;
-  const isDark = themeMode === 'dark';
 
   const [stats, setStats] = useState<any>(null);
 
@@ -339,7 +353,7 @@ export default function AdminLayout() {
     try {
       setPassLoading(true);
       setOtpError('');
-      let res = await fetch(`${API_URL}/admin/auth/quick-pass`, {
+      const res = await fetch(`${API_URL}/admin/auth/quick-pass`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -347,17 +361,6 @@ export default function AdminLayout() {
           'x-platform': 'web'
         }
       });
-      if (!res.ok) {
-        res = await fetch(`${API_URL}/admin/auth/verify-2fa`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-            'x-platform': 'web'
-          },
-          body: JSON.stringify({ code: '0000' })
-        });
-      }
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
         setAdminUnlocked(true);
@@ -365,7 +368,7 @@ export default function AdminLayout() {
           try { sessionStorage.setItem('adminUnlocked', 'true'); } catch(e) {}
         }
       } else {
-        setOtpError(data.error || 'Quick pass unauthorized');
+        setOtpError(data.error || 'Quick pass is restricted to Super Admin. Use Security Code instead.');
       }
     } catch (e: any) {
       setOtpError(e?.message || 'Network error');
@@ -383,8 +386,16 @@ export default function AdminLayout() {
         if (res.ok) setStats(await res.json());
       } catch (e) {}
     };
-    if (token) fetchStats();
-  }, [token, pathname]);
+    if (token && isAdminRole) fetchStats();
+  }, [token, pathname, isAdminRole]);
+
+  // ─── ROLE-BASED ROUTE GUARD (Blocks direct URL access by normal users) ───
+  if (!user || !isAdminRole) {
+    if (Platform.OS === 'web') {
+      try { sessionStorage.removeItem('adminUnlocked'); } catch(e) {}
+    }
+    return <Redirect href="/(authed)/home/gameplay" />;
+  }
 
   // ─── 2FA AUTH GUARD ───────────────────────────────────────────
   if (!adminUnlocked) {
@@ -496,13 +507,25 @@ export default function AdminLayout() {
                   </View>
                 </View>
 
+                {/* Notification Bell (Mobile) */}
+                <TouchableOpacity 
+                  onPress={() => setNotificationsOpen(!notificationsOpen)} 
+                  style={[s.mobileHeaderIconBtn, { backgroundColor: notificationsOpen ? currentTheme.primary : currentTheme.surfaceContainer, borderColor: notificationsOpen ? currentTheme.primary : currentTheme.border }]}
+                  accessibilityLabel="Platform Notifications"
+                >
+                  <Ionicons name="notifications-outline" size={16} color={notificationsOpen ? '#FFFFFF' : currentTheme.onSurfaceVariant} />
+                  {notifications.length > 0 && (
+                    <View style={{ position: 'absolute', top: 5, right: 5, width: 6, height: 6, borderRadius: 3, backgroundColor: currentTheme.primary }} />
+                  )}
+                </TouchableOpacity>
+
                 {/* Theme Mode Toggle (Dark / Light) */}
                 <TouchableOpacity 
                   onPress={toggleTheme} 
                   style={[s.mobileHeaderIconBtn, { backgroundColor: currentTheme.surfaceContainer, borderColor: currentTheme.border }]}
                   accessibilityLabel="Toggle Dark / Light Theme"
                 >
-                  <Ionicons name={themeMode === 'dark' ? 'sunny-outline' : 'moon-outline'} size={16} color={themeMode === 'dark' ? '#F0950C' : currentTheme.primary} />
+                  <Ionicons name={themeMode === 'dark' ? 'sunny-outline' : 'moon-outline'} size={16} color={themeMode === 'dark' ? currentTheme.accentGold : currentTheme.primary} />
                 </TouchableOpacity>
 
                 <View style={[s.mobileUserChip, { backgroundColor: currentTheme.primary, borderColor: currentTheme.border }]}>
@@ -513,9 +536,33 @@ export default function AdminLayout() {
           </SafeAreaView>
 
           {/* Main Routed Content for Mobile */}
-          <View style={{ flex: 1, backgroundColor: currentTheme.background }}>
+          <View style={{ flex: 1, backgroundColor: currentTheme.background, minHeight: 0, minWidth: 0 }}>
             <Slot />
           </View>
+
+        {/* Mobile Notifications Popover Overlay */}
+        {notificationsOpen && (
+          <Pressable
+            style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.65)', zIndex: 99999, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 64 }]}
+            onPress={() => setNotificationsOpen(false)}
+          >
+            <Pressable onPress={(e) => e.stopPropagation()}>
+              <NotificationList
+                notifications={notifications}
+                onDismiss={dismiss}
+                onClearAll={clearAll}
+                onClose={() => setNotificationsOpen(false)}
+                onRefresh={() => {
+                  notify({
+                    title: 'Platform Activity Synced',
+                    subtitle: 'Game engines & player ledger state refreshed',
+                    type: 'success',
+                  });
+                }}
+              />
+            </Pressable>
+          </Pressable>
+        )}
 
         {/* Mobile Navigation Drawer Overlay */}
         {mobileSidebarVisible && (
@@ -556,7 +603,7 @@ export default function AdminLayout() {
 
                 <View style={[s.drawerFooter, { borderTopColor: currentTheme.border }]}>
                   <TouchableOpacity 
-                    style={[s.drawerHomeBtn, { backgroundColor: isDark ? 'rgba(6, 182, 212, 0.08)' : 'rgba(8, 145, 178, 0.08)', borderColor: isDark ? 'rgba(6, 182, 212, 0.3)' : 'rgba(8, 145, 178, 0.3)' }]} 
+                    style={[s.drawerHomeBtn, { backgroundColor: alpha(currentTheme.accentCyan, 0.08), borderColor: alpha(currentTheme.accentCyan, 0.3) }]} 
                     onPress={() => { setMobileSidebarVisible(false); router.push('/(authed)/home/gameplay' as any); }}
                   >
                     <Ionicons name="game-controller-outline" size={17} color={currentTheme.accentCyan} />
@@ -564,7 +611,7 @@ export default function AdminLayout() {
                   </TouchableOpacity>
 
                   <TouchableOpacity 
-                    style={[s.emergencyBtn, { backgroundColor: isDark ? 'rgba(255, 45, 85, 0.08)' : 'rgba(225, 29, 72, 0.08)', borderColor: isDark ? 'rgba(255, 45, 85, 0.3)' : 'rgba(225, 29, 72, 0.3)' }]} 
+                    style={[s.emergencyBtn, { backgroundColor: alpha(currentTheme.primary, 0.08), borderColor: alpha(currentTheme.primary, 0.3) }]} 
                     onPress={() => { setMobileSidebarVisible(false); setLogoutModalVisible(true); }}
                   >
                     <Ionicons name="log-out-outline" size={17} color={currentTheme.primary} />
@@ -649,7 +696,7 @@ export default function AdminLayout() {
 
           <View style={[s.sidebarFooter, { borderTopColor: currentTheme.border }, collapsed && { paddingHorizontal: 8, alignItems: 'center' }]}>
             <TouchableOpacity
-              style={[s.footerHomeBtn, { backgroundColor: isDark ? 'rgba(6, 182, 212, 0.08)' : 'rgba(8, 145, 178, 0.08)', borderColor: isDark ? 'rgba(6, 182, 212, 0.3)' : 'rgba(8, 145, 178, 0.3)' }, collapsed && s.footerBtnCollapsed]}
+              style={[s.footerHomeBtn, { backgroundColor: alpha(currentTheme.accentCyan, 0.08), borderColor: alpha(currentTheme.accentCyan, 0.3) }, collapsed && s.footerBtnCollapsed]}
               activeOpacity={0.7}
               onPress={() => router.push('/(authed)/home/gameplay' as any)}
               accessibilityLabel="Back to Home"
@@ -659,7 +706,7 @@ export default function AdminLayout() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[s.emergencyBtn, { backgroundColor: isDark ? 'rgba(255, 45, 85, 0.08)' : 'rgba(225, 29, 72, 0.08)', borderColor: isDark ? 'rgba(255, 45, 85, 0.3)' : 'rgba(225, 29, 72, 0.3)' }, collapsed && s.footerBtnCollapsed]}
+              style={[s.emergencyBtn, { backgroundColor: alpha(currentTheme.primary, 0.08), borderColor: alpha(currentTheme.primary, 0.3) }, collapsed && s.footerBtnCollapsed]}
               activeOpacity={0.7}
               onPress={() => setLogoutModalVisible(true)}
               accessibilityLabel="Logout"
@@ -693,17 +740,8 @@ export default function AdminLayout() {
 
           <View style={s.topbarRight}>
             <TouchableOpacity
-              onPress={() => router.push('/(authed)/home/gameplay' as any)}
-              activeOpacity={0.8}
-              style={[s.topbarHomeBadge, { backgroundColor: isDark ? 'rgba(255, 45, 85, 0.08)' : 'rgba(225, 29, 72, 0.06)', borderColor: isDark ? 'rgba(255, 45, 85, 0.3)' : 'rgba(225, 29, 72, 0.3)' }]}
-            >
-              <Ionicons name="game-controller-outline" size={14} color={currentTheme.primary} />
-              <Text style={[s.topbarHomeBadgeText, { color: currentTheme.primary }]}>{isEN ? 'Game client' : 'ጨዋታ'}</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={s.balanceGroup} 
-              activeOpacity={0.7} 
+              style={s.balanceGroup}
+              activeOpacity={0.7}
               onPress={() => router.push('/admin/ledger' as any)}
             >
               <Text style={[s.balanceLabel, { color: currentTheme.onSurfaceVariant }]}>{isEN ? 'PLATFORM BALANCE' : 'የሲስተም ሂሳብ'}</Text>
@@ -725,46 +763,178 @@ export default function AdminLayout() {
 
             <View style={[s.topbarSep, { backgroundColor: currentTheme.border }]} />
 
-            {/* Notification Bell with indicator */}
-            <TouchableOpacity
-              onPress={() => router.push('/admin/audit' as any)}
-              activeOpacity={0.7}
-              style={[s.topbarActionBtn, { backgroundColor: currentTheme.surfaceContainer, borderColor: currentTheme.border }]}
-              accessibilityLabel="Notifications"
-            >
-              <Ionicons name="notifications-outline" size={16} color={currentTheme.onSurfaceVariant} />
-              <View style={{ position: 'absolute', top: 6, right: 6, width: 6, height: 6, borderRadius: 3, backgroundColor: currentTheme.primary }} />
-            </TouchableOpacity>
+            {/* Notification Bell with interactive alerts popover */}
+            <View style={{ position: 'relative', zIndex: 1001 }}>
+              <TouchableOpacity
+                onPress={() => {
+                  setNotificationsOpen(!notificationsOpen);
+                  if (settingsDropdownOpen) setSettingsDropdownOpen(false);
+                }}
+                activeOpacity={0.7}
+                style={[
+                  s.topbarActionBtn,
+                  {
+                    backgroundColor: notificationsOpen ? currentTheme.primary : currentTheme.surfaceContainer,
+                    borderColor: notificationsOpen ? currentTheme.primary : currentTheme.border,
+                  }
+                ]}
+                accessibilityLabel="Notifications and Alerts"
+              >
+                <Ionicons
+                  name="notifications-outline"
+                  size={16}
+                  color={notificationsOpen ? '#FFFFFF' : currentTheme.onSurfaceVariant}
+                />
+                <View style={{ position: 'absolute', top: 6, right: 6, width: 6, height: 6, borderRadius: 3, backgroundColor: currentTheme.primary }} />
+              </TouchableOpacity>
 
-            {/* Audio Sound Toggle */}
-            <TouchableOpacity
-              onPress={toggleMusic}
-              activeOpacity={0.7}
-              style={[s.topbarActionBtn, { backgroundColor: currentTheme.surfaceContainer, borderColor: currentTheme.border }]}
-              accessibilityLabel="Audio Toggle"
-            >
-              <Ionicons name={musicPlaying ? 'volume-high' : 'volume-mute'} size={16} color={musicPlaying ? currentTheme.secondary : currentTheme.onSurfaceVariant} />
-            </TouchableOpacity>
+              {/* Notification Popover Dropdown with Animated Stacked Cards */}
+              {notificationsOpen && (
+                <View style={{
+                  position: 'absolute',
+                  top: 44,
+                  right: 0,
+                  zIndex: 99999,
+                }}>
+                  <NotificationList
+                    notifications={notifications}
+                    onDismiss={dismiss}
+                    onClearAll={clearAll}
+                    onClose={() => setNotificationsOpen(false)}
+                    onRefresh={async () => {
+                      notify({
+                        title: 'Platform Activity Synced',
+                        subtitle: 'Game engines & player ledger state refreshed',
+                        type: 'success',
+                      });
+                    }}
+                  />
+                </View>
+              )}
+            </View>
 
-            {/* Theme Mode Toggle (Dark / Light) */}
-            <TouchableOpacity
-              onPress={toggleTheme}
-              activeOpacity={0.7}
-              style={[s.topbarActionBtn, { backgroundColor: currentTheme.surfaceContainer, borderColor: currentTheme.border }]}
-              accessibilityLabel="Toggle Dark / Light Theme"
-            >
-              <Ionicons name={themeMode === 'dark' ? 'sunny-outline' : 'moon-outline'} size={16} color={themeMode === 'dark' ? '#F0950C' : currentTheme.primary} />
-            </TouchableOpacity>
+            {/* Grouped Controls Dropdown (Sound, Theme, Language) */}
+            <View style={{ position: 'relative', zIndex: 1000 }}>
+              <TouchableOpacity
+                onPress={() => setSettingsDropdownOpen(!settingsDropdownOpen)}
+                activeOpacity={0.7}
+                style={[
+                  s.topbarActionBtn,
+                  {
+                    backgroundColor: settingsDropdownOpen ? currentTheme.primary : currentTheme.surfaceContainer,
+                    borderColor: settingsDropdownOpen ? currentTheme.primary : currentTheme.border,
+                    flexDirection: 'row',
+                    paddingHorizontal: 8,
+                    gap: 4,
+                    width: 'auto',
+                  }
+                ]}
+                accessibilityLabel="Sound, Theme, Language Settings"
+              >
+                <Ionicons
+                  name="options-outline"
+                  size={15}
+                  color={settingsDropdownOpen ? '#FFFFFF' : currentTheme.onSurfaceVariant}
+                />
+                <Ionicons
+                  name={settingsDropdownOpen ? "chevron-up" : "chevron-down"}
+                  size={11}
+                  color={settingsDropdownOpen ? '#FFFFFF' : currentTheme.onSurfaceVariant}
+                />
+              </TouchableOpacity>
 
-            {/* Language Switch */}
-            <TouchableOpacity 
-              style={[s.topbarActionBtn, { backgroundColor: currentTheme.surfaceContainer, borderColor: currentTheme.border }]} 
-              onPress={() => switchLanguage()}
-              accessibilityLabel="Switch Language"
-            >
-              <Text style={[s.topbarLangText, { color: currentTheme.onSurfaceVariant }]}>{language === 'am' ? 'AM' : 'EN'}</Text>
-              <Ionicons name="chevron-down" size={11} color={currentTheme.onSurfaceVariant} />
-            </TouchableOpacity>
+              {/* Dropdown Menu */}
+              {settingsDropdownOpen && (
+                <View style={{
+                  position: 'absolute',
+                  top: 42,
+                  right: 0,
+                  width: 210,
+                  backgroundColor: currentTheme.surface,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: currentTheme.border,
+                  padding: 8,
+                  gap: 4,
+                  zIndex: 9999,
+                  ...(Platform.OS === 'web' ? { boxShadow: '0 8px 24px rgba(0,0,0,0.2)' } : {}),
+                }}>
+                  {/* 1. Audio Sound Toggle */}
+                  <TouchableOpacity
+                    onPress={() => toggleMusic()}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      paddingVertical: 8,
+                      paddingHorizontal: 10,
+                      borderRadius: 8,
+                      backgroundColor: currentTheme.surfaceContainerLowest,
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Ionicons
+                        name={musicPlaying ? "volume-high" : "volume-mute"}
+                        size={16}
+                        color={musicPlaying ? currentTheme.secondary : currentTheme.onSurfaceVariant}
+                      />
+                      <Text style={{ fontSize: 12, fontWeight: '600', color: currentTheme.onSurface }}>Sound</Text>
+                    </View>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: musicPlaying ? currentTheme.success : currentTheme.onSurfaceVariant }}>
+                      {musicPlaying ? 'ON' : 'OFF'}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {/* 2. Theme Mode Toggle */}
+                  <TouchableOpacity
+                    onPress={() => toggleTheme()}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      paddingVertical: 8,
+                      paddingHorizontal: 10,
+                      borderRadius: 8,
+                      backgroundColor: currentTheme.surfaceContainerLowest,
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Ionicons
+                        name={themeMode === 'dark' ? "moon" : "sunny"}
+                        size={16}
+                        color={themeMode === 'dark' ? currentTheme.accentGold : currentTheme.primary}
+                      />
+                      <Text style={{ fontSize: 12, fontWeight: '600', color: currentTheme.onSurface }}>Theme</Text>
+                    </View>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: currentTheme.primary, textTransform: 'capitalize' }}>
+                      {themeMode}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {/* 3. Language Switch */}
+                  <TouchableOpacity
+                    onPress={() => switchLanguage()}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      paddingVertical: 8,
+                      paddingHorizontal: 10,
+                      borderRadius: 8,
+                      backgroundColor: currentTheme.surfaceContainerLowest,
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Ionicons name="globe-outline" size={16} color={currentTheme.onSurfaceVariant} />
+                      <Text style={{ fontSize: 12, fontWeight: '600', color: currentTheme.onSurface }}>Language</Text>
+                    </View>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: currentTheme.primary }}>
+                      {language === 'am' ? 'Amharic' : 'English'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
 
             {/* Admin User Chip matching mockups */}
             <View style={[s.userChip, { backgroundColor: currentTheme.surfaceContainer, borderColor: currentTheme.border }]}>
@@ -778,7 +948,15 @@ export default function AdminLayout() {
         </View>
 
         {/* Main Routed View Canvas (Clean flat background) */}
-        <View style={[s.mainCanvas, { marginLeft: sidebarW, backgroundColor: currentTheme.background }]}>
+        <View style={[
+          s.mainCanvas,
+          { marginLeft: sidebarW, backgroundColor: currentTheme.background },
+          Platform.OS === 'web' ? ({
+            height: `calc(100vh - ${TOPBAR_H}px)`,
+            maxHeight: `calc(100vh - ${TOPBAR_H}px)`,
+            overflow: 'hidden',
+          } as any) : {},
+        ]}>
           <Slot />
         </View>
 
@@ -793,6 +971,14 @@ export default function AdminLayout() {
         />
       </View>
     </AdminThemeContext.Provider>
+  );
+}
+
+export default function AdminLayout() {
+  return (
+    <AdminNotificationProvider>
+      <AdminLayoutInner />
+    </AdminNotificationProvider>
   );
 }
 
@@ -815,8 +1001,8 @@ const s = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', 
     backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: C.border 
   },
-  sidebarRole: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '500', paddingHorizontal: 20, marginTop: 2, marginBottom: 16 },
-  navList: { flex: 1 },
+  sidebarRole: { color: C.onSurfaceVariant, fontSize: 11, fontWeight: '500', paddingHorizontal: 20, marginTop: 2, marginBottom: 8 },
+  navList: { flex: 1, minHeight: 0 },
 
   groupHeader: { 
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', 
@@ -833,8 +1019,8 @@ const s = StyleSheet.create({
 
   navItem: { 
     flexDirection: 'row', alignItems: 'center', gap: 12, 
-    paddingHorizontal: 12, paddingVertical: 9, borderRadius: 10, 
-    marginBottom: 3, borderWidth: 1, borderColor: 'transparent' 
+    paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10, 
+    marginBottom: 2, borderWidth: 1, borderColor: 'transparent' 
   },
   navItemCollapsed: { justifyContent: 'center', paddingHorizontal: 0, width: 44, height: 44, alignSelf: 'center', marginBottom: 4 },
   navItemActive: { 
@@ -848,8 +1034,8 @@ const s = StyleSheet.create({
   activeIndicator: { width: 4, height: 16, borderRadius: 2, backgroundColor: '#FF2D55' },
 
   sidebarFooter: { 
-    paddingHorizontal: 14, paddingBottom: 20, 
-    borderTopWidth: 1, borderTopColor: C.border, paddingTop: 14, gap: 6 
+    paddingHorizontal: 14, paddingBottom: 12, 
+    borderTopWidth: 1, borderTopColor: C.border, paddingTop: 10, gap: 6 
   },
   footerBtnCollapsed: { paddingHorizontal: 0, width: 44, height: 44, borderRadius: 10, justifyContent: 'center' },
   footerHomeBtn: { 
@@ -872,12 +1058,12 @@ const s = StyleSheet.create({
   topbar: { 
     position: 'absolute', top: 0, right: 0, height: TOPBAR_H, zIndex: 30, 
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', 
-    paddingHorizontal: 28, 
+    paddingHorizontal: 24, gap: 16,
     backgroundColor: C.surfaceContainerLowest, 
     borderBottomWidth: 1, borderBottomColor: C.border, 
   },
-  topbarLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  topbarRight: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  topbarLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, maxWidth: 380 },
+  topbarRight: { flexDirection: 'row', alignItems: 'center', gap: 14, flexShrink: 0 },
   topbarHomeBadge: { 
     flexDirection: 'row', alignItems: 'center', gap: 6, 
     backgroundColor: 'rgba(255, 45, 85, 0.08)', borderWidth: 1, borderColor: 'rgba(255, 45, 85, 0.25)', 
@@ -905,7 +1091,14 @@ const s = StyleSheet.create({
   userName: { color: C.onSurface, fontSize: 12, fontWeight: '800', lineHeight: 14 },
   userOnline: { color: C.onSurfaceVariant, fontSize: 10, fontWeight: '500' },
 
-  mainCanvas: { flex: 1, marginTop: TOPBAR_H, padding: 28, backgroundColor: C.background },
+  mainCanvas: {
+    flex: 1,
+    marginTop: TOPBAR_H,
+    padding: 0,
+    backgroundColor: C.background,
+    minHeight: 0,
+    minWidth: 0,
+  },
 
   // Mobile Specific Layout Styles
   mobileSafeArea: { backgroundColor: C.surfaceContainerLowest },

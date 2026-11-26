@@ -24,6 +24,7 @@ import { WebDepositModal, WebWithdrawModal } from "../../../components/WebModals
 import ProfileEditModal from "../../../components/ProfileEditModal";
 import DesktopHeader from "../../../components/game/DesktopHeader";
 import DesktopSidebar from "../../../components/game/DesktopSidebar";
+import DesktopPageShell from "../../../components/game/DesktopPageShell";
 import ReferralModal from "../../../components/ReferralModal";
 import { useBackgroundMusic } from "../../../context/BackgroundMusicProvider";
 import PwaInstallModal from "../../../components/game/PwaInstallModal";
@@ -309,9 +310,14 @@ export default function LeaderboardScreen() {
 
   // First place prize value
   const topPrize = weeklyPrizes.find(p => p.rank === 1)?.amount || 500;
+  const cdDays = Math.floor(secondsRemaining / 86400);
+  const cdHours = Math.floor((secondsRemaining % 86400) / 3600);
+  const cdMins = Math.floor((secondsRemaining % 3600) / 60);
+  const cdSecs = secondsRemaining % 60;
+  const showPinnedMyRank = Boolean(myRank && !leaderboard.some((item) => item.isMe || String(item.id) === String(myRank.id)));
 
   if (isLargeScreen) {
-    // ─── HIGH FIDELITY DESKTOP WIDESCREEN LAYOUT ───
+    // ─── HIGH FIDELITY DESKTOP WIDESCREEN LAYOUT (Inspired by Image 3) ───
     return (
       <View style={s.rootContainer}>
         {/* Dark background */}
@@ -326,293 +332,142 @@ export default function LeaderboardScreen() {
         <CongratulationsModal visible={showCongrats} previousWeekWin={previousWeekWin} onDismiss={handleClaimPrize} isEN={isEN} />
         <NotificationsPopover visible={notificationsVisible} onClose={() => setNotificationsVisible(false)} onUnreadCountChange={setUnreadCount} />
 
-        {/* ── HEADER BAR ── */}
-        <DesktopHeader
+        {/* ── UNIFIED DESKTOP SHELL ── */}
+        <DesktopPageShell
+          currentScreen="leaderboard"
           user={user}
+          balance={Number(user?.available_balance || 0)}
           language={language}
           handleLanguageToggle={handleLanguageToggle}
-          selectedTab="XO_GAME"
           setPwaModalVisible={setPwaModalVisible}
-          bgMusicPlaying={isPlaying}
-          onToggleSound={toggleMusic}
+          setDepositVisible={setDepositVisible}
+          setWithdrawVisible={setWithdrawVisible}
+          refreshProfile={refreshProfile}
           unreadCount={unreadCount}
           setNotificationsVisible={setNotificationsVisible}
           router={router}
-        />
+        >
+          <ScrollView
+            style={s.centerScrollContainer}
+            contentContainerStyle={s.lbDesktopScrollContent}
+            showsVerticalScrollIndicator={true}
+          >
+            <View style={s.lbPageWrap}>
+              {isLeaderboardDisabled ? (
+                <View style={s.lbMaintenanceCard}>
+                  <Ionicons name="construct-outline" size={48} color="#f59e0b" style={{ marginBottom: 14 }} />
+                  <Text style={{ color: "#fff", fontSize: 19, fontWeight: "800", marginBottom: 8, textAlign: "center" }}>
+                    Leaderboard under maintenance
+                  </Text>
+                  <Text style={{ color: "#94a3b8", fontSize: 13.5, textAlign: "center", maxWidth: 420, lineHeight: 21, marginBottom: 20 }}>
+                    The leaderboard is temporarily offline for maintenance. Your wins continue to be tracked in real time.
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => { fetchWeeklyMetadata(); fetchLeaderboardData(); }}
+                    style={s.lbRefreshBtn}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="refresh" size={16} color="#07070E" />
+                    <Text style={{ color: "#07070E", fontWeight: "800", fontSize: 13.5 }}>Refresh status</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <>
+                  {/* ── 1. TOP HERO BANNER (Trophy + Weekly Prize Pool + Live Reset Countdown) ── */}
+                  <LinearGradient
+                    colors={["#141B2D", "#0E1422", "#0D1320"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={s.lbHeroBanner}
+                  >
+                    <View style={s.lbHeroLeft}>
+                      <View style={s.lbHeroTrophyStage}>
+                        <Ionicons name="trophy" size={34} color="#F5B642" />
+                      </View>
+                      <View style={{ flex: 1, minWidth: 220 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                          <Text style={s.lbHeroTitle}>
+                            {timeframe === "alltime"
+                              ? (isEN ? "All-time champions" : "የሁሉም ጊዜ አሸናፊዎች")
+                              : (isEN ? "Weekly champions" : "ሳምንታዊ አሸናፊዎች")}
+                          </Text>
+                          <View style={s.lbPlayersPill}>
+                            <Text style={s.lbPlayersPillText}>{totalParticipants} players</Text>
+                          </View>
+                        </View>
+                        <Text style={s.lbHeroDesc}>
+                          {isEN
+                            ? "Compete in XO, Spin & RPS matches to climb the rankings. Top 3 players receive weekly ETB rewards."
+                            : "በ XO፣ ስፒን እና RPS በመጫወት ደረጃዎን ያሳድጉ። ከፍተኛ 3 ተጫዋቾች ሳምንታዊ ሽልማት ያገኛሉ።"}
+                        </Text>
+                      </View>
+                    </View>
 
-        {/* ── CORE BODY CONTAINER (Sticky sidebars, Center-only scrolling) ── */}
-        <View style={s.desktopLayoutContainer}>
-          {/* 1. LEFT SIDEBAR */}
-          <DesktopSidebar
-            user={user}
-            balance={Number(user?.available_balance || 0)}
-            currentScreen="leaderboard"
-            refreshProfile={refreshProfile}
-            setDepositVisible={setDepositVisible}
-            setWithdrawVisible={setWithdrawVisible}
-            router={router}
-          />
+                    {/* Right: 1st Place Prize + Reset Timer */}
+                    <View style={s.lbHeroRight}>
+                      <View style={s.lbHeroStatBlock}>
+                        <Text style={s.lbHeroStatLabel}>{isEN ? "1st place prize" : "1ኛ ሽልማት"}</Text>
+                        <Text style={s.lbHeroPrizeVal}>{Number(topPrize).toLocaleString()} ETB</Text>
+                      </View>
+                      <View style={s.lbHeroDivider} />
+                      <View style={s.lbHeroStatBlock}>
+                        <Text style={s.lbHeroStatLabel}>{isEN ? "Resets in" : "ቀሪ ጊዜ"}</Text>
+                        <Text style={s.lbHeroTimerVal}>
+                          {String(cdDays).padStart(2, "0")}d : {String(cdHours).padStart(2, "0")}h : {String(cdMins).padStart(2, "0")}m : {String(cdSecs).padStart(2, "0")}s
+                        </Text>
+                      </View>
+                    </View>
+                  </LinearGradient>
 
-          {/* 2. CENTER COLUMN (Scrolls independently while sidebars remain sticky) */}
-            <ScrollView
-              style={s.centerScrollContainer}
-              contentContainerStyle={s.centerScrollContent}
-              showsVerticalScrollIndicator={true}
-            >
-              <View style={s.centerColumn}>
-                {isLeaderboardDisabled ? (
-                  <View style={{
-                    backgroundColor: "#161b2e",
-                    borderRadius: 16,
-                    padding: 32,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    borderWidth: 1,
-                    borderColor: "rgba(245, 158, 11, 0.3)",
-                    marginTop: 20,
-                  }}>
-                    <Ionicons name="construct-outline" size={54} color="#f59e0b" style={{ marginBottom: 16 }} />
-                    <Text style={{ color: "#fff", fontSize: 20, fontWeight: "700", marginBottom: 8, textAlign: "center" }}>
-                      Leaderboard Under Maintenance
-                    </Text>
-                    <Text style={{ color: "#94a3b8", fontSize: 14, textAlign: "center", maxWidth: 420, lineHeight: 22, marginBottom: 24 }}>
-                      The Leaderboard feature is temporarily offline for maintenance. Your wins continue to be tracked in real-time and rankings will resume shortly.
-                    </Text>
-                    <TouchableOpacity
-                      onPress={() => { fetchWeeklyMetadata(); fetchLeaderboardData(); }}
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        backgroundColor: "#f59e0b",
-                        paddingHorizontal: 20,
-                        paddingVertical: 12,
-                        borderRadius: 10,
-                      }}
-                      activeOpacity={0.8}
-                    >
-                      <Ionicons name="refresh" size={16} color="#000" style={{ marginRight: 8 }} />
-                      <Text style={{ color: "#000", fontWeight: "700", fontSize: 14 }}>Refresh Status</Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : (
-                  <>
-                {/* Title and Filter Row */}
-                <View style={s.titleRowContainer}>
-                  <View>
-                    <Text style={s.mainTitle}>LEADERBOARD</Text>
-                    <Text style={s.subTitle}>Top players this month</Text>
-                  </View>
-
-                  {/* Filter Dropdown */}
-                  <View style={{ zIndex: 100 }}>
-                    <TouchableOpacity onPress={() => setDropdownOpen(!dropdownOpen)} style={s.filterDropdown} activeOpacity={0.85}>
-                      <Ionicons name="calendar-outline" size={14} color="#8b93a7" style={{ marginRight: 6 }} />
-                      <Text style={s.filterDropdownText}>
-                        {timeframe === "weekly" ? "Weekly" : "All Time"}
-                      </Text>
-                      <Ionicons name={dropdownOpen ? "chevron-up" : "chevron-down"} size={14} color="#8b93a7" />
-                    </TouchableOpacity>
-                    {dropdownOpen && (
-                      <View style={s.dropdownMenu}>
-                        <TouchableOpacity onPress={() => { setTimeframe("weekly"); setDropdownOpen(false); }} style={s.dropdownItem}>
-                          <Text style={s.dropdownItemText}>Weekly</Text>
+                  {/* ── 2. TOOLBAR ROW: Standings Title + Weekly / All-Time Toggle ── */}
+                  <View style={s.lbToolbarRow}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+                      <Text style={s.lbSectionTitle}>{isEN ? "Standings" : "ደረጃዎች"}</Text>
+                      <View style={s.lbSegmentedWrap}>
+                        <TouchableOpacity
+                          onPress={() => setTimeframe("weekly")}
+                          activeOpacity={0.8}
+                          style={[s.lbSegmentedBtn, timeframe === "weekly" && s.lbSegmentedBtnActive]}
+                        >
+                          <Text style={[s.lbSegmentedText, timeframe === "weekly" && s.lbSegmentedTextActive]}>
+                            {isEN ? "Weekly" : "ሳምንታዊ"}
+                          </Text>
                         </TouchableOpacity>
-                        <TouchableOpacity onPress={() => { setTimeframe("alltime"); setDropdownOpen(false); }} style={s.dropdownItem}>
-                          <Text style={s.dropdownItemText}>All Time</Text>
+                        <TouchableOpacity
+                          onPress={() => setTimeframe("alltime")}
+                          activeOpacity={0.8}
+                          style={[s.lbSegmentedBtn, timeframe === "alltime" && s.lbSegmentedBtnActive]}
+                        >
+                          <Text style={[s.lbSegmentedText, timeframe === "alltime" && s.lbSegmentedTextActive]}>
+                            {isEN ? "All time" : "ሁሉም ጊዜ"}
+                          </Text>
                         </TouchableOpacity>
+                      </View>
+                    </View>
+
+                    {/* Top 3 Prize Tier Hint */}
+                    {weeklyPrizes.length > 0 && (
+                      <View style={s.lbPrizesInlineRow}>
+                        {weeklyPrizes.slice(0, 3).map((p) => (
+                          <View key={p.rank} style={s.lbPrizeChip}>
+                            <Text style={s.lbPrizeChipRank}>#{p.rank}</Text>
+                            <Text style={s.lbPrizeChipAmt}>{Number(p.amount).toLocaleString()} ETB</Text>
+                          </View>
+                        ))}
                       </View>
                     )}
                   </View>
-                </View>
 
-                {/* PODIUM VISUAL: 3 Circular Rings matching Image 1 (Rank 2 Left, Rank 1 Center, Rank 3 Right) */}
-                <View style={{
-                  flexDirection: "row",
-                  alignItems: "flex-end",
-                  justifyContent: "center",
-                  gap: 36,
-                  marginTop: 12,
-                  marginBottom: 36,
-                  paddingVertical: 24,
-                  backgroundColor: "rgba(14, 20, 36, 0.55)",
-                  borderRadius: 24,
-                  borderWidth: 1,
-                  borderColor: "rgba(255, 255, 255, 0.06)",
-                }}>
-                  {/* Rank 2 (Left Medium Circle) */}
-                  <View style={{ alignItems: "center", width: 140 }}>
-                    <View style={{ position: "relative", alignItems: "center" }}>
-                      <View style={{
-                        width: 96,
-                        height: 96,
-                        borderRadius: 48,
-                        backgroundColor: "#161d31",
-                        borderWidth: 3,
-                        borderColor: "#94a3b8",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        overflow: "hidden",
-                      }}>
-                        <Avatar
-                          uri={top2?.avatar}
-                          name={top2?.username}
-                          size={96}
-                        />
-                      </View>
-                      {/* Badge 2 intersecting bottom */}
-                      <View style={{
-                        position: "absolute",
-                        bottom: -12,
-                        width: 32,
-                        height: 32,
-                        borderRadius: 16,
-                        backgroundColor: "#ffffff",
-                        borderWidth: 2,
-                        borderColor: "#94a3b8",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        shadowColor: "#000",
-                        shadowOffset: { width: 0, height: 2 },
-                        shadowOpacity: 0.35,
-                        shadowRadius: 5,
-                      }}>
-                        <Text style={{ color: "#000000", fontSize: 15, fontWeight: "900" }}>2</Text>
-                      </View>
-                    </View>
-                    <Text numberOfLines={1} style={{ color: "#ffffff", fontSize: 16, fontWeight: "800", marginTop: 18 }}>
-                      {top2?.username || "Open Slot"}
-                    </Text>
-                    <Text style={{ color: "#00daf3", fontSize: 13, fontWeight: "800", marginTop: 3 }}>
-                      {top2 ? `${top2.wins ?? 0} win` : "--"}
-                    </Text>
+                  {/* ── 3. LEADERBOARD TABLE HEADER ── */}
+                  <View style={s.lbTableHeader}>
+                    <Text style={[s.lbColHeader, { width: 88 }]}>{isEN ? "Position" : "ደረጃ"}</Text>
+                    <Text style={[s.lbColHeader, { flex: 1 }]}>{isEN ? "Player" : "ተጫዋች"}</Text>
+                    <Text style={[s.lbColHeader, { width: 110, textAlign: "right" }]}>{isEN ? "Matches" : "ጨዋታዎች"}</Text>
+                    <Text style={[s.lbColHeader, { width: 110, textAlign: "right" }]}>{isEN ? "Wins" : "ድሎች"}</Text>
                   </View>
 
-                  {/* Rank 1 (Center Large Circle — Tallest / Biggest) */}
-                  <View style={{ alignItems: "center", width: 160, marginBottom: 14 }}>
-                    {/* Crown / Trophy Floating Accent */}
-                    <Ionicons name="trophy" size={28} color="#f5b642" style={{ marginBottom: 6 }} />
-                    <View style={{ position: "relative", alignItems: "center" }}>
-                      <View style={{
-                        width: 120,
-                        height: 120,
-                        borderRadius: 60,
-                        backgroundColor: "#1e1b18",
-                        borderWidth: 4,
-                        borderColor: "#f5b642",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        overflow: "hidden",
-                      } as any}>
-                        <Avatar
-                          uri={top1?.avatar}
-                          name={top1?.username}
-                          size={120}
-                        />
-                      </View>
-                      {/* Badge 1 intersecting bottom */}
-                      <View style={{
-                        position: "absolute",
-                        bottom: -14,
-                        width: 36,
-                        height: 36,
-                        borderRadius: 18,
-                        backgroundColor: "#f5b642",
-                        borderWidth: 2.5,
-                        borderColor: "#ffffff",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        shadowColor: "#000",
-                        shadowOffset: { width: 0, height: 3 },
-                        shadowOpacity: 0.45,
-                        shadowRadius: 6,
-                      }}>
-                        <Text style={{ color: "#000000", fontSize: 17, fontWeight: "900" }}>1</Text>
-                      </View>
-                    </View>
-                    <Text numberOfLines={1} style={{ color: "#ffffff", fontSize: 18, fontWeight: "900", marginTop: 20 }}>
-                      {top1?.username || "Open Slot"}
-                    </Text>
-                    <Text style={{ color: "#f59e0b", fontSize: 14, fontWeight: "900", marginTop: 3 }}>
-                      {top1 ? `${top1.wins ?? 0} win` : "--"}
-                    </Text>
-                  </View>
-
-                  {/* Rank 3 (Right Medium Circle) */}
-                  <View style={{ alignItems: "center", width: 140 }}>
-                    <View style={{ position: "relative", alignItems: "center" }}>
-                      <View style={{
-                        width: 96,
-                        height: 96,
-                        borderRadius: 48,
-                        backgroundColor: "#1c1815",
-                        borderWidth: 3,
-                        borderColor: "#f97316",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        overflow: "hidden",
-                      }}>
-                        <Avatar
-                          uri={top3User?.avatar}
-                          name={top3User?.username}
-                          size={96}
-                        />
-                      </View>
-                      {/* Badge 3 intersecting bottom */}
-                      <View style={{
-                        position: "absolute",
-                        bottom: -12,
-                        width: 32,
-                        height: 32,
-                        borderRadius: 16,
-                        backgroundColor: "#ffffff",
-                        borderWidth: 2,
-                        borderColor: "#f97316",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        shadowColor: "#000",
-                        shadowOffset: { width: 0, height: 2 },
-                        shadowOpacity: 0.35,
-                        shadowRadius: 5,
-                      }}>
-                        <Text style={{ color: "#000000", fontSize: 15, fontWeight: "900" }}>3</Text>
-                      </View>
-                    </View>
-                    <Text numberOfLines={1} style={{ color: "#ffffff", fontSize: 16, fontWeight: "800", marginTop: 18 }}>
-                      {top3User?.username || "Open Slot"}
-                    </Text>
-                    <Text style={{ color: "#f97316", fontSize: 13, fontWeight: "800", marginTop: 3 }}>
-                      {top3User ? `${top3User.wins ?? 0} win` : "--"}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* LEADERBOARD LIST CARD */}
-                <View style={s.card}>
-                  <View style={s.leaderboardListHeader}>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                      <Ionicons name="trophy-outline" size={16} color="#00BFFF" />
-                      <Text style={s.leaderboardListTitle}>Weekly Leaderboard</Text>
-                    </View>
-
-                    {/* Toggle Pill inside Card */}
-                    <View style={s.timeframeTogglePillContainer}>
-                      <TouchableOpacity 
-                        onPress={() => setTimeframe("weekly")} 
-                        style={[s.togglePillBtn, timeframe === "weekly" && s.togglePillBtnActive]}
-                      >
-                        <Text style={[s.togglePillBtnText, timeframe === "weekly" && s.togglePillBtnTextActive]}>Weekly</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity 
-                        onPress={() => setTimeframe("alltime")} 
-                        style={[s.togglePillBtn, timeframe === "alltime" && s.togglePillBtnActive]}
-                      >
-                        <Text style={[s.togglePillBtnText, timeframe === "alltime" && s.togglePillBtnTextActive]}>All Time</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-
-                  {/* Leaderboard List Rows (Full listing without nested ScrollView trap) */}
-                  <View style={{ gap: 10, marginTop: 14 }}>
+                  {/* ── 4. LEADERBOARD ROWS (Top 3 Medal Gradients + Clean List + Pinned You Row) ── */}
+                  <View style={{ gap: 8 }}>
                     {loading && (
                       <View style={{ gap: 8 }}>
                         <SkeletonRow />
@@ -621,94 +476,103 @@ export default function LeaderboardScreen() {
                         <SkeletonRow />
                       </View>
                     )}
+
                     {!loading && leaderboard.length === 0 && (
-                      <Text style={s.emptyListText}>No rankings available yet.</Text>
+                      <View style={s.lbEmptyCard}>
+                        <Ionicons name="trophy-outline" size={32} color="#475569" />
+                        <Text style={s.emptyListText}>No rankings available yet.</Text>
+                      </View>
                     )}
-                    {!loading && leaderboard.map((item, idx) => {
-                      const isTop3 = item.rank <= 3;
-                      const badgeBg = item.rank === 1 ? "#f5b642" : (item.rank === 2 ? "#b9cacb" : (item.rank === 3 ? "#fb923c" : "rgba(0, 191, 255, 0.15)"));
-                      const badgeTextCol = isTop3 ? "#0a0e1a" : "#00BFFF";
-                      const winAmt = item.winAmount !== undefined && item.winAmount !== null ? item.winAmount : item.wins * 50;
-                      const winnings = `${item.wins} Wins`;
-                      const totalGamesCount = item.total || Math.round(item.wins * 1.5);
+
+                    {!loading && leaderboard.map((item) => {
+                      const isTop1 = item.rank === 1;
+                      const isTop2 = item.rank === 2;
+                      const isTop3 = item.rank === 3;
                       const isMe = item.isMe;
+                      const totalGamesCount = item.total || item.wins;
+                      const medalColor = isTop1 ? "#F5B642" : isTop2 ? "#CBD5E1" : isTop3 ? "#FB923C" : "#64748B";
+                      const gradStart = isTop1
+                        ? "rgba(245, 182, 66, 0.16)"
+                        : isTop2
+                        ? "rgba(148, 163, 184, 0.14)"
+                        : isTop3
+                        ? "rgba(217, 119, 6, 0.14)"
+                        : "#0D1320";
 
                       return (
-                        <View key={item.id} style={[s.rankRowContainer, isMe && s.rankRowContainerMe]}>
-                          <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
-                            {/* Rank Badge */}
-                            <View style={[s.rankBadge, { backgroundColor: badgeBg }]}>
-                              <Text style={[s.rankBadgeText, { color: badgeTextCol }]}>{item.rank}</Text>
-                            </View>
-
-                            {/* Avatar */}
-                            <Avatar
-                              uri={item.avatar}
-                              name={item.username}
-                              size={38}
-                            />
-
-                            {/* Info */}
-                            <View>
-                              <Text style={s.rankRowName}>{item.username} {isMe && "(You)"}</Text>
-                              <Text style={s.rankRowStats}>Win Battles won: {item.wins} / {totalGamesCount}</Text>
-                            </View>
+                        <LinearGradient
+                          key={item.id}
+                          colors={isTop1 || isTop2 || isTop3 ? [gradStart, "#0D1320"] : ["#0D1320", "#0D1320"]}
+                          start={{ x: 0, y: 0.5 }}
+                          end={{ x: 0.55, y: 0.5 }}
+                          style={[
+                            s.lbTableRow,
+                            isMe && s.lbTableRowMe,
+                          ]}
+                        >
+                          {/* Position / Laurel Rank */}
+                          <View style={{ width: 88, flexDirection: "row", alignItems: "center", gap: 6 }}>
+                            {isTop1 || isTop2 || isTop3 ? (
+                              <View style={[s.lbMedalCircle, { borderColor: `${medalColor}66`, backgroundColor: `${medalColor}1A` }]}>
+                                <Ionicons name="ribbon-outline" size={12} color={medalColor} style={{ marginRight: 2 }} />
+                                <Text style={[s.lbMedalRankText, { color: medalColor }]}>{item.rank}</Text>
+                              </View>
+                            ) : (
+                              <Text style={s.lbPlainRankText}>{item.rank}</Text>
+                            )}
                           </View>
 
-                          {/* PNL / Wins */}
-                          <View style={{ alignItems: "flex-end" }}>
-                            <Text style={s.rankRowPnlLabel}>Wins</Text>
-                            <Text style={s.rankRowPnlVal}>{winnings}</Text>
+                          {/* Player Avatar + Username */}
+                          <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 12, minWidth: 0 }}>
+                            <Avatar uri={item.avatar} name={item.username} size={34} />
+                            <Text style={[s.lbPlayerName, isMe && { color: "#FFFFFF" }]} numberOfLines={1}>
+                              {item.username}
+                            </Text>
+                            {isMe && (
+                              <View style={s.lbYouBadge}>
+                                <Text style={s.lbYouBadgeText}>{isEN ? "You" : "እርስዎ"}</Text>
+                              </View>
+                            )}
                           </View>
-                        </View>
+
+                          {/* Matches */}
+                          <Text style={s.lbMatchesVal}>{totalGamesCount}</Text>
+
+                          {/* Wins */}
+                          <Text style={[s.lbWinsVal, isTop1 && { color: "#F5B642" }]}>
+                            {item.wins}
+                          </Text>
+                        </LinearGradient>
                       );
                     })}
+
+                    {/* Pinned Current User Row when outside visible table (Matching Image 3 bottom bar) */}
+                    {!loading && showPinnedMyRank && myRank && (
+                      <View style={[s.lbTableRow, s.lbTableRowMe, { marginTop: 6 }]}>
+                        <View style={{ width: 88, flexDirection: "row", alignItems: "center", gap: 8 }}>
+                          <Text style={[s.lbPlainRankText, { color: "#00DAF3", fontWeight: "800" }]}>
+                            {myRank.rank ? `#${myRank.rank}` : "—"}
+                          </Text>
+                        </View>
+                        <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 12, minWidth: 0 }}>
+                          <Avatar uri={myRank.avatar || (user as any)?.avatar} name={user?.username || myRank.username} size={34} />
+                          <Text style={[s.lbPlayerName, { color: "#FFFFFF" }]} numberOfLines={1}>
+                            {myRank.username && myRank.username !== "You" ? myRank.username : (user?.username || "You")}
+                          </Text>
+                          <View style={s.lbYouBadge}>
+                            <Text style={s.lbYouBadgeText}>{isEN ? "You" : "እርስዎ"}</Text>
+                          </View>
+                        </View>
+                        <Text style={s.lbMatchesVal}>{myRank.total || myRank.wins || 0}</Text>
+                        <Text style={[s.lbWinsVal, { color: "#00DAF3" }]}>{myRank.wins || 0}</Text>
+                      </View>
+                    )}
                   </View>
-                </View>
                 </>
-                )}
-              </View>
-            </ScrollView>
-
-            {/* 3. RIGHT SIDEBAR — GIVEAWAY resetting details (sticky) */}
-            <ScrollView
-              style={s.stickySidebarScrollRight}
-              contentContainerStyle={{ gap: 20, paddingBottom: 20 }}
-              showsVerticalScrollIndicator={false}
-            >
-              <View style={s.rightSidebar}>
-                {/* 1. Reset Countdown Timer Card */}
-                <CountdownTimer secondsRemaining={secondsRemaining} isEN={isEN} />
-
-                {/* 2. Prize Pool Card */}
-                <View style={[s.card, { marginTop: 20 }]}>
-                  <View style={s.prizeHeaderRow}>
-                    <Ionicons name="trophy" size={16} color="#f5b642" style={{ marginRight: 8 }} />
-                    <Text style={s.prizeHeaderTitle}>WEEKLY PRIZE POOL</Text>
-                  </View>
-
-                  <Text style={s.prizeBigAmount}>{topPrize} BIRR</Text>
-                  <Text style={s.prizeSubtext}>For the 1st Place Winner</Text>
-
-                  {/* Avatar list stack */}
-                  <View style={s.avatarStackRow}>
-                    <View style={s.avatarStackContainer}>
-                      <View style={[s.stackAvatar, { backgroundColor: "#00BFFF", zIndex: 3 }]}>
-                        <Text style={s.stackAvatarText}>K</Text>
-                      </View>
-                      <View style={[s.stackAvatar, { backgroundColor: "#FF1744", zIndex: 2, marginLeft: -10 }]}>
-                        <Text style={s.stackAvatarText}>A</Text>
-                      </View>
-                      <View style={[s.stackAvatar, { backgroundColor: "#06b6d4", zIndex: 1, marginLeft: -10 }]}>
-                        <Text style={s.stackAvatarText}>M</Text>
-                      </View>
-                    </View>
-                    <Text style={s.joiningCountText}>+{totalParticipants} Players joining</Text>
-                  </View>
-                </View>
-              </View>
-            </ScrollView>
-        </View>
+              )}
+            </View>
+          </ScrollView>
+        </DesktopPageShell>
       </View>
     );
   }
@@ -723,9 +587,18 @@ export default function LeaderboardScreen() {
 
   return (
     <View style={s.rootContainer}>
-      <LinearGradient colors={["#080f1e", "#050813"]} style={StyleSheet.absoluteFill} />
+      {/* ── Background Image matching Image 2 ── */}
+      <Image
+        source={require("../../../assets/images/leaderboard-background-top-glow.png")}
+        style={StyleSheet.absoluteFillObject}
+        resizeMode="cover"
+      />
+      <LinearGradient
+        colors={["rgba(6, 6, 19, 0.55)", "rgba(6, 6, 19, 0.88)", "#060613"]}
+        style={StyleSheet.absoluteFillObject}
+      />
 
-      {/* ── Top Header Row (Back < on Left, Countdown in Center, Home on Right — Image 3) ── */}
+      {/* ── Top Header Row (Back <, Game Title & Live Countdown Timer in Center, Notifications on Right) ── */}
       <View style={{
         flexDirection: "row",
         alignItems: "center",
@@ -733,12 +606,10 @@ export default function LeaderboardScreen() {
         paddingHorizontal: 16,
         paddingTop: Platform.OS === "ios" ? 48 : 14,
         paddingBottom: 10,
-        backgroundColor: "rgba(8, 15, 30, 0.95)",
-        borderBottomWidth: 1,
-        borderBottomColor: "rgba(255, 255, 255, 0.06)",
+        backgroundColor: "transparent",
         zIndex: 50,
       }}>
-        {/* Left: < Back button in rounded rect (Image 3) */}
+        {/* Left: < Back button */}
         <TouchableOpacity
           onPress={() => router.back()}
           style={{
@@ -756,26 +627,30 @@ export default function LeaderboardScreen() {
           <Ionicons name="chevron-back" size={20} color="#ffffff" />
         </TouchableOpacity>
 
-        {/* Center: 01:11:58:57 with Days HRS Min SEC labels (Image 3) */}
+        {/* Center: Title + Live Countdown Timer */}
         <View style={{ alignItems: "center" }}>
           <Text style={{
             color: "#ffffff",
-            fontSize: 20,
+            fontSize: 16,
             fontWeight: "900",
-            fontFamily: "Space Grotesk, Inter, sans-serif",
-            letterSpacing: 1.5,
+            letterSpacing: 0.5,
           }}>
-            {String(days).padStart(2, '0')}:{String(hours).padStart(2, '0')}:{String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
+            {isEN ? "XO LEADERBOARD" : "የመሪዎች ሰሌዳ"}
           </Text>
-          <View style={{ flexDirection: "row", gap: 14, marginTop: 2 }}>
-            <Text style={{ color: "#64748b", fontSize: 9.5, fontWeight: "700", textTransform: "uppercase" }}>Days</Text>
-            <Text style={{ color: "#64748b", fontSize: 9.5, fontWeight: "700", textTransform: "uppercase" }}>HRS</Text>
-            <Text style={{ color: "#64748b", fontSize: 9.5, fontWeight: "700", textTransform: "uppercase" }}>Min</Text>
-            <Text style={{ color: "#64748b", fontSize: 9.5, fontWeight: "700", textTransform: "uppercase" }}>SEC</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 3 }}>
+            <Ionicons name="time-outline" size={13} color="#00DAF3" />
+            <Text style={{ color: "#00DAF3", fontSize: 11.5, fontWeight: "800", letterSpacing: 0.4 }}>
+              {secondsRemaining > 0
+                ? `${days}d ${hours}h ${minutes}m ${seconds}s`
+                : (isEN ? "7d 0h 0m" : "7ቀ 0ሰ 0ደ")}
+            </Text>
+            <Text style={{ color: "#8893A7", fontSize: 10.5, fontWeight: "700" }}>
+              {isEN ? "ends" : "ቀሪ"}
+            </Text>
           </View>
         </View>
 
-        {/* Right: Notification button (Image 3 Spec: notification bell with popover) */}
+        {/* Right: Notifications Button */}
         <TouchableOpacity
           onPress={() => setNotificationsVisible(true)}
           style={{
@@ -806,31 +681,27 @@ export default function LeaderboardScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* ── FIXED TOP 3 PODIUM CIRCLES (Only player data rows below will scroll!) ── */}
+      {/* ── TOP 3 PODIUM (Exact Image 2 Wireframe) ── */}
       <View style={{
-        backgroundColor: "rgba(8, 15, 30, 0.98)",
-        borderBottomWidth: 1,
-        borderBottomColor: "rgba(255, 255, 255, 0.06)",
-        paddingTop: 10,
+        backgroundColor: "transparent",
+        paddingTop: 12,
         paddingBottom: 16,
         zIndex: 40,
       }}>
-        {/* ── TOP 3 PODIUM CIRCLES (Matching PC Layout: 3 Pure Circles, Rank Intersecting Bottom, Open Slot Support) ── */}
         <View style={{
           flexDirection: "row",
           alignItems: "flex-end",
           justifyContent: "center",
           gap: 16,
           marginTop: 6,
-          marginBottom: 24,
         }}>
-          {/* Rank 2 (Left Medium Circle) */}
+          {/* Rank 2 (Left Silver Circle) */}
           <View style={{ alignItems: "center", width: 96 }}>
             <View style={{ position: "relative", alignItems: "center" }}>
               <View style={{
-                width: 72,
-                height: 72,
-                borderRadius: 36,
+                width: 74,
+                height: 74,
+                borderRadius: 37,
                 backgroundColor: "#161d31",
                 borderWidth: 3,
                 borderColor: "#94a3b8",
@@ -841,67 +712,76 @@ export default function LeaderboardScreen() {
                 <Avatar
                   uri={top2?.avatar}
                   name={top2?.username}
-                  size={72}
+                  size={74}
                 />
               </View>
-              {/* Badge 2 intersecting bottom */}
+              {/* Badge 2 floating on top-right */}
               <View style={{
                 position: "absolute",
-                bottom: -10,
+                top: -4,
+                right: -4,
                 width: 24,
                 height: 24,
                 borderRadius: 12,
-                backgroundColor: "#ffffff",
+                backgroundColor: "#94a3b8",
                 borderWidth: 2,
-                borderColor: "#94a3b8",
+                borderColor: "#ffffff",
                 alignItems: "center",
                 justifyContent: "center",
                 shadowColor: "#000",
                 shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.3,
+                shadowOpacity: 0.35,
                 shadowRadius: 4,
               }}>
-                <Text style={{ color: "#000000", fontSize: 12, fontWeight: "900" }}>2</Text>
+                <Text style={{ color: "#000000", fontSize: 11.5, fontWeight: "900" }}>2</Text>
               </View>
             </View>
 
-            <Text numberOfLines={1} style={{ color: "#ffffff", fontSize: 13, fontWeight: "800", marginTop: 14 }}>
+            <Text numberOfLines={1} style={{ color: "#ffffff", fontSize: 12.5, fontWeight: "800", marginTop: 8 }}>
               {top2?.username || "Open Slot"}
             </Text>
-            <Text style={{ color: "#00daf3", fontSize: 11, fontWeight: "800", marginTop: 2 }}>
-              {top2 ? `${top2.wins ?? 0} win` : "--"}
+            <Text style={{ color: "#8b93a7", fontSize: 10.5, fontWeight: "700", marginTop: 1 }}>
+              {top2 ? `${top2.wins ?? 0} wins` : "--"}
+            </Text>
+            <Text style={{ color: "#cbd5e1", fontSize: 11, fontWeight: "900", marginTop: 2 }}>
+              +{weeklyPrizes.find(p => p.rank === 2)?.amount || 3000} ETB
             </Text>
           </View>
 
-          {/* Rank 1 (Center Large Circle — Tallest / Biggest) */}
-          <View style={{ alignItems: "center", width: 112, marginBottom: 8 }}>
-            {/* Crown Floating Accent */}
-            <Ionicons name="trophy" size={22} color="#f5b642" style={{ marginBottom: 4 }} />
+          {/* Rank 1 (Center Gold Circle — Tallest & Crowned) */}
+          <View style={{ alignItems: "center", width: 116, marginBottom: 8, position: "relative" }}>
+            {/* Gold Crown Floating on Top */}
+            <Ionicons name="trophy" size={24} color="#f5b642" style={{ marginBottom: 4 }} />
             <View style={{ position: "relative", alignItems: "center" }}>
               <View style={{
-                width: 90,
-                height: 90,
-                borderRadius: 45,
+                width: 92,
+                height: 92,
+                borderRadius: 46,
                 backgroundColor: "#1e1b18",
                 borderWidth: 3.5,
                 borderColor: "#f5b642",
                 alignItems: "center",
                 justifyContent: "center",
                 overflow: "hidden",
-              } as any}>
+                shadowColor: "#f5b642",
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.45,
+                shadowRadius: 10,
+              }}>
                 <Avatar
                   uri={top1?.avatar}
                   name={top1?.username}
-                  size={90}
+                  size={92}
                 />
               </View>
-              {/* Badge 1 intersecting bottom */}
+              {/* Badge 1 floating on top-right */}
               <View style={{
                 position: "absolute",
-                bottom: -12,
-                width: 28,
-                height: 28,
-                borderRadius: 14,
+                top: -4,
+                right: -4,
+                width: 26,
+                height: 26,
+                borderRadius: 13,
                 backgroundColor: "#f5b642",
                 borderWidth: 2,
                 borderColor: "#ffffff",
@@ -912,25 +792,28 @@ export default function LeaderboardScreen() {
                 shadowOpacity: 0.4,
                 shadowRadius: 5,
               }}>
-                <Text style={{ color: "#000000", fontSize: 14, fontWeight: "900" }}>1</Text>
+                <Text style={{ color: "#000000", fontSize: 13, fontWeight: "900" }}>1</Text>
               </View>
             </View>
 
-            <Text numberOfLines={1} style={{ color: "#ffffff", fontSize: 14.5, fontWeight: "900", marginTop: 16 }}>
+            <Text numberOfLines={1} style={{ color: "#ffffff", fontSize: 14, fontWeight: "900", marginTop: 8 }}>
               {top1?.username || "Open Slot"}
             </Text>
-            <Text style={{ color: "#f59e0b", fontSize: 12, fontWeight: "900", marginTop: 2 }}>
-              {top1 ? `${top1.wins ?? 0} win` : "--"}
+            <Text style={{ color: "#8b93a7", fontSize: 11, fontWeight: "700", marginTop: 1 }}>
+              {top1 ? `${top1.wins ?? 0} wins` : "--"}
+            </Text>
+            <Text style={{ color: "#f5b642", fontSize: 12, fontWeight: "900", marginTop: 2 }}>
+              +{weeklyPrizes.find(p => p.rank === 1)?.amount || 5000} ETB
             </Text>
           </View>
 
-          {/* Rank 3 (Right Medium Circle) */}
+          {/* Rank 3 (Right Bronze Circle) */}
           <View style={{ alignItems: "center", width: 96 }}>
             <View style={{ position: "relative", alignItems: "center" }}>
               <View style={{
-                width: 72,
-                height: 72,
-                borderRadius: 36,
+                width: 74,
+                height: 74,
+                borderRadius: 37,
                 backgroundColor: "#1c1815",
                 borderWidth: 3,
                 borderColor: "#f97316",
@@ -941,63 +824,64 @@ export default function LeaderboardScreen() {
                 <Avatar
                   uri={top3User?.avatar}
                   name={top3User?.username}
-                  size={72}
+                  size={74}
                 />
               </View>
-              {/* Badge 3 intersecting bottom */}
+              {/* Badge 3 floating on top-right */}
               <View style={{
                 position: "absolute",
-                bottom: -10,
+                top: -4,
+                right: -4,
                 width: 24,
                 height: 24,
                 borderRadius: 12,
-                backgroundColor: "#ffffff",
+                backgroundColor: "#f97316",
                 borderWidth: 2,
-                borderColor: "#f97316",
+                borderColor: "#ffffff",
                 alignItems: "center",
                 justifyContent: "center",
                 shadowColor: "#000",
                 shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.3,
+                shadowOpacity: 0.35,
                 shadowRadius: 4,
               }}>
-                <Text style={{ color: "#000000", fontSize: 12, fontWeight: "900" }}>3</Text>
+                <Text style={{ color: "#000000", fontSize: 11.5, fontWeight: "900" }}>3</Text>
               </View>
             </View>
 
-            <Text numberOfLines={1} style={{ color: "#ffffff", fontSize: 13, fontWeight: "800", marginTop: 14 }}>
+            <Text numberOfLines={1} style={{ color: "#ffffff", fontSize: 12.5, fontWeight: "800", marginTop: 8 }}>
               {top3User?.username || "Open Slot"}
             </Text>
-            <Text style={{ color: "#f97316", fontSize: 11, fontWeight: "800", marginTop: 2 }}>
-              {top3User ? `${top3User.wins ?? 0} win` : "--"}
+            <Text style={{ color: "#8b93a7", fontSize: 10.5, fontWeight: "700", marginTop: 1 }}>
+              {top3User ? `${top3User.wins ?? 0} wins` : "--"}
+            </Text>
+            <Text style={{ color: "#f97316", fontSize: 11, fontWeight: "900", marginTop: 2 }}>
+              +{weeklyPrizes.find(p => p.rank === 3)?.amount || 1500} ETB
             </Text>
           </View>
         </View>
       </View>
 
-      {/* ── SCROLLABLE PLAYER DATA LIST (Only player rows scroll!) ── */}
+      {/* ── SCROLLABLE SECTION: LATEST WINNINGS + RANKINGS ── */}
       <ScrollView
         ref={mobileScrollRef}
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 130 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 140 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── RANKED ROWS (Displays all contenders matching PC Leaderboard data) ── */}
-        <View style={{ gap: 10, width: "100%" }}>
+        {/* ── RANKED ROWS (Ranks 4+ matching Image 2 sleek pill design) ── */}
+        <View style={{ gap: 8, width: "100%", marginTop: 4 }}>
           {leaderboard.length === 0 ? (
-            <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 32, gap: 8 }}>
+            <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 28, gap: 8 }}>
               <Ionicons name="trophy-outline" size={28} color="rgba(255,255,255,0.2)" />
-              <Text style={{ color: "#64748b", fontSize: 12.5, textAlign: "center", fontStyle: "italic" }}>
+              <Text style={{ color: "#64748b", fontSize: 12, textAlign: "center", fontStyle: "italic" }}>
                 {"No rankings available yet.\nPlay matches to claim rank #1!"}
               </Text>
             </View>
           ) : (
             leaderboard.map((item) => {
-              const isTop3 = item.rank <= 3;
-              const badgeBg = item.rank === 1 ? "rgba(245, 158, 11, 0.2)" : (item.rank === 2 ? "rgba(148, 163, 184, 0.2)" : (item.rank === 3 ? "rgba(249, 115, 22, 0.2)" : "rgba(255, 255, 255, 0.06)"));
-              const badgeBorder = item.rank === 1 ? "#f59e0b" : (item.rank === 2 ? "#94a3b8" : (item.rank === 3 ? "#f97316" : "rgba(255, 255, 255, 0.12)"));
-              const badgeTextCol = item.rank === 1 ? "#f59e0b" : (item.rank === 2 ? "#cbd5e1" : (item.rank === 3 ? "#f97316" : "#94a3b8"));
               const isMe = item.isMe || item.username === user?.username || item.id === user?.id;
+              const rewardAmount = item.rank === 4 ? 500 : item.rank === 5 ? 300 : item.rank <= 10 ? 100 : null;
 
               return (
                 <View
@@ -1006,60 +890,51 @@ export default function LeaderboardScreen() {
                     flexDirection: "row",
                     alignItems: "center",
                     justifyContent: "space-between",
-                    backgroundColor: isMe ? "rgba(0, 191, 255, 0.12)" : "rgba(14, 20, 36, 0.8)",
-                    borderRadius: 24, // Curved capsule edges matching Image 3 wireframe
-                    borderWidth: 1.2,
-                    borderColor: isMe ? "#00BFFF" : "rgba(255, 255, 255, 0.08)",
-                    paddingHorizontal: 18,
-                    paddingVertical: 12,
-                    shadowColor: "#000",
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.2,
-                    shadowRadius: 4,
+                    backgroundColor: isMe ? "rgba(0, 218, 243, 0.12)" : "rgba(18, 22, 34, 0.85)",
+                    borderRadius: 20,
+                    borderWidth: isMe ? 1.5 : 1.2,
+                    borderColor: isMe ? "#00DAF3" : "rgba(255, 255, 255, 0.06)",
+                    paddingHorizontal: 16,
+                    paddingVertical: 10,
                   }}
                 >
-                  {/* Left: Rank Badge + Avatar + Name */}
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-                    <View style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: 16,
-                      backgroundColor: badgeBg,
-                      borderWidth: 1,
-                      borderColor: badgeBorder,
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}>
-                      <Text style={{ color: badgeTextCol, fontSize: 12, fontWeight: "900" }}>#{item.rank}</Text>
-                    </View>
+                  {/* Left: Rank # + Avatar + Username */}
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+                    <Text style={{ color: "#64748b", fontSize: 13, fontWeight: "900", width: 22, textAlign: "center" }}>
+                      {item.rank}
+                    </Text>
 
                     <Avatar
                       uri={item.avatar}
                       name={item.username}
-                      size={38}
+                      size={36}
                     />
 
                     <View>
-                      <Text style={{ color: "#ffffff", fontSize: 14, fontWeight: "800" }}>
+                      <Text style={{ color: "#ffffff", fontSize: 13.5, fontWeight: "800" }}>
                         {item.username} {isMe ? "(You)" : ""}
                       </Text>
-                      <Text style={{ color: "#64748b", fontSize: 11, fontWeight: "600", marginTop: 1 }}>
-                        Win Battles won: {item.wins} / {item.total || Math.round(item.wins * 1.5)}
-                      </Text>
+                      {rewardAmount ? (
+                        <Text style={{ color: "#f59e0b", fontSize: 10.5, fontWeight: "800", marginTop: 1 }}>
+                          +{rewardAmount} ETB
+                        </Text>
+                      ) : (
+                        <Text style={{ color: "#64748b", fontSize: 10.5, fontWeight: "600", marginTop: 1 }}>
+                          Contender
+                        </Text>
+                      )}
                     </View>
                   </View>
 
                   {/* Right: Wins Highlight */}
                   <View style={{
-                    paddingHorizontal: 12,
-                    paddingVertical: 5,
-                    borderRadius: 12,
-                    backgroundColor: "rgba(245, 158, 11, 0.12)",
-                    borderWidth: 1,
-                    borderColor: "rgba(245, 158, 11, 0.3)",
+                    paddingHorizontal: 10,
+                    paddingVertical: 4,
+                    borderRadius: 10,
+                    backgroundColor: "rgba(255, 255, 255, 0.05)",
                   }}>
-                    <Text style={{ color: "#f59e0b", fontSize: 12, fontWeight: "900" }}>
-                      {item.wins} Wins
+                    <Text style={{ color: "#8b93a7", fontSize: 11.5, fontWeight: "800" }}>
+                      {item.wins} wins
                     </Text>
                   </View>
                 </View>
@@ -1069,38 +944,65 @@ export default function LeaderboardScreen() {
         </View>
       </ScrollView>
 
-      {/* ── FLOATING DOWN ARROW JUMP BUTTON (Contextual: only shown when user is ranked #4+ and out of podium view) ── */}
+      {/* ── FLOATING "YOU" BOTTOM PILL — Only displayed when user is ranked > 3 and not visible on the top podium ── */}
       {Boolean(myRank && myRank.rank > 3) && (
         <TouchableOpacity
           onPress={() => {
-            if (myRank) {
-              const idx = leaderboard.findIndex(p => p.id === myRank.id || p.username === myRank.username);
-              const scrollY = idx >= 0 ? idx * 72 : 0;
-              mobileScrollRef.current?.scrollTo({ y: scrollY, animated: true });
-            } else {
-              mobileScrollRef.current?.scrollToEnd({ animated: true });
-            }
+            const idx = leaderboard.findIndex(p => p.id === myRank?.id || p.username === myRank?.username);
+            const scrollY = idx >= 0 ? idx * 64 + 360 : 0;
+            mobileScrollRef.current?.scrollTo({ y: scrollY, animated: true });
           }}
           style={{
             position: "absolute",
             bottom: 74,
             alignSelf: "center",
-            width: 44,
-            height: 44,
-            borderRadius: 22,
-            backgroundColor: "#ffffff",
-            alignItems: "center",
-            justifyContent: "center",
-            shadowColor: "#000",
+            borderRadius: 24,
+            overflow: "hidden",
+            shadowColor: "#00DAF3",
             shadowOffset: { width: 0, height: 4 },
             shadowOpacity: 0.45,
-            shadowRadius: 8,
+            shadowRadius: 10,
             elevation: 8,
             zIndex: 90,
           }}
-          activeOpacity={0.85}
+          activeOpacity={0.88}
         >
-          <Ionicons name="arrow-down" size={22} color="#000000" />
+          <LinearGradient
+            colors={["#00DAF3", "#0091FF"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              paddingVertical: 7,
+              paddingHorizontal: 14,
+              gap: 8,
+            }}
+          >
+            <View style={{
+              width: 28,
+              height: 28,
+              borderRadius: 14,
+              overflow: "hidden",
+              borderWidth: 1.5,
+              borderColor: "#ffffff",
+            }}>
+              <Avatar
+                uri={myRank?.avatar || user?.avatar}
+                name={myRank?.username || user?.username}
+                size={28}
+              />
+            </View>
+            <View>
+              <Text style={{ color: "#060613", fontSize: 11, fontWeight: "900", letterSpacing: 0.5 }}>
+                YOU
+              </Text>
+              <Text style={{ color: "#060613", fontSize: 10, fontWeight: "800" }}>
+                #{myRank?.rank || "--"}
+              </Text>
+            </View>
+            <Ionicons name="arrow-down" size={16} color="#060613" style={{ marginLeft: 2 }} />
+          </LinearGradient>
         </TouchableOpacity>
       )}
 
@@ -1310,10 +1212,7 @@ const s = StyleSheet.create({
   desktopLayoutContainer: {
     flex: 1,
     width: "100%",
-    maxWidth: 1720,
-    alignSelf: "center",
-    height: Platform.OS === "web" ? ("calc(100vh - 72px)" as any) : undefined,
-    maxHeight: Platform.OS === "web" ? ("calc(100vh - 72px)" as any) : undefined,
+    height: "100%",
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 20,
@@ -1321,16 +1220,22 @@ const s = StyleSheet.create({
     gap: 20,
     alignItems: "stretch",
     overflow: "hidden",
-    // zoom removed for proper responsive layout
   },
   stickySidebarScrollLeft: {
-    width: 280,
+    width: 260,
     height: "100%",
     maxHeight: "100%",
     flexGrow: 0,
     flexShrink: 0,
   },
-  stickySidebarScrollRight: { width: 300, maxWidth: "35%", height: "100%", maxHeight: "100%", flexGrow: 0, flexShrink: 1 },
+  stickySidebarScrollRight: {
+    width: 320,
+    maxWidth: "35%",
+    height: "100%",
+    maxHeight: "100%",
+    flexGrow: 0,
+    flexShrink: 0,
+  },
   centerScrollContainer: {
     flex: 1,
     height: "100%",
@@ -1351,12 +1256,11 @@ const s = StyleSheet.create({
   // Sidebar Layout (Same as gameplay & history left sidebars)
   leftSidebar: { width: 280, gap: 20 },
   card: {
-    backgroundColor: "#12172a",
-    borderRadius: 24,
+    backgroundColor: "#0D1320",
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#1f2540",
-    padding: 20,
-    ...(Platform.OS === 'web' ? { boxShadow: "0 10px 30px rgba(0,0,0,0.15)" } as any : {}),
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    padding: 18,
   },
   userCardHeader: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 14 },
   userCardAvatar: {
@@ -1654,8 +1558,8 @@ const s = StyleSheet.create({
     paddingVertical: 12,
   },
   rankRowContainerMe: {
-    borderColor: "#00BFFF",
-    backgroundColor: "rgba(124, 58, 237, 0.04)",
+    borderColor: "#00DAF3",
+    backgroundColor: "rgba(0, 218, 243, 0.08)",
   },
   rankBadge: {
     width: 24,
@@ -1715,17 +1619,289 @@ const s = StyleSheet.create({
     fontFamily: "Inter, sans-serif",
   },
 
+  // ── Desktop Image 3 Inspired Leaderboard Layout ──
+  lbDesktopScrollContent: {
+    paddingHorizontal: 28,
+    paddingTop: 20,
+    paddingBottom: 48,
+  },
+  lbPageWrap: {
+    width: "100%",
+    maxWidth: 1120,
+    alignSelf: "center",
+    gap: 18,
+  },
+  lbMaintenanceCard: {
+    backgroundColor: "#0D1320",
+    borderRadius: 18,
+    padding: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+  },
+  lbRefreshBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#00DAF3",
+    paddingHorizontal: 18,
+    height: 42,
+    borderRadius: 12,
+  },
+  lbHeroBanner: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    flexWrap: "wrap",
+    gap: 18,
+  },
+  lbHeroLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 18,
+    flex: 1,
+    minWidth: 280,
+  },
+  lbHeroTrophyStage: {
+    width: 68,
+    height: 68,
+    borderRadius: 18,
+    backgroundColor: "rgba(245, 182, 66, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(245, 182, 66, 0.3)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  lbHeroTitle: {
+    color: "#FFFFFF",
+    fontSize: 20,
+    fontWeight: "900",
+    letterSpacing: -0.3,
+  },
+  lbPlayersPill: {
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+  },
+  lbPlayersPillText: {
+    color: "#94A3B8",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  lbHeroDesc: {
+    color: "#8B8FA8",
+    fontSize: 12.5,
+    lineHeight: 18,
+    marginTop: 5,
+    maxWidth: 500,
+  },
+  lbHeroRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 18,
+    backgroundColor: "rgba(7, 7, 14, 0.55)",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.07)",
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+  },
+  lbHeroStatBlock: {
+    alignItems: "flex-start",
+  },
+  lbHeroStatLabel: {
+    color: "#64748B",
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  lbHeroPrizeVal: {
+    color: "#F5B642",
+    fontSize: 17,
+    fontWeight: "900",
+    marginTop: 2,
+  },
+  lbHeroTimerVal: {
+    color: "#00DAF3",
+    fontSize: 14,
+    fontWeight: "800",
+    marginTop: 4,
+  },
+  lbHeroDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+  },
+  lbToolbarRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    flexWrap: "wrap",
+    gap: 12,
+    marginTop: 4,
+  },
+  lbSectionTitle: {
+    color: "#FFFFFF",
+    fontSize: 20,
+    fontWeight: "800",
+  },
+  lbSegmentedWrap: {
+    flexDirection: "row",
+    backgroundColor: "#0D1320",
+    borderRadius: 12,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    gap: 4,
+  },
+  lbSegmentedBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 9,
+  },
+  lbSegmentedBtnActive: {
+    backgroundColor: "#00DAF3",
+  },
+  lbSegmentedText: {
+    color: "#94A3B8",
+    fontSize: 12.5,
+    fontWeight: "700",
+  },
+  lbSegmentedTextActive: {
+    color: "#07070E",
+    fontWeight: "800",
+  },
+  lbPrizesInlineRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  lbPrizeChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    backgroundColor: "#0D1320",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.07)",
+  },
+  lbPrizeChipRank: {
+    color: "#8B8FA8",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  lbPrizeChipAmt: {
+    color: "#F5B642",
+    fontSize: 11.5,
+    fontWeight: "800",
+  },
+  lbTableHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 18,
+    paddingVertical: 4,
+  },
+  lbColHeader: {
+    color: "#64748B",
+    fontSize: 11.5,
+    fontWeight: "600",
+  },
+  lbEmptyCard: {
+    backgroundColor: "#0D1320",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    paddingVertical: 40,
+    alignItems: "center",
+    gap: 8,
+  },
+  lbTableRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 18,
+    paddingVertical: 13,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: "#0D1320",
+  },
+  lbTableRowMe: {
+    borderColor: "#00DAF3",
+    backgroundColor: "rgba(0, 218, 243, 0.08)",
+  },
+  lbMedalCircle: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  lbMedalRankText: {
+    fontSize: 12.5,
+    fontWeight: "900",
+  },
+  lbPlainRankText: {
+    color: "#94A3B8",
+    fontSize: 13,
+    fontWeight: "700",
+    paddingLeft: 10,
+  },
+  lbPlayerName: {
+    color: "#E2E8F0",
+    fontSize: 13.5,
+    fontWeight: "700",
+    flexShrink: 1,
+  },
+  lbYouBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: "rgba(0, 218, 243, 0.16)",
+    borderWidth: 1,
+    borderColor: "rgba(0, 218, 243, 0.35)",
+  },
+  lbYouBadgeText: {
+    color: "#00DAF3",
+    fontSize: 10.5,
+    fontWeight: "800",
+  },
+  lbMatchesVal: {
+    width: 110,
+    textAlign: "right",
+    color: "#94A3B8",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  lbWinsVal: {
+    width: 110,
+    textAlign: "right",
+    color: "#FFFFFF",
+    fontSize: 13.5,
+    fontWeight: "800",
+  },
+
   // ── RIGHT SIDEBAR GIVEAWAY DETAILS ──
   rightSidebar: { width: 320 },
   countdownCard: {
-    backgroundColor: "#12172a",
-    borderRadius: 24,
+    backgroundColor: "#0D1320",
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#1f2540",
-    padding: 20,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    padding: 18,
     alignItems: "center",
     justifyContent: "center",
-    ...(Platform.OS === 'web' ? { boxShadow: "0 10px 30px rgba(0,0,0,0.15)" } as any : {}),
   },
   countdownHeaderRow: {
     flexDirection: "row",

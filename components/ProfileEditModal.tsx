@@ -1,6 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -8,7 +7,6 @@ import {
   Alert,
   Animated,
   Easing,
-  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -269,11 +267,20 @@ export default function ProfileEditModal({
         }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.message || "Update failed");
+      if (!res.ok) {
+        const msg =
+          data?.details?.[0]?.message ||
+          data?.message ||
+          data?.error ||
+          "Update failed";
+        throw new Error(msg);
+      }
       await refreshProfile();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      // Navigate FIRST before closing modal to prevent layout redirect from intercepting
-      router.replace("/(authed)/home/gameplay");
+      if (isForced) {
+        // Navigate FIRST before closing modal during forced onboarding
+        router.replace("/(authed)/home/gameplay");
+      }
       onSaved?.();
       onClose();
     } catch (e: any) {
@@ -295,28 +302,30 @@ export default function ProfileEditModal({
         <Animated.View style={[styles.backdrop, { opacity }]} />
 
         <Animated.View style={[styles.sheet, isDesktop && styles.sheetDesktop, { transform: [{ translateY }], opacity }]}>
-          <LinearGradient colors={["#181B24", "#121420"]} style={styles.sheetInner}>
+          <View style={styles.sheetInner}>
             {/* Header */}
             <View style={styles.header}>
-              <View style={styles.iconBtn} />
               <Text style={styles.title}>
-                {isForced 
-                  ? (isEN ? "Set Your Username" : "ስምዎን ያስገቡ") 
-                  : (isEN ? "Edit Profile" : "መለያዎን ያስተካክሉ")}
+                {isForced
+                  ? (isEN ? "Set your username" : "ስምዎን ያስገቡ")
+                  : (isEN ? "Edit profile" : "መለያዎን ያስተካክሉ")}
               </Text>
-              {!isForced ? (
-                <TouchableOpacity onPress={onClose} style={styles.iconBtn}>
-                  <Ionicons name="close" size={18} color="#fff" />
+              {!isForced && (
+                <TouchableOpacity
+                  onPress={onClose}
+                  style={styles.closeBtn}
+                  activeOpacity={0.75}
+                  accessibilityLabel={isEN ? "Close modal" : "ዝጋ"}
+                >
+                  <Ionicons name="close" size={18} color="#CBD5E1" />
                 </TouchableOpacity>
-              ) : (
-                <View style={styles.iconBtn} />
               )}
             </View>
 
             {/* Banner */}
             {banner && (
               <View style={[styles.banner, banner.type === "error" ? styles.bannerError : styles.bannerInfo]}>
-                <Ionicons name={banner.type === "error" ? "warning" : "information-circle"} size={14} color="#fff" />
+                <Ionicons name={banner.type === "error" ? "warning" : "information-circle"} size={15} color="#fff" />
                 <Text style={styles.bannerText}>{banner.text}</Text>
                 <TouchableOpacity onPress={() => setBanner(null)}>
                   <Ionicons name="close" size={14} color="#fff" />
@@ -324,91 +333,57 @@ export default function ProfileEditModal({
               </View>
             )}
 
-            {/* Avatar Row */}
-            <View style={styles.avatarRow}>
-              <View style={styles.avatarWrap}>
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  onPress={handlePickAvatar}
-                  disabled={uploadingAvatar || removingAvatar}
-                  accessibilityLabel="Change profile photo"
-                >
-                  <Avatar
-                    uri={avatar}
-                    name={displayName || username}
-                    size="2xl"
-                  />
-                  {(uploadingAvatar || removingAvatar) && (
-                    <View style={[styles.avatar, { position: 'absolute', backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' }]}>
-                      <ActivityIndicator size="small" color="#00daf3" />
-                    </View>
-                  )}
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  onPress={handlePickAvatar}
-                  disabled={uploadingAvatar || removingAvatar}
-                  style={styles.cameraBtn}
-                  accessibilityLabel="Pick photo"
-                >
-                  <View style={styles.cameraInner}>
-                    <Ionicons name="camera" size={16} color="#0c0c1f" />
+            {/* Avatar Inset Panel */}
+            <View style={styles.avatarCard}>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={handlePickAvatar}
+                disabled={uploadingAvatar || removingAvatar}
+                accessibilityLabel="Change profile photo"
+                style={styles.avatarWrap}
+              >
+                <Avatar
+                  uri={avatar}
+                  name={displayName || username}
+                  size="xl"
+                />
+                {(uploadingAvatar || removingAvatar) && (
+                  <View style={styles.avatarOverlayLoader}>
+                    <ActivityIndicator size="small" color="#00DAF3" />
                   </View>
-                </TouchableOpacity>
-              </View>
+                )}
+              </TouchableOpacity>
 
-              <View style={{ flex: 1, gap: 6 }}>
-                <Text style={styles.label}>{isEN ? "Profile Photo" : "የመለያ ፎቶ"}</Text>
-                <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 4 }}>
-                  {/* Upload / Replace Photo Icon Button */}
+              <View style={{ flex: 1, gap: 8 }}>
+                <Text style={styles.avatarCardTitle}>{isEN ? "Profile photo" : "የመለያ ፎቶ"}</Text>
+
+                <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
                   <TouchableOpacity
                     activeOpacity={0.75}
                     onPress={handlePickAvatar}
                     disabled={uploadingAvatar || removingAvatar}
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 6,
-                      paddingVertical: 7,
-                      paddingHorizontal: 12,
-                      borderRadius: 8,
-                      backgroundColor: 'rgba(255, 255, 255, 0.07)',
-                      borderWidth: 1,
-                      borderColor: 'rgba(255, 255, 255, 0.15)',
-                    }}
+                    style={styles.photoReplaceBtn}
                     accessibilityRole="button"
                     accessibilityLabel={isEN ? "Upload or replace photo" : "ፎቶ ቀይር"}
                   >
-                    <Ionicons name="camera-outline" size={16} color="#e5e3ff" />
-                    <Text style={{ color: '#e5e3ff', fontSize: 12, fontWeight: '600' }}>
+                    <Ionicons name="camera-outline" size={15} color="#E2E8F0" />
+                    <Text style={styles.photoReplaceText}>
                       {uploadingAvatar ? (isEN ? "Uploading..." : "እየተጫነ...") : (isEN ? "Replace" : "ቀይር")}
                     </Text>
                   </TouchableOpacity>
 
-                  {/* Remove Photo Icon Button */}
                   {Boolean(avatar) && (
                     <TouchableOpacity
                       activeOpacity={0.75}
                       onPress={confirmRemoveAvatar}
                       disabled={uploadingAvatar || removingAvatar}
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: 6,
-                        paddingVertical: 7,
-                        paddingHorizontal: 12,
-                        borderRadius: 8,
-                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                        borderWidth: 1,
-                        borderColor: 'rgba(239, 68, 68, 0.25)',
-                      }}
+                      style={styles.photoDeleteBtn}
                       accessibilityRole="button"
                       accessibilityLabel={isEN ? "Remove photo" : "ፎቶ ሰርዝ"}
                     >
-                      <Ionicons name="trash-outline" size={15} color="#ef4444" />
-                      <Text style={{ color: '#ef4444', fontSize: 12, fontWeight: '600' }}>
-                        {removingAvatar ? (isEN ? "..." : "...") : (isEN ? "Delete" : "ሰርዝ")}
+                      <Ionicons name="trash-outline" size={14} color="#F87171" />
+                      <Text style={styles.photoDeleteText}>
+                        {removingAvatar ? "..." : (isEN ? "Delete" : "ሰርዝ")}
                       </Text>
                     </TouchableOpacity>
                   )}
@@ -416,63 +391,64 @@ export default function ProfileEditModal({
               </View>
             </View>
 
-
             {/* Fields */}
-            <View style={{ gap: 12 }}>
+            <View style={{ gap: 14 }}>
               <View>
                 <Text style={styles.label}>{isEN ? "Username" : "የተጠቃሚ ስም"}</Text>
-                <TextInput
-
-                  value={username}
-                  onChangeText={(t) => setUsername(t.replace(/[^a-zA-Z0-9_]/g, "").slice(0, 20))}
-                  maxLength={20}
-                  placeholder="Unique handle (3-20 chars)"
-                  placeholderTextColor="#6B7280"
-                  style={styles.input}
-                  autoCapitalize="none"
-                />
+                <View style={styles.inputRow}>
+                  <Text style={styles.inputPrefix}>@</Text>
+                  <TextInput
+                    value={username}
+                    onChangeText={(t) => setUsername(t.replace(/[^a-zA-Z0-9_]/g, "").slice(0, 20))}
+                    maxLength={20}
+                    placeholder="Unique handle"
+                    placeholderTextColor="#475569"
+                    style={styles.inputRowField}
+                    autoCapitalize="none"
+                  />
+                </View>
               </View>
 
               <View>
-                <Text style={styles.label}>{isEN ? "Display Name" : "የሚታይ ስም"}</Text>
+                <Text style={styles.label}>{isEN ? "Display name" : "የሚታይ ስም"}</Text>
                 <TextInput
                   value={displayName}
                   onChangeText={(t) => setDisplayName(t.slice(0, 30))}
                   maxLength={30}
-                  placeholder={isEN ? "How should we show your name?" : "ስምዎ እንዲ እንዴት እንዲታይ ይፈልጋሉ?"}
-                  placeholderTextColor="#6B7280"
+                  placeholder={isEN ? "How should we show your name?" : "ስምዎ እንዴት እንዲታይ ይፈልጋሉ?"}
+                  placeholderTextColor="#475569"
                   style={styles.input}
                 />
               </View>
-
             </View>
 
             {/* Actions */}
             <View style={styles.actions}>
-              <TouchableOpacity onPress={onClose} style={[styles.btn, styles.btnGhost]}>
-                <Text style={styles.btnGhostText}>{isEN ? "Cancel" : "አይ"}</Text>
-              </TouchableOpacity>
-
+              {!isForced && (
+                <TouchableOpacity onPress={onClose} style={[styles.btn, styles.btnGhost]} activeOpacity={0.8}>
+                  <Text style={styles.btnGhostText}>{isEN ? "Cancel" : "አይ"}</Text>
+                </TouchableOpacity>
+              )}
 
               <TouchableOpacity
                 disabled={saving}
                 onPress={saveProfile}
                 style={[styles.btn, styles.btnPrimary, saving && { opacity: 0.7 }]}
+                activeOpacity={0.85}
               >
-                <LinearGradient colors={["#00daf3", "#00a3ff"]} style={styles.btnPrimaryInner}>
+                <View style={styles.btnPrimaryInner}>
                   {saving ? (
-                    <ActivityIndicator color="#0c0c1f" />
+                    <ActivityIndicator color="#07090E" />
                   ) : (
                     <>
-                      <Ionicons name="save" size={16} color="#0c0c1f" />
-                      <Text style={styles.btnPrimaryText}>{isEN ? "Save" : "አስቀምጥ"}</Text>
+                      <Ionicons name="checkmark" size={16} color="#07090E" />
+                      <Text style={styles.btnPrimaryText}>{isEN ? "Save changes" : "አስቀምጥ"}</Text>
                     </>
                   )}
-
-                </LinearGradient>
+                </View>
               </TouchableOpacity>
             </View>
-          </LinearGradient>
+          </View>
         </Animated.View>
       </KeyboardAvoidingView>
     </Modal>
@@ -481,37 +457,123 @@ export default function ProfileEditModal({
 
 const styles = StyleSheet.create({
   overlay: { flex: 1, justifyContent: "flex-end" },
-  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.5)" },
-  sheet: { marginHorizontal: 12, marginBottom: 12, borderRadius: 18, overflow: "hidden" },
-  sheetDesktop: { width: '100%', maxWidth: 440, alignSelf: 'center', marginBottom: 0, shadowColor: "#000", shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.5, shadowRadius: 20 },
-  sheetInner: { padding: 14, borderRadius: 18, borderWidth: 1, borderColor: "rgba(255,255,255,0.06)" },
+  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0, 0, 0, 0.72)" },
+  sheet: { marginHorizontal: 12, marginBottom: 12, borderRadius: 20, overflow: "hidden" },
+  sheetDesktop: { width: "100%", maxWidth: 440, alignSelf: "center", marginBottom: 0 },
+  sheetInner: {
+    padding: 22,
+    borderRadius: 20,
+    backgroundColor: "#0E111A",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
 
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
-  title: { color: "#fff", fontSize: 16, fontWeight: "900" },
-  iconBtn: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.08)" },
+  header: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 12,
+    paddingBottom: 16,
+    marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 255, 255, 0.07)",
+  },
+  title: { color: "#FFFFFF", fontSize: 18, fontWeight: "800", letterSpacing: -0.2 },
+  subtitle: { color: "#94A3B8", fontSize: 12.5, fontWeight: "500", marginTop: 3 },
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.07)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+  },
 
-  banner: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 12, marginBottom: 8, borderWidth: 1 },
-  bannerError: { backgroundColor: "#7f1d1d", borderColor: "#fca5a5" },
-  bannerInfo: { backgroundColor: "#1f2937", borderColor: "#93c5fd" },
-  bannerText: { color: "#fff", fontSize: 12, flex: 1 },
+  banner: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 10, marginBottom: 14, borderWidth: 1 },
+  bannerError: { backgroundColor: "rgba(239, 68, 68, 0.16)", borderColor: "rgba(248, 113, 113, 0.4)" },
+  bannerInfo: { backgroundColor: "rgba(59, 130, 246, 0.16)", borderColor: "rgba(147, 197, 253, 0.35)" },
+  bannerText: { color: "#F8FAFC", fontSize: 12, flex: 1, fontWeight: "500" },
 
-  avatarRow: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 8 },
-  avatarWrap: { width: 84, height: 84 },
-  avatar: { width: 84, height: 84, borderRadius: 42, backgroundColor: "#0B0B0F" },
-  avatarPlaceholder: { alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
+  avatarCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    padding: 14,
+    borderRadius: 14,
+    backgroundColor: "#141926",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    marginBottom: 18,
+  },
+  avatarWrap: { position: "relative" },
+  avatarOverlayLoader: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 999,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarCardTitle: { color: "#F8FAFC", fontSize: 13.5, fontWeight: "700" },
+  avatarCardHint: { color: "#64748B", fontSize: 11.5, fontWeight: "500", marginTop: 2 },
+  photoReplaceBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 9,
+    backgroundColor: "rgba(255, 255, 255, 0.07)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.12)",
+  },
+  photoReplaceText: { color: "#E2E8F0", fontSize: 12, fontWeight: "600" },
+  photoDeleteBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingVertical: 7,
+    paddingHorizontal: 11,
+    borderRadius: 9,
+    backgroundColor: "rgba(239, 68, 68, 0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(239, 68, 68, 0.25)",
+  },
+  photoDeleteText: { color: "#F87171", fontSize: 12, fontWeight: "600" },
 
-  cameraBtn: { position: "absolute", bottom: -4, right: -4, width: 32, height: 32, borderRadius: 16, overflow: "hidden", borderWidth: 2, borderColor: "#121420" },
-  cameraInner: { flex: 1, alignItems: "center", justifyContent: "center" },
-  hint: { color: "#94A3B8" },
+  label: { color: "#94A3B8", fontSize: 12, marginBottom: 6, fontWeight: "700" },
+  fieldHint: { color: "#64748B", fontSize: 11, marginTop: 5, fontWeight: "500" },
+  inputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#090C14",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    paddingHorizontal: 12,
+    height: 46,
+    gap: 6,
+  },
+  inputPrefix: { color: "#64748B", fontSize: 15, fontWeight: "700" },
+  inputRowField: { flex: 1, color: "#FFFFFF", fontSize: 15, fontWeight: "600", paddingVertical: 0 },
+  input: {
+    backgroundColor: "#090C14",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    color: "#FFFFFF",
+    paddingHorizontal: 12,
+    height: 46,
+    fontSize: 15,
+    fontWeight: "600",
+  },
 
-  label: { color: "#9CA3AF", marginBottom: 6, fontWeight: "700" },
-  input: { backgroundColor: "#0B0B0F", borderRadius: 12, borderWidth: 1, borderColor: "rgba(255,255,255,0.12)", color: "#fff", paddingHorizontal: 12, paddingVertical: 12, fontSize: 16 },
-
-  actions: { flexDirection: "row", gap: 10, marginTop: 12 },
-  btn: { flex: 1, borderRadius: 12, overflow: "hidden" },
-  btnGhost: { borderWidth: 1, borderColor: "rgba(255,255,255,0.12)", alignItems: "center", justifyContent: "center", paddingVertical: 12 },
-  btnGhostText: { color: "#e5e7eb", fontWeight: "800" },
-  btnPrimary: {},
-  btnPrimaryInner: { paddingVertical: 12, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8 },
-  btnPrimaryText: { color: "#0c0c1f", fontWeight: "900" },
+  actions: { flexDirection: "row", gap: 10, marginTop: 20 },
+  btn: { flex: 1, borderRadius: 12, overflow: "hidden", height: 46, justifyContent: "center" },
+  btnGhost: { backgroundColor: "#141926", borderWidth: 1, borderColor: "rgba(255, 255, 255, 0.12)", alignItems: "center", justifyContent: "center" },
+  btnGhostText: { color: "#CBD5E1", fontSize: 13.5, fontWeight: "700" },
+  btnPrimary: { backgroundColor: "#00DAF3" },
+  btnPrimaryInner: { alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 6 },
+  btnPrimaryText: { color: "#07090E", fontSize: 13.5, fontWeight: "800" },
 });

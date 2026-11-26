@@ -43,7 +43,7 @@ export default function SpinRoomBrowser({
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#8b5cf6" />
+        <ActivityIndicator size="large" color="#00DAF3" />
         <Text style={styles.loadingText}>Loading spin rooms…</Text>
       </View>
     );
@@ -79,7 +79,7 @@ export default function SpinRoomBrowser({
           const canAfford = balance >= room.betAmount;
           const isActive = room.currentPlayers > 0;
           const isFull = room.currentPlayers >= room.maxPlayers;
-          const accentColor = idx === 0 ? "#8b5cf6" : idx === 1 ? "#22d3ee" : idx === 2 ? "#22c55e" : idx === 3 ? "#f97316" : "#ec4899";
+          const accentColor = idx === 0 ? "#00DAF3" : idx === 1 ? "#22d3ee" : idx === 2 ? "#22c55e" : idx === 3 ? "#f97316" : "#FF3B57";
 
           return (
             <View
@@ -334,12 +334,13 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingHorizontal: 24,
     paddingVertical: 10,
-    borderRadius: 8,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: "#8b5cf6",
+    borderColor: "#00DAF3",
+    backgroundColor: "rgba(0, 218, 243, 0.1)",
   },
   refreshBtnText: {
-    color: "#8b5cf6",
+    color: "#00DAF3",
     fontSize: 12,
     fontWeight: "800",
     letterSpacing: 1,

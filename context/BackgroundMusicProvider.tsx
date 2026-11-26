@@ -17,111 +17,102 @@ const BackgroundMusicContext = createContext<BackgroundMusicContextType | undefi
 
 export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, token } = useAuth();
-  
+
   const [isPlaying, setIsPlaying] = useState(true);
   const isPlayingRef = useRef(true);
   const hasInitialized = useRef(false);
-  const [shouldLoadSound, setShouldLoadSound] = useState(false);
+  const playerRef = useRef<any>(null);
+  const justInitializedRef = useRef(false);
 
-  const safePlay = (p: any) => {
-    if (!p) return;
+  // Create the audio player exactly once, stable across re-renders
+  const player = useAudioPlayer(require('../assets/sounds/background.mp3'));
+  if (player && !playerRef.current) {
+    playerRef.current = player;
+    player.loop = true;
+    player.volume = 0.15;
+  }
+  const p = playerRef.current;
+
+  const safePlay = (playerInstance: any) => {
+    if (!playerInstance) return;
+    if (playerInstance.playing) return;
     try {
-      const res = p.play();
+      const res = playerInstance.play();
       if (res && typeof res.catch === 'function') {
         res.catch(() => {});
       }
     } catch {}
   };
 
-  const player = useAudioPlayer(shouldLoadSound ? require('../assets/sounds/background.mp3') : null);
-  
-  if (player) {
-    player.loop = true;
-  }
-
-  // Trigger playing when player becomes available (after SWR delay)
-  useEffect(() => {
-    if (shouldLoadSound && player && isPlayingRef.current && !player.playing) {
-      player.volume = 0.15;
-      safePlay(player);
-    }
-  }, [shouldLoadSound, player]);
-
-  // Initial load effect
+  // Initial load effect — run once
   useEffect(() => {
     const init = async () => {
       const isMutedLocal = await AsyncStorage.getItem('xoet_music_muted');
-      
+
       let shouldStartPlaying = true;
       if (isMutedLocal !== null) {
         shouldStartPlaying = isMutedLocal === 'false';
       } else if (user?.sound_muted !== undefined) {
         shouldStartPlaying = !user.sound_muted;
       }
-      
+
       setIsPlaying(shouldStartPlaying);
       isPlayingRef.current = shouldStartPlaying;
       hasInitialized.current = true;
-      if (player) {
-        player.volume = 0.15;
-      }
 
-      if (shouldStartPlaying && player) {
-        safePlay(player);
+      if (shouldStartPlaying && p) {
+        safePlay(p);
       }
     };
-    
-    if (!hasInitialized.current) {
-        init();
+
+    if (!hasInitialized.current && p) {
+      init();
     }
-  }, [player]);
+  }, [p, user?.sound_muted]);
 
   // Sync with User DB if it changes
   useEffect(() => {
-    if (user?.sound_muted !== undefined && hasInitialized.current) {
+    if (user?.sound_muted !== undefined && hasInitialized.current && p) {
       const dbShouldPlay = !user.sound_muted;
       if (dbShouldPlay !== isPlayingRef.current) {
         console.log('[AUDIO] Syncing state from User DB:', dbShouldPlay ? 'Playing' : 'Muted');
         setIsPlaying(dbShouldPlay);
         isPlayingRef.current = dbShouldPlay;
         if (dbShouldPlay) {
-          setShouldLoadSound(true);
-          safePlay(player);
-        }
-        else if (player && player.pause) player.pause();
+          safePlay(p);
+        } else if (p.pause) p.pause();
       }
     }
-  }, [user?.sound_muted, player]);
+  }, [user?.sound_muted, p]);
 
   // App State listener for background pausing
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (next) => {
-        if (next === 'active') {
-          if (isPlayingRef.current && player) safePlay(player);
-        } else if (next.match(/inactive|background/) && player && player.pause) {
-          player.pause();
-        }
-     });
+      if (next === 'active') {
+        if (isPlayingRef.current && p) safePlay(p);
+      } else if (next.match(/inactive|background/) && p && p.pause) {
+        p.pause();
+      }
+    });
 
     return () => {
       subscription.remove();
-      if (player && player.pause) player.pause();
+      if (p && p.pause) p.pause();
     };
-  }, [player]);
+  }, [p]);
 
   const unlockAudio = async () => {
-    setShouldLoadSound(true);
-    if (isPlayingRef.current && player && !player.playing) {
-      safePlay(player);
+    if (isPlayingRef.current && p && !p.playing) {
+      safePlay(p);
     }
   };
 
   const muteMusic = async () => {
     setIsPlaying(false);
     isPlayingRef.current = false;
-    
+
     AsyncStorage.setItem('xoet_music_muted', 'true').catch(() => {});
-    
+
     if (token) {
       fetch(`${API_URL}/account/settings`, {
         method: "PATCH",
@@ -129,17 +120,17 @@ export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = 
         body: JSON.stringify({ soundMuted: true })
       }).catch(() => {});
     }
-    
-    if (player && player.pause) player.pause();
+
+    if (p && p.pause) p.pause();
   };
 
   const toggleMusic = async () => {
     const nextState = !isPlaying;
     setIsPlaying(nextState);
     isPlayingRef.current = nextState;
-    
+
     AsyncStorage.setItem('xoet_music_muted', nextState ? 'false' : 'true').catch(() => {});
-    
+
     if (token) {
       fetch(`${API_URL}/account/settings`, {
         method: "PATCH",
@@ -147,18 +138,17 @@ export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = 
         body: JSON.stringify({ soundMuted: !nextState })
       }).catch(() => {});
     }
-    
-    setShouldLoadSound(true);
+
     if (nextState) {
-      safePlay(player);
+      safePlay(p);
     } else {
-      if (player && player.pause) player.pause();
+      if (p && p.pause) p.pause();
     }
   };
 
   const setVolume = async (volume: number) => {
-    if (player) {
-      player.volume = volume;
+    if (p) {
+      p.volume = volume;
     }
   };
 

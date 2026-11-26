@@ -26,9 +26,7 @@ import { haptics } from "../../../lib/haptcs";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { API_URL } from "../../../config";
 import { useBackgroundMusic } from "../../../context/BackgroundMusicProvider";
-import NotificationsPopover from "../../../components/NotificationsPopover";
-import PwaInstallModal from "../../../components/game/PwaInstallModal";
-import { WebDepositModal, WebWithdrawModal } from "../../../components/WebModals";
+import { WebDepositModal } from "../../../components/WebModals";
 import SearchingView from "../../../components/game/SearchingView";
 
 const { width: SCREEN_W } = Dimensions.get("window");
@@ -47,14 +45,10 @@ export default function WaitingScreen() {
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
   const { amount, time, token: urlToken, betMin, betMax } = useLocalSearchParams<{ amount?: string, time?: string, token?: string, betMin?: string, betMax?: string }>();
-  const { user, token: ctxToken, refreshProfile, fixUrl, language, switchLanguage } = useAuth();
+  const { user, token: ctxToken, refreshProfile, fixUrl, language } = useAuth();
   const { isPlaying, toggleMusic } = useBackgroundMusic();
 
   const [depositVisible, setDepositVisible] = useState(false);
-  const [withdrawVisible, setWithdrawVisible] = useState(false);
-  const [notificationsVisible, setNotificationsVisible] = useState(false);
-  const [pwaModalVisible, setPwaModalVisible] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
   const isEN = language === "en";
 
   // Robust token: Prefer URL token for Join-by-Link scenarios, fallback to AuthContext
@@ -80,27 +74,6 @@ export default function WaitingScreen() {
 
   const [internalError, setInternalError] = useState<string | null>(null);
   const pulse = useRef(new Animated.Value(0)).current;
-
-  const handleLanguageToggle = useCallback(() => {
-    switchLanguage?.();
-  }, [switchLanguage]);
-
-  const handleNavClick = (screen: string) => {
-    cancelFind?.().catch(() => {});
-    if (screen === 'home') {
-      router.push('/(authed)/home/gameplay');
-    } else if (screen === 'history') {
-      router.push('/(authed)/home/history');
-    } else if (screen === 'leaderboard') {
-      router.push('/(authed)/home/leaderboard');
-    } else if (screen === 'transactions') {
-      router.push('/(authed)/home/transactions');
-    } else if (screen === 'profile') {
-      router.push('/(authed)/home/account');
-    } else if (screen === 'admin') {
-      router.push('/(authed)/admin');
-    }
-  };
 
   useEffect(() => {
     if (lastError) {
@@ -229,60 +202,8 @@ export default function WaitingScreen() {
   if (isDesktop) {
     return (
       <View style={s.rootContainer}>
-        {/* Web Deposit & Withdraw Modals & Notifications */}
-        <WebDepositModal visible={depositVisible} onClose={() => setDepositVisible(false)} user={user} token={token || undefined} onSuccess={refreshProfile} />
-        <WebWithdrawModal visible={withdrawVisible} onClose={() => setWithdrawVisible(false)} user={user} token={token || undefined} onSuccess={refreshProfile} />
-        <NotificationsPopover visible={notificationsVisible} onClose={() => setNotificationsVisible(false)} onUnreadCountChange={setUnreadCount} />
-        <PwaInstallModal visible={pwaModalVisible} onClose={() => setPwaModalVisible(false)} />
-
-        {/* ── CORE BODY CONTAINER (Full-bleed desktop matchmaking arena) ── */}
-        <View style={{ flex: 1, width: '100%', height: '100%', position: 'relative' }}>
-          {/* ── HEADER BAR OVERLAY ── */}
-          <View style={[s.header, { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 50 }]}>
-            <View style={s.headerContentWrapper}>
-              {/* Left: Logo */}
-              <View style={s.logoContainer}>
-                <Image source={require("../../../assets/images/icon.jpg")} style={s.logoImage} resizeMode="cover" />
-                <Text style={s.logoText}>XO ETHIOPIA</Text>
-              </View>
-
-              {/* Right: Utility Cluster */}
-              <View style={s.utilityCluster}>
-                <TouchableOpacity onPress={() => setPwaModalVisible(true)} style={s.utilityBtn} activeOpacity={0.8}>
-                  <Ionicons name="cloud-download-outline" size={16} color="#8b93a7" />
-                  <Text style={s.utilityBtnText}>APP</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity onPress={handleLanguageToggle} style={s.utilityBtn} activeOpacity={0.8}>
-                  <Ionicons name="globe-outline" size={15} color="#8b93a7" />
-                  <Text style={s.utilityBtnText}>{language?.toUpperCase() || "EN"}</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity onPress={toggleMusic} style={s.utilityBtn} activeOpacity={0.8}>
-                  <Ionicons name={isPlaying ? "volume-medium-outline" : "volume-mute-outline"} size={16} color="#8b93a7" />
-                </TouchableOpacity>
-
-                <TouchableOpacity onPress={() => setNotificationsVisible(true)} style={s.bellBtn} activeOpacity={0.8}>
-                  <Ionicons name="notifications-outline" size={16} color="#8b93a7" />
-                  {unreadCount > 0 && (
-                    <View style={s.bellBadge}><Text style={s.bellBadgeText}>{unreadCount}</Text></View>
-                  )}
-                </TouchableOpacity>
-
-                {/* Profile Chip */}
-                <TouchableOpacity onPress={() => handleNavClick('profile')} style={s.profileChip} activeOpacity={0.8}>
-                  <View style={s.profileChipAvatar}>
-                    <Text style={s.profileChipAvatarText}>{user?.username ? user.username.slice(0, 2).toUpperCase() : "ME"}</Text>
-                  </View>
-                  <View style={{ marginRight: 6 }}>
-                    <Text style={s.profileChipName}>{user?.username || "Player"}</Text>
-                    <Text style={s.profileChipVip}>VIP 24</Text>
-                  </View>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-
+        {/* ── CORE BODY CONTAINER (Full-bleed desktop matchmaking arena, no top nav) ── */}
+        <View style={{ flex: 1, width: '100%', height: '100%' }}>
           <SearchingView
             onCancel={() => { cancelFind?.().catch(() => {}); router.replace('/home/gameplay' as any); }}
             isMatched={isMatched}

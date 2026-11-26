@@ -1,10 +1,11 @@
-// components/game/IncomingSpinInviteModal.tsx — Styled matching Image 5 with XOET Brand Colors
-import React, { useEffect } from "react";
-import { View, Text, TouchableOpacity, Modal, StyleSheet, Platform } from "react-native";
+// components/game/IncomingSpinInviteModal.tsx — Clean centered challenge card matching Image 2
+import React, { useEffect, useState } from "react";
+import { View, Text, TouchableOpacity, Modal, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../context/authContext";
 import { playTickSound } from "../../lib/pinTickAudio";
 import { haptics } from "../../lib/haptcs";
+import { colors } from "../../theme/tokens";
 
 export interface SpinInvitePayload {
   fromUserId: string;
@@ -26,79 +27,93 @@ export default function IncomingSpinInviteModal({
   onDecline,
 }: IncomingSpinInviteModalProps) {
   const { language } = useAuth();
-  const isEN = language === "en";
+  const isEN = language !== "am";
+  const [secondsLeft, setSecondsLeft] = useState(30);
 
   useEffect(() => {
-    if (invite) {
-      try {
-        playTickSound(700);
-      } catch {}
-    }
+    if (!invite) return;
+    setSecondsLeft(30);
+    try {
+      playTickSound(700);
+    } catch {}
+    const timer = setInterval(() => {
+      setSecondsLeft((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
   }, [invite]);
 
   if (!invite) return null;
 
+  const senderName = invite.fromUsername || (isEN ? "A friend" : "ጓደኛዎ");
+  const initial = senderName.charAt(0).toUpperCase();
   const modeName = invite.mode === "5_PLAYER"
-    ? (isEN ? "5-Player Room" : "የ5 ተጫዋቾች ክፍል")
+    ? (isEN ? "5-Player Spin" : "የ5 ተጫዋቾች ስፒን")
     : (isEN ? "Spin & Win" : "ስፒን እና አሸንፍ");
 
   return (
     <Modal visible={!!invite} transparent animationType="fade" onRequestClose={onDecline}>
       <View style={s.overlay}>
-        <View style={s.box}>
-          {/* Header Row (Spin Disc Avatar + Status Dot matching Image 5) */}
-          <View style={s.header}>
-            <View style={s.avatarWrap}>
-              <View style={s.avatarCircle}>
-                <Ionicons name="disc" size={24} color="#ff2a5f" />
-              </View>
-              <View style={s.onlineBadge} />
-            </View>
+        <View style={s.card}>
+          <TouchableOpacity
+            onPress={onDecline}
+            style={s.closeBtn}
+            activeOpacity={0.75}
+            accessibilityLabel={isEN ? "Close invitation" : "ዝጋ"}
+          >
+            <Ionicons name="close" size={16} color={colors.textMuted} />
+          </TouchableOpacity>
 
-            <View style={s.headerTextWrap}>
-              <Text style={s.badgeLabel}>{isEN ? "SPIN INVITATION" : "የስፒን ግብዣ"}</Text>
-              <Text style={s.title} numberOfLines={1}>{modeName}</Text>
+          <View style={s.avatarPair}>
+            <View style={s.challengerAvatar}>
+              <Text style={s.challengerInitial}>{initial}</Text>
+            </View>
+            <View style={s.gameAvatar}>
+              <Ionicons name="disc-outline" size={19} color={colors.primary} />
             </View>
           </View>
 
-          {/* Invitation Details Body */}
-          <View style={s.bodyCard}>
-            <Text style={s.bodyText}>
-              <Text style={s.highlightName}>{invite.fromUsername || (isEN ? "A Friend" : "ጓደኛዎ")}</Text>{" "}
-              {isEN
-                ? `invited you to spin and play in ${modeName} for `
-                : `በ ${modeName} ጨዋታ ላይ እንዲሳተፉ ጋብዘዎታል በ `}
-              <Text style={s.amountHighlight}>{invite.entryAmount || 50} ETB</Text>!
-            </Text>
-          </View>
+          <Text style={s.title} numberOfLines={1}>
+            {isEN ? `${senderName} invites you` : `${senderName} ጋብዞዎታል`}
+          </Text>
+          <Text style={s.subtitle} numberOfLines={2}>
+            {isEN
+              ? `${modeName} · ${Number(invite.entryAmount || 50).toLocaleString()} ETB entry`
+              : `${modeName} · ${Number(invite.entryAmount || 50).toLocaleString()} ETB መግቢያ`}
+          </Text>
 
-          {/* Action Pills matching Image 5 */}
-          <View style={s.actions}>
+          <View style={s.actionsRow}>
             <TouchableOpacity
-              activeOpacity={0.75}
-              style={[s.btn, s.btnDecline]}
-              onPress={() => {
-                haptics.tap();
-                playTickSound();
-                onDecline();
-              }}
-            >
-              <Text style={s.btnDeclineText}>{isEN ? "Decline" : "አትቀበል"}</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={0.88}
-              style={[s.btn, s.btnAccept]}
+              activeOpacity={0.85}
+              style={s.acceptPill}
               onPress={() => {
                 haptics.confirm();
                 playTickSound(800);
                 onAccept();
               }}
+              accessibilityRole="button"
+              accessibilityLabel={isEN ? "Join spin" : "ተቀላቀል"}
             >
-              <Ionicons name="play" size={15} color="#060a14" />
-              <Text style={s.btnAcceptText}>{isEN ? "Join Spin" : "ስፒን ጀምር"}</Text>
+              <Text style={s.acceptPillText}>{isEN ? "Join spin" : "ተቀላቀል"}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.75}
+              style={s.rejectPill}
+              onPress={() => {
+                haptics.tap();
+                playTickSound();
+                onDecline();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={isEN ? "Decline" : "አትቀበል"}
+            >
+              <Text style={s.rejectPillText}>{isEN ? "Reject" : "አትቀበል"}</Text>
             </TouchableOpacity>
           </View>
+
+          <Text style={s.footerNote}>
+            {isEN ? `Expires in ${secondsLeft}s` : `በ ${secondsLeft} ሰከንድ ያበቃል`}
+          </Text>
         </View>
       </View>
     </Modal>
@@ -108,130 +123,121 @@ export default function IncomingSpinInviteModal({
 const s = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(4, 6, 12, 0.85)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+    backgroundColor: "rgba(5, 7, 14, 0.78)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
   },
-  box: {
-    width: '100%',
+  card: {
+    width: "100%",
     maxWidth: 360,
-    backgroundColor: '#111625',
-    borderRadius: 22,
-    padding: 20,
-    borderWidth: 1.2,
-    borderColor: 'rgba(255, 42, 95, 0.3)',
-    shadowColor: '#ff2a5f',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 24,
-    elevation: 16,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 14,
-  },
-  avatarWrap: {
-    position: 'relative',
-  },
-  avatarCircle: {
-    width: 48,
-    height: 48,
+    backgroundColor: colors.card,
     borderRadius: 24,
-    backgroundColor: 'rgba(255, 42, 95, 0.12)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 42, 95, 0.4)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 28,
+    paddingBottom: 22,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    alignItems: "center",
+    position: "relative",
   },
-  onlineBadge: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#10b981',
+  closeBtn: {
+    position: "absolute",
+    top: 14,
+    right: 14,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: colors.cardRaised,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarPair: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  challengerAvatar: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: colors.cardRaised,
     borderWidth: 2,
-    borderColor: '#111625',
+    borderColor: colors.card,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 2,
   },
-  headerTextWrap: {
-    flex: 1,
-    minWidth: 0,
+  challengerInitial: {
+    color: colors.text,
+    fontSize: 17,
+    fontWeight: "800",
   },
-  badgeLabel: {
-    color: '#8b93a7',
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
+  gameAvatar: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: colors.tintPrimary,
+    borderWidth: 2,
+    borderColor: colors.card,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: -12,
+    zIndex: 1,
   },
   title: {
-    color: '#ffffff',
+    color: colors.text,
     fontSize: 18,
-    fontWeight: '900',
-    fontFamily: 'Inter, sans-serif',
-    marginTop: 2,
+    fontWeight: "800",
+    textAlign: "center",
   },
-  bodyCard: {
-    backgroundColor: '#161c2e',
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    marginBottom: 18,
-  },
-  bodyText: {
-    color: '#cbd5e1',
+  subtitle: {
+    color: colors.textMuted,
     fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '600',
+    fontWeight: "600",
+    textAlign: "center",
+    marginTop: 6,
+    marginBottom: 22,
   },
-  highlightName: {
-    color: '#ffffff',
-    fontWeight: '800',
-  },
-  amountHighlight: {
-    color: '#ff2a5f',
-    fontWeight: '900',
-  },
-  actions: {
-    flexDirection: 'row',
+  actionsRow: {
+    flexDirection: "row",
     gap: 10,
+    width: "100%",
   },
-  btn: {
+  acceptPill: {
     flex: 1,
     height: 46,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 6,
+    borderRadius: 999,
+    backgroundColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  btnDecline: {
-    backgroundColor: '#161c2e',
+  acceptPillText: {
+    color: colors.bgDeep,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  rejectPill: {
+    flex: 1,
+    height: 46,
+    borderRadius: 999,
+    backgroundColor: "transparent",
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: colors.borderStrong,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  btnDeclineText: {
-    color: '#8b93a7',
+  rejectPillText: {
+    color: colors.textSoft,
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: "700",
   },
-  btnAccept: {
-    backgroundColor: '#ff2a5f',
-    shadowColor: '#ff2a5f',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 6,
-  },
-  btnAcceptText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '900',
-    letterSpacing: 0.2,
+  footerNote: {
+    color: colors.textFaint,
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 14,
+    textAlign: "center",
   },
 });

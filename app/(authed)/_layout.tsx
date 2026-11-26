@@ -52,7 +52,7 @@ const IncomingSpinInviteModal = Platform.OS === 'web'
   : require("../../components/game/IncomingSpinInviteModal").default;
 
 
-const SidebarItem = ({ icon, label, isActive, onPress, badge, collapsed, isDesktop }: { icon: any; label: string; isActive: boolean; onPress: () => void; badge?: string; collapsed?: boolean; isDesktop?: boolean }) => {
+    const SidebarItem = ({ icon, label, isActive, onPress, badge, collapsed, isDesktop }: { icon: any; label: string; isActive: boolean; onPress: () => void; badge?: string; collapsed?: boolean; isDesktop?: boolean }) => {
   return (
     <WebPressable
       onPress={onPress}
@@ -60,10 +60,10 @@ const SidebarItem = ({ icon, label, isActive, onPress, badge, collapsed, isDeskt
         {
           flexDirection: 'row',
           alignItems: 'center',
-          paddingVertical: 14,
-          paddingHorizontal: collapsed ? 0 : 20,
-          marginHorizontal: collapsed ? 0 : 12,
-          borderRadius: 12,
+          paddingVertical: 10,
+          paddingHorizontal: collapsed ? 0 : 14,
+          marginHorizontal: collapsed ? 0 : 8,
+          borderRadius: 8,
           justifyContent: collapsed ? 'center' : 'flex-start',
           backgroundColor: isActive
             ? 'rgba(0, 218, 243, 0.08)'
@@ -80,11 +80,11 @@ const SidebarItem = ({ icon, label, isActive, onPress, badge, collapsed, isDeskt
         }
       ]}
     >
-      <Ionicons name={icon} size={20} color={isActive ? '#00daf3' : 'rgba(229,227,255,0.5)'} style={{ marginRight: collapsed ? 0 : 14 }} />
+      <Ionicons name={icon} size={16} color={isActive ? '#00daf3' : 'rgba(229,227,255,0.5)'} style={{ marginRight: collapsed ? 0 : 10 }} />
       {!collapsed && (
         <Text style={{
           color: isActive ? '#fff' : 'rgba(229,227,255,0.5)',
-          fontSize: 14,
+          fontSize: 12,
           fontWeight: isActive ? '800' : '600',
           letterSpacing: 0.3,
           flex: 1,
@@ -100,9 +100,9 @@ const HeaderButton = ({ icon, onPress, isActive, activeColor }: { icon: any; onP
   <WebPressable
     onPress={onPress}
     style={({ hovered }: { pressed: boolean; hovered: boolean }) => ({
-      width: 40,
-      height: 40,
-      borderRadius: 14,
+      width: 34,
+      height: 34,
+      borderRadius: 10,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: isActive ? (activeColor || 'rgba(0, 218, 243, 0.12)') : hovered ? 'rgba(255,255,255,0.06)' : 'transparent',
@@ -112,7 +112,7 @@ const HeaderButton = ({ icon, onPress, isActive, activeColor }: { icon: any; onP
       transition: 'all 0.15s ease-in-out',
     })}
   >
-    <Ionicons name={icon} size={18} color={isActive ? (activeColor?.includes('16,185') ? '#10b981' : '#00daf3') : 'rgba(167,167,210,0.7)'} />
+    <Ionicons name={icon} size={16} color={isActive ? (activeColor?.includes('16,185') ? '#10b981' : '#00daf3') : 'rgba(167,167,210,0.7)'} />
   </WebPressable>
 );
 
@@ -139,6 +139,25 @@ function MatchmakingGate() {
               opponentAvatar: opponentAvatar || "",
               amount: String(betAmount || 50),
               time: String(timerDuration || 30)
+            }
+          } as any);
+        }
+      } else if (msg?.type === "rps:match_found") {
+        const isAlreadyInRps = pathname.includes("/games/rps");
+        if (!isAlreadyInRps) {
+          const { roomId, stakeAmount, prizeAmount, youAre, opponentUsername, opponentId, feePercent, bestOf } = msg.payload || {};
+          console.log("[GLOBAL_GATE] RPS Match found! Redirecting to RPS arena:", roomId);
+          router.replace({
+            pathname: "/(authed)/games/rps",
+            params: {
+              roomId: String(roomId),
+              stakeAmount: String(stakeAmount || 10),
+              prizeAmount: String(prizeAmount || 16),
+              youAre: youAre || "p1",
+              opponentUsername: opponentUsername || "Opponent",
+              opponentId: opponentId || "",
+              feePercent: String(feePercent || 20),
+              bestOf: String(bestOf || 3),
             }
           } as any);
         }
@@ -216,6 +235,7 @@ function GlobalInvitesGate() {
           id: msg.payload?.fromUserId,
           username: msg.payload?.fromUsername,
           amount: msg.payload?.betAmount,
+          gameType: msg.payload?.gameType || 'xo',
         });
       } else if (msg.type === 'friend_invite_declined') {
         setIncomingInvite(null);
@@ -240,13 +260,25 @@ function GlobalInvitesGate() {
 
   const handleFriendAccept = useCallback(() => {
     if (!incomingInvite?.id || !token) return;
-    send('friend_invite_response', { token, senderId: incomingInvite.id, accept: true, betAmount: incomingInvite.amount });
+    send('friend_invite_response', {
+      token,
+      senderId: incomingInvite.id,
+      accept: true,
+      betAmount: incomingInvite.amount,
+      gameType: incomingInvite.gameType || 'xo',
+    });
     setIncomingInvite(null);
   }, [incomingInvite, token, send]);
 
   const handleFriendDecline = useCallback(() => {
     if (!incomingInvite?.id || !token) return;
-    send('friend_invite_response', { token, senderId: incomingInvite.id, accept: false, betAmount: incomingInvite.amount });
+    send('friend_invite_response', {
+      token,
+      senderId: incomingInvite.id,
+      accept: false,
+      betAmount: incomingInvite.amount,
+      gameType: incomingInvite.gameType || 'xo',
+    });
     setIncomingInvite(null);
   }, [incomingInvite, token, send]);
 
@@ -323,7 +355,7 @@ export default function AuthedLayout() {
   const isSpinRoute = pathname.includes("spin");
   const isTransactionsRoute = pathname.includes("/home/transactions");
   const isAdminRoute = pathname.includes("/admin");
-  const isGameRoute = pathname.includes("/game/");
+  const isGameRoute = pathname.includes("/game/") || pathname.includes("/games/") || pathname.includes("rps");
   const showRightSidebar = isDesktop && !isGameplayRoute && !isHistoryRoute && !isLeaderboardRoute && !isAccountRoute && !isSpinRoute && !isAdminRoute && !isTransactionsRoute && !isGameRoute;
   const showLeftSidebar = (isDesktop || isTablet) && !isHistoryRoute && !isLeaderboardRoute && !isAccountRoute && !isSpinRoute && !isAdminRoute && !isTransactionsRoute && !isGameRoute;
   const isAccountPage = pathname.includes("/home/account");
@@ -589,46 +621,46 @@ export default function AuthedLayout() {
       <GlobalNotiGate />
       <NotificationsPopover visible={notificationsVisible} onClose={() => setNotificationsVisible(false)} onUnreadCountChange={setUnreadCount} />
       <WelcomeBonusModal visible={welcomeBonusVisible} onClose={handleCloseWelcomeBonus} />
-      <View style={{ flex: 1, backgroundColor: '#0a0a14', padding: showResponsiveLayout && !isAdminRoute && !isGameplayRoute && !isHistoryRoute && !isLeaderboardRoute && !isAccountRoute && !isSpinRoute && !isTransactionsRoute ? 16 : 0 }}>
+      <View style={{ flex: 1, backgroundColor: '#0a0a14', padding: showResponsiveLayout && !isAdminRoute && !isGameplayRoute && !isHistoryRoute && !isLeaderboardRoute && !isAccountRoute && !isSpinRoute && !isTransactionsRoute && !isGameRoute ? 12 : 0 }}>
         {isAdminRoute || isGameplayRoute || isHistoryRoute || isLeaderboardRoute || isAccountRoute || isSpinRoute || isTransactionsRoute || isGameRoute ? (
           <Slot />
         ) : showResponsiveLayout ? (
           <View style={{ flex: 1, gap: 16 }}>
             {/* Top Header Panel Card */}
             <View style={{
-              height: 72,
+              height: 60,
               flexDirection: 'row',
               justifyContent: 'space-between',
               alignItems: 'center',
-              paddingHorizontal: 24,
+              paddingHorizontal: 16,
               backgroundColor: '#111115',
-              borderRadius: 16,
+              borderRadius: 12,
               borderWidth: 1,
               borderColor: 'rgba(255, 255, 255, 0.05)',
             }}>
               {/* Left section: XO Logo and Brand text */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingLeft: 8 }}>
-                <Image source={require("../../assets/images/icon.jpg")} style={{ width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: '#00daf3' }} />
-                <Text style={{ fontSize: 24, fontWeight: '900', letterSpacing: 1, color: '#00daf3' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 6 }}>
+                <Image source={require("../../assets/images/icon.jpg")} style={{ width: 30, height: 30, borderRadius: 15, borderWidth: 1, borderColor: '#00daf3' }} />
+                <Text style={{ fontSize: 20, fontWeight: '900', letterSpacing: 0.8, color: '#00daf3' }}>
                   XO ET
                 </Text>
               </View>
 
               {/* Right section: Balance, utilities, PWA download, and profile */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                 {/* Balance + Refresh button */}
-                <View style={{ backgroundColor: '#18181b', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: '#27272a', marginRight: 8 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Ionicons name="wallet" size={14} color="#00daf3" />
-                    <Text style={{ fontWeight: '700', color: '#e5e3ff', fontSize: 15 }}>ETB {Number(user?.available_balance ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+                <View style={{ backgroundColor: '#18181b', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 14, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: '#27272a', marginRight: 6 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                    <Ionicons name="wallet" size={12} color="#00daf3" />
+                    <Text style={{ fontWeight: '700', color: '#e5e3ff', fontSize: 13 }}>ETB {Number(user?.available_balance ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
                     {Number((user as any)?.bonus_balance ?? 0) > 0 && (
-                      <TouchableOpacity onPress={() => setBonusModalVisible(true)} style={{ marginLeft: 6, backgroundColor: 'rgba(0,218,243,0.15)', paddingHorizontal: 6, paddingVertical: 3, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(0,218,243,0.3)', flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                        <Ionicons name="gift" size={11} color="#00daf3" />
+                      <TouchableOpacity onPress={() => setBonusModalVisible(true)} style={{ marginLeft: 5, backgroundColor: 'rgba(0,218,243,0.15)', paddingHorizontal: 5, paddingVertical: 2, borderRadius: 5, borderWidth: 1, borderColor: 'rgba(0,218,243,0.3)', flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                        <Ionicons name="gift" size={10} color="#00daf3" />
                       </TouchableOpacity>
                     )}
                   </View>
-                  <TouchableOpacity onPress={() => refreshProfile?.()} style={{ marginLeft: 4 }}>
-                    <SyncIcon size={13} color="#00daf3" />
+                  <TouchableOpacity onPress={() => refreshProfile?.()} style={{ marginLeft: 3 }}>
+                    <SyncIcon size={11} color="#00daf3" />
                   </TouchableOpacity>
                 </View>
 
@@ -639,50 +671,53 @@ export default function AuthedLayout() {
                       onPress={handleAppDownload}
                       style={{
                         flexDirection: 'row',
-                        height: 32,
-                        paddingHorizontal: 12,
-                        borderRadius: 16,
+                        height: 28,
+                        paddingHorizontal: 10,
+                        borderRadius: 12,
                         backgroundColor: '#00daf3',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        gap: 6,
-                        marginRight: 8,
+                        gap: 5,
+                        marginRight: 6,
                         shadowColor: deferredPrompt ? '#00daf3' : 'transparent',
                         shadowOffset: { width: 0, height: 0 },
                         shadowOpacity: deferredPrompt ? 0.6 : 0,
                         shadowRadius: deferredPrompt ? 8 : 0,
                       }}
                     >
-                      <Ionicons name="cloud-download-outline" size={14} color="#0B0B0F" />
-                      <Text style={{ color: "#0B0B0F", fontSize: 11, fontWeight: '900' }}>APP</Text>
+                      <Ionicons name="cloud-download-outline" size={12} color="#0B0B0F" />
+                      <Text style={{ color: "#0B0B0F", fontSize: 10, fontWeight: '900' }}>APP</Text>
                     </TouchableOpacity>
                   </Animated.View>
                 )}
 
                 {/* Utilities */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <TouchableOpacity onPress={handleLanguageToggle} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#18181b', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#27272a' }}>
-                    <Ionicons name="globe-outline" size={16} color={language === 'am' ? '#00daf3' : '#a8a7d4'} />
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <TouchableOpacity onPress={handleToggleSound} style={{ width: 32, height: 32, borderRadius: 14, backgroundColor: '#18181b', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: isPlaying ? 'rgba(0, 218, 243, 0.4)' : '#27272a' }}>
+                    <Ionicons name={isPlaying ? "volume-high-outline" : "volume-mute-outline"} size={16} color={isPlaying ? '#00daf3' : '#a8a7d4'} />
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => setNotificationsVisible(true)} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#18181b', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#27272a' }}>
-                    <Ionicons name="notifications-outline" size={18} color="#a8a7d4" />
+                  <TouchableOpacity onPress={handleLanguageToggle} style={{ width: 32, height: 32, borderRadius: 14, backgroundColor: '#18181b', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#27272a' }}>
+                    <Ionicons name="globe-outline" size={14} color={language === 'am' ? '#00daf3' : '#a8a7d4'} />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setNotificationsVisible(true)} style={{ width: 32, height: 32, borderRadius: 14, backgroundColor: '#18181b', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#27272a' }}>
+                    <Ionicons name="notifications-outline" size={16} color="#a8a7d4" />
                     {unreadCount > 0 && (
-                      <View style={{ position: 'absolute', top: 6, right: 6, width: 8, height: 8, borderRadius: 4, backgroundColor: '#ef4444' }} />
+                      <View style={{ position: 'absolute', top: 5, right: 5, width: 7, height: 7, borderRadius: 4, backgroundColor: '#ef4444' }} />
                     )}
                   </TouchableOpacity>
                 </View>
-                <View style={{ width: 1, height: 24, backgroundColor: 'rgba(68,68,107,0.2)', marginHorizontal: 8 }} />
+                <View style={{ width: 1, height: 20, backgroundColor: 'rgba(68,68,107,0.2)', marginHorizontal: 6 }} />
                 {/* Profile Link */}
-                <TouchableOpacity onPress={() => navigateTo('/(authed)/home/account')} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingLeft: 8 }}>
+                <TouchableOpacity onPress={() => navigateTo('/(authed)/home/account')} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 6 }}>
                   <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={{ fontWeight: '600', fontSize: 14, color: '#e5e3ff' }}>{user?.username || 'Profile'}</Text>
-                    <Text style={{ fontWeight: '800', fontSize: 10, color: '#00daf3', letterSpacing: 0.5 }}>LEVEL 24</Text>
+                    <Text style={{ fontWeight: '600', fontSize: 12, color: '#e5e3ff' }}>{user?.username || 'Profile'}</Text>
+                    <Text style={{ fontWeight: '800', fontSize: 9, color: '#00daf3', letterSpacing: 0.5 }}>LEVEL 24</Text>
                   </View>
                   {(user as any)?.avatar ? (
-                    <Image source={{ uri: fixUrl((user as any).avatar) || undefined }} style={{ width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: '#00daf3' }} />
+                    <Image source={{ uri: fixUrl((user as any).avatar) || undefined }} style={{ width: 30, height: 30, borderRadius: 14, borderWidth: 1, borderColor: '#00daf3' }} />
                   ) : (
-                    <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#00daf3', alignItems: 'center', justifyContent: 'center' }}>
-                      <Text style={{ color: '#0B0B0F', fontWeight: '800', fontSize: 14 }}>
+                    <View style={{ width: 30, height: 30, borderRadius: 14, backgroundColor: '#00daf3', alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ color: '#0B0B0F', fontWeight: '800', fontSize: 12 }}>
                         {(user?.username || user?.id || 'U').charAt(0).toUpperCase()}
                       </Text>
                     </View>
@@ -692,17 +727,17 @@ export default function AuthedLayout() {
             </View>
 
             {/* Content Row: Sidebar + Content */}
-            <View style={{ flex: 1, flexDirection: 'row', gap: 16 }}>
+            <View style={{ flex: 1, flexDirection: 'row', gap: 12 }}>
               {/* Left Sidebar */}
               {showLeftSidebar && (
                 <View style={{
-                  width: isDesktop ? 280 : 72,
+                  width: isDesktop ? 250 : 72,
                   backgroundColor: '#111115',
-                  borderRadius: 16,
+                  borderRadius: 12,
                   borderWidth: 1,
                   borderColor: 'rgba(255, 255, 255, 0.05)',
-                  paddingBottom: 10,
-                  paddingTop: 16,
+                  paddingBottom: 8,
+                  paddingTop: 12,
                   flexDirection: 'column',
                 }}>
                   <View style={{ flex: 1 }}>
@@ -711,15 +746,15 @@ export default function AuthedLayout() {
                     <SidebarItem isDesktop={isDesktop} collapsed={!isDesktop} icon="trophy-outline" label={isEN ? "Leaderboard" : "ደረጃዎች"} isActive={pathname.includes('/home/leaderboard')} onPress={() => navigateTo('/(authed)/home/leaderboard')} />
                     <SidebarItem isDesktop={isDesktop} collapsed={!isDesktop} icon="person-outline" label={isEN ? "Profile" : "መገለጫ"} isActive={pathname.includes('/home/account')} onPress={() => navigateTo('/(authed)/home/account')} />
 
-                    <View style={{ height: 20 }} />
-                    {isDesktop && <Text style={{ paddingHorizontal: 20, color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: '800', letterSpacing: 1, marginBottom: 8 }}>WALLET</Text>}
+                    <View style={{ height: 12 }} />
+                    {isDesktop && <Text style={{ paddingHorizontal: 20, color: 'rgba(255,255,255,0.3)', fontSize: 9, fontWeight: '800', letterSpacing: 1, marginBottom: 6 }}>WALLET</Text>}
 
                     <SidebarItem isDesktop={isDesktop} collapsed={!isDesktop} icon="wallet-outline" label={isEN ? "Deposit" : "ገንዘብ አስገባ"} isActive={depositVisible} onPress={() => setDepositVisible(true)} />
                     <SidebarItem isDesktop={isDesktop} collapsed={!isDesktop} icon="cash-outline" label={isEN ? "Withdraw" : "ገንዘብ አውጣ"} isActive={withdrawVisible} onPress={() => setWithdrawVisible(true)} />
 
                     {(user?.role === 'admin' || user?.role === 'superadmin' || user?.role === 'maintenance') && (
                       <>
-                        <View style={{ height: 20 }} />
+                        <View style={{ height: 12 }} />
                         <SidebarItem isDesktop={isDesktop} collapsed={!isDesktop} icon="shield-half-outline" label="Admin Center" isActive={isAdminRoute} onPress={() => navigateTo('/(authed)/admin')} />
                       </>
                     )}
@@ -728,17 +763,17 @@ export default function AuthedLayout() {
               )}
 
               {/* Slot content */}
-              <View style={{ flex: 1, backgroundColor: '#111115', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.05)', overflow: 'hidden' }}>
+              <View style={{ flex: 1, backgroundColor: '#111115', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.05)', overflow: 'hidden' }}>
                 <Slot />
               </View>
             </View>
           </View>
         ) : (
-          <View style={{ flex: 1, flexDirection: (isDesktop || isTablet) ? 'row' : 'column' }}>
+            <View style={{ flex: 1, flexDirection: (isDesktop || isTablet) ? 'row' : 'column' }}>
             {/* Left Sidebar — desktop only (≥1024px) or tablet (collapsed) */}
             {showLeftSidebar && (
               <View style={{
-                width: isDesktop ? 280 : 72,
+                width: isDesktop ? 250 : 72,
                 height: '100%',
                 backgroundColor: '#09090b',
                 borderRightWidth: 1,
@@ -748,7 +783,7 @@ export default function AuthedLayout() {
                 flexDirection: 'column',
               }}>
                 {/* Header Spacer (Push contents below top header) */}
-                <View style={{ height: 72 }} />
+                <View style={{ height: 60 }} />
 
                 <View style={{ flex: 1 }}>
                   <SidebarItem isDesktop={isDesktop} collapsed={!isDesktop} icon="home-outline" label={isEN ? "Home" : "መነሻ"} isActive={pathname.includes('/home/gameplay')} onPress={() => navigateTo('/(authed)/home/gameplay')} />
@@ -756,15 +791,15 @@ export default function AuthedLayout() {
                   <SidebarItem isDesktop={isDesktop} collapsed={!isDesktop} icon="trophy-outline" label={isEN ? "Leaderboard" : "ደረጃዎች"} isActive={pathname.includes('/home/leaderboard')} onPress={() => navigateTo('/(authed)/home/leaderboard')} />
                   <SidebarItem isDesktop={isDesktop} collapsed={!isDesktop} icon="person-outline" label={isEN ? "Profile" : "መገለጫ"} isActive={pathname.includes('/home/account')} onPress={() => navigateTo('/(authed)/home/account')} />
 
-                  <View style={{ height: 20 }} />
-                  {isDesktop && <Text style={{ paddingHorizontal: 20, color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: '800', letterSpacing: 1, marginBottom: 8 }}>WALLET</Text>}
+                  <View style={{ height: 12 }} />
+                  {isDesktop && <Text style={{ paddingHorizontal: 20, color: 'rgba(255,255,255,0.3)', fontSize: 9, fontWeight: '800', letterSpacing: 1, marginBottom: 6 }}>WALLET</Text>}
 
                   <SidebarItem isDesktop={isDesktop} collapsed={!isDesktop} icon="wallet-outline" label={isEN ? "Deposit" : "ገንዘብ አስገባ"} isActive={depositVisible} onPress={() => setDepositVisible(true)} />
                   <SidebarItem isDesktop={isDesktop} collapsed={!isDesktop} icon="cash-outline" label={isEN ? "Withdraw" : "ገንዘብ አውጣ"} isActive={withdrawVisible} onPress={() => setWithdrawVisible(true)} />
 
                   {(user?.role === 'admin' || user?.role === 'superadmin' || user?.role === 'maintenance') && (
                     <>
-                      <View style={{ height: 20 }} />
+                      <View style={{ height: 12 }} />
                       <SidebarItem isDesktop={isDesktop} collapsed={!isDesktop} icon="shield-half-outline" label="Admin Center" isActive={isAdminRoute} onPress={() => navigateTo('/(authed)/admin')} />
                     </>
                   )}
@@ -820,26 +855,26 @@ export default function AuthedLayout() {
             backgroundColor: 'rgba(0,0,0,0.85)',
             justifyContent: 'center',
             alignItems: 'center',
-            padding: 20
+            padding: 16
           }}>
             <View style={{
               backgroundColor: '#0c0c1f',
               borderWidth: 1,
               borderColor: 'rgba(0,218,243,0.2)',
-              borderRadius: 24,
-              padding: 24,
+              borderRadius: 20,
+              padding: 20,
               width: '100%',
-              maxWidth: 420,
+              maxWidth: 400,
               shadowColor: '#000',
               shadowOpacity: 0.5,
               shadowRadius: 20,
               elevation: 10
             }}>
               {/* Header */}
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                <Text style={{ color: '#fff', fontSize: 18, fontWeight: '900' }}>Install XOET Web App</Text>
-                <TouchableOpacity onPress={() => setPwaModalVisible(false)} style={{ padding: 4 }}>
-                  <Ionicons name="close" size={24} color="rgba(255,255,255,0.6)" />
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '900' }}>Install XOET Web App</Text>
+                <TouchableOpacity onPress={() => setPwaModalVisible(false)} style={{ padding: 3 }}>
+                  <Ionicons name="close" size={22} color="rgba(255,255,255,0.6)" />
                 </TouchableOpacity>
               </View>
 

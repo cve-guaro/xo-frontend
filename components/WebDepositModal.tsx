@@ -19,6 +19,8 @@ interface ModalProps {
 function useModalAnim(visible: boolean) {
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(240)).current;
+  const scale = useRef(new Animated.Value(0.96)).current;
+  const isDesktop = Platform.OS === 'web' && Dimensions.get('window').width >= 768;
 
   useEffect(() => {
     if (visible) {
@@ -29,12 +31,20 @@ function useModalAnim(visible: boolean) {
           easing: motion.easing.enter,
           useNativeDriver: Platform.OS !== 'web',
         }),
-        Animated.timing(translateY, {
-          toValue: 0,
-          duration: motion.duration.enter,
-          easing: motion.easing.enter,
-          useNativeDriver: Platform.OS !== 'web',
-        }),
+        // Desktop: gentle scale-up (modal). Mobile: slide-up (bottom sheet).
+        isDesktop
+          ? Animated.timing(scale, {
+              toValue: 1,
+              duration: motion.duration.enter,
+              easing: motion.easing.enter,
+              useNativeDriver: Platform.OS !== 'web',
+            })
+          : Animated.timing(translateY, {
+              toValue: 0,
+              duration: motion.duration.enter,
+              easing: motion.easing.enter,
+              useNativeDriver: Platform.OS !== 'web',
+            }),
       ]).start();
     } else {
       Animated.parallel([
@@ -44,17 +54,24 @@ function useModalAnim(visible: boolean) {
           easing: motion.easing.exit,
           useNativeDriver: Platform.OS !== 'web',
         }),
-        Animated.timing(translateY, {
-          toValue: 240,
-          duration: motion.duration.exit,
-          easing: motion.easing.exit,
-          useNativeDriver: Platform.OS !== 'web',
-        }),
+        isDesktop
+          ? Animated.timing(scale, {
+              toValue: 0.96,
+              duration: motion.duration.exit,
+              easing: motion.easing.exit,
+              useNativeDriver: Platform.OS !== 'web',
+            })
+          : Animated.timing(translateY, {
+              toValue: 240,
+              duration: motion.duration.exit,
+              easing: motion.easing.exit,
+              useNativeDriver: Platform.OS !== 'web',
+            }),
       ]).start();
     }
-  }, [visible]);
+  }, [visible, isDesktop]);
 
-  return { opacity, translateY };
+  return { opacity, translateY, scale, isDesktop };
 }
 
 export const WebDepositModal = ({ visible, onClose, user, token, onSuccess, language }: ModalProps) => {
@@ -65,7 +82,7 @@ export const WebDepositModal = ({ visible, onClose, user, token, onSuccess, lang
   const [dontShowAgain, setDontShowAgain] = useState(false);
 
   const [loading, setLoading] = useState(false);
-  const { opacity, translateY } = useModalAnim(visible);
+  const { opacity, translateY, scale, isDesktop } = useModalAnim(visible);
   const toast = useToast();
 
   if (!visible) return null;
@@ -137,8 +154,8 @@ export const WebDepositModal = ({ visible, onClose, user, token, onSuccess, lang
       </Pressable>
       
       <View style={styles.container}>
-        <Animated.View style={[styles.modal, { opacity, transform: [{ translateY }] }]}>
-          <View style={styles.dragHandle} />
+        <Animated.View style={[styles.modal, { opacity, transform: isDesktop ? [{ scale }] : [{ translateY }] }]}>
+          {!isDesktop && <View style={styles.dragHandle} />}
           <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
             <Ionicons name="close" size={20} color="rgba(255,255,255,0.5)" />
           </TouchableOpacity>

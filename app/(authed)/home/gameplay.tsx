@@ -212,10 +212,9 @@ function SpinWheelSvg({ size, faded, mode, hidePointer }: { size: number; faded?
 }
 
 // ── Extracted components (Stage 3 refactor) ──
-import { ROOMS, DEMO_BOARD, BOARD_SIZE } from "../../../components/game/gameplayConstants";
+import { ROOMS } from "../../../components/game/gameplayConstants";
 import type { RoomConfig, SheetStep } from "../../../components/game/gameplayConstants";
 import { HeaderPill, InfoPill } from "../../../components/game/HeaderPill";
-import BoardDemo from "../../../components/game/BoardDemo";
 import ExitModal from "../../../components/game/ExitModal";
 import SearchingView from "../../../components/game/SearchingView";
 import RoomSheet from "../../../components/game/RoomSheet";
@@ -230,6 +229,9 @@ import { LobbyHeader } from "../../../components/game/LobbyHeader";
 import { WeeklyPodium } from "../../../components/game/WeeklyPodium";
 import { SocialProofCard } from "../../../components/game/SocialProofCard";
 import { LiveWinToast } from "../../../components/game/LiveWinToast";
+import LatestWinningsCard from "../../../components/game/LatestWinningsCard";
+import PromotionalBannersRow from "../../../components/home/PromotionalBannersRow";
+import Avatar from "../../../components/ui/Avatar";
 import { SegmentedTabs, CtaButton } from "../../../theme/ui";
 import { colors } from "../../../theme/tokens";
 
@@ -578,11 +580,11 @@ export default function Landing() {
   const [globalRematchOffer, setGlobalRematchOffer] = useState<{ visible: boolean; fromName?: string; amount?: number; fromUserId?: string } | null>(null);
 
   // Friend Match — send invite via socket
-  const handleSendInvite = useCallback(async (username: string, betAmount: number) => {
+  const handleSendInvite = useCallback(async (username: string, betAmount: number, gameType: 'xo' | 'rps' = friendGameType) => {
     if (!token) return;
     await ensureConnected(token);
-    send('friend_invite', { token, targetUsername: username, betAmount });
-  }, [token, send, ensureConnected]);
+    send('friend_invite', { token, targetUsername: username, betAmount, gameType });
+  }, [token, send, ensureConnected, friendGameType]);
 
   // Listen for friend invite results and incoming invites
   useEffect(() => {
@@ -1011,16 +1013,18 @@ export default function Landing() {
   const [searchingRps, setSearchingRps] = useState(false);
   const [rpsStake, setRpsStake] = useState(10);
 
-  const handleStartRpsMatchmaking = useCallback((stake: number) => {
+  const handleStartRpsMatchmaking = useCallback(async (stake: number) => {
+    if (!token) return;
+    await ensureConnected(token);
     setRpsStake(stake);
     setSearchingRps(true);
-    send('rps:find_match', { stakeAmount: stake });
-  }, [send]);
+    send('rps:find_match', { token, stakeAmount: stake });
+  }, [send, token, ensureConnected]);
 
   const handleCancelRpsSearch = useCallback(() => {
-    send('rps:cancel_search');
+    send('rps:cancel_search', { token });
     setSearchingRps(false);
-  }, [send]);
+  }, [send, token]);
 
   useEffect(() => {
     const off = onMessage((msg: any) => {
@@ -1028,7 +1032,16 @@ export default function Landing() {
         setSearchingRps(false);
         router.push({
           pathname: '/(authed)/games/rps',
-          params: { roomId: msg.payload?.roomId },
+          params: {
+            roomId: msg.payload?.roomId,
+            stakeAmount: String(msg.payload?.stakeAmount || 10),
+            prizeAmount: String(msg.payload?.prizeAmount || 16),
+            youAre: msg.payload?.youAre || 'p1',
+            opponentUsername: msg.payload?.opponentUsername || 'Opponent',
+            opponentId: msg.payload?.opponentId || '',
+            feePercent: String(msg.payload?.feePercent || 20),
+            bestOf: String(msg.payload?.bestOf || 3),
+          },
         } as any);
       } else if (msg.type === 'rps:match_cancelled' || msg.type === 'rps:error') {
         setSearchingRps(false);
@@ -1263,6 +1276,23 @@ export default function Landing() {
         <PromotionPopup config={promoConfig} visible={showPromo} onClose={() => setShowPromo(false)} />
         <PwaInstallModal visible={pwaModalVisible} onClose={() => setPwaModalVisible(false)} />
         {exitModalVisible && <ExitModal language={language} onCancel={cancelExit} onConfirm={confirmExit} />}
+
+        {/* Rock Paper Scissors Matchmaking Radar Scan Modal (Desktop) */}
+        <Modal
+          visible={searchingRps}
+          transparent
+          animationType="fade"
+          onRequestClose={handleCancelRpsSearch}
+        >
+          <View style={{ flex: 1, backgroundColor: "#06090e" }}>
+            <SearchingView
+              onCancel={handleCancelRpsSearch}
+              betMin={rpsStake}
+              betMax={rpsStake}
+              gameType="rps"
+            />
+          </View>
+        </Modal>
       </View>
     );
   }
@@ -1310,6 +1340,7 @@ export default function Landing() {
               ? weeklyLeaderboard.slice(0, 3).map((p, idx) => ({
                   rank: idx + 1,
                   username: p.username || `Player_${idx + 1}`,
+                  avatar: p.avatar || "",
                   prize: idx === 0 ? 5000 : idx === 1 ? 3000 : 1500,
                 }))
               : [];
@@ -1365,22 +1396,22 @@ export default function Landing() {
                     shadowOpacity: isBonusClaimed ? 0 : 0.15,
                     shadowRadius: 10,
                     elevation: 4,
-                    opacity: isBonusClaimed ? 0.8 : 1,
+                    opacity: isBonusClaimed ? 0.85 : 1,
+                    position: "relative",
+                    overflow: "hidden",
                   }}
                 >
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flex: 1 }}>
-                    <View style={{
-                      width: 42,
-                      height: 42,
-                      borderRadius: 14,
-                      backgroundColor: isBonusClaimed ? "rgba(148, 163, 184, 0.1)" : "rgba(245, 182, 66, 0.12)",
-                      borderWidth: 1.2,
-                      borderColor: isBonusClaimed ? "#94a3b8" : "#f5b642",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}>
-                      <Ionicons name="gift" size={22} color={isBonusClaimed ? "#94a3b8" : "#f5b642"} />
-                    </View>
+                  <Image
+                    source={require("../../../assets/images/welcome-banner-background-simple.png")}
+                    style={[StyleSheet.absoluteFillObject, { opacity: 0.85 }]}
+                    resizeMode="cover"
+                  />
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flex: 1, zIndex: 2 }}>
+                    <Image
+                      source={require("../../../assets/dashboard/welcome-bonus-chest.png")}
+                      style={{ width: 78, height: 78 }}
+                      resizeMode="contain"
+                    />
                     <View style={{ flex: 1 }}>
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                         <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "900", letterSpacing: 0.3 }}>
@@ -1418,6 +1449,7 @@ export default function Landing() {
                     borderRadius: 12,
                     borderWidth: 1,
                     borderColor: isBonusClaimed ? "rgba(148, 163, 184, 0.25)" : "rgba(245, 182, 66, 0.3)",
+                    zIndex: 2,
                   }}>
                     {isBonusClaimed ? (
                       <>
@@ -1490,8 +1522,21 @@ export default function Landing() {
                       contentContainerStyle={{ gap: 10, paddingVertical: 2, paddingHorizontal: 2 }}
                     >
                       {champions.map((champ) => {
-                        const rankColor = champ.rank === 1 ? "#F5B642" : champ.rank === 2 ? "#00BFFF" : "#FF1744";
-                        const rankOrdinal = champ.rank === 1 ? "1st" : champ.rank === 2 ? "2nd" : "3rd";
+                        const isGold = champ.rank === 1;
+                        const isSilver = champ.rank === 2;
+                        const rankColor = isGold ? "#F5B642" : isSilver ? "#B4CDDC" : "#CD7F32";
+                        const rankOrdinal = isGold ? "1st" : isSilver ? "2nd" : "3rd";
+                        const gradientColors: [string, string] = isGold
+                          ? ["rgba(245, 182, 66, 0.28)", "rgba(245, 182, 66, 0.06)"]
+                          : isSilver
+                          ? ["rgba(180, 205, 230, 0.24)", "rgba(180, 205, 230, 0.05)"]
+                          : ["rgba(205, 127, 50, 0.24)", "rgba(205, 127, 50, 0.05)"];
+                        const borderColor = isGold
+                          ? "rgba(245, 182, 66, 0.85)"
+                          : isSilver
+                          ? "rgba(180, 205, 230, 0.7)"
+                          : "rgba(205, 127, 50, 0.7)";
+
                         return (
                           <TouchableOpacity
                             key={champ.rank}
@@ -1502,62 +1547,95 @@ export default function Landing() {
                               router.push("/(authed)/home/leaderboard" as any);
                             }}
                             style={{
-                              flexDirection: "row",
-                              alignItems: "center",
-                              gap: 10,
-                              backgroundColor: "#111827",
                               borderRadius: 20,
-                              borderWidth: 1.2,
-                              borderColor: "#233041",
-                              paddingVertical: 8,
-                              paddingHorizontal: 10,
-                              paddingRight: 16,
+                              overflow: "hidden",
                             }}
                           >
-                          {/* Rank Number Circle Badge (Replacing avatar) */}
-                          <View style={{
-                            width: 38,
-                            height: 38,
-                            borderRadius: 19,
-                            borderWidth: 1.2,
-                            borderColor: "#233041",
-                            backgroundColor: "#080F17",
-                            alignItems: "center",
-                            justifyContent: "center",
-                          }}>
-                            <Text style={{
-                              color: rankColor,
-                              fontSize: 16,
-                              fontWeight: "900",
-                              fontFamily: "Space Grotesk, Inter, sans-serif",
-                            }}>
-                              #{champ.rank}
-                            </Text>
-                          </View>
-
-                          {/* Name & Prize */}
-                          <View>
-                            <Text
-                              numberOfLines={1}
+                            <LinearGradient
+                              colors={gradientColors}
+                              start={{ x: 0, y: 0 }}
+                              end={{ x: 1, y: 1 }}
                               style={{
-                                color: "#ffffff",
-                                fontSize: 13,
-                                fontWeight: "800",
-                                maxWidth: 115,
+                                flexDirection: "row",
+                                alignItems: "center",
+                                gap: 10,
+                                backgroundColor: "#111827",
+                                borderRadius: 20,
+                                borderWidth: 1.4,
+                                borderColor: borderColor,
+                                paddingVertical: 8,
+                                paddingHorizontal: 10,
+                                paddingRight: 16,
                               }}
                             >
-                              {champ.username}
-                            </Text>
-                            <Text style={{ color: "#8893A7", fontSize: 11, fontWeight: "700", marginTop: 2 }}>
-                              <Text style={{ color: rankColor, fontWeight: "800" }}>{rankOrdinal}</Text> • {champ.prize} ETB
-                            </Text>
-                          </View>
-                        </TouchableOpacity>
-                      );
-                    })}
+                              {/* Profile Avatar with Rank Badge on corner */}
+                              <View style={{ position: "relative" }}>
+                                <Avatar
+                                  uri={champ.avatar}
+                                  name={champ.username}
+                                  size={38}
+                                />
+                                <View style={{
+                                  position: "absolute",
+                                  bottom: -3,
+                                  right: -3,
+                                  backgroundColor: rankColor,
+                                  borderRadius: 9,
+                                  width: 17,
+                                  height: 17,
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  borderWidth: 1.5,
+                                  borderColor: "#080F17",
+                                }}>
+                                  <Text style={{
+                                    color: "#080F17",
+                                    fontSize: 9.5,
+                                    fontWeight: "900",
+                                  }}>
+                                    {champ.rank}
+                                  </Text>
+                                </View>
+                              </View>
+
+                              {/* Name & Prize */}
+                              <View>
+                                <Text
+                                  numberOfLines={1}
+                                  style={{
+                                    color: "#ffffff",
+                                    fontSize: 13,
+                                    fontWeight: "800",
+                                    maxWidth: 115,
+                                  }}
+                                >
+                                  {champ.username}
+                                </Text>
+                                <Text style={{ color: "#8893A7", fontSize: 11, fontWeight: "700", marginTop: 2 }}>
+                                  <Text style={{ color: rankColor, fontWeight: "800" }}>{rankOrdinal}</Text> • {champ.prize} ETB
+                                </Text>
+                              </View>
+                            </LinearGradient>
+                          </TouchableOpacity>
+                        );
+                      })}
                   </ScrollView>
                   )}
                 </View>
+
+                {/* ── PROMOTIONAL BANNERS ROW (Positioned in the middle between Weekly Leaderboard and Latest Winnings) ── */}
+                <View style={{ width: "100%", marginTop: 14, marginBottom: 6 }}>
+                  <PromotionalBannersRow
+                    isDesktop={false}
+                    router={router}
+                    setWithdrawVisible={setWithdrawVisible}
+                    setShowReferralModal={setShowReferralModal}
+                    isEN={isEN}
+                  />
+                </View>
+
+                {/* ── LATEST WINNINGS & LIVE PROOFS ── */}
+                <LatestWinningsCard isEN={isEN} />
               </View>
             );
           })()}

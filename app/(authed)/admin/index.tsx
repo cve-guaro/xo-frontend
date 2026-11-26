@@ -13,6 +13,7 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '../../../context/authContext';
 import { API_URL } from '../../../config';
 import { useAdminTheme } from './_layout';
+import { useAdminNotifications } from '../../../context/AdminNotificationContext';
 import Svg, { Path } from 'react-native-svg';
 import {
   AdminPanel, AdminKpiCard, AdminPill, AdminButton, AdminMeter, AdminDelta, AdminPager,
@@ -88,9 +89,9 @@ function OverviewSkeleton({ isMobile, C, isDark }: { isMobile: boolean; C: any; 
         <Animated.View style={{ width: 180, height: 14, backgroundColor: bg2, borderRadius: 4, marginTop: 8, opacity: pulse }} />
       </View>
       {/* KPI cards skeleton */}
-      <View style={{ flexDirection: isMobile ? 'column' : 'row', gap: 16, marginBottom: 24 }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 24 }}>
         {[1, 2, 3, 4].map(i => (
-          <Animated.View key={i} style={{ flex: 1, minHeight: 140, backgroundColor: bg2, borderRadius: 16, opacity: pulse }} />
+          <Animated.View key={i} style={{ flexGrow: 1, flexBasis: isMobile ? '47%' : undefined, minHeight: 140, backgroundColor: bg2, borderRadius: 16, opacity: pulse }} />
         ))}
       </View>
       {/* Chart panels skeleton */}
@@ -107,6 +108,7 @@ function OverviewSkeleton({ isMobile, C, isDark }: { isMobile: boolean; C: any; 
 // ══════════════════════════════════════════════════════════════════════
 export default function AdminOverview() {
   const { theme: C, isDark } = useAdminTheme();
+  const { notify } = useAdminNotifications();
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
   const { token, t } = useAuth();
@@ -124,6 +126,7 @@ export default function AdminOverview() {
   const [timeframe, setTimeframe] = useState<'day' | 'week' | 'month'>('week');
   const [dauData, setDauData] = useState<any[]>([]);
   const [activityTab, setActivityTab] = useState<'cashouts' | 'ledger'>('cashouts');
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   // ── Data fetching ──────────────────────────────────────────────────
   const fetchData = useCallback(async (showR = false) => {
@@ -142,6 +145,10 @@ export default function AdminOverview() {
       if (lR.ok) setLive(await lR.json());
       if (dR.ok) { const d = await dR.json(); setDauData(d.dauList || []); }
       if (qR.ok) setLiveQueueStats(await qR.json());
+      if (showR) {
+        setToastMsg('Dashboard metrics updated successfully');
+        setTimeout(() => setToastMsg(null), 3000);
+      }
     } catch (e) { console.log(e); }
     finally { setLoading(false); setRefreshing(false); }
   }, [token, timeframe]);
@@ -224,6 +231,38 @@ export default function AdminOverview() {
   }, [d.newUserGraphData, d.dau, C]);
 
   // ── Live room stats ────────────────────────────────────────────────
+  const xoStats = liveQueueStats?.xo;
+  const rpsStats = liveQueueStats?.rps;
+  const spinStats = liveQueueStats?.spin;
+  const liveGamesList = liveQueueStats?.liveGames || liveQueueStats?.liveGamesList || [];
+  const searchingPlayers = liveQueueStats?.searchingPlayers || [];
+  const [liveGameTypeTab, setLiveGameTypeTab] = useState<'xo' | 'rps' | 'spin'>('xo');
+  const [cancelingGameId, setCancelingGameId] = useState<string | null>(null);
+
+  const handleForceCancelGame = async (gameType: string, roomId: string) => {
+    if (Platform.OS === 'web' && !window.confirm(`Are you sure you want to FORCE-CANCEL and refund room ${roomId.slice(0, 8)}... (${gameType.toUpperCase()})?`)) {
+      return;
+    }
+    setCancelingGameId(roomId);
+    try {
+      const res = await fetch(`${API_URL}/admin/game/force-cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ gameType, roomId, reason: 'Admin dashboard overview force-cancel' }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchData(true);
+      } else {
+        alert(data.error || 'Failed to cancel game');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Network error');
+    } finally {
+      setCancelingGameId(null);
+    }
+  };
+
   const combinedBreakdown = useMemo(() => {
     const flat: Record<number, { searching: number; liveMatches: number }> = {};
     if (liveQueueStats?.roomStats) {
@@ -298,6 +337,25 @@ export default function AdminOverview() {
         </TouchableOpacity>
       )}
 
+      {/* ─── Toast Feedback Banner ─────────────────────────────────── */}
+      {toastMsg && (
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 10,
+          backgroundColor: 'rgba(83, 205, 150, 0.15)',
+          borderWidth: 1,
+          borderColor: 'rgba(83, 205, 150, 0.35)',
+          paddingHorizontal: 14,
+          paddingVertical: 10,
+          borderRadius: 10,
+          marginBottom: 16,
+        }}>
+          <Ionicons name="checkmark-circle" size={17} color={C.success} />
+          <Text style={{ fontSize: 12, fontWeight: '700', color: C.success }}>{toastMsg}</Text>
+        </View>
+      )}
+
       {/* ─── Dashboard header ──────────────────────────────────── */}
       <View style={[st.header, isMobile && { flexDirection: 'column', gap: 12 }]}>
         <View>
@@ -321,39 +379,47 @@ export default function AdminOverview() {
               </TouchableOpacity>
             ))}
           </View>
-          <AdminButton tone="brand" icon="refresh" onPress={() => fetchData(true)}>
-            {refreshing ? undefined : 'Update data'}
+          <AdminButton tone="brand" icon="refresh" loading={refreshing} onPress={() => fetchData(true)}>
+            {refreshing ? 'Updating...' : 'Update data'}
           </AdminButton>
         </View>
       </View>
 
-      {/* ─── KPI cards (4 cards matching reference) ────────────── */}
-      <View style={[st.kpiRow, isMobile && { flexDirection: 'column' }]}>
-        <AdminKpiCard
-          label="Gaming revenue"
-          value={fmtETB(d.ggr)}
-          delta={8.4}
-          icon="trending-up"
-          featured
-        />
-        <AdminKpiCard
-          label="Online players"
-          value={String(d.onlineUsers)}
-          delta={12.1}
-          icon="people"
-        />
-        <AdminKpiCard
-          label="Daily active"
-          value={String(d.dau)}
-          delta={3.2}
-          icon="pulse"
-        />
-        <AdminKpiCard
-          label="Active matches"
-          value={String(d.activeMatches)}
-          icon="game-controller"
-          note={`${d.onlineUsers} online`}
-        />
+      {/* ─── KPI cards (single stretched row on desktop, 2×2 wrap on narrow) ─── */}
+      <View style={[st.kpiRow, isMobile && { flexDirection: 'row', flexWrap: 'wrap' }]}>
+        <View style={isMobile ? { flexGrow: 1, flexBasis: '47%' } : { flex: 1 }}>
+          <AdminKpiCard
+            label="Gaming revenue"
+            value={fmtETB(d.ggr)}
+            delta={8.4}
+            icon="trending-up"
+            featured
+          />
+        </View>
+        <View style={isMobile ? { flexGrow: 1, flexBasis: '47%' } : { flex: 1 }}>
+          <AdminKpiCard
+            label="Online players"
+            value={String(d.onlineUsers)}
+            delta={12.1}
+            icon="people"
+          />
+        </View>
+        <View style={isMobile ? { flexGrow: 1, flexBasis: '47%' } : { flex: 1 }}>
+          <AdminKpiCard
+            label="Daily active"
+            value={String(d.dau)}
+            delta={3.2}
+            icon="pulse"
+          />
+        </View>
+        <View style={isMobile ? { flexGrow: 1, flexBasis: '47%' } : { flex: 1 }}>
+          <AdminKpiCard
+            label="Active matches"
+            value={String(d.activeMatches)}
+            icon="game-controller"
+            note={`${d.onlineUsers} online`}
+          />
+        </View>
       </View>
 
       {/* ─── Revenue + Cash flow charts ────────────────────────── */}
@@ -429,37 +495,282 @@ export default function AdminOverview() {
 
       {/* ─── Matches by tier + User chart ──────────────────────── */}
       <View style={[st.row, isMobile && { flexDirection: 'column' }]}>
-        {/* Matches by stake tier */}
+        {/* Live Battles & Queues (XO: 25, 50, 100, 250 | RPS: 10, 25, 50, 100) */}
         <AdminPanel
-          title="Matches by stake tier"
-          kicker="Round activity across 10 to 10,000 ETB"
-          style={{ flex: 1 }}
+          title="Live matches & searching queues"
+          kicker="Real-time matchmaking queues & active games breakdown"
+          style={{ flex: 1.2 }}
           right={
-            <TouchableOpacity onPress={() => router.push('/admin/controls' as any)}>
-              <Ionicons name="open-outline" size={16} color={C.onSurfaceVariant} />
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+              <TouchableOpacity
+                onPress={() => setLiveGameTypeTab('xo')}
+                style={{
+                  paddingHorizontal: 8,
+                  paddingVertical: 3,
+                  borderRadius: 6,
+                  backgroundColor: liveGameTypeTab === 'xo' ? C.primary : C.surfaceContainerHighest,
+                }}
+              >
+                <Text style={{ fontSize: 10, fontWeight: '800', color: liveGameTypeTab === 'xo' ? '#FFF' : C.onSurfaceVariant }}>
+                  XO ({xoStats?.activeMatches || 0} live)
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setLiveGameTypeTab('rps')}
+                style={{
+                  paddingHorizontal: 8,
+                  paddingVertical: 3,
+                  borderRadius: 6,
+                  backgroundColor: liveGameTypeTab === 'rps' ? C.primary : C.surfaceContainerHighest,
+                }}
+              >
+                <Text style={{ fontSize: 10, fontWeight: '800', color: liveGameTypeTab === 'rps' ? '#FFF' : C.onSurfaceVariant }}>
+                  RPS ({rpsStats?.activeMatches || 0} live)
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setLiveGameTypeTab('spin')}
+                style={{
+                  paddingHorizontal: 8,
+                  paddingVertical: 3,
+                  borderRadius: 6,
+                  backgroundColor: liveGameTypeTab === 'spin' ? C.primary : C.surfaceContainerHighest,
+                }}
+              >
+                <Text style={{ fontSize: 10, fontWeight: '800', color: liveGameTypeTab === 'spin' ? '#FFF' : C.onSurfaceVariant }}>
+                  SPIN ({spinStats?.activeRoundsCount || 0} live)
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => router.push(liveGameTypeTab === 'spin' ? ('/admin/spin' as any) : ('/admin/controls' as any))}
+                style={{ marginLeft: 4 }}
+              >
+                <Ionicons name="open-outline" size={15} color={C.onSurfaceVariant} />
+              </TouchableOpacity>
+            </View>
           }
         >
           <View style={{ gap: 12 }}>
-            {[
-              { label: 'Room 1 (10-100 ETB)', totals: r1Totals },
-              { label: 'Room 2 (100-1K ETB)', totals: r2Totals },
-              { label: 'Room 3 (1K-10K ETB)', totals: r3Totals },
-            ].map(room => {
-              const total = room.totals.searching + room.totals.liveMatches;
-              return (
-                <View key={room.label} style={{ gap: 6 }}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Text style={{ color: C.onSurface, fontSize: 12, fontWeight: '600' }}>{room.label}</Text>
-                    <View style={{ flexDirection: 'row', gap: 12 }}>
-                      <AdminPill tone="positive" dot>{`${room.totals.searching} searching`}</AdminPill>
-                      <AdminPill tone="brand" dot>{`${room.totals.liveMatches} live`}</AdminPill>
-                    </View>
-                  </View>
-                  <AdminMeter value={Math.min(100, Math.max(5, (total / 50) * 100))} tone="brand" />
+            {liveGameTypeTab === 'xo' ? (
+              <View style={{ gap: 10 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={{ color: C.onSurfaceVariant, fontSize: 11, fontWeight: '700', textTransform: 'uppercase' }}>
+                    XO Battle Tiers (4 Stakes)
+                  </Text>
+                  <Text style={{ color: C.primary, fontSize: 11, fontWeight: '700' }}>
+                    {xoStats?.searchingTotal || 0} in queue · {xoStats?.activeMatches || 0} active
+                  </Text>
                 </View>
-              );
-            })}
+                {[25, 50, 100, 250].map(tier => {
+                  const stat = xoStats?.tiers?.[tier] || { searching: 0, liveMatches: 0 };
+                  const total = stat.searching + stat.liveMatches;
+                  return (
+                    <View key={`xo_${tier}`} style={{ gap: 5 }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Text style={{ color: C.onSurface, fontSize: 12, fontWeight: '700' }}>{tier} ETB Tier</Text>
+                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                          <AdminPill tone={stat.searching > 0 ? "positive" : "muted"} dot>
+                            {`${stat.searching} searching`}
+                          </AdminPill>
+                          <AdminPill tone={stat.liveMatches > 0 ? "brand" : "muted"} dot>
+                            {`${stat.liveMatches} live`}
+                          </AdminPill>
+                        </View>
+                      </View>
+                      <AdminMeter value={Math.min(100, Math.max(3, (total / 10) * 100))} tone="brand" />
+                    </View>
+                  );
+                })}
+              </View>
+            ) : liveGameTypeTab === 'rps' ? (
+              <View style={{ gap: 10 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={{ color: C.onSurfaceVariant, fontSize: 11, fontWeight: '700', textTransform: 'uppercase' }}>
+                    RPS Battle Tiers (4 Stakes)
+                  </Text>
+                  <Text style={{ color: C.primary, fontSize: 11, fontWeight: '700' }}>
+                    {rpsStats?.searchingTotal || 0} in queue · {rpsStats?.activeMatches || 0} active
+                  </Text>
+                </View>
+                {[10, 25, 50, 100].map(tier => {
+                  const stat = rpsStats?.tiers?.[tier] || { searching: 0, liveMatches: 0 };
+                  const total = stat.searching + stat.liveMatches;
+                  return (
+                    <View key={`rps_${tier}`} style={{ gap: 5 }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Text style={{ color: C.onSurface, fontSize: 12, fontWeight: '700' }}>{tier} ETB Tier</Text>
+                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                          <AdminPill tone={stat.searching > 0 ? "positive" : "muted"} dot>
+                            {`${stat.searching} searching`}
+                          </AdminPill>
+                          <AdminPill tone={stat.liveMatches > 0 ? "brand" : "muted"} dot>
+                            {`${stat.liveMatches} live`}
+                          </AdminPill>
+                        </View>
+                      </View>
+                      <AdminMeter value={Math.min(100, Math.max(3, (total / 10) * 100))} tone="brand" />
+                    </View>
+                  );
+                })}
+              </View>
+            ) : (
+              /* Spin Game Summary Tab */
+              <View style={{ gap: 10 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={{ color: C.onSurfaceVariant, fontSize: 11, fontWeight: '700', textTransform: 'uppercase' }}>
+                    Spin Wheel Overview
+                  </Text>
+                  <TouchableOpacity onPress={() => router.push('/admin/spin' as any)}>
+                    <Text style={{ color: C.primary, fontSize: 11, fontWeight: '700' }}>
+                      Configure Spin →
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Spin KPI overview chips */}
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                  <View style={{ flex: 1, minWidth: 120, padding: 8, borderRadius: 8, backgroundColor: C.surfaceContainerLowest, borderWidth: 1, borderColor: C.border }}>
+                    <Text style={{ fontSize: 10, color: C.onSurfaceVariant, fontWeight: '600' }}>Active Pot in Play</Text>
+                    <Text style={{ fontSize: 14, fontWeight: '800', color: C.primary, marginTop: 2 }}>{fmtETB(spinStats?.totalPot || 0)}</Text>
+                  </View>
+                  <View style={{ flex: 1, minWidth: 120, padding: 8, borderRadius: 8, backgroundColor: C.surfaceContainerLowest, borderWidth: 1, borderColor: C.border }}>
+                    <Text style={{ fontSize: 10, color: C.onSurfaceVariant, fontWeight: '600' }}>Real Players / Bots</Text>
+                    <Text style={{ fontSize: 14, fontWeight: '800', color: C.onSurface, marginTop: 2 }}>
+                      {spinStats?.totalRealPlayers || 0} real / {spinStats?.totalBots || 0} bots
+                    </Text>
+                  </View>
+                </View>
+
+                {/* 5-Player and Rail Mode meters */}
+                <View style={{ gap: 5 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={{ color: C.onSurface, fontSize: 12, fontWeight: '700' }}>5-Player Classic Rooms</Text>
+                    <AdminPill tone={spinStats?.fivePlayerRounds > 0 ? "brand" : "muted"} dot>
+                      {`${spinStats?.fivePlayerRounds || 0} active`}
+                    </AdminPill>
+                  </View>
+                  <AdminMeter value={Math.min(100, Math.max(3, ((spinStats?.fivePlayerRounds || 0) / 5) * 100))} tone="brand" />
+                </View>
+
+                <View style={{ gap: 5 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={{ color: C.onSurface, fontSize: 12, fontWeight: '700' }}>Real Spin (Rail) Rooms</Text>
+                    <AdminPill tone={spinStats?.railRounds > 0 ? "positive" : "muted"} dot>
+                      {`${spinStats?.railRounds || 0} active`}
+                    </AdminPill>
+                  </View>
+                  <AdminMeter value={Math.min(100, Math.max(3, ((spinStats?.railRounds || 0) / 5) * 100))} tone="brand" />
+                </View>
+              </View>
+            )}
+
+            {/* Matchmaking Queue Searchers Inspector */}
+            {searchingPlayers.length > 0 && (
+              <View style={{ marginTop: 8, paddingTop: 10, borderTopWidth: 1, borderTopColor: C.border, gap: 6 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={{ color: C.onSurfaceVariant, fontSize: 10.5, fontWeight: '800', letterSpacing: 0.5, textTransform: 'uppercase' }}>
+                    Queue Searchers ({searchingPlayers.length} waiting)
+                  </Text>
+                  <Text style={{ fontSize: 10, color: C.accentGold, fontWeight: '600' }}>Live searching</Text>
+                </View>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                  {searchingPlayers.map((sp: any, i: number) => (
+                    <View
+                      key={sp.userId || i}
+                      style={{
+                        padding: 8,
+                        borderRadius: 8,
+                        backgroundColor: C.surfaceContainerLowest,
+                        borderWidth: 1,
+                        borderColor: C.border,
+                        minWidth: 180,
+                        gap: 4,
+                      }}
+                    >
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Text style={{ color: C.primary, fontSize: 10, fontWeight: '800' }}>
+                          {sp.gameType?.toUpperCase()} · {sp.tier} ETB
+                        </Text>
+                        <AdminPill tone="gold" dot>{`${sp.waitingSeconds || 0}s`}</AdminPill>
+                      </View>
+                      <Text style={{ color: C.onSurface, fontSize: 11, fontWeight: '700' }} numberOfLines={1}>
+                        @{sp.username || 'Searching player'}
+                      </Text>
+                      <Text style={{ color: C.onSurfaceVariant, fontSize: 9.5 }}>
+                        Balance: {fmtETB(sp.balance || 0)}
+                      </Text>
+                    </View>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+
+            {/* Live active games table with Admin Action controls (Cancel & Refund) */}
+            {liveGamesList.length > 0 && (
+              <View style={{ marginTop: 8, paddingTop: 10, borderTopWidth: 1, borderTopColor: C.border, gap: 6 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={{ color: C.onSurfaceVariant, fontSize: 10.5, fontWeight: '800', letterSpacing: 0.5, textTransform: 'uppercase' }}>
+                    Active Live Matches & Controls ({liveGamesList.length})
+                  </Text>
+                  <Text style={{ fontSize: 10, color: C.onSurfaceVariant }}>Admin force-cancel enabled</Text>
+                </View>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                  {liveGamesList.map((g: any, i: number) => {
+                    const roomId = g.matchId || g.id || String(i);
+                    const isCanceling = cancelingGameId === roomId;
+                    return (
+                      <View
+                        key={roomId}
+                        style={{
+                          padding: 10,
+                          borderRadius: 8,
+                          backgroundColor: C.surfaceContainerLowest,
+                          borderWidth: 1,
+                          borderColor: C.border,
+                          minWidth: 200,
+                          gap: 5,
+                        }}
+                      >
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Text style={{ color: C.primary, fontSize: 10.5, fontWeight: '800' }}>
+                            {g.gameType?.toUpperCase() || 'XO'} · {g.betAmount || g.pot || 0} ETB
+                          </Text>
+                          <AdminPill tone="positive" dot>Live</AdminPill>
+                        </View>
+                        <Text style={{ color: C.onSurface, fontSize: 11, fontWeight: '600' }} numberOfLines={1}>
+                          {g.player1Name ? `${g.player1Name} vs ${g.player2Name || 'P2'}` : `${g.playersCount || (g.players && g.players.length) || 0} players`}
+                        </Text>
+                        <Text style={{ color: C.onSurfaceVariant, fontSize: 9.5 }}>
+                          Room: {String(roomId).slice(0, 10)}...
+                        </Text>
+                        <TouchableOpacity
+                          onPress={() => handleForceCancelGame(g.gameType || 'xo', roomId)}
+                          disabled={isCanceling}
+                          style={{
+                            marginTop: 4,
+                            paddingVertical: 4,
+                            paddingHorizontal: 8,
+                            borderRadius: 5,
+                            backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                            borderWidth: 1,
+                            borderColor: 'rgba(239, 68, 68, 0.35)',
+                            alignItems: 'center',
+                          }}
+                        >
+                          {isCanceling ? (
+                            <ActivityIndicator size="small" color="#ef4444" />
+                          ) : (
+                            <Text style={{ fontSize: 10, fontWeight: '700', color: '#ef4444' }}>
+                              Cancel & Refund
+                            </Text>
+                          )}
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            )}
           </View>
         </AdminPanel>
 

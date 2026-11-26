@@ -5,6 +5,7 @@
 // ────────────────────────────────────────────────────────────────────────────
 import React, { memo, useEffect, useRef, useState } from "react";
 import {
+  AccessibilityInfo,
   View,
   Text,
   Animated,
@@ -27,6 +28,10 @@ interface SearchingViewProps {
   gameType?: "xo" | "rps" | "spin";
 }
 
+const USE_NATIVE_DRIVER = Platform.OS !== "web";
+const RADAR_CYCLE_MS = 2700;
+const RADAR_STAGGER_MS = 900;
+
 const SearchingView = memo(function SearchingView({
   onCancel,
   isMatched,
@@ -35,59 +40,168 @@ const SearchingView = memo(function SearchingView({
   gameType = "xo",
 }: SearchingViewProps) {
   const isRps = gameType === "rps";
+  const accentColor = isMatched ? "#10b981" : isRps ? "#f59e0b" : "#00daf3";
+  const ringBorderColor = isRps ? "rgba(245, 158, 11, 0.36)" : "rgba(0, 218, 243, 0.36)";
+  const ringFillColor = isRps ? "rgba(245, 158, 11, 0.05)" : "rgba(0, 218, 243, 0.04)";
+  const sweepSoftColor = isRps ? "rgba(245, 158, 11, 0.22)" : "rgba(0, 218, 243, 0.22)";
+
   const { user } = useAuth();
   const [elapsed, setElapsed] = useState(0);
-  const pulseA = useRef(new Animated.Value(0)).current;
-  const pulseB = useRef(new Animated.Value(0)).current;
+  const [reduceMotion, setReduceMotion] = useState(false);
+
+  const wave0 = useRef(new Animated.Value(0)).current;
+  const wave1 = useRef(new Animated.Value(0)).current;
+  const wave2 = useRef(new Animated.Value(0)).current;
+  const sweepAnim = useRef(new Animated.Value(0)).current;
+  const corePulse = useRef(new Animated.Value(0)).current;
 
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
 
   useEffect(() => {
-    const loopA = Animated.loop(
-      Animated.timing(pulseA, {
-        toValue: 1,
-        duration: 2200,
-        easing: Easing.out(Easing.ease),
-        useNativeDriver: Platform.OS !== "web",
+    let active = true;
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then((enabled) => {
+        if (active) setReduceMotion(Boolean(enabled));
       })
-    );
-    const loopB = Animated.loop(
-      Animated.timing(pulseB, {
-        toValue: 1,
-        duration: 2200,
-        easing: Easing.out(Easing.ease),
-        delay: 1100,
-        useNativeDriver: Platform.OS !== "web",
-      })
-    );
-    loopA.start();
-    loopB.start();
-    const ti = setInterval(() => setElapsed((p) => p + 1), 1000);
+      .catch(() => {});
+    const sub = AccessibilityInfo.addEventListener?.("reduceMotionChanged", (enabled) => {
+      setReduceMotion(Boolean(enabled));
+    });
     return () => {
-      loopA.stop();
-      loopB.stop();
-      clearInterval(ti);
+      active = false;
+      sub?.remove?.();
     };
-  }, [pulseA, pulseB]);
+  }, []);
+
+  useEffect(() => {
+    const ti = setInterval(() => setElapsed((p) => p + 1), 1000);
+    return () => clearInterval(ti);
+  }, []);
+
+  useEffect(() => {
+    const waves = [wave0, wave1, wave2];
+    if (reduceMotion || isMatched) {
+      waves.forEach((w) => w.setValue(0));
+      sweepAnim.setValue(0);
+      corePulse.setValue(0);
+      return;
+    }
+
+    const activeLoops: Animated.CompositeAnimation[] = [];
+    const timers: ReturnType<typeof setTimeout>[] = [];
+
+    waves.forEach((anim, idx) => {
+      anim.setValue(0);
+      const startWave = () => {
+        const loop = Animated.loop(
+          Animated.sequence([
+            Animated.timing(anim, {
+              toValue: 1,
+              duration: RADAR_CYCLE_MS,
+              easing: Easing.bezier(0.22, 1, 0.36, 1),
+              useNativeDriver: USE_NATIVE_DRIVER,
+            }),
+            Animated.timing(anim, {
+              toValue: 0,
+              duration: 0,
+              useNativeDriver: USE_NATIVE_DRIVER,
+            }),
+          ])
+        );
+        activeLoops.push(loop);
+        loop.start();
+      };
+
+      if (idx === 0) {
+        startWave();
+      } else {
+        timers.push(setTimeout(startWave, idx * RADAR_STAGGER_MS));
+      }
+    });
+
+    sweepAnim.setValue(0);
+    const sweepLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(sweepAnim, {
+          toValue: 1,
+          duration: 2400,
+          easing: Easing.linear,
+          useNativeDriver: USE_NATIVE_DRIVER,
+        }),
+        Animated.timing(sweepAnim, {
+          toValue: 0,
+          duration: 0,
+          useNativeDriver: USE_NATIVE_DRIVER,
+        }),
+      ])
+    );
+    activeLoops.push(sweepLoop);
+    sweepLoop.start();
+
+    corePulse.setValue(0);
+    const breathLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(corePulse, {
+          toValue: 1,
+          duration: 1100,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: USE_NATIVE_DRIVER,
+        }),
+        Animated.timing(corePulse, {
+          toValue: 0,
+          duration: 1100,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: USE_NATIVE_DRIVER,
+        }),
+      ])
+    );
+    activeLoops.push(breathLoop);
+    breathLoop.start();
+
+    return () => {
+      timers.forEach((t) => clearTimeout(t));
+      activeLoops.forEach((l) => l.stop());
+    };
+  }, [wave0, wave1, wave2, sweepAnim, corePulse, reduceMotion, isMatched]);
 
   const timeStr = `${Math.floor(elapsed / 60)}:${(elapsed % 60)
     .toString()
     .padStart(2, "0")}`;
 
-  const ringA = (base: number) => ({
-    scale: pulseA.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1.15] }),
-    opacity: pulseA.interpolate({ inputRange: [0, 1], outputRange: [0.7, 0] }),
+  const ringWaveStyle = (anim: Animated.Value, base: number) => ({
     width: base,
     height: base,
     borderRadius: base / 2,
+    borderColor: ringBorderColor,
+    backgroundColor: ringFillColor,
+    opacity: anim.interpolate({
+      inputRange: [0, 0.14, 0.6, 1],
+      outputRange: [0, 0.6, 0.25, 0],
+    }),
+    transform: [
+      {
+        scale: anim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0.36, 1.18],
+        }),
+      },
+    ],
   });
-  const ringB = (base: number) => ({
-    scale: pulseB.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1.15] }),
-    opacity: pulseB.interpolate({ inputRange: [0, 1], outputRange: [0.7, 0] }),
-    width: base,
-    height: base,
-    borderRadius: base / 2,
+
+  const sweepRotate = sweepAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "360deg"],
+  });
+
+  const coreScale = corePulse.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.96, 1.05],
+  });
+
+  const dotOpacity = corePulse.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 0.35],
   });
 
   const usernameDisplay =
@@ -97,7 +211,8 @@ const SearchingView = memo(function SearchingView({
     betMin === betMax ? `${betMin} ETB` : `${betMin} - ${betMax} ETB`;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isDesktop && styles.containerDesktop]}>
+      <View style={[styles.inner, isDesktop && styles.innerDesktop]}>
       {/* ── Player status card ───────────────────────────────────────── */}
       <View style={styles.topZone}>
         <View style={[styles.playerCard, isDesktop && { maxWidth: 420 }]}>
@@ -112,16 +227,17 @@ const SearchingView = memo(function SearchingView({
                 {usernameDisplay}
               </Text>
               <View style={styles.statusRow}>
-                <View
+                <Animated.View
                   style={[
                     styles.pulsingDot,
-                    isMatched && { backgroundColor: "#10b981" },
+                    { backgroundColor: accentColor },
+                    !isMatched && !reduceMotion && { opacity: dotOpacity },
                   ]}
                 />
                 <Text
                   style={[
                     styles.playerCardStatus,
-                    isMatched && { color: "#10b981" },
+                    { color: accentColor },
                   ]}
                 >
                   {isMatched ? "Matched" : "Searching"}
@@ -142,42 +258,53 @@ const SearchingView = memo(function SearchingView({
       {/* ── Radar + status ───────────────────────────────────────────── */}
       <View style={styles.centerZone}>
         <View style={styles.orbContainer}>
-          <Animated.View
+          <Animated.View style={[styles.radarRing, ringWaveStyle(wave0, 256)]} />
+          <Animated.View style={[styles.radarRing, ringWaveStyle(wave1, 256)]} />
+          <Animated.View style={[styles.radarRing, ringWaveStyle(wave2, 256)]} />
+
+          <View
             style={[
-              styles.radarRing,
-              isRps && { borderColor: "rgba(245, 158, 11, 0.35)", backgroundColor: "rgba(245, 158, 11, 0.05)" },
-              ringA(260),
-            ]}
-          />
-          <Animated.View
-            style={[
-              styles.radarRing,
-              isRps && { borderColor: "rgba(245, 158, 11, 0.35)", backgroundColor: "rgba(245, 158, 11, 0.05)" },
-              ringB(260),
+              styles.radarRingStatic,
+              isRps && { borderColor: "rgba(245, 158, 11, 0.14)" },
+              { width: 204, height: 204, borderRadius: 102 },
             ]}
           />
           <View
             style={[
               styles.radarRingStatic,
-              isRps && { borderColor: "rgba(245, 158, 11, 0.15)" },
-              { width: 200, height: 200, borderRadius: 100 },
-            ]}
-          />
-          <View
-            style={[
-              styles.radarRingStatic,
-              isRps && { borderColor: "rgba(245, 158, 11, 0.2)" },
-              { width: 132, height: 132, borderRadius: 66 },
+              isRps && { borderColor: "rgba(245, 158, 11, 0.18)" },
+              { width: 136, height: 136, borderRadius: 68 },
             ]}
           />
 
-          <View style={[styles.coreOrb, { backgroundColor: isMatched ? "#10b981" : isRps ? "#f59e0b" : "#00daf3" }]}>
+          {!isMatched && !reduceMotion && (
+            <Animated.View
+              style={[
+                styles.sweepArc,
+                {
+                  borderTopColor: accentColor,
+                  borderRightColor: sweepSoftColor,
+                  transform: [{ rotate: sweepRotate }],
+                },
+              ]}
+            />
+          )}
+
+          <Animated.View
+            style={[
+              styles.coreOrb,
+              {
+                backgroundColor: accentColor,
+                transform: [{ scale: isMatched || reduceMotion ? 1 : coreScale }],
+              },
+            ]}
+          >
             <Ionicons
               name={isMatched ? "checkmark" : isRps ? "flash" : "search"}
               size={28}
               color="#05070e"
             />
-          </View>
+          </Animated.View>
         </View>
 
         <Text style={styles.statusTitle}>
@@ -192,8 +319,8 @@ const SearchingView = memo(function SearchingView({
         </Text>
 
         <View style={[styles.timerPill, isRps && { borderColor: "rgba(245, 158, 11, 0.3)" }]}>
-          <Ionicons name="time-outline" size={13} color={isRps ? "#f59e0b" : "#00daf3"} />
-          <Text style={[styles.timerText, isRps && { color: "#f59e0b" }]}>{timeStr} elapsed</Text>
+          <Ionicons name="time-outline" size={13} color={accentColor} />
+          <Text style={[styles.timerText, { color: accentColor }]}>{timeStr} elapsed</Text>
         </View>
       </View>
 
@@ -220,6 +347,7 @@ const SearchingView = memo(function SearchingView({
           You will not be charged until a match is found
         </Text>
       </View>
+      </View>
     </View>
   );
 });
@@ -230,10 +358,23 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#05070e",
-    justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingTop: Platform.OS === "ios" ? 54 : 32,
+    paddingTop: Platform.OS === "ios" ? 54 : 28,
     paddingBottom: Platform.OS === "ios" ? 40 : 28,
+  },
+  containerDesktop: {
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 24,
+  },
+  inner: {
+    flex: 1,
+    width: "100%",
+    justifyContent: "space-between",
+  },
+  innerDesktop: {
+    maxWidth: 480,
+    maxHeight: 640,
   },
   topZone: {
     alignItems: "center",
@@ -302,25 +443,33 @@ const styles = StyleSheet.create({
   centerZone: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 16,
+    paddingVertical: 12,
   },
   orbContainer: {
     width: 260,
     height: 260,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 24,
+    marginBottom: 20,
   },
   radarRing: {
     position: "absolute",
-    borderWidth: 1,
-    borderColor: "rgba(0, 218, 243, 0.25)",
-    backgroundColor: "rgba(0, 218, 243, 0.03)",
+    borderWidth: 1.5,
+    borderColor: "rgba(0, 218, 243, 0.36)",
+    backgroundColor: "rgba(0, 218, 243, 0.04)",
   },
   radarRingStatic: {
     position: "absolute",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.08)",
+  },
+  sweepArc: {
+    position: "absolute",
+    width: 136,
+    height: 136,
+    borderRadius: 68,
+    borderWidth: 2,
+    borderColor: "transparent",
   },
   coreOrb: {
     width: 68,

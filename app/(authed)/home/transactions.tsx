@@ -30,6 +30,7 @@ import { WebDepositModal, WebWithdrawModal } from "../../../components/WebModals
 import ProfileEditModal from "../../../components/ProfileEditModal";
 import DesktopHeader from "../../../components/game/DesktopHeader";
 import DesktopSidebar from "../../../components/game/DesktopSidebar";
+import DesktopPageShell from "../../../components/game/DesktopPageShell";
 import { useBackgroundMusic } from "../../../context/BackgroundMusicProvider";
 import ReferralModal from "../../../components/ReferralModal";
 import PwaInstallModal from "../../../components/game/PwaInstallModal";
@@ -51,6 +52,19 @@ type Transaction = {
   createdAt: string;
   tx_type?: string;
   tx_id?: string;
+};
+
+type GameActivityItem = {
+  id: string;
+  gameType: "xo" | "spin" | "rps" | "prize" | "bonus";
+  title: string;
+  subtitle: string;
+  amount: number;
+  netDelta: number;
+  isWin: boolean;
+  timestamp: number;
+  created_at: string;
+  categoryShare?: number;
 };
 
 // ---------------- Helpers ----------------
@@ -394,6 +408,7 @@ export default function TransactionsScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [bonusModalVisible, setBonusModalVisible] = useState(false);
   const [bonusLogs, setBonusLogs] = useState<any[]>([]);
+  const [gameActivities, setGameActivities] = useState<GameActivityItem[]>([]);
 
   // Navigation and utility states
   const [depositVisible, setDepositVisible] = useState(false);
@@ -409,14 +424,15 @@ export default function TransactionsScreen() {
 
   // 3-dots popup options menu state
   const [openMenuTxId, setOpenMenuTxId] = useState<string | null>(null);
+  const [desktopFilterOpen, setDesktopFilterOpen] = useState(false);
 
-  // Pagination state (5 items per page)
+  // Pagination state (5 items per page on mobile)
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
 
   const fetchTxs = useCallback(async () => {
     try {
-      const [txRes, bonusRes] = await Promise.all([
+      const [txRes, bonusRes, xoRes, spinRes, rpsRes] = await Promise.all([
         fetch(`${API_URL}/account/transactions?t=${Date.now()}`, {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -429,25 +445,171 @@ export default function TransactionsScreen() {
             Authorization: `Bearer ${token}`,
             "x-platform": isWeb ? "web" : "mobile",
           },
-        }).catch(() => ({ ok: false, status: 0, json: async () => ({ logs: [] }) } as any))
+        }).catch(() => ({ ok: false, status: 0, json: async () => ({ logs: [] }) } as any)),
+        fetch(`${API_URL}/account/history`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ limit: 40 }),
+        }).catch(() => ({ ok: false, status: 0, json: async () => ({ history: [] }) } as any)),
+        fetch(`${API_URL}/spin/history?limit=30`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }).catch(() => ({ ok: false, status: 0, json: async () => ({ history: [] }) } as any)),
+        fetch(`${API_URL}/rps/history?limit=30`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }).catch(() => ({ ok: false, status: 0, json: async () => ({ matches: [] }) } as any)),
       ]);
       
-      const data = await txRes.json();
-      if (txRes.ok && data?.ok) {
-        setTxs(Array.isArray(data.transactions) ? data.transactions : []);
+      const parsedActivities: GameActivityItem[] = [];
+
+      if (txRes.ok) {
+        const data = await txRes.json().catch(() => ({}));
+        if (data?.ok && Array.isArray(data.transactions)) {
+          setTxs(data.transactions);
+          data.transactions.forEach((t: any) => {
+            if (normalizeType(t) === "prize") {
+              const isSpin = (t.method || "").toLowerCase().includes("spin") || t.game_type === "SPIN";
+              parsedActivities.push({
+                id: `tx_${t.id || t.ref || Math.random()}`,
+                gameType: isSpin ? "spin" : "xo",
+                title: isSpin ? "Spin Wheel Prize" : "XO Match Prize",
+                subtitle: t.method ? `${t.method} · ${formatDateOnly(t.createdAt)}` : formatDateOnly(t.createdAt),
+                amount: Number(t.amount) || 0,
+                netDelta: Number(t.amount) || 0,
+                isWin: true,
+                timestamp: new Date(t.createdAt).getTime() || 0,
+                created_at: t.createdAt,
+              });
+            }
+          });
+        }
       }
       
       if (bonusRes.ok) {
-        const bonusData = await bonusRes.json();
-        setBonusLogs(Array.isArray(bonusData.logs) ? bonusData.logs : []);
+        try {
+          const bonusData = await bonusRes.json();
+          if (Array.isArray(bonusData.logs)) {
+            setBonusLogs(bonusData.logs);
+            bonusData.logs.forEach((b: any) => {
+              parsedActivities.push({
+                id: `bonus_${b.id}`,
+                gameType: "bonus",
+                title: b.bonus_type === "WELCOME" ? "Welcome Bonus" : "Bonus Reward",
+                subtitle: formatDateOnly(b.created_at),
+                amount: Number(b.amount) || 0,
+                netDelta: Number(b.amount) || 0,
+                isWin: true,
+                timestamp: new Date(b.created_at).getTime() || 0,
+                created_at: b.created_at,
+              });
+            });
+          }
+        } catch {}
       }
+
+      if (xoRes?.ok) {
+        try {
+          const xoData = await xoRes.json();
+          if (Array.isArray(xoData?.history)) {
+            xoData.history.forEach((g: any) => {
+              const isWin = g.is_winner === true || (g.winner != null && String(g.winner).toLowerCase() === String(user?.id || '').toLowerCase());
+              const stake = Number(g.bet_amount || 0);
+              const prize = isWin ? Math.round(stake * 1.6) : 0;
+              const net = isWin ? (prize - stake) : -stake;
+              const opponentName = isWin ? (g.po_name || 'Opponent') : (g.px_name || 'Opponent');
+
+              parsedActivities.push({
+                id: `xo_${g.id}`,
+                gameType: 'xo',
+                title: isWin ? 'XO Battle Victory' : 'XO Battle Match',
+                subtitle: `vs @${opponentName} · ${formatDateOnly(g.created_at)}`,
+                amount: isWin ? prize : stake,
+                netDelta: net,
+                isWin,
+                timestamp: new Date(g.created_at).getTime() || 0,
+                created_at: g.created_at,
+              });
+            });
+          }
+        } catch {}
+      }
+
+      if (spinRes?.ok) {
+        try {
+          const spinData = await spinRes.json();
+          if (Array.isArray(spinData?.history)) {
+            spinData.history.forEach((s: any) => {
+              const isWin = Boolean(s.is_winner || (s.winner_user_id && String(s.winner_user_id).toLowerCase() === String(user?.id || '').toLowerCase()));
+              const stake = Number(s.bet_amount || s.user_bet || 100);
+              const prize = Number(s.prize_amount || 0);
+              const net = isWin ? (prize - stake) : -stake;
+
+              parsedActivities.push({
+                id: `spin_${s.id}`,
+                gameType: 'spin',
+                title: isWin ? 'Spin Wheel Win' : 'Spin Wheel Round',
+                subtitle: `${s.mode_label || 'Rail Spin'} · ${formatDateOnly(s.created_at)}`,
+                amount: isWin ? prize : stake,
+                netDelta: net,
+                isWin,
+                timestamp: new Date(s.created_at).getTime() || 0,
+                created_at: s.created_at,
+              });
+            });
+          }
+        } catch {}
+      }
+
+      if (rpsRes?.ok) {
+        try {
+          const rpsData = await rpsRes.json();
+          if (Array.isArray(rpsData?.matches)) {
+            rpsData.matches.forEach((m: any) => {
+              const isWin = String(m.winnerId) === String(user?.id);
+              const stake = Number(m.betAmount || 0);
+              const prize = Number(m.prizeAmount || 0);
+              const net = isWin ? (prize - stake) : -stake;
+
+              parsedActivities.push({
+                id: `rps_${m.id}`,
+                gameType: 'rps',
+                title: isWin ? 'RPS Victory' : 'RPS Match',
+                subtitle: `vs @${m.opponentName || 'Opponent'} · ${formatDateOnly(m.createdAt)}`,
+                amount: isWin ? prize : stake,
+                netDelta: net,
+                isWin,
+                timestamp: new Date(m.createdAt).getTime() || 0,
+                created_at: m.createdAt,
+              });
+            });
+          }
+        } catch {}
+      }
+
+      // Deduplicate by ID and sort descending
+      const seen = new Set<string>();
+      const deduped: GameActivityItem[] = [];
+      parsedActivities.sort((a, b) => b.timestamp - a.timestamp);
+      for (const act of parsedActivities) {
+        if (!seen.has(act.id)) {
+          seen.add(act.id);
+          deduped.push(act);
+        }
+      }
+
+      const winSum = deduped.filter(a => a.isWin).reduce((acc, a) => acc + a.amount, 0);
+      const finalActs = deduped.map(a => ({
+        ...a,
+        categoryShare: winSum > 0 && a.isWin ? Math.round((a.amount / winSum) * 100) : undefined,
+      }));
+
+      setGameActivities(finalActs);
     } catch (e) {
       console.error("[transactions] fetch error:", e);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [token, isWeb]);
+  }, [token, isWeb, user?.id]);
 
   useFocusEffect(
     useCallback(() => {
@@ -709,6 +871,116 @@ Status          : ${status.toUpperCase()}
     );
   };
 
+  // ─── Desktop Banking & Activities Helpers ───
+  const bankingCounts = useMemo(() => {
+    let all = 0;
+    let deposit = 0;
+    let withdrawal = 0;
+    txs.forEach((t) => {
+      const type = normalizeType(t);
+      if (type === "deposit") {
+        all++;
+        deposit++;
+      } else if (type === "withdrawal") {
+        all++;
+        withdrawal++;
+      }
+    });
+    return { all, deposit, withdrawal };
+  }, [txs]);
+
+  const bankingTxs = useMemo(() => {
+    return txs.filter((t) => {
+      const type = normalizeType(t);
+      if (type !== "deposit" && type !== "withdrawal") return false;
+
+      if (typeFilter === "deposit" && type !== "deposit") return false;
+      if (typeFilter === "withdrawal" && type !== "withdrawal") return false;
+
+      const status = normalizeStatus(t);
+      if (statusFilter !== "all" && status !== statusFilter) return false;
+
+      if (searchQuery.trim() !== "") {
+        const query = searchQuery.toLowerCase();
+        const ref = String(t.ref || t.tx_id || t.id || "").toLowerCase();
+        const method = String(t.method || "").toLowerCase();
+        const bank = String(t.bank || "").toLowerCase();
+        return ref.includes(query) || method.includes(query) || bank.includes(query);
+      }
+      return true;
+    });
+  }, [txs, typeFilter, statusFilter, searchQuery]);
+
+  const desktopBankingPerPage = 7;
+  const totalBankingPages = Math.max(1, Math.ceil(bankingTxs.length / desktopBankingPerPage));
+  const paginatedBankingTxs = useMemo(() => {
+    const start = (currentPage - 1) * desktopBankingPerPage;
+    return bankingTxs.slice(start, start + desktopBankingPerPage);
+  }, [bankingTxs, currentPage, desktopBankingPerPage]);
+
+  const totalActivitiesPrize = useMemo(() => {
+    return gameActivities
+      .filter((a) => a.isWin)
+      .reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
+  }, [gameActivities]);
+
+  const renderBankingPagination = () => {
+    if (totalBankingPages <= 1) return null;
+
+    const pages: (number | string)[] = [];
+    if (totalBankingPages <= 5) {
+      for (let i = 1; i <= totalBankingPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push("...");
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalBankingPages - 1, currentPage + 1);
+      for (let i = start; i <= end; i++) pages.push(i);
+      if (currentPage < totalBankingPages - 2) pages.push("...");
+      pages.push(totalBankingPages);
+    }
+
+    return (
+      <View style={s.paginationWrap}>
+        <Text style={s.paginationInfo}>
+          Showing {bankingTxs.length === 0 ? 0 : (currentPage - 1) * desktopBankingPerPage + 1} to {Math.min(currentPage * desktopBankingPerPage, bankingTxs.length)} of {bankingTxs.length} payments
+        </Text>
+        <View style={s.paginationControls}>
+          <TouchableOpacity 
+            style={[s.pageArrowBtn, currentPage === 1 && s.pageBtnDisabled]} 
+            disabled={currentPage === 1}
+            onPress={() => setCurrentPage(p => Math.max(1, p - 1))}
+          >
+            <Ionicons name="chevron-back" size={14} color={currentPage === 1 ? "rgba(255,255,255,0.2)" : "#fff"} />
+          </TouchableOpacity>
+          {pages.map((p, idx) => (
+            <TouchableOpacity 
+              key={idx} 
+              style={[
+                s.pageNumberBtn, 
+                currentPage === p && s.pageNumberBtnActive,
+                p === '...' && { backgroundColor: 'transparent', borderWidth: 0 }
+              ]}
+              disabled={p === '...'}
+              onPress={() => setCurrentPage(Number(p))}
+            >
+              <Text style={[s.pageNumberText, currentPage === p && s.pageNumberTextActive]}>
+                {p}
+              </Text>
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity 
+            style={[s.pageArrowBtn, currentPage === totalBankingPages && s.pageBtnDisabled]} 
+            disabled={currentPage === totalBankingPages || totalBankingPages === 0}
+            onPress={() => setCurrentPage(p => Math.min(totalBankingPages, p + 1))}
+          >
+            <Ionicons name="chevron-forward" size={14} color={currentPage === totalBankingPages || totalBankingPages === 0 ? "rgba(255,255,255,0.2)" : "#fff"} />
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.safe} edges={isDesktop ? ["bottom"] : ["top", "left", "right", "bottom"]}>
       <View style={[StyleSheet.absoluteFill, { backgroundColor: "#0a0e1a" }]} />
@@ -721,8 +993,8 @@ Status          : ${status.toUpperCase()}
         token={token}
         fetchTxs={fetchTxs}
       />
-      <WebDepositModal visible={depositVisible} onClose={() => setDepositVisible(false)} user={user} token={token || undefined} onSuccess={refreshProfile} />
-      <WebWithdrawModal visible={withdrawVisible} onClose={() => setWithdrawVisible(false)} user={user} token={token || undefined} onSuccess={refreshProfile} />
+      <WebDepositModal visible={depositVisible} onClose={() => setDepositVisible(false)} user={user} token={token || undefined} onSuccess={refreshProfile} language={language} />
+      <WebWithdrawModal visible={withdrawVisible} onClose={() => setWithdrawVisible(false)} user={user} token={token || undefined} onSuccess={refreshProfile} language={language} />
       <ProfileEditModal visible={!user?.username} onClose={() => {}} initialUsername={user?.username} initialDisplayName={(user as any)?.display_name} initialAvatar={(user as any)?.avatar} onSaved={refreshProfile} />
       <ReferralModal visible={showReferralModal} onClose={() => setShowReferralModal(false)} token={token || null} isEN={isEN} toast={undefined} />
       <PwaInstallModal visible={pwaModalVisible} onClose={() => setPwaModalVisible(false)} />
@@ -738,188 +1010,389 @@ Status          : ${status.toUpperCase()}
       />
 
       {isDesktop ? (
-        /* ────────── PREMIUM DESKTOP LAYOUT ────────── */
-        <View style={{ flex: 1 }}>
-          {/* Header Bar */}
-          <DesktopHeader
+        /* ────────── PREMIUM UNIFIED DESKTOP SHELL ────────── */
+        <DesktopPageShell
+          currentScreen="transactions"
           user={user}
+          balance={Number(user?.available_balance || 0)}
           language={language}
           handleLanguageToggle={handleLanguageToggle}
-          selectedTab="XO_GAME"
           setPwaModalVisible={setPwaModalVisible}
-          bgMusicPlaying={isPlaying}
-          onToggleSound={toggleMusic}
+          setDepositVisible={setDepositVisible}
+          setWithdrawVisible={setWithdrawVisible}
+          refreshProfile={refreshProfile}
           unreadCount={unreadCount}
           setNotificationsVisible={setNotificationsVisible}
           router={router}
-        />
-
+        >
           {/* Main Scroll Content */}
           <ScrollView style={s.mainScrollView} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
             <View style={s.pageContentWrapper}>
-              <View style={s.threeColumnRow}>
-                {/* 1. LEFT SIDEBAR */}
-                <DesktopSidebar
-                  user={user}
-                  balance={Number(user?.available_balance || 0)}
-                  currentScreen="transactions"
-                  style={{ width: 280 }}
-                  refreshProfile={refreshProfile}
-                  setDepositVisible={setDepositVisible}
-                  setWithdrawVisible={setWithdrawVisible}
-                  router={router}
-                />
-
-                {/* 2. TRANSACTIONS MAIN PANEL */}
-                <View style={{ flex: 1, gap: 24 }}>
-                  {/* Title & Utilities Header */}
-                  <View style={s.titleRow}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                      <TouchableOpacity onPress={() => router.back()} style={s.backButton}>
-                        <Ionicons name="arrow-back" size={18} color="#fff" />
-                      </TouchableOpacity>
-                      <View>
-                        <Text style={s.mainTitle}>Transactions</Text>
-                        <Text style={s.subTitle}>Track all your financial activities in one place</Text>
+              {/* 2-COLUMN CLASSIFICATION MATCHING INSPIRATION SPEC */}
+              <View style={s.twoColumnLayout}>
+                {/* ────────── LEFT COLUMN: Wallet Card + 2 Buttons + Activities ────────── */}
+                <View style={s.leftColumn}>
+                  {/* 1. Clean Wallet Balance Card (Balance + Eye Toggle + Refresh ONLY) */}
+                  <View style={s.cardWrapper}>
+                    <LinearGradient
+                      colors={["#10192d", "#090e1a", "#060911"]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={s.walletBalanceCard}
+                    >
+                      {/* Top Row: Label + Eye Toggle & Refresh Buttons */}
+                      <View style={s.cardTopRow}>
+                        <View style={s.walletLabelRow}>
+                          <View style={s.walletLabelDot} />
+                          <Text style={s.cardBalanceLabel}>WALLET BALANCE</Text>
+                        </View>
+                        <View style={s.cardTopActions}>
+                          <TouchableOpacity
+                            onPress={() => {
+                              try { playTickSound(); } catch {}
+                              haptics.tap();
+                              setIsBalanceHidden(!isBalanceHidden);
+                            }}
+                            style={s.cardActionBtn}
+                            activeOpacity={0.7}
+                            accessibilityLabel="Toggle balance visibility"
+                          >
+                            <Ionicons name={isBalanceHidden ? "eye-off-outline" : "eye-outline"} size={16} color="#00DAF3" />
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            onPress={handleRefreshWallet}
+                            style={s.cardActionBtn}
+                            activeOpacity={0.7}
+                            accessibilityLabel="Refresh balance"
+                          >
+                            <Animated.View style={{ transform: [{ rotate: walletSpinDeg }] }}>
+                              <Ionicons name="refresh" size={16} color="#00DAF3" />
+                            </Animated.View>
+                          </TouchableOpacity>
+                        </View>
                       </View>
-                    </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                      <TouchableOpacity 
+
+                      {/* Main Real Balance Amount */}
+                      <View style={s.walletAmountRow}>
+                        <Text style={s.walletCurrencyTag}>ETB</Text>
+                        <Text style={s.cardBalanceValue}>
+                          {isBalanceHidden
+                            ? "••••••"
+                            : Number(user?.available_balance || 0).toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                        </Text>
+                      </View>
+                    </LinearGradient>
+                  </View>
+
+                  {/* 2. Fast Transfer (Deposit & Withdraw Buttons) */}
+                  <View style={s.fastActionsSection}>
+                    <Text style={s.sectionHeaderTitle}>Fast transfer</Text>
+                    <View style={s.fastActionsRow}>
+                      {/* Deposit Button */}
+                      <TouchableOpacity
                         onPress={() => {
                           try { playTickSound(); } catch {}
                           haptics.tap();
-                          setShowFilterModal(true);
-                        }} 
-                        style={[
-                          s.titleUtilBtn,
-                          (typeFilter !== "all" || statusFilter !== "all") && {
-                            backgroundColor: "rgba(0, 218, 243, 0.15)",
-                            borderColor: "#00daf3",
-                          }
-                        ]}
+                          setDepositVisible(true);
+                        }}
+                        style={[s.actionButtonCard, { borderColor: "rgba(16, 185, 129, 0.25)" }]}
+                        activeOpacity={0.8}
                       >
-                        <Ionicons 
-                          name={(typeFilter !== "all" || statusFilter !== "all") ? "funnel" : "funnel-outline"} 
-                          size={16} 
-                          color={(typeFilter !== "all" || statusFilter !== "all") ? "#00daf3" : "#8b93a7"} 
-                        />
+                        <View style={[s.actionIconWrap, { backgroundColor: "rgba(16, 185, 129, 0.15)" }]}>
+                          <Ionicons name="arrow-down" size={18} color="#10B981" />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={s.actionBtnTitle}>Deposit</Text>
+                          <Text style={[s.actionBtnSubtitle, { color: "#10B981" }]}>Add funds</Text>
+                        </View>
                       </TouchableOpacity>
-                      <TouchableOpacity onPress={handleDownloadAllReceipts} style={s.titleUtilBtn}>
-                        <Ionicons name="download-outline" size={16} color="#8b93a7" />
+
+                      {/* Withdraw Button */}
+                      <TouchableOpacity
+                        onPress={() => {
+                          try { playTickSound(); } catch {}
+                          haptics.tap();
+                          setWithdrawVisible(true);
+                        }}
+                        style={[s.actionButtonCard, { borderColor: "rgba(0, 218, 243, 0.25)" }]}
+                        activeOpacity={0.8}
+                      >
+                        <View style={[s.actionIconWrap, { backgroundColor: "rgba(0, 218, 243, 0.15)" }]}>
+                          <Ionicons name="arrow-up" size={18} color="#00DAF3" />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={s.actionBtnTitle}>Withdraw</Text>
+                          <Text style={[s.actionBtnSubtitle, { color: "#00DAF3" }]}>Cash out</Text>
+                        </View>
                       </TouchableOpacity>
                     </View>
                   </View>
 
-                  {/* Dynamic Stat Cards Grid */}
-                  <View style={s.statsGrid}>
-                    {/* Net Flow */}
-                    <LinearGradient colors={["rgba(34,211,238,0.12)", "rgba(34,211,238,0.03)"]} style={s.statMiniCard}>
-                      <View style={[s.statIconWrap, { backgroundColor: 'rgba(34,211,238,0.15)' }]}>
-                        <Ionicons name="swap-horizontal" size={16} color="#22d3ee" />
-                      </View>
-                      <View>
-                        <Text style={s.statLabel}>NET FLOW</Text>
-                        <Text style={[s.statValue, { color: "#22d3ee" }]}>
-                          {stats.netFlow >= 0 ? "+" : "-"} ETB {Math.abs(stats.netFlow).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                        </Text>
-                        <Text style={s.statSubtitle}>{stats.successCount} successful transactions</Text>
-                      </View>
-                    </LinearGradient>
+                  {/* 3. Activities Section (Game Prizes & Losses ONLY) */}
+                  <View style={s.activitiesSection}>
+                    <View style={s.activitiesHeaderRow}>
+                      <Text style={s.sectionHeaderTitle}>Activities</Text>
+                      <Text style={s.activitiesTotalSum}>
+                        +ETB {totalActivitiesPrize.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </Text>
+                    </View>
 
-                    {/* Total Deposits */}
-                    <LinearGradient colors={["rgba(16,185,129,0.12)", "rgba(16,185,129,0.03)"]} style={s.statMiniCard}>
-                      <View style={[s.statIconWrap, { backgroundColor: 'rgba(16,185,129,0.15)' }]}>
-                        <Ionicons name="arrow-down" size={16} color="#10b981" />
-                      </View>
-                      <View>
-                        <Text style={s.statLabel}>DEPOSITS</Text>
-                        <Text style={[s.statValue, { color: "#10b981" }]}>{stats.depCount}</Text>
-                        <Text style={s.statSubtitle}>Total deposits</Text>
-                      </View>
-                    </LinearGradient>
+                    <View style={s.activitiesCard}>
+                      {gameActivities.length === 0 ? (
+                        <View style={s.emptyActivitiesBox}>
+                          <Ionicons name="trophy-outline" size={28} color="rgba(255,255,255,0.2)" />
+                          <Text style={s.emptyActivitiesText}>No game prizes recorded yet.</Text>
+                          <Text style={s.emptyActivitiesSub}>Play XO, Spin or RPS to win cash prizes!</Text>
+                        </View>
+                      ) : (
+                        gameActivities.slice(0, 6).map((item) => {
+                          const isWin = item.isWin;
+                          let iconName: keyof typeof Ionicons.glyphMap = "trophy";
+                          let iconColor = "#10B981";
+                          let iconBg = "rgba(16, 185, 129, 0.12)";
 
-                    {/* Total Withdrawals */}
-                    <LinearGradient colors={["rgba(249,115,22,0.12)", "rgba(249,115,22,0.03)"]} style={s.statMiniCard}>
-                      <View style={[s.statIconWrap, { backgroundColor: 'rgba(249,115,22,0.15)' }]}>
-                        <Ionicons name="arrow-up" size={16} color="#f97316" />
-                      </View>
-                      <View>
-                        <Text style={s.statLabel}>WITHDRAWALS</Text>
-                        <Text style={[s.statValue, { color: "#f97316" }]}>{stats.witCount}</Text>
-                        <Text style={s.statSubtitle}>Total withdrawals</Text>
-                      </View>
-                    </LinearGradient>
+                          if (item.gameType === "xo") {
+                            iconName = "grid";
+                            iconColor = "#00DAF3";
+                            iconBg = "rgba(0, 218, 243, 0.12)";
+                          } else if (item.gameType === "spin") {
+                            iconName = "disc";
+                            iconColor = "#F59E0B";
+                            iconBg = "rgba(245, 158, 11, 0.12)";
+                          } else if (item.gameType === "rps") {
+                            iconName = "hand-right";
+                            iconColor = "#A855F7";
+                            iconBg = "rgba(168, 85, 247, 0.12)";
+                          } else if (item.gameType === "bonus") {
+                            iconName = "gift";
+                            iconColor = "#10B981";
+                            iconBg = "rgba(16, 185, 129, 0.12)";
+                          }
 
-                    {/* Won Prizes */}
-                    <LinearGradient colors={["rgba(34,197,94,0.12)", "rgba(34,197,94,0.03)"]} style={s.statMiniCard}>
-                      <View style={[s.statIconWrap, { backgroundColor: 'rgba(34,197,94,0.15)' }]}>
-                        <Ionicons name="trophy" size={16} color="#22c55e" />
-                      </View>
-                      <View>
-                        <Text style={s.statLabel}>WON PRIZES</Text>
-                        <Text style={[s.statValue, { color: "#22c55e" }]}>{stats.prizeCount}</Text>
-                        <Text style={s.statSubtitle}>Total prizes won</Text>
-                      </View>
-                    </LinearGradient>
+                          return (
+                            <View key={item.id} style={s.activityRow}>
+                              <View style={[s.activityIconBox, { backgroundColor: iconBg }]}>
+                                <Ionicons name={iconName} size={16} color={iconColor} />
+                              </View>
+                              <View style={{ flex: 1, minWidth: 0 }}>
+                                <Text style={s.activityTitle} numberOfLines={1}>{item.title}</Text>
+                                <Text style={s.activitySubtitle} numberOfLines={1}>{item.subtitle}</Text>
+                              </View>
+                              <View style={{ alignItems: "flex-end" }}>
+                                <Text style={[s.activityAmount, { color: isWin ? "#10B981" : "#F87171" }]}>
+                                  {isWin ? "+" : "-"}ETB {Number(item.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                </Text>
+                                {item.categoryShare ? (
+                                  <Text style={s.activityShare}>{item.categoryShare}%</Text>
+                                ) : (
+                                  <Text style={[s.activityOutcomeTag, { color: isWin ? "#10B981" : "#F87171" }]}>
+                                    {isWin ? "WIN" : "LOSS"}
+                                  </Text>
+                                )}
+                              </View>
+                            </View>
+                          );
+                        })
+                      )}
+                    </View>
                   </View>
+                </View>
 
-                  {/* Tabs & Search Container */}
-                  <View style={s.tabSearchRow}>
-                    <View style={s.tabGroup}>
-                      {(["all", "deposit", "withdrawal", "prize"] as const).map((t) => (
-                        <TouchableOpacity
-                          key={t}
-                          onPress={() => {
-                            setTypeFilter(t);
+                {/* ────────── RIGHT COLUMN: Payment History (Deposit & Withdrawal only) ────────── */}
+                <View style={s.rightColumnBox}>
+                  {/* Payment history Header & Search/Export */}
+                  <View style={s.paymentHistoryHeader}>
+                    <View>
+                      <Text style={s.paymentHistoryTitle}>Payment history</Text>
+                      <Text style={s.paymentHistorySub}>Deposit and withdrawal transactions</Text>
+                    </View>
+
+                    {/* Tools: Search + Export */}
+                    <View style={s.historyToolsRow}>
+                      <View style={s.historySearchBox}>
+                        <Ionicons name="search" size={14} color="#8b93a7" />
+                        <TextInput
+                          style={s.historySearchInput}
+                          placeholder="Search ref or method..."
+                          placeholderTextColor="rgba(139,147,167,0.45)"
+                          value={searchQuery}
+                          onChangeText={(txt) => {
+                            setSearchQuery(txt);
                             setCurrentPage(1);
                           }}
-                          style={[s.desktopTabBtn, typeFilter === t && s.desktopTabBtnActive]}
-                        >
-                          <Text style={[s.desktopTabBtnText, typeFilter === t && s.desktopTabBtnTextActive]}>
-                            {t === "all" ? "All Transactions" : t === "deposit" ? "Deposits" : t === "withdrawal" ? "Withdrawals" : "Prizes"}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
+                        />
+                        {!!searchQuery && (
+                          <TouchableOpacity onPress={() => setSearchQuery("")} style={{ padding: 2 }}>
+                            <Ionicons name="close-circle" size={14} color="#8b93a7" />
+                          </TouchableOpacity>
+                        )}
+                      </View>
 
-                    <View style={s.desktopSearchWrap}>
-                      <Ionicons name="search" size={14} color="#8b93a7" />
-                      <TextInput
-                        style={s.desktopSearchInput}
-                        placeholder="Search transactions..."
-                        placeholderTextColor="rgba(139,147,167,0.4)"
-                        value={searchQuery}
-                        onChangeText={(txt) => {
-                          setSearchQuery(txt);
-                          setCurrentPage(1);
-                        }}
-                      />
+                      <TouchableOpacity
+                        onPress={handleDownloadAllReceipts}
+                        style={s.exportPillBtn}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons name="download-outline" size={14} color="#cbd5e1" />
+                        <Text style={s.exportPillText}>Export</Text>
+                      </TouchableOpacity>
                     </View>
                   </View>
 
-                  {/* Table Card layout matching screenshot */}
-                  <View style={s.tableCard}>
-                    {/* Headers */}
-                    <View style={s.tableHeaderRow}>
-                      <Text style={[s.tableHeaderCell, { flex: 2 }]}>TYPE</Text>
-                      <Text style={[s.tableHeaderCell, { flex: 2.2 }]}>DETAILS</Text>
-                      <Text style={[s.tableHeaderCell, { flex: 1.2 }]}>AMOUNT</Text>
-                      <Text style={[s.tableHeaderCell, { flex: 1.2 }]}>STATUS</Text>
-                      <Text style={[s.tableHeaderCell, { flex: 1.5 }]}>DATE</Text>
-                      <Text style={[s.tableHeaderCell, { flex: 0.4, textAlign: 'center' }]}></Text>
+                  {/* Redesigned Unified Filtration Bar (Segmented Type Pills + Anchored Status Filter) */}
+                  <View style={s.desktopFilterBar}>
+                    {/* Segmented Type Filter Pills */}
+                    <View style={s.segmentedFilterWrap}>
+                      {([
+                        { key: "all", label: "All", icon: "layers-outline", count: bankingCounts.all },
+                        { key: "deposit", label: "Deposits", icon: "arrow-down-outline", count: bankingCounts.deposit },
+                        { key: "withdrawal", label: "Withdrawals", icon: "arrow-up-outline", count: bankingCounts.withdrawal },
+                      ] as const).map((tab) => {
+                        const isActive = typeFilter === tab.key;
+                        return (
+                          <TouchableOpacity
+                            key={tab.key}
+                            onPress={() => {
+                              try { playTickSound(); } catch {}
+                              haptics.tap();
+                              setTypeFilter(tab.key);
+                              setCurrentPage(1);
+                            }}
+                            style={[s.segmentedFilterPill, isActive && s.segmentedFilterPillActive]}
+                            activeOpacity={0.8}
+                          >
+                            <Ionicons
+                              name={tab.icon}
+                              size={13}
+                              color={isActive ? "#00DAF3" : "#64748b"}
+                            />
+                            <Text style={[s.segmentedFilterText, isActive && s.segmentedFilterTextActive]}>
+                              {tab.label}
+                            </Text>
+                            <View style={[s.segmentedCountBadge, isActive && s.segmentedCountBadgeActive]}>
+                              <Text style={[s.segmentedCountText, isActive && s.segmentedCountTextActive]}>
+                                {tab.count}
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      })}
                     </View>
 
-                    {/* Table body */}
+                    {/* Right Side: Status Filter Pill + Anchored Popover + Reset */}
+                    <View style={s.statusFilterAnchor}>
+                      {(typeFilter !== "all" || statusFilter !== "all" || searchQuery.trim() !== "") && (
+                        <TouchableOpacity
+                          onPress={() => {
+                            try { playTickSound(); } catch {}
+                            haptics.tap();
+                            setTypeFilter("all");
+                            setStatusFilter("all");
+                            setSearchQuery("");
+                            setDesktopFilterOpen(false);
+                            setCurrentPage(1);
+                          }}
+                          style={s.resetFilterChip}
+                          activeOpacity={0.8}
+                        >
+                          <Ionicons name="close" size={12} color="#94a3b8" />
+                          <Text style={s.resetFilterText}>Reset</Text>
+                        </TouchableOpacity>
+                      )}
+
+                      <TouchableOpacity
+                        onPress={() => {
+                          try { playTickSound(); } catch {}
+                          haptics.tap();
+                          setDesktopFilterOpen((v) => !v);
+                        }}
+                        style={[
+                          s.statusDropdownTrigger,
+                          (statusFilter !== "all" || desktopFilterOpen) && s.statusDropdownTriggerActive,
+                        ]}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons
+                          name="options-outline"
+                          size={14}
+                          color={statusFilter !== "all" || desktopFilterOpen ? "#00DAF3" : "#94a3b8"}
+                        />
+                        <Text
+                          style={[
+                            s.statusDropdownText,
+                            (statusFilter !== "all" || desktopFilterOpen) && { color: "#00DAF3" },
+                          ]}
+                        >
+                          {statusFilter === "all"
+                            ? "All Statuses"
+                            : statusFilter === "success"
+                            ? "Completed"
+                            : statusFilter === "pending"
+                            ? "Pending"
+                            : "Failed"}
+                        </Text>
+                        <Ionicons
+                          name={desktopFilterOpen ? "chevron-up" : "chevron-down"}
+                          size={13}
+                          color={statusFilter !== "all" || desktopFilterOpen ? "#00DAF3" : "#64748b"}
+                        />
+                      </TouchableOpacity>
+
+                      {desktopFilterOpen && (
+                        <View style={s.statusDropdownMenu}>
+                          {([
+                            { key: "all", label: "All Statuses", dot: "#94a3b8" },
+                            { key: "success", label: "Completed", dot: "#34d399" },
+                            { key: "pending", label: "Pending", dot: "#fbbf24" },
+                            { key: "failed", label: "Failed", dot: "#f87171" },
+                          ] as const).map((opt) => {
+                            const selected = statusFilter === opt.key;
+                            return (
+                              <TouchableOpacity
+                                key={opt.key}
+                                onPress={() => {
+                                  try { playTickSound(); } catch {}
+                                  haptics.tap();
+                                  setStatusFilter(opt.key);
+                                  setCurrentPage(1);
+                                  setDesktopFilterOpen(false);
+                                }}
+                                style={[s.statusDropdownItem, selected && s.statusDropdownItemActive]}
+                                activeOpacity={0.75}
+                              >
+                                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                                  <View style={[s.statusMenuDot, { backgroundColor: opt.dot }]} />
+                                  <Text style={[s.statusDropdownItemText, selected && { color: "#fff" }]}>
+                                    {opt.label}
+                                  </Text>
+                                </View>
+                                {selected && <Ionicons name="checkmark" size={14} color="#00DAF3" />}
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      )}
+                    </View>
+                  </View>
+
+                  {/* Payment List Card */}
+                  <View style={s.paymentListCard}>
                     {loading ? (
-                      <View style={{ paddingVertical: 80, alignItems: 'center', justifyContent: 'center' }}>
+                      <View style={{ paddingVertical: 80, alignItems: "center", justifyContent: "center" }}>
                         <ActivityIndicator size="large" color="#00e5ff" />
                       </View>
-                    ) : paginatedTxs.length === 0 ? (
-                      <View style={{ paddingVertical: 80, alignItems: 'center', justifyContent: 'center' }}>
-                        <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 14, fontWeight: '700' }}>No transactions recorded</Text>
+                    ) : paginatedBankingTxs.length === 0 ? (
+                      <View style={{ paddingVertical: 70, alignItems: "center", justifyContent: "center", gap: 10 }}>
+                        <Ionicons name="receipt-outline" size={32} color="rgba(255,255,255,0.2)" />
+                        <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, fontWeight: "700" }}>
+                          No deposit or withdrawal records found
+                        </Text>
                       </View>
                     ) : (
-                      paginatedTxs.map((item, idx) => {
+                      paginatedBankingTxs.map((item, idx) => {
                         const type = normalizeType(item);
                         const status = normalizeStatus(item);
                         const isDeposit = type === "deposit";
@@ -927,108 +1400,87 @@ Status          : ${status.toUpperCase()}
                         const isPending = status === "pending";
 
                         const statusColor = isSuccess ? "#34d399" : isPending ? "#fbbf24" : "#f87171";
-                        const typeColor = isDeposit ? "#34d399" : type === "prize" ? "#00e5ff" : "#f87171";
-                        const typeIcon = isDeposit ? "arrow-down" : type === "prize" ? "gift" : "arrow-up";
+                        const typeColor = isDeposit ? "#34d399" : "#FFFFFF";
+                        const typeIcon = isDeposit ? "arrow-down" : "arrow-up";
+                        const typeIconBg = isDeposit ? "rgba(16, 185, 129, 0.12)" : "rgba(239, 68, 68, 0.12)";
+                        const typeIconColor = isDeposit ? "#10B981" : "#F87171";
 
                         return (
-                          <View key={item.id || idx} style={[s.tableRow, idx % 2 === 1 && { backgroundColor: 'rgba(255,255,255,0.01)' }]}>
-                            {/* Column 1: TYPE */}
-                            <View style={[s.tableCell, { flex: 2, flexDirection: 'row', alignItems: 'center', gap: 12 }]}>
-                              <View style={[s.tableCircleWrap, { backgroundColor: isDeposit || type === "prize" ? 'rgba(52,211,153,0.1)' : 'rgba(248,113,113,0.1)' }]}>
-                                <Ionicons name={typeIcon as any} size={14} color={typeColor} />
-                              </View>
-                              <View>
-                                <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>
-                                  {isDeposit ? "Deposit" : type === "prize" ? "Prize" : "Withdrawal"}
-                                </Text>
-                                {!!item.ref && (
-                                  <Text style={{ color: 'rgba(139,147,167,0.4)', fontSize: 10, marginTop: 2 }} numberOfLines={1}>
-                                    Ref: {item.ref.slice(0, 14)}{item.ref.length > 14 ? "..." : ""}
-                                  </Text>
-                                )}
-                              </View>
+                          <TouchableOpacity
+                            key={item.id || idx}
+                            onPress={() => setSelectedDetailTx(item)}
+                            activeOpacity={0.8}
+                            style={[
+                              s.paymentItemRow,
+                              idx < paginatedBankingTxs.length - 1 && s.paymentItemBorder
+                            ]}
+                          >
+                            {/* Icon */}
+                            <View style={[s.paymentIconBox, { backgroundColor: typeIconBg }]}>
+                              <Ionicons name={typeIcon as any} size={16} color={typeIconColor} />
                             </View>
 
-                            {/* Column 2: DETAILS */}
-                            <View style={[s.tableCell, { flex: 2.2, flexDirection: 'row', alignItems: 'center', gap: 10 }]}>
-                              <View style={s.detailsIconBox}>
-                                <Ionicons name="people" size={14} color="#8b93a7" />
-                              </View>
-                              <View>
-                                <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>
-                                  {(item.method || "Chapa").toUpperCase()}
-                                </Text>
-                                <Text style={{ color: 'rgba(139,147,167,0.4)', fontSize: 10, marginTop: 2 }}>
-                                  {formatDate(item.createdAt)}
-                                </Text>
-                              </View>
-                            </View>
-
-                            {/* Column 3: AMOUNT */}
-                            <View style={[s.tableCell, { flex: 1.2 }]}>
-                              <Text style={{ color: typeColor, fontSize: 13, fontWeight: '900' }}>
-                                {isDeposit || type === "prize" ? "+" : "-"}ETB {Number(item.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                            {/* Method & Reference */}
+                            <View style={{ flex: 1.5, minWidth: 110, paddingRight: 8 }}>
+                              <Text style={s.paymentItemTitle} numberOfLines={1}>
+                                {(item.method || "Chapa").toUpperCase()} {isDeposit ? "Deposit" : "Withdrawal"}
+                              </Text>
+                              <Text style={s.paymentItemRef} numberOfLines={1}>
+                                Ref: {String(item.ref || item.id || "—").slice(0, 16)}
                               </Text>
                             </View>
 
-                            {/* Column 4: STATUS */}
-                            <View style={[s.tableCell, { flex: 1.2 }]}>
-                              <View style={[s.statusBadge, { alignSelf: 'flex-start', backgroundColor: `${statusColor}18`, borderColor: `${statusColor}35`, paddingHorizontal: 10, paddingVertical: 4 }]}>
-                                <View style={[s.statusDot, { backgroundColor: statusColor }]} />
-                                <Text style={[s.statusText, { color: statusColor, textTransform: 'uppercase' }]}>{status}</Text>
+                            {/* Date & Time */}
+                            <View style={{ flex: 1, minWidth: 88, paddingRight: 8 }}>
+                              <Text style={s.paymentItemDate} numberOfLines={1}>
+                                {formatDateOnly(item.createdAt)}
+                              </Text>
+                              <Text style={s.paymentItemTime} numberOfLines={1}>
+                                {formatTimeOnly(item.createdAt)}
+                              </Text>
+                            </View>
+
+                            {/* Status Badge */}
+                            <View style={{ minWidth: 94, flexShrink: 0, alignItems: "flex-start" }}>
+                              <View style={[s.paymentStatusBadge, { backgroundColor: `${statusColor}18`, borderColor: `${statusColor}35` }]}>
+                                <View style={[s.paymentStatusDot, { backgroundColor: statusColor }]} />
+                                <Text style={[s.paymentStatusText, { color: statusColor }]} numberOfLines={1}>
+                                  {status.toUpperCase()}
+                                </Text>
                               </View>
                             </View>
 
-                            {/* Column 5: DATE */}
-                            <View style={[s.tableCell, { flex: 1.5 }]}>
-                              <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>{formatDateOnly(item.createdAt)}</Text>
-                              <Text style={{ color: 'rgba(139,147,167,0.4)', fontSize: 10, marginTop: 2 }}>{formatTimeOnly(item.createdAt)}</Text>
+                            {/* Amount */}
+                            <View style={{ minWidth: 108, flexShrink: 0, alignItems: "flex-end" }}>
+                              <Text style={[s.paymentItemAmount, { color: typeColor }]} numberOfLines={1}>
+                                {isDeposit ? "+" : "-"}ETB {Number(item.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </Text>
                             </View>
 
-                            {/* Column 6: ACTION */}
-                            <View style={[s.tableCell, { flex: 0.4, alignItems: 'center', position: 'relative' }]}>
-                              <TouchableOpacity onPress={() => setOpenMenuTxId(openMenuTxId === item.id ? null : item.id)} style={{ padding: 6 }}>
-                                <Ionicons name="ellipsis-vertical" size={14} color="#8b93a7" />
-                              </TouchableOpacity>
-
-                              {openMenuTxId === item.id && (
-                                <View style={s.tablePopoverMenu}>
-                                  <TouchableOpacity 
-                                    style={s.popoverItem} 
-                                    onPress={() => {
-                                      setSelectedDetailTx(item);
-                                      setOpenMenuTxId(null);
-                                    }}
-                                  >
-                                    <Ionicons name="eye-outline" size={13} color="#fff" />
-                                    <Text style={s.popoverItemText}>View Details</Text>
-                                  </TouchableOpacity>
-                                  <TouchableOpacity 
-                                    style={s.popoverItem} 
-                                    onPress={() => {
-                                      handleDownloadReceipt(item);
-                                      setOpenMenuTxId(null);
-                                    }}
-                                  >
-                                    <Ionicons name="download-outline" size={13} color="#fff" />
-                                    <Text style={s.popoverItemText}>Download</Text>
-                                  </TouchableOpacity>
-                                </View>
-                              )}
-                            </View>
-                          </View>
+                            {/* Action: Download receipt icon */}
+                            <TouchableOpacity
+                              onPress={(e) => {
+                                e.stopPropagation();
+                                handleDownloadReceipt(item);
+                              }}
+                              style={s.paymentItemActionBtn}
+                              activeOpacity={0.7}
+                            >
+                              <Ionicons name="download-outline" size={13} color="#8b93a7" />
+                            </TouchableOpacity>
+                          </TouchableOpacity>
                         );
                       })
                     )}
 
-                    {/* Pagination footer */}
-                    {renderPagination()}
+                    {/* Pagination */}
+                    {renderBankingPagination()}
                   </View>
                 </View>
               </View>
             </View>
           </ScrollView>
-        </View>
+        </DesktopPageShell>
       ) : (
         /* ────────── MOBILE PORTRAIT LAYOUT (XOET Dark Gaming Theme) ────────── */
         <View style={{ flex: 1, backgroundColor: "#07090e" }}>
@@ -1650,23 +2102,6 @@ Status          : ${status.toUpperCase()}
         </View>
       </Modal>
 
-      {/* Deposit and Withdrawal Modals */}
-      <WebDepositModal
-        visible={depositVisible}
-        onClose={() => setDepositVisible(false)}
-        user={user}
-        token={token || undefined}
-        onSuccess={refreshProfile}
-        language={language}
-      />
-      <WebWithdrawModal
-        visible={withdrawVisible}
-        onClose={() => setWithdrawVisible(false)}
-        user={user}
-        token={token || undefined}
-        onSuccess={refreshProfile}
-        language={language}
-      />
     </SafeAreaView>
   );
 }
@@ -1921,13 +2356,14 @@ const s = StyleSheet.create({
   statsGrid: { flexDirection: 'row', gap: 16, width: '100%' },
   statMiniCard: {
     flex: 1,
-    borderRadius: 20,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#1f2540',
-    padding: 18,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: '#0D1320',
+    padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 14,
     overflow: 'hidden',
   },
   statIconWrap: {
@@ -1943,19 +2379,19 @@ const s = StyleSheet.create({
 
   // Tabs and Search row
   tabSearchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },
-  tabGroup: { flexDirection: 'row', backgroundColor: '#12172a', borderRadius: 20, padding: 4, borderWidth: 1, borderColor: '#1f2540' },
-  desktopTabBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 16 },
-  desktopTabBtnActive: { backgroundColor: '#00daf3' },
+  tabGroup: { flexDirection: 'row', backgroundColor: '#0D1320', borderRadius: 16, padding: 4, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)' },
+  desktopTabBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12 },
+  desktopTabBtnActive: { backgroundColor: '#00DAF3' },
   desktopTabBtnText: { color: '#8b93a7', fontSize: 11, fontWeight: '800', fontFamily: 'Inter, sans-serif' },
   desktopTabBtnTextActive: { color: '#060a14' },
 
   desktopSearchWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#12172a',
+    backgroundColor: '#0D1320',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#1f2540',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     paddingHorizontal: 16,
     width: 280,
     height: 38,
@@ -1964,10 +2400,10 @@ const s = StyleSheet.create({
 
   // Table Card
   tableCard: {
-    backgroundColor: '#0d1220',
-    borderRadius: 24,
+    backgroundColor: '#0D1320',
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#1f2540',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     overflow: 'hidden',
     marginBottom: 40,
   },
@@ -1976,9 +2412,9 @@ const s = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 16,
     paddingHorizontal: 24,
-    backgroundColor: '#12172a',
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
     borderBottomWidth: 1,
-    borderBottomColor: '#1f2540',
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
   },
   tableHeaderCell: { color: '#8b93a7', fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
   tableRow: {
@@ -1987,7 +2423,7 @@ const s = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 24,
     borderBottomWidth: 1,
-    borderBottomColor: '#1f2540',
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
   },
   tableCell: { justifyContent: 'center' },
   tableCircleWrap: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', display: 'flex', justifyContent: 'center' },
@@ -1996,17 +2432,13 @@ const s = StyleSheet.create({
     position: 'absolute',
     right: 24,
     top: 20,
-    backgroundColor: '#12172a',
+    backgroundColor: '#0D1320',
     borderWidth: 1,
-    borderColor: '#1f2540',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 12,
     padding: 6,
     zIndex: 999,
     width: 140,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
   },
   popoverItem: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 10, borderRadius: 8 },
   popoverItemText: { color: '#fff', fontSize: 11, fontWeight: '600' },
@@ -2018,9 +2450,9 @@ const s = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 14,
     paddingHorizontal: 24,
-    backgroundColor: '#12172a',
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
     borderTopWidth: 1,
-    borderTopColor: '#1f2540',
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
   },
   paginationInfo: { color: '#8b93a7', fontSize: 12, fontWeight: '600' },
   paginationControls: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -2047,6 +2479,492 @@ const s = StyleSheet.create({
   pageNumberBtnActive: { backgroundColor: '#00daf3', borderColor: '#00daf3' },
   pageNumberText: { color: "#8b93a7", fontSize: 11, fontWeight: "800" },
   pageNumberTextActive: { color: "#060a14" },
+
+  // ─── 2-COLUMN DESKTOP ARCHITECTURE (INSPIRATION SPEC) ───
+  twoColumnLayout: {
+    flexDirection: "row",
+    gap: 24,
+    alignItems: "flex-start",
+    width: "100%",
+  },
+  leftColumn: {
+    width: 380,
+    gap: 20,
+  },
+  cardWrapper: {
+    width: "100%",
+  },
+  walletBalanceCard: {
+    width: "100%",
+    minHeight: 132,
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: "rgba(0, 218, 243, 0.22)",
+    justifyContent: "space-between",
+    gap: 18,
+    ...(Platform.OS === "web" ? { boxShadow: "0 12px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08)" } as any : {}),
+  },
+  cardTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  walletLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  walletLabelDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: "#00DAF3",
+  },
+  cardBalanceLabel: {
+    color: "rgba(255, 255, 255, 0.58)",
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 1.1,
+  },
+  walletAmountRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: 8,
+  },
+  walletCurrencyTag: {
+    color: "#00DAF3",
+    fontSize: 14,
+    fontWeight: "800",
+    letterSpacing: 0.6,
+  },
+  cardBalanceValue: {
+    color: "#FFFFFF",
+    fontSize: 32,
+    fontWeight: "900",
+    letterSpacing: -0.8,
+  },
+  cardTopActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  cardActionBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 11,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  // Fast Actions
+  fastActionsSection: {
+    gap: 10,
+  },
+  sectionHeaderTitle: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "800",
+    letterSpacing: -0.2,
+  },
+  fastActionsRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  actionButtonCard: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: "#0D1320",
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    ...(Platform.OS === "web" ? { boxShadow: "0 4px 12px rgba(0, 0, 0, 0.2)" } as any : {}),
+  },
+  actionIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  actionBtnTitle: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  actionBtnSubtitle: {
+    fontSize: 10,
+    fontWeight: "700",
+    marginTop: 2,
+  },
+
+  // Activities
+  activitiesSection: {
+    gap: 12,
+  },
+  activitiesHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  activitiesTotalSum: {
+    color: "#00DAF3",
+    fontSize: 16,
+    fontWeight: "900",
+  },
+  activitiesCard: {
+    backgroundColor: "#0D1320",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    padding: 14,
+    gap: 12,
+    ...(Platform.OS === "web" ? { boxShadow: "0 6px 20px rgba(0, 0, 0, 0.25)" } as any : {}),
+  },
+  emptyActivitiesBox: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 36,
+    gap: 6,
+  },
+  emptyActivitiesText: {
+    color: "rgba(255, 255, 255, 0.4)",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  emptyActivitiesSub: {
+    color: "rgba(255, 255, 255, 0.25)",
+    fontSize: 11,
+    fontWeight: "500",
+  },
+  activityRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 4,
+  },
+  activityIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  activityTitle: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  activitySubtitle: {
+    color: "rgba(139, 147, 167, 0.5)",
+    fontSize: 10,
+    fontWeight: "600",
+    marginTop: 2,
+  },
+  activityAmount: {
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  activityShare: {
+    color: "#8B93A7",
+    fontSize: 10,
+    fontWeight: "700",
+    marginTop: 2,
+  },
+  activityOutcomeTag: {
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+    marginTop: 2,
+  },
+
+  // Right Column: Payment History
+  rightColumnBox: {
+    flex: 1,
+    minWidth: 0,
+    gap: 16,
+  },
+  paymentHistoryHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 14,
+  },
+  paymentHistoryTitle: {
+    color: "#FFFFFF",
+    fontSize: 22,
+    fontWeight: "900",
+    letterSpacing: -0.4,
+  },
+  paymentHistorySub: {
+    color: "#8B93A7",
+    fontSize: 12,
+    fontWeight: "500",
+    marginTop: 2,
+  },
+  historyToolsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  historySearchBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#0D1320",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    paddingHorizontal: 12,
+    width: 220,
+    height: 38,
+  },
+  historySearchInput: {
+    flex: 1,
+    color: "#FFFFFF",
+    fontSize: 12,
+    paddingLeft: 8,
+    fontWeight: "600",
+  },
+  exportPillBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    height: 38,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: "#0D1320",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+  },
+  exportPillText: {
+    color: "#cbd5e1",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  desktopFilterBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    flexWrap: "wrap",
+    gap: 12,
+    zIndex: 250,
+    position: "relative",
+  },
+  segmentedFilterWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#0A0F1A",
+    borderRadius: 14,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.07)",
+  },
+  segmentedFilterPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  segmentedFilterPillActive: {
+    backgroundColor: "rgba(0, 218, 243, 0.12)",
+    borderColor: "rgba(0, 218, 243, 0.35)",
+  },
+  segmentedFilterText: {
+    color: "#94a3b8",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  segmentedFilterTextActive: {
+    color: "#00DAF3",
+    fontWeight: "800",
+  },
+  segmentedCountBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 6,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+  },
+  segmentedCountBadgeActive: {
+    backgroundColor: "rgba(0, 218, 243, 0.2)",
+  },
+  segmentedCountText: {
+    color: "#64748b",
+    fontSize: 10,
+    fontWeight: "800",
+  },
+  segmentedCountTextActive: {
+    color: "#00DAF3",
+  },
+  statusFilterAnchor: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    position: "relative",
+    zIndex: 260,
+  },
+  resetFilterChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    height: 36,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+  },
+  resetFilterText: {
+    color: "#94a3b8",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  statusDropdownTrigger: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    height: 36,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: "#0D1320",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+  },
+  statusDropdownTriggerActive: {
+    backgroundColor: "rgba(0, 218, 243, 0.1)",
+    borderColor: "rgba(0, 218, 243, 0.35)",
+  },
+  statusDropdownText: {
+    color: "#cbd5e1",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  statusDropdownMenu: {
+    position: "absolute",
+    top: 42,
+    right: 0,
+    width: 176,
+    backgroundColor: "#0F1626",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.12)",
+    padding: 6,
+    gap: 2,
+    zIndex: 100,
+    ...(Platform.OS === "web" ? { boxShadow: "0 14px 34px rgba(0, 0, 0, 0.55)" } as any : {}),
+  },
+  statusDropdownItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    borderRadius: 9,
+  },
+  statusDropdownItemActive: {
+    backgroundColor: "rgba(0, 218, 243, 0.12)",
+  },
+  statusMenuDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+  },
+  statusDropdownItemText: {
+    color: "#94a3b8",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  paymentListCard: {
+    backgroundColor: "#0D1320",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    padding: 16,
+    zIndex: 1,
+    position: "relative",
+    ...(Platform.OS === "web" ? { boxShadow: "0 10px 30px rgba(0, 0, 0, 0.25)" } as any : {}),
+  },
+  paymentItemRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    gap: 12,
+  },
+  paymentItemBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 255, 255, 0.05)",
+  },
+  paymentIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  paymentItemTitle: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  paymentItemRef: {
+    color: "rgba(139, 147, 167, 0.5)",
+    fontSize: 10,
+    fontWeight: "600",
+    marginTop: 2,
+  },
+  paymentItemDate: {
+    color: "#FFFFFF",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  paymentItemTime: {
+    color: "rgba(139, 147, 167, 0.5)",
+    fontSize: 10,
+    fontWeight: "500",
+    marginTop: 2,
+  },
+  paymentStatusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 0.5,
+    gap: 5,
+  },
+  paymentStatusDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+  },
+  paymentStatusText: {
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  paymentItemAmount: {
+    fontSize: 14,
+    fontWeight: "900",
+  },
+  paymentItemActionBtn: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    marginLeft: 6,
+  },
 });
 
 const styles = StyleSheet.create({
@@ -2209,10 +3127,10 @@ const styles = StyleSheet.create({
   emptySubText: { color: "rgba(168,167,212,0.5)", fontSize: 13, fontWeight: "600", textAlign: "center", paddingHorizontal: 32 },
 
   tableCard: {
-    backgroundColor: '#0d1220',
-    borderRadius: 18,
+    backgroundColor: '#0D1320',
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#1f2540',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     overflow: 'hidden',
     marginBottom: 40,
   },
@@ -2221,9 +3139,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 14,
     paddingHorizontal: 20,
-    backgroundColor: '#12172a',
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
     borderBottomWidth: 1,
-    borderBottomColor: '#1f2540',
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
   },
   tableHeaderCell: {
     color: '#8b93a7',

@@ -26,6 +26,7 @@ import { colors, type, radius, space, metrics, elevation } from "../../theme/tok
 import Avatar from "../ui/Avatar";
 import { haptics } from "../../lib/haptcs";
 import { playTickSound, playNotificationSound } from "../../lib/pinTickAudio";
+import { useBackgroundMusic } from "../../context/BackgroundMusicProvider";
 
 interface LobbyHeaderProps {
   fadeAnim: Animated.Value;
@@ -59,6 +60,7 @@ export const LobbyHeader = memo(function LobbyHeader({
   compactBalance = false,
 }: LobbyHeaderProps) {
   const wholeBalance = Math.floor(balance).toLocaleString();
+  const { isPlaying, toggleMusic } = useBackgroundMusic();
   const spinValue = React.useRef(new Animated.Value(0)).current;
   const [refreshToastVisible, setRefreshToastVisible] = React.useState(false);
   const [langDropdownOpen, setLangDropdownOpen] = React.useState(false);
@@ -221,8 +223,31 @@ export const LobbyHeader = memo(function LobbyHeader({
           </View>
         </TouchableOpacity>
 
-        {/* Top Right: Only Language & Notification Bell (No App download button) */}
+        {/* Top Right: Sound, Language & Notification Bell */}
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          {/* Sound Toggle */}
+          <TouchableOpacity
+            onPress={() => { haptics.tap(); playTickSound(); toggleMusic(); }}
+            activeOpacity={0.8}
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 18,
+              backgroundColor: isPlaying ? "rgba(0, 218, 243, 0.12)" : "rgba(255, 255, 255, 0.05)",
+              borderWidth: 1,
+              borderColor: isPlaying ? "rgba(0, 218, 243, 0.35)" : "rgba(255, 255, 255, 0.12)",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+            accessibilityLabel={isPlaying ? "Mute background sound" : "Unmute background sound"}
+          >
+            <Ionicons
+              name={isPlaying ? "volume-high" : "volume-mute"}
+              size={16}
+              color={isPlaying ? "#00daf3" : "#94a3b8"}
+            />
+          </TouchableOpacity>
+
           {/* Language Toggle Pill with Dropdown */}
           <TouchableOpacity
             onPress={() => { haptics.tap(); playTickSound(); setLangDropdownOpen(true); }}
@@ -358,27 +383,27 @@ export const LobbyHeader = memo(function LobbyHeader({
 
 const styles = StyleSheet.create({
   headerContainer: {
-    marginTop: Platform.OS === "ios" ? 4 : 8,
-    marginBottom: 6,
+    marginTop: Platform.OS === "ios" ? 2 : 4,
+    marginBottom: 4,
   },
   headerTop: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: space.sm,
-    marginBottom: space.md,
+    gap: 6,
+    marginBottom: 8,
   },
   avatarButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 8,
     minWidth: 0,
     flexShrink: 1,
   },
   avatarWrap: {
-    width: metrics.avatarSize,
-    height: metrics.avatarSize,
-    borderRadius: metrics.avatarSize / 2,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: colors.tintPrimary,
     borderWidth: 1.5,
     borderColor: "rgba(0,218,243,0.45)",
@@ -388,35 +413,35 @@ const styles = StyleSheet.create({
   userInfo: { justifyContent: "center" },
   welcomeText: {
     color: colors.textMuted,
-    fontSize: 9.5,
+    fontSize: 9,
     fontWeight: "700",
-    letterSpacing: 0.7,
+    letterSpacing: 0.6,
     textTransform: "uppercase",
   },
   usernameRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
-    marginTop: 2,
+    gap: 4,
+    marginTop: 1,
   },
   usernameText: {
     color: colors.text,
-    fontSize: 15,
+    fontSize: 13.5,
     fontWeight: "800",
     letterSpacing: 0.2,
   },
   vipBadge: {
     backgroundColor: colors.tintGold,
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-    borderRadius: 7,
+    paddingHorizontal: 4,
+    paddingVertical: 1.5,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: "rgba(245,182,66,0.4)",
   },
   headerBtns: {
     flexDirection: "row",
     alignItems: "center",
-    gap: space.sm,
+    gap: 6,
   },
   downloadBtn: {
     paddingHorizontal: 11,
@@ -442,8 +467,8 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
   },
   actionBtn: {
-    width: 38,
-    height: 38,
+    width: 34,
+    height: 34,
     borderRadius: radius.sm,
     backgroundColor: "rgba(255,255,255,0.04)",
     alignItems: "center",
@@ -453,11 +478,11 @@ const styles = StyleSheet.create({
   },
   badgeDot: {
     position: "absolute",
-    top: 8,
-    right: 8,
-    width: 7,
-    height: 7,
-    borderRadius: 4,
+    top: 7,
+    right: 7,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
     backgroundColor: colors.danger,
     borderWidth: 1.5,
     borderColor: colors.bgDeep,
@@ -465,45 +490,47 @@ const styles = StyleSheet.create({
 
   /* Balance card */
   balanceCardContainer: {
-    borderRadius: radius.xl,
+    borderRadius: radius.lg,
     overflow: "hidden",
     borderWidth: 1,
     borderColor: colors.border,
   },
   balanceCardGradient: {
-    paddingHorizontal: space.lg,
-    paddingVertical: space.lg,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   balanceHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: space.md,
+    marginBottom: 8,
   },
   balanceLabelWrap: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 5,
   },
   balanceLabel: {
     color: colors.textMuted,
-    ...type.micro,
+    fontSize: 9.5,
+    fontWeight: "700",
+    letterSpacing: 0.5,
     textTransform: "uppercase",
   },
   refreshBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
+    gap: 4,
     backgroundColor: "rgba(255,255,255,0.04)",
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: colors.border,
   },
   refreshText: {
     color: colors.textMuted,
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "700",
   },
   balanceMainRow: {
@@ -515,46 +542,46 @@ const styles = StyleSheet.create({
   amountDisplayRow: {
     flexDirection: "row",
     alignItems: "baseline",
-    gap: 4,
+    gap: 3,
   },
   currencyPrefix: {
     color: colors.textMuted,
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: "800",
     letterSpacing: 0.5,
   },
   wholeAmount: {
     color: colors.text,
-    fontSize: 30,
+    fontSize: 24,
     fontWeight: "800",
     letterSpacing: -0.5,
   },
   decimalAmount: {
     color: colors.gold,
-    fontSize: 17,
+    fontSize: 14,
     fontWeight: "800",
   },
   changeBadge: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 3,
     backgroundColor: colors.tintSuccess,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
     borderRadius: radius.sm,
     alignSelf: "flex-start",
-    marginTop: space.sm,
+    marginTop: 6,
     borderWidth: 1,
     borderColor: "rgba(16,185,129,0.3)",
   },
   changeBadgeText: {
     color: colors.successSoft,
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "800",
   },
   changeBadgeSubText: {
     color: colors.textMuted,
-    fontSize: 9.5,
+    fontSize: 8.5,
     fontWeight: "600",
   },
   walletArtWrap: {
@@ -563,8 +590,8 @@ const styles = StyleSheet.create({
     paddingRight: 2,
   },
   walletArt: {
-    width: 108,
-    height: 90,
+    width: 80,
+    height: 66,
     resizeMode: "contain",
   },
 });

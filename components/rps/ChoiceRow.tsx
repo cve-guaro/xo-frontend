@@ -183,8 +183,8 @@ const styles = StyleSheet.create({
   },
   choiceCard: {
     flex: 1,
-    maxWidth: 104,
-    height: 110,
+    maxWidth: 124,
+    height: 112,
     backgroundColor: colors.card,
     borderRadius: 18,
     borderWidth: 1.5,
@@ -244,6 +244,9 @@ const styles = StyleSheet.create({
   },
   lockButton: {
     height: 48,
+    maxWidth: 420,
+    width: '100%',
+    alignSelf: 'center',
     marginHorizontal: 20,
     marginTop: 4,
     marginBottom: 8,

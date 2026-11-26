@@ -27,19 +27,19 @@ export const CellSymbol = React.memo<CellSymbolProps>(({
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    scaleAnim.setValue(0.2);
+    scaleAnim.setValue(0.65);
     opacityAnim.setValue(0);
     Animated.parallel([
-      Animated.spring(scaleAnim, {
+      Animated.timing(scaleAnim, {
         toValue: 1,
-        tension: 300,
-        friction: 10,
+        duration: 180,
+        easing: Easing.out(Easing.back(1.25)),
         useNativeDriver: Platform.OS !== "web",
       }),
       Animated.timing(opacityAnim, {
         toValue: 1,
-        duration: 90,
-        easing: Easing.out(Easing.ease),
+        duration: 140,
+        easing: Easing.out(Easing.cubic),
         useNativeDriver: Platform.OS !== "web",
       }),
     ]).start();

@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import SpinWheel from "../game/SpinWheel";
 
 export interface MobileSpinRoomProps {
@@ -89,10 +90,12 @@ export const MobileSpinRoom: React.FC<MobileSpinRoomProps> = ({
   playCoinSound,
   onOpenMobilePlayersSheet,
 }) => {
+  const router = useRouter();
   const playersForWheel = displayPlayers.length > 0 ? displayPlayers : previewPlayers;
   const activePlayers = round?.players || previewPlayers;
-  const myPlayer = activePlayers.find(
-    (p: any) => String(p.userId) === String(user?.id) || p.username === user?.username || p.username === "guest_3"
+  const myPlayer = activePlayers.find((p: any) =>
+    Boolean(p) &&
+    (user?.id ? String(p.userId) === String(user.id) : Boolean(user?.username && p.username === user.username))
   );
   const myStake = is5Player
     ? (myPlayer ? 100 : (round ? 0 : 100))
@@ -189,23 +192,25 @@ export const MobileSpinRoom: React.FC<MobileSpinRoomProps> = ({
           </TouchableOpacity>
         </View>
 
-        {/* Right: Voice Chat Mic Button */}
-        <TouchableOpacity
-          onPress={onToggleMic}
-          style={{
-            width: 38,
-            height: 38,
-            borderRadius: 12,
-            backgroundColor: "#111827",
-            borderWidth: 1,
-            borderColor: micMuted ? "rgba(239, 68, 68, 0.4)" : "#1E293B",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-          activeOpacity={0.75}
-        >
-          <Ionicons name={micMuted ? "mic-off" : "mic"} size={18} color={micMuted ? "#ef4444" : "#cbd5e1"} />
-        </TouchableOpacity>
+        {/* Right: Voice Chat Mic Button (Spin History button removed so players stay in room) */}
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <TouchableOpacity
+            onPress={onToggleMic}
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 12,
+              backgroundColor: "#111827",
+              borderWidth: 1,
+              borderColor: micMuted ? "rgba(239, 68, 68, 0.4)" : "#1E293B",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+            activeOpacity={0.75}
+          >
+            <Ionicons name={micMuted ? "mic-off" : "mic"} size={18} color={micMuted ? "#ef4444" : "#cbd5e1"} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Round Subtitle & Current Pot Board */}
@@ -237,7 +242,17 @@ export const MobileSpinRoom: React.FC<MobileSpinRoomProps> = ({
           mode={is5Player ? "5_PLAYER" : "RAIL"}
           speakingUserIds={speakingUserIds}
           countdown={countdown}
-          countdownText={isSpinning || round?.status === "spinning" ? "SPIN!" : (round?.status === "locked" ? "00:00" : (countdown > 0 ? formatCountdown(countdown) : "WAITING"))}
+          countdownText={
+            isSpinning || round?.status === "spinning"
+              ? "SPIN!"
+              : round?.status === "locked"
+              ? "00:00"
+              : countdown > 0
+              ? formatCountdown(countdown)
+              : playersForWheel.length > 0
+              ? "00:00"
+              : "WAITING"
+          }
           currentUserId={user?.id}
           flashingUserIds={flashingUserIds}
         />

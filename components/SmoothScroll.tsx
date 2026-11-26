@@ -23,20 +23,14 @@ export function SmoothScroll({ children }: { children?: React.ReactNode }) {
           -webkit-tap-highlight-color: transparent;
         }
 
-        /* Enable mouse wheel scrolling on all React Native Web scroll containers */
+        /* Enable smooth mouse wheel scrolling on React Native Web scroll containers without trapping wheel over cards */
         div[style*="overflow-y: auto"],
         div[style*="overflow-y: scroll"],
         div[style*="overflow: auto"],
-        div[style*="overflow: scroll"],
-        .r-overflowY-156q2ks,
-        .r-overflowY-10508g7,
-        .r-overflow-1udh08x,
-        [data-focusable="true"],
-        [tabindex] {
-          scroll-behavior: smooth;
-          overscroll-behavior: contain !important;
+        div[style*="overflow: scroll"] {
+          overscroll-behavior-y: contain;
           -webkit-overflow-scrolling: touch !important;
-          touch-action: pan-y !important;
+          touch-action: pan-y;
         }
 
         /* Modern subtle scrollbars for desktop */
@@ -45,17 +39,17 @@ export function SmoothScroll({ children }: { children?: React.ReactNode }) {
           height: 7px;
         }
         ::-webkit-scrollbar-track {
-          background: rgba(13, 18, 32, 0.6);
+          background: rgba(13, 18, 32, 0.45);
         }
         ::-webkit-scrollbar-thumb {
-          background: rgba(124, 58, 237, 0.35);
+          background: rgba(148, 163, 184, 0.26);
           border-radius: 4px;
         }
         ::-webkit-scrollbar-thumb:hover {
-          background: rgba(124, 58, 237, 0.65);
+          background: rgba(148, 163, 184, 0.48);
         }
 
-        /* Eliminates 300ms tap delay and tap highlights across mobile browsers */
+        /* Allow both horizontal promo swipes and vertical scroll without 300ms delay */
         button,
         [role="button"],
         a,
@@ -64,7 +58,7 @@ export function SmoothScroll({ children }: { children?: React.ReactNode }) {
         textarea,
         [tabindex],
         .r-cursor-pointer {
-          touch-action: manipulation !important;
+          touch-action: pan-x pan-y !important;
           -webkit-tap-highlight-color: transparent !important;
         }
 

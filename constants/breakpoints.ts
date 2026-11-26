@@ -55,39 +55,39 @@ export function getResponsiveLayout(winW: number, winH: number) {
   // Fluid dimensions using smooth proportional clamp formulas (Generous PC card scale & Portrait ratio)
   const heroArtH = isShortScreen
     ? 110
-    : Math.round(clamp(220, winH * 0.36, 360));
+    : Math.round(clamp(170, winH * 0.28, 300));
 
   const centerCardMinH = isShortScreen
     ? 260
-    : Math.round(clamp(460, winH * 0.54, 580));
+    : Math.round(clamp(380, winH * 0.46, 540));
 
   const centerCardMaxH = isShortScreen
     ? 290
-    : Math.round(clamp(500, winH * 0.60, 640));
+    : Math.round(clamp(410, winH * 0.50, 580));
 
   const sideArtH = isShortScreen
     ? 80
-    : Math.round(clamp(150, winH * 0.25, 260));
+    : Math.round(clamp(120, winH * 0.20, 220));
 
   const sideCardMinH = isShortScreen
     ? 220
-    : Math.round(clamp(360, winH * 0.44, 480));
+    : Math.round(clamp(300, winH * 0.38, 440));
 
   const sideCardMaxH = isShortScreen
     ? 250
-    : Math.round(clamp(400, winH * 0.50, 530));
+    : Math.round(clamp(340, winH * 0.42, 480));
 
   const actionBtnH = isShortScreen
     ? 34
-    : Math.round(clamp(42, winH * 0.054, 50));
+    : Math.round(clamp(38, winH * 0.05, 48));
 
   const outerShelfH = isShortScreen
-    ? 32
-    : Math.round(clamp(40, winH * 0.048, 46));
+    ? 30
+    : Math.round(clamp(36, winH * 0.044, 44));
 
   // carouselH is strictly calculated from centerCardMaxH + outerShelfH + vertical margin
   // This guarantees Play with Friends is NEVER clipped by overflow:hidden
-  const carouselH = centerCardMaxH + outerShelfH + (isShortScreen ? 12 : 24);
+  const carouselH = centerCardMaxH + outerShelfH + (isShortScreen ? 10 : 16);
 
   // Symmetrical sidebar widths
   const isNarrowDesktop = winW < 1440;

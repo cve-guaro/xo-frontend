@@ -3,13 +3,16 @@
 // Match overlays:
 // - ReadyCountdownOverlay: 3s pre-match countdown (3.. 2.. 1..)
 // - RoundResultBanner: Round outcome with punchy move breakdown
-// - MatchFinalSheet: Payout / Forfeit settlement modal
+// - MatchFinalSheet: Professional Payout / Match Over Modal
 // ────────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, Animated } from 'react-native';
-import { Feather, Ionicons } from '@expo/vector-icons';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, Animated, Easing, Platform } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { RoundOutcome } from '../../lib/rps/rpsTypes';
 import { colors } from '../../theme/tokens';
+import { playTickSound } from '../../lib/pinTickAudio';
+import { haptics } from '../../lib/haptcs';
 
 // ── ReadyCountdownOverlay ───────────────────────────────────────────────────
 interface ReadyCountdownOverlayProps {
@@ -30,14 +33,15 @@ export const ReadyCountdownOverlay: React.FC<ReadyCountdownOverlayProps> = ({
     Animated.parallel([
       Animated.spring(scaleAnim, {
         toValue: 1,
-        tension: 80,
-        friction: 6,
-        useNativeDriver: true,
+        tension: 120,
+        friction: 10,
+        useNativeDriver: Platform.OS !== 'web',
       }),
       Animated.timing(opacityAnim, {
         toValue: 1,
         duration: 150,
-        useNativeDriver: true,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: Platform.OS !== 'web',
       }),
     ]).start();
   }, [count]);
@@ -83,10 +87,10 @@ export const RoundResultBanner: React.FC<RoundResultBannerProps> = ({
     : 'ROUND DRAW';
 
   const accentColor = isWin
-    ? colors.success
+    ? '#10B981'
     : isLoss
-    ? colors.danger
-    : colors.textMuted;
+    ? '#EF4444'
+    : '#94A3B8';
 
   return (
     <View style={[styles.roundBanner, { borderColor: accentColor }]}>
@@ -98,7 +102,7 @@ export const RoundResultBanner: React.FC<RoundResultBannerProps> = ({
   );
 };
 
-// ── MatchFinalSheet ─────────────────────────────────────────────────────────
+// ── MatchFinalSheet (Professional Victory & Defeat Modal) ───────────────────
 interface MatchFinalSheetProps {
   visible: boolean;
   won: boolean;
@@ -122,90 +126,132 @@ export const MatchFinalSheet: React.FC<MatchFinalSheetProps> = ({
   onPlayAgain,
   onExit,
 }) => {
+  const enterAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!visible) {
+      enterAnim.setValue(0);
+      return;
+    }
+    Animated.timing(enterAnim, {
+      toValue: 1,
+      duration: 240,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: Platform.OS !== 'web',
+    }).start();
+  }, [visible, enterAnim]);
+
   if (!visible) return null;
 
   const potAmount = stakeAmount * 2;
   const netProfit = won ? prizeAmount - stakeAmount : -stakeAmount;
 
+  const handlePlayAgainPress = () => {
+    try { playTickSound(); } catch {}
+    haptics.impact();
+    onPlayAgain();
+  };
+
+  const handleExitPress = () => {
+    try { playTickSound(); } catch {}
+    haptics.tap();
+    onExit();
+  };
+
   return (
-    <Modal visible={visible} transparent animationType="fade">
+    <Modal visible={visible} transparent animationType="none">
       <View style={styles.modalBackdrop}>
-        <View style={styles.modalSheet}>
-          {/* Header */}
-          <View style={styles.sheetHeader}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              {won ? (
-                <Ionicons name="trophy" size={26} color={colors.gold} />
-              ) : (
-                <Ionicons name="close-circle" size={26} color={colors.danger} />
-              )}
-              <Text style={styles.sheetTitle}>{won ? 'Victory!' : 'Match Over'}</Text>
+        <Animated.View
+          style={[
+            styles.modalSheet,
+            {
+              opacity: enterAnim,
+              transform: [
+                { scale: enterAnim.interpolate({ inputRange: [0, 1], outputRange: [0.95, 1] }) },
+              ],
+            },
+          ]}
+        >
+          <LinearGradient
+            colors={
+              won
+                ? ['rgba(22, 163, 74, 0.36)', 'rgba(22, 163, 74, 0.1)', '#0A0D12']
+                : ['rgba(220, 38, 38, 0.36)', 'rgba(220, 38, 38, 0.1)', '#0A0D12']
+            }
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
+            style={styles.topGlowHeader}
+          >
+            {/* Status Seal */}
+            <View style={[styles.medallionWrap, won ? styles.medallionWin : styles.medallionLose]}>
+              <View style={[styles.medallionInner, { backgroundColor: won ? '#22C55E' : '#EF4444' }]}>
+                <Ionicons
+                  name={won ? 'checkmark' : 'close'}
+                  size={24}
+                  color="#FFFFFF"
+                />
+              </View>
             </View>
-            <Text style={styles.sheetScore}>
-              {scoreYou} - {scoreOpponent}
-            </Text>
-          </View>
 
-          {/* Big Amount */}
-          <View style={styles.amountBox}>
-            <Text
-              style={[
-                styles.amountText,
-                { color: won ? colors.gold : colors.textMuted },
-              ]}
-            >
-              {won ? `+${prizeAmount}` : `-${stakeAmount}`} <Text style={styles.etbUnit}>ETB</Text>
-            </Text>
-            <Text style={styles.amountLabel}>
-              {won ? `Net Profit: +${netProfit} ETB` : 'Stake Deducted'}
-            </Text>
-          </View>
+            <Text style={styles.sheetTitle}>{won ? 'Victory' : 'Match ended'}</Text>
 
-          {/* Details breakdown */}
-          <View style={styles.detailsBox}>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Total Pot</Text>
-              <Text style={styles.detailValue}>{potAmount} ETB</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Platform Fee (20%)</Text>
-              <Text style={styles.detailValue}>-{feeAmount} ETB</Text>
-            </View>
-            <View style={[styles.detailRow, styles.detailRowHighlight]}>
-              <Text style={[styles.detailLabel, { color: colors.text, fontWeight: '700' }]}>
-                {won ? 'You Receive' : 'Your Stake'}
+            <Text style={styles.amountText}>
+              {won ? `+${prizeAmount.toLocaleString()} ETB` : `-${stakeAmount.toLocaleString()} ETB`}
+            </Text>
+
+            <View style={styles.scoreRow}>
+              <Text style={styles.scoreText}>
+                You <Text style={{ color: won ? '#34D399' : '#CBD5E1', fontWeight: '900' }}>{scoreYou}</Text> —{' '}
+                <Text style={{ color: !won ? '#F87171' : '#CBD5E1', fontWeight: '900' }}>{scoreOpponent}</Text> Opponent
               </Text>
-              <Text
-                style={[
-                  styles.detailValue,
-                  { color: won ? colors.gold : colors.text, fontWeight: '800' },
-                ]}
+            </View>
+          </LinearGradient>
+
+          <View style={styles.sheetBody}>
+            {/* Financial Details Card */}
+            <View style={styles.detailsBox}>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Match pot</Text>
+                <Text style={styles.detailValue}>{potAmount} ETB</Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Platform fee (20%)</Text>
+                <Text style={styles.detailValue}>-{feeAmount} ETB</Text>
+              </View>
+              <View style={[styles.detailRow, styles.detailRowHighlight]}>
+                <Text style={[styles.detailLabel, { color: '#FFFFFF', fontWeight: '700' }]}>
+                  {won ? 'Net profit' : 'Your entry'}
+                </Text>
+                <Text style={[styles.detailValue, { color: won ? '#F59E0B' : '#FFFFFF', fontWeight: '900' }]}>
+                  {won ? `+${netProfit} ETB` : `${stakeAmount} ETB`}
+                </Text>
+              </View>
+            </View>
+
+            {/* Symmetric Actions */}
+            <View style={styles.sheetActions}>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={handlePlayAgainPress}
+                style={styles.playAgainButton}
+                accessibilityRole="button"
+                accessibilityLabel="Play Again"
               >
-                {won ? `${prizeAmount} ETB` : `${stakeAmount} ETB`}
-              </Text>
+                <Text style={styles.playAgainText}>Play again</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.75}
+                onPress={handleExitPress}
+                style={styles.exitButton}
+                accessibilityRole="button"
+                accessibilityLabel="Back to Lobby"
+              >
+                <Text style={styles.exitText}>Back to lobby</Text>
+              </TouchableOpacity>
             </View>
           </View>
-
-          {/* Actions */}
-          <View style={styles.sheetActions}>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={onPlayAgain}
-              style={styles.playAgainButton}
-            >
-              <Ionicons name="refresh" size={18} color={colors.bgDeep} />
-              <Text style={styles.playAgainText}>Play Again</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={onExit}
-              style={styles.exitButton}
-            >
-              <Text style={styles.exitText}>Back to Lobby</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );
@@ -223,40 +269,32 @@ const styles = StyleSheet.create({
   readyTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: colors.text,
+    color: '#FFFFFF',
     letterSpacing: 0.5,
   },
   readySubtitle: {
     fontSize: 12,
     fontWeight: '500',
-    color: colors.textMuted,
+    color: '#94A3B8',
     marginTop: 4,
     marginBottom: 16,
   },
   countdownNumber: {
     fontSize: 72,
     fontWeight: '900',
-    color: colors.primary,
-    textShadowColor: colors.primary,
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 16,
+    color: '#00DAF3',
   },
   roundBanner: {
     position: 'absolute',
     top: '44%',
     alignSelf: 'center',
-    backgroundColor: 'rgba(11, 11, 22, 0.94)',
+    backgroundColor: 'rgba(11, 17, 26, 0.95)',
     paddingHorizontal: 28,
     paddingVertical: 14,
     borderRadius: 20,
     borderWidth: 2,
     alignItems: 'center',
     zIndex: 25,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.7,
-    shadowRadius: 16,
-    elevation: 10,
   },
   roundHeadline: {
     fontSize: 18,
@@ -265,74 +303,136 @@ const styles = StyleSheet.create({
   },
   roundSub: {
     fontSize: 12,
-    color: colors.textSoft,
+    color: '#CBD5E1',
     fontWeight: '600',
     marginTop: 4,
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(7, 7, 14, 0.85)',
+    backgroundColor: 'rgba(0, 0, 0, 0.72)',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
   },
   modalSheet: {
     width: '100%',
     maxWidth: 360,
-    backgroundColor: colors.card,
+    backgroundColor: '#0A0D12',
     borderRadius: 24,
-    borderWidth: 1.5,
-    borderColor: colors.borderStrong,
-    padding: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.8,
-    shadowRadius: 24,
-    elevation: 16,
-  },
-  sheetHeader: {
-    flexDirection: 'row',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    overflow: 'hidden',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
+    ...(Platform.OS === 'web'
+      ? ({
+          boxShadow: '0 20px 48px rgba(0, 0, 0, 0.65)',
+        } as any)
+      : {}),
+  },
+  topGlowHeader: {
+    width: '100%',
+    paddingTop: 30,
+    paddingBottom: 18,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+  },
+  medallionWrap: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+    borderWidth: 2,
+  },
+  medallionInner: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  medallionWin: {
+    backgroundColor: 'rgba(34, 197, 94, 0.22)',
+    borderColor: 'rgba(74, 222, 128, 0.5)',
+  },
+  medallionLose: {
+    backgroundColor: 'rgba(239, 68, 68, 0.22)',
+    borderColor: 'rgba(248, 113, 113, 0.45)',
   },
   sheetTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: colors.text,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#E2E8F0',
+    marginBottom: 6,
   },
-  sheetScore: {
-    fontSize: 16,
+  sheetSubtitle: {
+    fontSize: 13,
+    color: '#94A3B8',
+    fontWeight: '500',
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  scoreRow: {
+    marginTop: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  scoreText: {
+    color: '#E2E8F0',
+    fontSize: 12.5,
     fontWeight: '700',
-    color: colors.textMuted,
+  },
+  sheetBody: {
+    width: '100%',
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 20,
   },
   amountBox: {
+    width: '100%',
     alignItems: 'center',
-    paddingVertical: 16,
-    backgroundColor: colors.cardRaised,
+    paddingVertical: 14,
     borderRadius: 16,
-    marginBottom: 16,
+    marginVertical: 12,
+    borderWidth: 1,
+  },
+  amountBoxWin: {
+    backgroundColor: 'rgba(0, 218, 243, 0.08)',
+    borderColor: 'rgba(0, 218, 243, 0.25)',
+  },
+  amountBoxLose: {
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+    borderColor: 'rgba(239, 68, 68, 0.2)',
   },
   amountText: {
-    fontSize: 34,
+    fontSize: 36,
     fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: -0.8,
   },
   etbUnit: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: '800',
   },
   amountLabel: {
     fontSize: 12,
-    color: colors.textMuted,
-    fontWeight: '600',
+    fontWeight: '700',
     marginTop: 4,
   },
   detailsBox: {
+    width: '100%',
     backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: 14,
-    padding: 14,
-    gap: 8,
-    marginBottom: 20,
+    padding: 12,
+    gap: 7,
+    marginBottom: 16,
   },
   detailRow: {
     flexDirection: 'row',
@@ -341,48 +441,57 @@ const styles = StyleSheet.create({
   },
   detailRowHighlight: {
     borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingTop: 8,
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+    paddingTop: 7,
     marginTop: 2,
   },
   detailLabel: {
     fontSize: 12,
-    color: colors.textMuted,
+    color: '#94A3B8',
+    fontWeight: '500',
   },
   detailValue: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.text,
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#E2E8F0',
   },
   sheetActions: {
+    width: '100%',
+    flexDirection: 'row',
     gap: 10,
   },
   playAgainButton: {
-    flexDirection: 'row',
-    height: 48,
-    backgroundColor: colors.primary,
-    borderRadius: 14,
+    flex: 1,
+    height: 46,
+    backgroundColor: '#00DAF3',
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    ...(Platform.OS === 'web'
+      ? ({ cursor: 'pointer' } as any)
+      : {}),
   },
   playAgainText: {
-    color: colors.bgDeep,
-    fontSize: 14,
+    color: '#07090E',
+    fontSize: 13.5,
     fontWeight: '800',
-    letterSpacing: 0.4,
   },
   exitButton: {
-    height: 44,
-    borderRadius: 14,
+    flex: 1,
+    height: 46,
+    borderRadius: 12,
+    backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
+    ...(Platform.OS === 'web'
+      ? ({ cursor: 'pointer' } as any)
+      : {}),
   },
   exitText: {
-    color: colors.textSoft,
-    fontSize: 13,
-    fontWeight: '600',
+    color: '#CBD5E1',
+    fontSize: 13.5,
+    fontWeight: '700',
   },
 });

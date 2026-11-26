@@ -53,6 +53,7 @@ class VoiceService {
   private appId = AGORA_APP_ID || "";
   private joinRetryCount = 0;
   private maxJoinRetries = 2;
+  private voiceDisabledOnServer = false;
   private speakingListeners: Array<(speakers: string[]) => void> = [];
 
   onSpeaking(callback: (speakers: string[]) => void) {
@@ -63,6 +64,7 @@ class VoiceService {
   }
 
   async fetchToken(roomId: string, uid: string | number, authToken?: string): Promise<{ token: string; channel: string; uid: any; appId?: string } | null> {
+    if (this.voiceDisabledOnServer) return null;
     try {
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       const bearer = authToken || (await getStoredAuthToken());
@@ -78,6 +80,9 @@ class VoiceService {
       if (res.ok) {
         const data = await res.json();
         return data;
+      }
+      if (res.status === 503 || res.status === 501) {
+        this.voiceDisabledOnServer = true;
       }
     } catch (e) {
       console.warn("[VoiceService] fetchToken failed:", e);
@@ -161,6 +166,8 @@ class VoiceService {
   }
 
   async joinChannel(channelId: string, uid: number | string, customToken?: string, authToken?: string): Promise<boolean> {
+    if (this.voiceDisabledOnServer) return false;
+
     const channelName = channelId.startsWith("spin_room_") ? channelId : `spin_room_${channelId}`;
     this.currentChannel = channelName;
     this.currentUid = uid;
@@ -173,6 +180,8 @@ class VoiceService {
         token = tokenRes.token;
       }
     }
+
+    if (!token) return false;
 
     if (Platform.OS === "web" && this.rtcClient) {
       try {

@@ -1,15 +1,41 @@
 // components/admin/ui.tsx
 // ─────────────────────────────────────────────────────────────────────
 // Shared admin UI primitives — React Native translations of the
-// reference dashboard's Panel, Pill, Delta, Button, Meter, Toggle.
+// reference dashboard's Panel, Pill, Delta, Button, Meter, Toggle, KPI.
 // All colors come from adminTheme tokens. No hard-coded hex.
 // ─────────────────────────────────────────────────────────────────────
-import React, { useEffect, useRef, type ReactNode } from "react";
+import React, { useEffect, useRef, useState, type ReactNode } from "react";
 import {
-  View, Text, TouchableOpacity, StyleSheet, Animated, Platform,
+  View, Text, Pressable, StyleSheet, Animated, Platform, Easing, useWindowDimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAdminTheme } from "../../constants/adminTheme";
+
+// ── helpers ──────────────────────────────────────────────────────────
+// Blend a hex token with an alpha channel so tones derive from theme tokens
+// instead of hard-coded rgba() strings.
+export function alpha(hex: string, a: number): string {
+  const h = hex.replace("#", "");
+  const n = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
+  const r = parseInt(n.slice(0, 2), 16);
+  const g = parseInt(n.slice(2, 4), 16);
+  const b = parseInt(n.slice(4, 6), 16);
+  if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) return hex;
+  return `rgba(${r}, ${g}, ${b}, ${a})`;
+}
+
+// Responsive metrics mirroring the reference's mobile/desktop pairs.
+function useAdminMetrics() {
+  const { width } = useWindowDimensions();
+  const wide = width >= 1024;
+  return {
+    wide,
+    panelPad: wide ? 24 : 20,
+    panelTitleFs: wide ? 17 : 16,
+    panelKickerFs: wide ? 12 : 11,
+    kpiValueFs: wide ? 28 : 25,
+  };
+}
 
 // ── Panel ────────────────────────────────────────────────────────────
 export function AdminPanel({
@@ -24,6 +50,7 @@ export function AdminPanel({
   noPadBody?: boolean;
 }) {
   const { theme } = useAdminTheme();
+  const m = useAdminMetrics();
   return (
     <View style={[
       s.panel,
@@ -31,16 +58,24 @@ export function AdminPanel({
       style,
     ]}>
       {(title || right) && (
-        <View style={s.panelHeader}>
+        <View style={[s.panelHeader, { paddingHorizontal: m.panelPad, paddingTop: m.panelPad }]}>
           <View style={{ flex: 1, minWidth: 0 }}>
-            {title ? <Text style={[s.panelTitle, { color: theme.onSurface }]}>{title}</Text> : null}
-            {kicker ? <Text style={[s.panelKicker, { color: theme.onSurfaceVariant }]}>{kicker}</Text> : null}
+            {title ? (
+              <Text style={[s.panelTitle, { color: theme.onSurface, fontSize: m.panelTitleFs }]}>
+                {title}
+              </Text>
+            ) : null}
+            {kicker ? (
+              <Text style={[s.panelKicker, { color: theme.onSurfaceVariant, fontSize: m.panelKickerFs }]}>
+                {kicker}
+              </Text>
+            ) : null}
           </View>
           {right && <View style={s.panelHeaderRight}>{right}</View>}
         </View>
       )}
       <View style={[
-        noPadBody ? { padding: 0 } : s.panelBody,
+        noPadBody ? { padding: 0 } : [s.panelBody, { paddingHorizontal: m.panelPad, paddingBottom: m.panelPad }],
         bodyStyle,
       ]}>
         {children}
@@ -50,27 +85,49 @@ export function AdminPanel({
 }
 
 // ── Pill ─────────────────────────────────────────────────────────────
-type PillTone = "brand" | "gold" | "coral" | "azure" | "muted" | "positive";
+export type PillTone = "brand" | "gold" | "coral" | "azure" | "muted" | "positive" | "neutral" | "danger" | "success" | "warning";
 export function AdminPill({
-  children, tone = "muted", dot,
+  children, tone = "muted", dot, pulse = false,
 }: {
-  children: string;
-  tone?: PillTone;
+  children: ReactNode;
+  tone?: PillTone | string;
   dot?: boolean;
+  pulse?: boolean;
 }) {
-  const { theme, isDark } = useAdminTheme();
-  const tones: Record<PillTone, { bg: string; fg: string }> = {
+  const { theme } = useAdminTheme();
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (dot && pulse) {
+      const loop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, { toValue: 0.35, duration: 900, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 1, duration: 900, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+        ]),
+      );
+      loop.start();
+      return () => loop.stop();
+    }
+    return undefined;
+  }, [dot, pulse, pulseAnim]);
+
+  const tones: Record<string, { bg: string; fg: string }> = {
     brand:    { bg: theme.primaryContainer, fg: theme.primary },
-    gold:     { bg: "rgba(245,158,11,0.12)", fg: theme.accentGold },
-    coral:    { bg: "rgba(239,68,68,0.12)", fg: theme.error },
-    azure:    { bg: "rgba(6,182,212,0.12)", fg: theme.accentCyan },
-    positive: { bg: "rgba(16,185,129,0.12)", fg: theme.success },
+    gold:     { bg: alpha(theme.accentGold, 0.12), fg: theme.accentGold },
+    coral:    { bg: alpha(theme.error, 0.12), fg: theme.error },
+    azure:    { bg: alpha(theme.accentCyan, 0.12), fg: theme.accentCyan },
+    positive: { bg: alpha(theme.success, 0.12), fg: theme.success },
     muted:    { bg: theme.surfaceContainerHighest, fg: theme.onSurfaceVariant },
+    neutral:  { bg: theme.surfaceContainerHighest, fg: theme.onSurfaceVariant },
+    danger:   { bg: alpha(theme.error, 0.12), fg: theme.error },
+    success:  { bg: alpha(theme.success, 0.12), fg: theme.success },
+    warning:  { bg: alpha(theme.accentGold, 0.12), fg: theme.accentGold },
   };
-  const t = tones[tone];
+  const t = tones[tone] || tones.muted;
   return (
     <View style={[s.pill, { backgroundColor: t.bg }]}>
-      {dot && <View style={[s.pillDot, { backgroundColor: t.fg }]} />}
+      {dot && (
+        <Animated.View style={[s.pillDot, { backgroundColor: t.fg, opacity: pulse ? pulseAnim : 1 }]} />
+      )}
       <Text style={[s.pillText, { color: t.fg }]}>{children}</Text>
     </View>
   );
@@ -89,17 +146,13 @@ export function AdminDelta({
   const { theme } = useAdminTheme();
   const bg = inverse
     ? "rgba(255,255,255,0.2)"
-    : good ? "rgba(16,185,129,0.12)" : "rgba(239,68,68,0.12)";
+    : good ? alpha(theme.success, 0.12) : alpha(theme.error, 0.12);
   const fg = inverse
     ? "#FFFFFF"
     : good ? theme.success : theme.error;
   return (
     <View style={[s.delta, { backgroundColor: bg }]}>
-      <Ionicons
-        name={up ? "trending-up" : "trending-down"}
-        size={12}
-        color={fg}
-      />
+      <Ionicons name={up ? "trending-up" : "trending-down"} size={12} color={fg} />
       <Text style={[s.deltaText, { color: fg }]}>
         {Math.abs(value).toFixed(value < 10 ? 1 : 0)}%
       </Text>
@@ -109,8 +162,23 @@ export function AdminDelta({
 
 // ── Button ───────────────────────────────────────────────────────────
 type BtnTone = "ghost" | "solid" | "brand" | "danger" | "gold";
+// Injected CSS for smooth web animations
+if (Platform.OS === 'web' && typeof document !== 'undefined') {
+  if (!document.getElementById('admin-spin-keyframes')) {
+    const styleTag = document.createElement('style');
+    styleTag.id = 'admin-spin-keyframes';
+    styleTag.textContent = `
+      @keyframes adminSpin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    `;
+    document.head.appendChild(styleTag);
+  }
+}
+
 export function AdminButton({
-  children, onPress, tone = "ghost", icon, disabled, size = "md",
+  children, onPress, tone = "ghost", icon, disabled, size = "md", loading = false,
 }: {
   children?: string;
   onPress?: () => void;
@@ -118,38 +186,85 @@ export function AdminButton({
   icon?: keyof typeof Ionicons.glyphMap;
   disabled?: boolean;
   size?: "xs" | "sm" | "md";
+  loading?: boolean;
 }) {
   const { theme } = useAdminTheme();
+  const scale = useRef(new Animated.Value(1)).current;
+  const spinVal = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    let anim: Animated.CompositeAnimation | null = null;
+    if (loading && Platform.OS !== 'web') {
+      anim = Animated.loop(
+        Animated.timing(spinVal, {
+          toValue: 1,
+          duration: 800,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        })
+      );
+      anim.start();
+    } else {
+      spinVal.setValue(0);
+    }
+    return () => {
+      if (anim) anim.stop();
+    };
+  }, [loading, spinVal]);
+
+  const spin = spinVal.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+
   const toneStyles: Record<BtnTone, { bg: string; fg: string; border: string }> = {
     ghost:  { bg: theme.surface, fg: theme.onSurfaceVariant, border: theme.border },
     solid:  { bg: theme.onSurface, fg: theme.surface, border: "transparent" },
     brand:  { bg: theme.primary, fg: "#FFFFFF", border: "transparent" },
-    danger: { bg: "rgba(239,68,68,0.12)", fg: theme.error, border: "rgba(239,68,68,0.2)" },
-    gold:   { bg: theme.primaryContainer, fg: theme.primary, border: "rgba(255,45,85,0.2)" },
+    danger: { bg: alpha(theme.error, 0.12), fg: theme.error, border: alpha(theme.error, 0.2) },
+    gold:   { bg: theme.primaryContainer, fg: theme.primary, border: alpha(theme.primary, 0.2) },
   };
   const t = toneStyles[tone];
   const h = size === "xs" ? 28 : size === "sm" ? 32 : 36;
   const px = size === "xs" ? 8 : size === "sm" ? 12 : 14;
-  const fs = size === "xs" ? 10.5 : 11;
+  const fs = size === "md" ? 12 : 11;
+
+  const pressIn = () =>
+    Animated.timing(scale, {
+      toValue: 0.97, duration: 200, easing: Easing.out(Easing.quad), useNativeDriver: true,
+    }).start();
+  const pressOut = () =>
+    Animated.timing(scale, {
+      toValue: 1, duration: 200, easing: Easing.out(Easing.quad), useNativeDriver: true,
+    }).start();
+
   return (
-    <TouchableOpacity
-      onPress={onPress}
-      disabled={disabled}
-      activeOpacity={0.85}
-      style={[
-        s.btn,
-        {
-          backgroundColor: t.bg,
-          borderColor: t.border,
-          minHeight: h,
-          paddingHorizontal: px,
-          opacity: disabled ? 0.45 : 1,
-        },
-      ]}
-    >
-      {icon && <Ionicons name={icon} size={size === "xs" ? 13 : 15} color={t.fg} />}
-      {children ? <Text style={[s.btnText, { color: t.fg, fontSize: fs }]}>{children}</Text> : null}
-    </TouchableOpacity>
+    <Pressable onPress={onPress} disabled={disabled || loading} onPressIn={pressIn} onPressOut={pressOut}>
+      <Animated.View
+        style={[
+          s.btn,
+          {
+            backgroundColor: t.bg,
+            borderColor: t.border,
+            minHeight: h,
+            paddingHorizontal: px,
+            opacity: disabled ? 0.45 : 1,
+            transform: [{ scale }],
+          },
+        ]}
+      >
+        {icon && (
+          loading ? (
+            <Animated.View style={Platform.OS === 'web' ? ({ animation: 'adminSpin 0.75s linear infinite' } as any) : { transform: [{ rotate: spin }] }}>
+              <Ionicons name={icon} size={size === "xs" ? 13 : 15} color={t.fg} />
+            </Animated.View>
+          ) : (
+            <Ionicons name={icon} size={size === "xs" ? 13 : 15} color={t.fg} />
+          )
+        )}
+        {children ? <Text style={[s.btnText, { color: t.fg, fontSize: fs }]}>{children}</Text> : null}
+      </Animated.View>
+    </Pressable>
   );
 }
 
@@ -168,9 +283,10 @@ export function AdminMeter({
     Animated.timing(width, {
       toValue: safe,
       duration: 700,
+      easing: Easing.out(Easing.cubic),
       useNativeDriver: false,
     }).start();
-  }, [safe]);
+  }, [safe, width]);
   const colors: Record<string, string> = {
     brand: theme.primary,
     gold: theme.accentGold,
@@ -208,10 +324,20 @@ export function AdminToggle({
   disabled?: boolean;
 }) {
   const { theme } = useAdminTheme();
+  const animX = useRef(new Animated.Value(checked ? 18 : 2)).current;
+
+  useEffect(() => {
+    Animated.spring(animX, {
+      toValue: checked ? 18 : 2,
+      useNativeDriver: Platform.OS !== 'web',
+      bounciness: 4,
+      speed: 18,
+    }).start();
+  }, [checked, animX]);
+
   return (
-    <TouchableOpacity
+    <Pressable
       onPress={() => !disabled && onChange(!checked)}
-      activeOpacity={0.85}
       accessibilityRole="switch"
       accessibilityState={{ checked }}
       accessibilityLabel={label}
@@ -224,11 +350,13 @@ export function AdminToggle({
         },
       ]}
     >
-      <View style={[
-        s.toggleThumb,
-        { transform: [{ translateX: checked ? 18 : 2 }] },
-      ]} />
-    </TouchableOpacity>
+      <Animated.View
+        style={[
+          s.toggleThumb,
+          { transform: [{ translateX: animX }] },
+        ]}
+      />
+    </Pressable>
   );
 }
 
@@ -245,6 +373,7 @@ export function AdminKpiCard({
   note?: string;
 }) {
   const { theme } = useAdminTheme();
+  const m = useAdminMetrics();
   return (
     <View style={[
       s.kpiCard,
@@ -271,7 +400,7 @@ export function AdminKpiCard({
       </View>
 
       {/* Big value */}
-      <Text style={[s.kpiValue, { color: featured ? "#FFFFFF" : theme.onSurface }]}>
+      <Text style={[s.kpiValue, { color: featured ? "#FFFFFF" : theme.onSurface, fontSize: m.kpiValueFs }]}>
         {value}
       </Text>
 
@@ -280,7 +409,7 @@ export function AdminKpiCard({
         <View style={s.kpiDeltaRow}>
           <AdminDelta value={delta} inverse={featured} />
           <Text style={[s.kpiDeltaNote, { color: featured ? "rgba(255,255,255,0.7)" : theme.onSurfaceVariant }]}>
-            vs previous period
+            {note ?? "vs previous period"}
           </Text>
         </View>
       )}
@@ -301,9 +430,8 @@ export function SortHeader({
 }) {
   const { theme } = useAdminTheme();
   return (
-    <TouchableOpacity
+    <Pressable
       onPress={() => onPress(field)}
-      activeOpacity={0.75}
       style={[s.sortHeader, align === "right" && { justifyContent: "flex-end" }]}
     >
       <Text style={[
@@ -314,13 +442,9 @@ export function SortHeader({
         {label}
       </Text>
       {active && (
-        <Ionicons
-          name={dir === 1 ? "arrow-up" : "arrow-down"}
-          size={10}
-          color={theme.onSurface}
-        />
+        <Ionicons name={dir === 1 ? "arrow-up" : "arrow-down"} size={10} color={theme.onSurface} />
       )}
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 
@@ -344,33 +468,87 @@ export function AdminPager({
         {from}-{to} of {count} {label}
       </Text>
       <View style={s.pagerBtns}>
-        <TouchableOpacity
+        <Pressable
           onPress={() => onPage(page - 1)}
           disabled={page === 0}
           style={[s.pagerBtn, { borderColor: theme.border, opacity: page === 0 ? 0.35 : 1 }]}
         >
           <Ionicons name="chevron-back" size={13} color={theme.onSurfaceVariant} />
-        </TouchableOpacity>
+        </Pressable>
         <Text style={[s.pagerPageNum, { color: theme.onSurfaceVariant }]}>
           {page + 1} / {pages}
         </Text>
-        <TouchableOpacity
+        <Pressable
           onPress={() => onPage(page + 1)}
           disabled={page >= pages - 1}
           style={[s.pagerBtn, { borderColor: theme.border, opacity: page >= pages - 1 ? 0.35 : 1 }]}
         >
           <Ionicons name="chevron-forward" size={13} color={theme.onSurfaceVariant} />
-        </TouchableOpacity>
+        </Pressable>
       </View>
     </View>
   );
+}
+
+// ── Reveal (entrance animation) ──────────────────────────────────────
+export function AdminReveal({
+  children, delay = 0, style,
+}: {
+  children: ReactNode;
+  delay?: number;
+  style?: any;
+}) {
+  const v = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(v, {
+      toValue: 1,
+      duration: 350,
+      delay,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [delay, v]);
+  return (
+    <Animated.View
+      style={[
+        style,
+        {
+          opacity: v,
+          transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }],
+        },
+      ]}
+    >
+      {children}
+    </Animated.View>
+  );
+}
+
+// ── useCountUp (animated number) ─────────────────────────────────────
+export function useCountUp(target: number, duration = 700): number {
+  const [value, setValue] = useState(0);
+  const fromRef = useRef(0);
+  useEffect(() => {
+    const from = fromRef.current;
+    const start = typeof performance !== "undefined" ? performance.now() : Date.now();
+    let raf = 0;
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setValue(from + (target - from) * eased);
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    fromRef.current = target;
+    return () => cancelAnimationFrame(raf);
+  }, [target, duration]);
+  return value;
 }
 
 // ── Styles ───────────────────────────────────────────────────────────
 const s = StyleSheet.create({
   // Panel
   panel: {
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
     overflow: "hidden",
   },
@@ -379,13 +557,11 @@ const s = StyleSheet.create({
     alignItems: "flex-start",
     justifyContent: "space-between",
     gap: 12,
-    paddingHorizontal: 16,
-    paddingTop: 16,
   },
   panelTitle: {
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: "700",
-    lineHeight: 20,
+    lineHeight: 22,
   },
   panelKicker: {
     fontSize: 11,
@@ -400,8 +576,6 @@ const s = StyleSheet.create({
     gap: 6,
   },
   panelBody: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
     paddingTop: 12,
   },
 
@@ -412,7 +586,7 @@ const s = StyleSheet.create({
     gap: 4,
     borderRadius: 6,
     paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingVertical: 4,
     alignSelf: "flex-start",
   },
   pillDot: {
@@ -422,7 +596,7 @@ const s = StyleSheet.create({
   },
   pillText: {
     fontSize: 10.5,
-    fontWeight: "700",
+    fontWeight: "600",
   },
 
   // Delta
@@ -430,13 +604,13 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 3,
-    borderRadius: 12,
+    borderRadius: 999,
     paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingVertical: 2,
   },
   deltaText: {
     fontSize: 11,
-    fontWeight: "800",
+    fontWeight: "700",
   },
 
   // Button
@@ -444,8 +618,8 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 5,
-    borderRadius: 8,
+    gap: 6,
+    borderRadius: 9,
     borderWidth: 1,
     paddingVertical: 4,
   },
@@ -455,14 +629,14 @@ const s = StyleSheet.create({
 
   // Meter
   meterTrack: {
-    height: 5,
-    borderRadius: 3,
+    height: 6,
+    borderRadius: 999,
     overflow: "hidden",
     width: "100%",
   },
   meterFill: {
     height: "100%",
-    borderRadius: 3,
+    borderRadius: 999,
   },
 
   // Toggle
@@ -484,11 +658,12 @@ const s = StyleSheet.create({
   // KPI Card
   kpiCard: {
     flex: 1,
-    minHeight: 140,
+    minHeight: 150,
     minWidth: 0,
-    borderRadius: 16,
+    borderRadius: 17,
     borderWidth: 1,
-    padding: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     justifyContent: "space-between",
   },
   kpiHeader: {
@@ -497,22 +672,22 @@ const s = StyleSheet.create({
     gap: 8,
   },
   kpiIconCircle: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
   },
   kpiLabel: {
-    fontSize: 11.5,
+    fontSize: 12,
     fontWeight: "600",
     flex: 1,
   },
   kpiValue: {
     fontSize: 26,
-    fontWeight: "800",
-    letterSpacing: -1,
+    fontWeight: "700",
+    letterSpacing: -1.5,
     marginTop: 12,
   },
   kpiDeltaRow: {

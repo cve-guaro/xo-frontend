@@ -29,10 +29,12 @@ export type HistoryGameItem = {
 export interface HistoryDetailPanelProps {
   selectedRound: any;
   selectedGame: HistoryGameItem | null;
+  selectedRps?: any | null;
   myId?: string | null;
   user: any;
   onCloseSpin: () => void;
   onCloseGame: () => void;
+  onCloseRps?: () => void;
   isSpinReplayPlaying: boolean;
   setIsSpinReplayPlaying: (val: boolean | ((prev: boolean) => boolean)) => void;
   currentMoveStep: number;
@@ -80,10 +82,12 @@ function getBoardForStep(moves: Move[], step: number) {
 export function HistoryDetailPanel({
   selectedRound,
   selectedGame,
+  selectedRps,
   myId,
   user,
   onCloseSpin,
   onCloseGame,
+  onCloseRps,
   isSpinReplayPlaying,
   setIsSpinReplayPlaying,
   currentMoveStep,
@@ -464,6 +468,117 @@ export function HistoryDetailPanel({
     );
   }
 
+  if (selectedRps) {
+    const isWin = String(selectedRps.winner_id || "").toLowerCase() === String(myId || "").toLowerCase();
+    const statusColor = isWin ? "#22c55e" : "#ef4444";
+    const statusText = isWin ? "VICTORY" : "DEFEAT";
+    const isP1 = String(selectedRps.player_1 || "").toLowerCase() === String(myId || "").toLowerCase();
+    const myName = isP1
+      ? selectedRps.p1_username || user?.username || "You"
+      : selectedRps.p2_username || user?.username || "You";
+    const oppName = isP1
+      ? selectedRps.p2_username || "Opponent"
+      : selectedRps.p1_username || "Opponent";
+    const myScore = isP1 ? Number(selectedRps.score_p1 || 0) : Number(selectedRps.score_p2 || 0);
+    const oppScore = isP1 ? Number(selectedRps.score_p2 || 0) : Number(selectedRps.score_p1 || 0);
+    const stake = Number(selectedRps.stake_amount || 0);
+    const prize = Number(selectedRps.prize_amount || 0);
+    const pot = Number(selectedRps.pot_amount || stake * 2);
+    const matchId = `RPS-${String(selectedRps.id || "").slice(-4).toUpperCase()}`;
+
+    return (
+      <View style={s.card}>
+        {/* Sidebar Header */}
+        <View style={s.leaderboardHeader}>
+          <Text style={s.leaderboardTitle}>RPS MATCH DETAILS</Text>
+          <TouchableOpacity onPress={onCloseRps || onCloseGame}>
+            <Ionicons name="close" size={18} color="#8b93a7" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Outcome Badge Row */}
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginTop: 14,
+            marginBottom: 16,
+          }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <Ionicons name={isWin ? "trophy" : "skull"} size={16} color={statusColor} />
+            <Text style={[s.detailBadgeText, { color: statusColor }]}>
+              {statusText}
+            </Text>
+          </View>
+          <View style={[s.modeBadge, { backgroundColor: "rgba(0, 218, 243, 0.15)", borderColor: "rgba(0, 218, 243, 0.3)" }]}>
+            <Text style={[s.modeBadgeText, { color: "#00DAF3" }]}>BEST OF 3</Text>
+          </View>
+        </View>
+
+        {/* Opponent VS card */}
+        <View style={s.sideVsContainer}>
+          <View style={{ alignItems: "center", width: 90 }}>
+            <View style={[s.sideAvatar, { backgroundColor: "rgba(0, 218, 243, 0.2)" }]}>
+              <Text style={[s.sideAvatarText, { color: "#00DAF3" }]}>
+                {myName.slice(0, 1).toUpperCase()}
+              </Text>
+            </View>
+            <Text style={s.sidePlayerName} numberOfLines={1}>
+              @{myName}
+            </Text>
+            <Text style={[s.sideMarkIndicator, { color: "#00DAF3", fontWeight: "900" }]}>
+              Score: {myScore}
+            </Text>
+          </View>
+
+          <Text style={s.sideVsText}>VS</Text>
+
+          <View style={{ alignItems: "center", width: 90 }}>
+            <View style={[s.sideAvatar, { backgroundColor: "rgba(255, 23, 68, 0.2)" }]}>
+              <Text style={[s.sideAvatarText, { color: "#FF1744" }]}>
+                {oppName.slice(0, 1).toUpperCase()}
+              </Text>
+            </View>
+            <Text style={s.sidePlayerName} numberOfLines={1}>
+              @{oppName}
+            </Text>
+            <Text style={[s.sideMarkIndicator, { color: "#FF1744", fontWeight: "900" }]}>
+              Score: {oppScore}
+            </Text>
+          </View>
+        </View>
+
+        {/* Stat Lines */}
+        <View style={s.statLinesGroup}>
+          <View style={s.statLineRow}>
+            <Text style={s.statLineLabel}>STAKE AMOUNT</Text>
+            <Text style={s.statLineVal}>ETB {stake}</Text>
+          </View>
+          <View style={s.statLineRow}>
+            <Text style={s.statLineLabel}>TOTAL POT</Text>
+            <Text style={[s.statLineVal, { color: "#f5b642" }]}>ETB {pot}</Text>
+          </View>
+          <View style={s.statLineRow}>
+            <Text style={s.statLineLabel}>PRIZE AWARDED</Text>
+            <Text style={[s.statLineVal, { color: isWin ? "#22c55e" : "#8b93a7" }]}>
+              {isWin ? `+${prize} ETB` : "0 ETB"}
+            </Text>
+          </View>
+          <View style={s.statLineRow}>
+            <Text style={s.statLineLabel}>MATCH ID</Text>
+            <Text style={s.statLineVal}>{matchId}</Text>
+          </View>
+          <View style={s.statLineRow}>
+            <Text style={s.statLineLabel}>DATE & TIME</Text>
+            <Text style={s.statLineVal}>{formatWhen(selectedRps.created_at)}</Text>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={[s.card, { alignItems: "center", justifyContent: "center", minHeight: 400 }]}>
       <Ionicons name="information-circle-outline" size={32} color="rgba(255,255,255,0.2)" />
@@ -484,11 +599,11 @@ export function HistoryDetailPanel({
 const s = StyleSheet.create({
   card: {
     flex: 1,
-    backgroundColor: "#0d1322",
-    borderRadius: 20,
+    backgroundColor: "#0D1320",
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#1a2238",
-    padding: 20,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    padding: 18,
   },
   leaderboardHeader: {
     flexDirection: "row",

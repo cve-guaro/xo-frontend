@@ -1,7 +1,12 @@
 // components/game/DesktopLayout.tsx
-// Full desktop/tablet layout for the XOET gaming platform.
-// Redesigned strictly per Image 1 & 2 carousel wireframe and Image 4 Brand Identity.
-import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
+// Full desktop & tablet layout for XOET gaming platform.
+// Strictly matches the provided design screenshot:
+// - Left: DesktopSidebar with Welcome Bonus, Navigation (Solid Blue active pill), and Real Top 3 Leaders (Real Wins, NO PTS)
+// - Top: DesktopHeader with Brand "XO✦✦" Logo, Functional Search with dropdown, ETB Wallet + Actions Menu (Deposit & Withdraw)
+// - Section A: Featured Game Carousel (STRICTLY 3 CARDS: Spin & Win, XO Battle [dominant], RPS Battle)
+// - Section B: "Games" Section below with 3 full-bleed artwork cards (Artwork covers entire card, title & buttons over artwork at bottom)
+// - Fully connects all game launches, multiplayer/friends flows, and real database data
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -12,15 +17,14 @@ import {
   Image,
   Animated,
   useWindowDimensions,
-  LayoutAnimation,
+  TextInput,
 } from "react-native";
-import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import {
   Carousel,
   type CarouselItemAnimation,
   type CarouselRef,
-  Pagination,
 } from "react-native-reanimated-carousel";
 import {
   Easing,
@@ -33,28 +37,40 @@ import { WebDepositModal, WebWithdrawModal } from "../../components/WebModals";
 import ProfileEditModal from "../../components/ProfileEditModal";
 import ReferralModal from "../../components/ReferralModal";
 import RoomSheet from "./RoomSheet";
+import FriendMatchModal from "./FriendMatchModal";
 import DesktopHeader, { DesktopTabType } from "./DesktopHeader";
-import DesktopSidebar from "./DesktopSidebar";
+import DesktopSidebar, { LeaderboardItem } from "./DesktopSidebar";
 import SpinBetSelectModal from "./SpinBetSelectModal";
 import RpsBetSelectModal from "./RpsBetSelectModal";
+import PromotionalBannersRow from "../home/PromotionalBannersRow";
+import LatestWinningsCard from "./LatestWinningsCard";
+import { useSidebarCollapse } from "../../hooks/useSidebarCollapse";
 import type { RoomConfig, SheetStep } from "./gameplayConstants";
 import { haptics } from "../../lib/haptcs";
 import { playTickSound } from "../../lib/pinTickAudio";
-import { BREAKPOINTS, HEIGHT_THRESHOLDS, clamp, getResponsiveLayout } from "../../constants/breakpoints";
-import { TelegramPlaneIcon, ChatBubbleIcon } from "../SvgIcons";
+import { clamp } from "../../constants/breakpoints";
 
-const spinBgRedImg = require("../../assets/images/spin-background-red-desktop.webp");
-const xoBgBlueImg = require("../../assets/images/xo-background-blue.webp");
-const spinCardBordImg = require("../../assets/images/spin-card bord.webp");
-const xoCardBordImg = require("../../assets/images/xo-card bord.webp");
+// ──────────────── Integrated Design Assets ────────────────
+const xoBg = require("../../assets/images/xo-background-blue.webp");
+const xoFg = require("../../assets/dashboard/xo-foreground.png");
+const spinBg = require("../../assets/images/spin-background-red-desktop.png");
+const spinFg = require("../../assets/images/spin-card bord.png");
+const rpsBg = require("../../assets/dashboard/rps-background.png");
+const rpsFg = require("../../assets/dashboard/rps-foreground.png");
 
 type LeaderboardEntry = {
   id?: string;
   username?: string;
   avatar?: string;
-  wins: number;
+  wins?: number;
   isMe?: boolean;
 };
+
+interface CarouselCardItem {
+  id: DesktopTabType;
+  title: string;
+  subtitle: string;
+}
 
 type DesktopLayoutProps = {
   user: any;
@@ -99,7 +115,7 @@ type DesktopLayoutProps = {
   goBackToRooms: () => void;
   onSelectRoom: (id: RoomConfig["id"]) => void;
   selectAmount: (room: RoomConfig, min: number, max: number) => void;
-  handleSendInvite: (username: string, betAmount: number) => void;
+  handleSendInvite: (username: string, betAmount: number, gameType?: "xo" | "rps") => void;
   onStartRpsMatchmaking?: (stakeAmount: number) => void;
   onOpenRpsFriendMatch?: () => void;
   refreshProfile: (force?: boolean) => void;
@@ -116,618 +132,333 @@ type DesktopLayoutProps = {
 
 export default function DesktopLayout(props: DesktopLayoutProps) {
   const {
-    user, token, balance, language, isDesktop, isTablet, isEN,
+    user,
+    token,
+    balance,
+    language,
+    isDesktop,
+    isTablet,
+    isEN,
     weeklyLeaderboard = [],
-    roomSheetVisible, sheetStep, selectedRoom, backdropOpacity, sheetTranslateY, userCaps,
-    depositVisible, withdrawVisible, pwaModalVisible, showReferralModal,
-    friendModalVisible, setFriendModalVisible,
-    setDepositVisible, setWithdrawVisible, setPwaModalVisible,
+    roomSheetVisible,
+    sheetStep,
+    selectedRoom,
+    backdropOpacity,
+    sheetTranslateY,
+    userCaps,
+    depositVisible,
+    withdrawVisible,
+    pwaModalVisible,
+    showReferralModal,
+    setDepositVisible,
+    setWithdrawVisible,
+    friendModalVisible,
+    setFriendModalVisible,
+    setPwaModalVisible,
     setShowReferralModal,
-    openRoomSheet, closeRoomSheet, goBackToRooms, onSelectRoom, selectAmount,
-    handleSendInvite, inviteResult,
-    refreshProfile, handleLanguageToggle,
+    openRoomSheet,
+    closeRoomSheet,
+    goBackToRooms,
+    onSelectRoom,
+    selectAmount,
+    handleSendInvite,
+    inviteResult,
+    refreshProfile,
+    handleLanguageToggle,
     router,
-    selectedTab = "XO_GAME", setSelectedTab,
+    selectedTab = "XO_GAME",
+    setSelectedTab,
     bgMusicPlaying = true,
     onToggleSound = () => {},
     unreadCount = 0,
     setNotificationsVisible = () => {},
   } = props;
 
-  // Carousel order
-  const { width: winW, height: winH } = useWindowDimensions();
-  const responsive = getResponsiveLayout(winW, winH);
-  const {
-    isTabletLayout,
-    showMultiCards,
-    isShortScreen,
-    centerCardMinH,
-    centerCardMaxH,
-    sideArtH,
-    sideCardMinH,
-    sideCardMaxH,
-    actionBtnH,
-    outerShelfH,
-    carouselH,
-    leftSidebarW,
-    rightSidebarW,
-    columnGap,
-  } = responsive;
+  const { width: winW } = useWindowDimensions();
+  const { isCollapsed: sidebarCollapsed, toggleCollapsed: toggleSidebarCollapse } = useSidebarCollapse();
+  const isRail = (winW >= 768 && winW < 1024) || sidebarCollapsed;
+  const sidebarWidth = isRail ? 72 : 260;
 
-  // Smoothly clamped hero art height
-  const centerArtH = responsive.heroArtH;
-
-  // Backward-compatible height threshold flags
-  const isCompactDesktopH = winH < HEIGHT_THRESHOLDS.STANDARD_DESKTOP;
-  const isUltraCompactDesktopH = winH < HEIGHT_THRESHOLDS.COMPACT_DESKTOP;
-
-  // Fluid typography & margins for cards
-  const titleFontSize = isShortScreen ? 19 : Math.round(clamp(21, winH * 0.034, 28));
-  const titleMargin = isShortScreen ? 1 : Math.round(clamp(2, winH * 0.007, 6));
-
-  const tabs: DesktopTabType[] = ["SPIN", "XO_GAME", "RPS"];
+  const [searchQuery, setSearchQuery] = useState("");
+  const [gamesSearch, setGamesSearch] = useState("");
+  const [filterCategory, setFilterCategory] = useState<"all" | "luck" | "1v1">("all");
   const [spinBetModalVisible, setSpinBetModalVisible] = useState(false);
   const [rpsBetModalVisible, setRpsBetModalVisible] = useState(false);
-  const [sheetInitialView, setSheetInitialView] = useState<"STAKES" | "FRIENDS">("STAKES");
+  const [friendGameType, setFriendGameType] = useState<"xo" | "rps">("xo");
 
-  const carouselRef = useRef<CarouselRef>(null);
-  const initialIndex = tabs.indexOf(selectedTab) >= 0 ? tabs.indexOf(selectedTab) : 1;
-  const [index, setIndex] = useState(initialIndex);
-  const progress = useSharedValue(initialIndex);
-
-  // Dynamic layout measurement for Desktop Center Column (Fluid & Responsive to viewport)
-  const [centerWidth, setCenterWidth] = useState(
-    isTabletLayout
-      ? Math.min(winW - (winW < 1120 ? 90 : 260), 960)
-      : Math.min(winW - (leftSidebarW + rightSidebarW + columnGap * 2 + 40), 1200)
+  // SECTION A: STRICTLY 3 CARDS ONLY
+  const carouselSlides: CarouselCardItem[] = useMemo(
+    () => [
+      { id: "SPIN", title: "SPIN & WIN", subtitle: "Big prizes are waiting!" },
+      { id: "XO_GAME", title: "XO BATTLE", subtitle: "Think, Move, Win." }, // Center dominant (index 1)
+      { id: "RPS", title: "RPS BATTLE", subtitle: "Rock • Paper • Scissors" },
+    ],
+    []
   );
-  useEffect(() => {
-    const calculated = isTabletLayout
-      ? Math.min(winW - (winW < 1120 ? 90 : 260), 960)
-      : Math.min(winW - (leftSidebarW + rightSidebarW + columnGap * 2 + 40), 1200);
-    setCenterWidth(Math.max(calculated, 420));
-  }, [winW, isTabletLayout, leftSidebarW, rightSidebarW, columnGap]);
 
-  const cardWidth = Math.round(clamp(360, centerWidth * 0.44, 440));
-  const itemSize = cardWidth;
+  const initialIndex = 1; // XO_GAME in the center
+  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const carouselRef = useRef<CarouselRef>(null);
+  const progress = useSharedValue<number>(initialIndex);
 
-  // Synchronize carousel when selectedTab changes externally (e.g. from DesktopHeader)
+  // Synchronize carousel when external tab changes
   useEffect(() => {
-    const targetIdx = tabs.indexOf(selectedTab);
-    if (targetIdx >= 0 && targetIdx !== index) {
+    const targetIdx = carouselSlides.findIndex((s) => s.id === selectedTab);
+    if (targetIdx >= 0 && targetIdx !== currentIndex) {
       carouselRef.current?.scrollTo({ index: targetIdx, animated: true });
-      setIndex(targetIdx);
+      setCurrentIndex(targetIdx);
     }
-  }, [selectedTab]);
+  }, [selectedTab, carouselSlides]);
 
-  // Guaranteed initial alignment to selectedTab on mount (prevents initial Spin/XO mismatch)
-  useEffect(() => {
-    const targetIdx = tabs.indexOf(selectedTab);
-    if (targetIdx >= 0) {
-      const timer = setTimeout(() => {
-        carouselRef.current?.scrollTo({ index: targetIdx, animated: false });
-        setIndex(targetIdx);
-      }, 70);
-      return () => clearTimeout(timer);
-    }
-  }, []);
+  // Dimensions for Carousel
+  const mainContentWidth = Math.max(winW - sidebarWidth - 48, 640);
+  const cardWidth = Math.round(clamp(360, mainContentWidth * 0.46, 480));
+  const cardHeight = Math.round(cardWidth * 0.64);
+  const carouselHeight = cardHeight + 20;
+  const sideOffset = Math.round(cardWidth * 0.65);
 
-  const isCarouselBusyRef = useRef(false);
-
-  const handlePrevCard = () => {
-    if (isCarouselBusyRef.current) return;
-    isCarouselBusyRef.current = true;
-    try { playTickSound(); } catch {}
-    haptics.tap();
-    carouselRef.current?.prev({ animated: true });
-    setTimeout(() => {
-      isCarouselBusyRef.current = false;
-    }, 280);
-  };
-
-  const handleNextCard = () => {
-    if (isCarouselBusyRef.current) return;
-    isCarouselBusyRef.current = true;
-    try { playTickSound(); } catch {}
-    haptics.tap();
-    carouselRef.current?.next({ animated: true });
-    setTimeout(() => {
-      isCarouselBusyRef.current = false;
-    }, 280);
-  };
-
-  // 3D Card Sliding Animation matching the user's requested specification (smooth, close preview peeks)
-  const sideOffset = Math.round(cardWidth * 0.68);
-  const arrowOffset = Math.max(16, Math.round((centerWidth - cardWidth) / 2 - 58));
-
+  // 3D Coverflow Worklet animation
   const itemAnimation = useCallback<CarouselItemAnimation>(
     (value) => {
       "worklet";
       const d = Math.abs(value);
       return {
         transform: [
-          { translateX: value * sideOffset + (centerWidth - itemSize) / 2 },
-          { translateY: interpolate(d, [0, 1], [0, 14], Extrapolation.CLAMP) },
+          { translateX: value * sideOffset + (mainContentWidth - cardWidth) / 2 },
+          { translateY: interpolate(d, [0, 1], [0, 12], Extrapolation.CLAMP) },
           { scale: interpolate(d, [0, 1], [1, 0.88], Extrapolation.CLAMP) },
+          { perspective: 1000 },
+          { rotateY: `${interpolate(value, [-1, 0, 1], [28, 0, -28], Extrapolation.CLAMP)}deg` },
         ],
-        zIndex: Math.round(100 - d * 10),
-        opacity: interpolate(d, [0, 1], [1, 0.65], Extrapolation.CLAMP),
+        zIndex: Math.round(100 - d * 25),
+        opacity: interpolate(d, [0, 1], [1, 0.75], Extrapolation.CLAMP),
       };
     },
-    [centerWidth, itemSize, sideOffset]
+    [mainContentWidth, cardWidth, sideOffset]
   );
 
-  // Render single card according to its Coverflow position
-  const renderCoverflowCard = (tab: DesktopTabType, position: "left" | "center" | "right") => {
-    const isCenter = position === "center";
-    const isLeft = position === "left";
-    const isRight = position === "right";
-
-    const handleCardPress = () => {
-      try { playTickSound(); } catch {}
-      haptics.tap();
-      if (!isCenter) {
-        const targetIdx = tabs.indexOf(tab);
-        carouselRef.current?.scrollTo({ index: targetIdx, animated: true });
-        setIndex(targetIdx);
-        setSelectedTab(tab);
-      }
-    };
-
-    if (tab === "XO_GAME") {
-      return (
-        <TouchableOpacity
-          key="XO_GAME"
-          activeOpacity={isCenter ? 0.95 : 0.75}
-          onPress={handleCardPress}
-          style={[
-            s.gameCard,
-            isCenter ? s.gameCardCenter : s.gameCardSide,
-            isCenter ? { minHeight: centerCardMinH, maxHeight: centerCardMaxH } : { minHeight: sideCardMinH, maxHeight: sideCardMaxH },
-            isCenter ? s.gameCardFocusedXo : s.gameCardUnfocused,
-          ]}
-        >
-          <Image
-            source={xoBgBlueImg}
-            style={[StyleSheet.absoluteFillObject, { width: "100%", height: "100%", opacity: isCenter ? 0.95 : 0.45 }]}
-            resizeMode="cover"
-          />
-
-          {/* Badges */}
-          <View style={s.cardBadgeRow}>
-            <View style={[s.badgePill, { backgroundColor: "rgba(0, 191, 255, 0.2)", borderColor: "rgba(0, 191, 255, 0.5)" }]}>
-              <Ionicons name="grid" size={isCenter ? 11 : 9} color="#00BFFF" />
-              <Text style={[s.badgeText, { color: "#FFFFFF" }, !isCenter && { fontSize: 8.5 }]}>XO</Text>
-            </View>
-            <View style={[s.badgePill, { backgroundColor: "rgba(0, 191, 255, 0.2)", borderColor: "rgba(0, 191, 255, 0.5)" }]}>
-              <Ionicons name="star" size={isCenter ? 11 : 9} color="#00BFFF" />
-              <Text style={[s.badgeText, { color: "#00BFFF" }, !isCenter && { fontSize: 8.5 }]}>CLASSIC</Text>
-            </View>
-          </View>
-
-          {/* Artwork */}
-          <View style={[s.cardArtWrapper, isCenter ? s.cardArtWrapperCenter : s.cardArtWrapperSide, { height: isCenter ? centerArtH : sideArtH }]}>
-            <Image
-              source={xoCardBordImg}
-              style={{
-                width: "100%",
-                height: "100%",
-                transform: [{ scale: isCenter ? 1.14 : 1.05 }],
-              }}
-              resizeMode="contain"
-            />
-          </View>
-
-          {/* Title & Subtitle */}
-          <View style={{ alignItems: "center", marginVertical: isCenter ? titleMargin : 2 }}>
-            <Text style={[s.cardTitle, isCenter && { fontSize: titleFontSize }, !isCenter && s.cardTitleSide]}>XO BATTLE</Text>
-            <Text style={[s.cardSubtitle, !isCenter && { fontSize: 10 }]}>{isEN ? "Think. Move. Win." : "አስብ። ተንቀሳቀስ። አሸንፍ።"}</Text>
-          </View>
-
-          {/* Primary Button */}
-          {isCenter ? (
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={() => {
-                haptics.impact();
-                setSheetInitialView("STAKES");
-                openRoomSheet("STAKES");
-              }}
-              style={[s.cardActionBtn, { height: actionBtnH }]}
-            >
-              <LinearGradient colors={["#00BFFF", "#0091EA"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.cardBtnGrad}>
-                <Ionicons name="game-controller" size={16} color="#FFFFFF" />
-                <Text style={s.cardBtnText}>PLAY NOW</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          ) : (
-            <View style={s.cardSideHint}>
-              <Text style={s.cardSideHintText}>CLICK TO EXPAND</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      );
-    }
-
-    if (tab === "SPIN") {
-      return (
-        <TouchableOpacity
-          key="SPIN"
-          activeOpacity={isCenter ? 0.95 : 0.75}
-          onPress={handleCardPress}
-          style={[
-            s.gameCard,
-            isCenter ? s.gameCardCenter : s.gameCardSide,
-            isCenter ? { minHeight: centerCardMinH, maxHeight: centerCardMaxH } : { minHeight: sideCardMinH, maxHeight: sideCardMaxH },
-            isCenter ? s.gameCardFocusedSpin : s.gameCardUnfocused,
-          ]}
-        >
-          <Image
-            source={spinBgRedImg}
-            style={[StyleSheet.absoluteFillObject, { width: "100%", height: "100%", opacity: isCenter ? 0.95 : 0.45 }]}
-            resizeMode="cover"
-          />
-
-          {/* Badges */}
-          <View style={s.cardBadgeRow}>
-            <View style={[s.badgePill, { backgroundColor: "rgba(255, 23, 68, 0.2)", borderColor: "rgba(255, 23, 68, 0.5)" }]}>
-              <Ionicons name="aperture" size={isCenter ? 11 : 9} color="#FF1744" />
-              <Text style={[s.badgeText, { color: "#FFFFFF" }, !isCenter && { fontSize: 8.5 }]}>SPIN</Text>
-            </View>
-            <View style={[s.badgePill, { backgroundColor: "rgba(255, 23, 68, 0.2)", borderColor: "rgba(255, 23, 68, 0.5)" }]}>
-              <Ionicons name="flame" size={isCenter ? 11 : 9} color="#FF1744" />
-              <Text style={[s.badgeText, { color: "#FF1744" }, !isCenter && { fontSize: 8.5 }]}>POPULAR</Text>
-            </View>
-          </View>
-
-          {/* Artwork */}
-          <View style={[s.cardArtWrapper, isCenter ? s.cardArtWrapperCenter : s.cardArtWrapperSide, { height: isCenter ? centerArtH : sideArtH }]}>
-            <Image
-              source={spinCardBordImg}
-              style={{
-                width: "100%",
-                height: "100%",
-                transform: [{ scale: isCenter ? 1.14 : 1.05 }],
-              }}
-              resizeMode="contain"
-            />
-          </View>
-
-          {/* Title & Subtitle */}
-          <View style={{ alignItems: "center", marginVertical: isCenter ? titleMargin : 2 }}>
-            <Text style={[s.cardTitle, isCenter && { fontSize: titleFontSize }, !isCenter && s.cardTitleSide]}>SPIN <Text style={{ color: "#FF1744" }}>&</Text> WIN</Text>
-            <Text style={[s.cardSubtitle, !isCenter && { fontSize: 10 }]}>{isEN ? "Big prizes are waiting!" : "ትላልቅ ሽልማቶች ይጠብቁዎታል!"}</Text>
-          </View>
-
-          {/* Primary Button */}
-          {isCenter ? (
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={() => {
-                haptics.impact();
-                setSpinBetModalVisible(true);
-              }}
-              style={[s.cardActionBtn, { height: actionBtnH }]}
-            >
-              <LinearGradient colors={["#FF1744", "#D50000"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.cardBtnGrad}>
-                <Ionicons name="play" size={15} color="#FFFFFF" />
-                <Text style={s.cardBtnText}>REAL SPIN</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          ) : (
-            <View style={s.cardSideHint}>
-              <Text style={s.cardSideHintText}>CLICK TO EXPAND</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      );
-    }
-
-    // RPS / COMING_SOON
-    return (
-      <TouchableOpacity
-        key="RPS"
-        activeOpacity={isCenter ? 0.95 : 0.75}
-        onPress={handleCardPress}
-        style={[
-          s.gameCard,
-          isCenter ? s.gameCardCenter : s.gameCardSide,
-          isCenter ? { minHeight: centerCardMinH, maxHeight: centerCardMaxH } : { minHeight: sideCardMinH, maxHeight: sideCardMaxH },
-          isCenter ? ({ borderColor: "rgba(245, 158, 11, 0.75)", boxShadow: "0 8px 32px rgba(245, 158, 11, 0.35)" } as any) : s.gameCardUnfocused,
-        ]}
-      >
-        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: "#120d24", opacity: isCenter ? 1.0 : 0.7 }]} />
-
-        {/* Badges */}
-        <View style={s.cardBadgeRow}>
-          <View style={[s.badgePill, { backgroundColor: "rgba(245, 158, 11, 0.18)", borderColor: "rgba(245, 158, 11, 0.4)" }]}>
-            <FontAwesome5 name="hand-scissors" size={isCenter ? 11 : 9} color="#f59e0b" />
-            <Text style={[s.badgeText, { color: "#FFFFFF" }, !isCenter && { fontSize: 8.5 }]}>RPS ARENA</Text>
-          </View>
-          <View style={[s.badgePill, { backgroundColor: "rgba(245, 158, 11, 0.15)", borderColor: "rgba(245, 158, 11, 0.4)" }]}>
-            <Ionicons name="flash" size={isCenter ? 11 : 9} color="#f59e0b" />
-            <Text style={[s.badgeText, { color: "#f59e0b" }, !isCenter && { fontSize: 8.5 }]}>1V1 BATTLE</Text>
-          </View>
-        </View>
-
-        {/* Artwork */}
-        <View style={[s.cardArtWrapper, isCenter ? s.cardArtWrapperCenter : s.cardArtWrapperSide, { height: isCenter ? centerArtH : sideArtH }]}>
-          <View style={{
-            width: isCenter ? 210 : 130,
-            height: isCenter ? 110 : 70,
-            borderRadius: 20,
-            backgroundColor: "rgba(26, 18, 48, 0.75)",
-            borderWidth: 1.5,
-            borderColor: "rgba(245, 158, 11, 0.35)",
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-evenly",
-            paddingHorizontal: 8,
-          }}>
-            <View style={{ alignItems: "center", gap: 3 }}>
-              <View style={{
-                width: isCenter ? 44 : 28,
-                height: isCenter ? 44 : 28,
-                borderRadius: isCenter ? 22 : 14,
-                backgroundColor: "rgba(255, 42, 95, 0.18)",
-                borderWidth: 1.2,
-                borderColor: "#ff2a5f",
-                alignItems: "center",
-                justifyContent: "center",
-              }}>
-                <FontAwesome5 name="hand-rock" size={isCenter ? 18 : 12} color="#ff2a5f" />
-              </View>
-              {isCenter && <Text style={{ color: "#cbd5e1", fontSize: 9.5, fontWeight: "800" }}>ROCK</Text>}
-            </View>
-
-            <View style={{ alignItems: "center", gap: 3 }}>
-              <View style={{
-                width: isCenter ? 44 : 28,
-                height: isCenter ? 44 : 28,
-                borderRadius: isCenter ? 22 : 14,
-                backgroundColor: "rgba(0, 218, 243, 0.18)",
-                borderWidth: 1.2,
-                borderColor: "#00daf3",
-                alignItems: "center",
-                justifyContent: "center",
-              }}>
-                <FontAwesome5 name="hand-paper" size={isCenter ? 18 : 12} color="#00daf3" />
-              </View>
-              {isCenter && <Text style={{ color: "#cbd5e1", fontSize: 9.5, fontWeight: "800" }}>PAPER</Text>}
-            </View>
-
-            <View style={{ alignItems: "center", gap: 3 }}>
-              <View style={{
-                width: isCenter ? 44 : 28,
-                height: isCenter ? 44 : 28,
-                borderRadius: isCenter ? 22 : 14,
-                backgroundColor: "rgba(245, 158, 11, 0.18)",
-                borderWidth: 1.2,
-                borderColor: "#f59e0b",
-                alignItems: "center",
-                justifyContent: "center",
-              }}>
-                <FontAwesome5 name="hand-scissors" size={isCenter ? 18 : 12} color="#f59e0b" />
-              </View>
-              {isCenter && <Text style={{ color: "#cbd5e1", fontSize: 9.5, fontWeight: "800" }}>SCISSORS</Text>}
-            </View>
-          </View>
-        </View>
-
-        {/* Title & Subtitle */}
-        <View style={{ alignItems: "center", marginVertical: isCenter ? titleMargin : 2 }}>
-          <Text style={[s.cardTitle, { color: "#ffffff" }, isCenter && { fontSize: titleFontSize }, !isCenter && s.cardTitleSide]}>RPS BATTLE</Text>
-          <Text style={[s.cardSubtitle, !isCenter && { fontSize: 10 }]}>{isEN ? "Rock • Paper • Scissors" : "ሮክ • ፔፐር • ሲዘርስ"}</Text>
-        </View>
-
-        {/* Action Button */}
-        {isCenter ? (
-          <TouchableOpacity
-            activeOpacity={0.88}
-            onPress={() => {
-              haptics.impact();
-              setRpsBetModalVisible(true);
-            }}
-            style={[s.cardActionBtn, { height: actionBtnH }]}
-          >
-            <LinearGradient
-              colors={["#f59e0b", "#d97706"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={s.cardBtnGrad}
-            >
-              <Ionicons name="play" size={17} color="#ffffff" />
-              <Text style={[s.cardBtnText, { color: "#ffffff" }]}>
-                {isEN ? "PLAY NOW" : "አሁን ተጫወት"}
-              </Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        ) : (
-          <View style={s.cardSideHint}>
-            <Text style={s.cardSideHintText}>CLICK TO EXPAND</Text>
-          </View>
-        )}
-      </TouchableOpacity>
-    );
-  };
-
-  // Outer Secondary Shelf (Per User Request: Placed OUTSIDE and directly underneath each card)
-  const renderOuterShelf = (tab: DesktopTabType, isCenter: boolean) => {
-    if (tab === "SPIN") {
-      return (
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={() => {
-            haptics.impact();
-            router.push({
-              pathname: '/(authed)/home/spin',
-              params: { mode: "5_PLAYER" }
-            } as any);
-          }}
-          style={[s.extraShelfBtn, { height: outerShelfH }]}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <View style={s.avatarGroup}>
-              <View style={[s.shelfAvatar, { backgroundColor: '#DC2626', alignItems: 'center', justifyContent: 'center' }]}>
-                <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>1</Text>
-              </View>
-              <View style={[s.shelfAvatar, { marginLeft: -8, backgroundColor: '#2563EB', alignItems: 'center', justifyContent: 'center' }]}>
-                <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>2</Text>
-              </View>
-              <View style={[s.shelfAvatar, { marginLeft: -8, backgroundColor: '#059669', alignItems: 'center', justifyContent: 'center' }]}>
-                <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>3</Text>
-              </View>
-              <View style={[s.shelfAvatarPlus, { marginLeft: -8 }]}>
-                <Text style={s.shelfAvatarPlusText}>+2</Text>
-              </View>
-            </View>
-            <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '700' }}>5 Players Room</Text>
-          </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <Ionicons name="chevron-forward" size={15} color="#FF1744" />
-          </View>
-        </TouchableOpacity>
-      );
-    }
-
-    if (tab === "XO_GAME") {
-      return (
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={() => {
-            if (!isCenter) {
-              setSelectedTab("XO_GAME");
-              return;
-            }
-            haptics.impact();
-            setSheetInitialView("FRIENDS");
-            openRoomSheet("FRIENDS");
-          }}
-          style={[s.extraShelfBtn, { height: outerShelfH }]}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <View style={s.shelfIconCircle}>
-              <Ionicons name="people" size={14} color="#00BFFF" />
-            </View>
-            <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '700' }}>Play with Friends</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={15} color="#00BFFF" />
-        </TouchableOpacity>
-      );
-    }
-
-    // RPS / COMING_SOON
-    return (
-      <TouchableOpacity
-        activeOpacity={0.85}
-        onPress={() => {
-          if (!isCenter) {
-            setSelectedTab("RPS");
-            return;
-          }
-          haptics.impact();
-          if (props.onOpenRpsFriendMatch) {
-            props.onOpenRpsFriendMatch();
-          } else {
-            props.setFriendModalVisible?.(true);
-          }
-        }}
-        style={[s.extraShelfBtn, { height: outerShelfH }]}
-      >
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <View style={[s.shelfIconCircle, { backgroundColor: 'rgba(245, 158, 11, 0.15)', borderColor: 'rgba(245, 158, 11, 0.35)' }]}>
-            <Ionicons name="people" size={14} color="#f59e0b" />
-          </View>
-          <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '700' }}>
-            {isEN ? "Play with Friends" : "ከጓደኛ ጋር ተጫወት"}
-          </Text>
-        </View>
-        <Ionicons name="chevron-forward" size={15} color="#f59e0b" />
-      </TouchableOpacity>
-    );
-  };
-
-  const isDemoAccount = useCallback((name?: string) => {
-    if (!name) return true;
-    const lower = name.toLowerCase().trim();
-    return (
-      lower.startsWith("guest") ||
-      lower.startsWith("test") ||
-      lower.startsWith("demo") ||
-      lower.includes("guest_") ||
-      lower.includes("test_")
-    );
-  }, []);
-
-  // Top 5 players from real server data only (no mock / demo fallbacks)
-  const top5Players = useMemo(() => {
-    if (weeklyLeaderboard && weeklyLeaderboard.length > 0) {
+  // Real Top 3 Leaders with actual win counts from backend (NO FAKE DATA)
+  const topLeadersFormatted: LeaderboardItem[] = useMemo(() => {
+    if (weeklyLeaderboard && Array.isArray(weeklyLeaderboard) && weeklyLeaderboard.length > 0) {
       return weeklyLeaderboard
-        .filter((p) => !isDemoAccount(p.username))
-        .slice(0, 5)
-        .map((p, idx) => ({
-          id: p.id || String(idx + 1),
+        .filter((p) => p && p.username)
+        .slice(0, 3)
+        .map((item, idx) => ({
           rank: idx + 1,
-          username: p.username || `Player_${idx + 1}`,
-          wins: p.wins || 0,
-          prize: idx === 0 ? 500 : idx === 1 ? 300 : idx === 2 ? 200 : 100,
-          avatar: p.avatar || '',
+          username: item.username || `Player_${idx + 1}`,
+          wins: Number(item.wins || 0),
+          avatar: item.avatar || "",
         }));
     }
     return [];
-  }, [weeklyLeaderboard, isDemoAccount]);
+  }, [weeklyLeaderboard]);
 
-  // Smooth layout animation on rank position exchanges
-  useEffect(() => {
-    if (Platform.OS !== "web") {
+  // Handler for opening Friend Match modal for either XO or RPS
+  const handleOpenFriendMatch = (game: "xo" | "rps") => {
+    try {
+      playTickSound();
+    } catch {}
+    haptics.tap();
+    setFriendGameType(game);
+    setFriendModalVisible(true);
+  };
+
+  // ──────────────── Render A Carousel Card (Section A) ────────────────
+  const renderSlideItem = (slide: CarouselCardItem, isCenter: boolean) => {
+    const handleCardPress = () => {
       try {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-      } catch (_) {}
+        playTickSound();
+      } catch {}
+      haptics.tap();
+
+      const idx = carouselSlides.findIndex((s) => s.id === slide.id);
+      if (!isCenter) {
+        carouselRef.current?.scrollTo({ index: idx, animated: true });
+        setCurrentIndex(idx);
+        setSelectedTab(slide.id);
+      }
+      // Banner itself is non-clickable for modal launches; explicit action buttons handle launching
+    };
+
+    if (slide.id === "XO_GAME") {
+      const artSize = Math.round(cardHeight * 0.68);
+      return (
+        <TouchableOpacity
+          activeOpacity={0.92}
+          onPress={handleCardPress}
+          style={[
+            s.featuredCard,
+            { width: cardWidth, height: cardHeight },
+            isCenter && s.featuredCardCenter,
+          ]}
+        >
+          {/* Card Atmospheric Background Plate */}
+          <Image source={xoBg} style={s.cardBackgroundImg} resizeMode="cover" />
+          <View style={[StyleSheet.absoluteFillObject, { backgroundColor: "rgba(5, 8, 15, 0.28)" }]} />
+
+          {/* Top Badges */}
+          <View style={s.cardBadgeRow}>
+            <View style={s.badgePill}>
+              <Text style={s.badgePillIcon}>✕</Text>
+              <Text style={s.badgePillText}>XO</Text>
+            </View>
+            <View style={s.badgePill}>
+              <Text style={s.badgePillIcon}>★</Text>
+              <Text style={s.badgePillText}>CLASSIC</Text>
+            </View>
+          </View>
+
+          {/* Center Art Illustration — Prominent 2x Size */}
+          <View style={s.featuredArtWrap}>
+            <Image
+              source={xoFg}
+              style={{ width: artSize, height: artSize }}
+              resizeMode="contain"
+            />
+          </View>
+
+          {/* Bottom Title & Subtitle — Clearly positioned below the art */}
+          <View style={s.featuredTextWrap}>
+            <Text style={s.cardTitle}>XO BATTLE</Text>
+            <Text style={s.cardSubtitle}>Think, Move, Win.</Text>
+          </View>
+        </TouchableOpacity>
+      );
     }
-  }, [top5Players]);
+
+    if (slide.id === "SPIN") {
+      const artSize = Math.round(cardHeight * 0.68);
+      return (
+        <TouchableOpacity
+          activeOpacity={0.92}
+          onPress={handleCardPress}
+          style={[
+            s.featuredCard,
+            { width: cardWidth, height: cardHeight },
+            isCenter && s.featuredCardCenter,
+          ]}
+        >
+          <Image source={spinBg} style={s.cardBackgroundImg} resizeMode="cover" />
+          <View style={[StyleSheet.absoluteFillObject, { backgroundColor: "rgba(5, 8, 15, 0.28)" }]} />
+
+          <View style={s.cardBadgeRowEmpty} />
+
+          <View style={s.featuredArtWrap}>
+            <Image
+              source={spinFg}
+              style={{ width: artSize, height: artSize }}
+              resizeMode="contain"
+            />
+          </View>
+
+          <View style={s.featuredTextWrap}>
+            <Text style={s.cardTitle}>
+              SPIN <Text style={{ color: "#FF3B57" }}>&</Text> WIN
+            </Text>
+            <Text style={s.cardSubtitle}>{slide.subtitle}</Text>
+          </View>
+        </TouchableOpacity>
+      );
+    }
+
+    // RPS
+    const rpsArtSize = Math.round(cardHeight * 0.68);
+    return (
+      <TouchableOpacity
+        activeOpacity={0.92}
+        onPress={handleCardPress}
+        style={[
+          s.featuredCard,
+          { width: cardWidth, height: cardHeight },
+          isCenter && s.featuredCardCenter,
+        ]}
+      >
+        <Image source={rpsBg} style={s.cardBackgroundImg} resizeMode="cover" />
+        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: "rgba(5, 8, 15, 0.28)" }]} />
+
+        <View style={s.cardBadgeRowEmpty} />
+
+        <View style={s.featuredArtWrap}>
+          <Image
+            source={rpsFg}
+            style={{ width: rpsArtSize, height: rpsArtSize }}
+            resizeMode="contain"
+          />
+        </View>
+
+        <View style={s.featuredTextWrap}>
+          <Text style={s.cardTitle}>RPS BATTLE</Text>
+          <Text style={s.cardSubtitle}>{slide.subtitle}</Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   return (
-    <View style={s.rootContainer}>
-      {/* Background Ambience: High performance GPU accelerated auras (No heavy software blur) */}
-      <View
-        pointerEvents="none"
-        style={{
-          position: 'absolute',
-          top: -100,
-          left: -100,
-          width: 500,
-          height: 500,
-          borderRadius: 250,
-          backgroundColor: 'rgba(255, 23, 68, 0.035)',
-          ...(Platform.OS === 'web' ? { filter: 'blur(50px)', willChange: 'transform' } as any : {}),
+    <View style={s.root}>
+      {/* ──────────────── MODALS ──────────────── */}
+      <WebDepositModal
+        visible={depositVisible}
+        onClose={() => setDepositVisible(false)}
+        user={user}
+        token={token || undefined}
+        onSuccess={() => {
+          try {
+            refreshProfile?.(true);
+          } catch {}
         }}
       />
-      <View
-        pointerEvents="none"
-        style={{
-          position: 'absolute',
-          bottom: -150,
-          right: -100,
-          width: 600,
-          height: 600,
-          borderRadius: 300,
-          backgroundColor: 'rgba(0, 191, 255, 0.035)',
-          ...(Platform.OS === 'web' ? { filter: 'blur(50px)', willChange: 'transform' } as any : {}),
+      <WebWithdrawModal
+        visible={withdrawVisible}
+        onClose={() => setWithdrawVisible(false)}
+        user={user}
+        token={token || undefined}
+        onSuccess={() => {
+          try {
+            refreshProfile?.(true);
+          } catch {}
         }}
       />
+      <ProfileEditModal
+        visible={!!user && !user?.username}
+        onClose={() => {}}
+        initialUsername={user?.username}
+        initialDisplayName={(user as any)?.display_name}
+        initialAvatar={(user as any)?.avatar}
+        onSaved={() => {
+          try {
+            refreshProfile?.(true);
+          } catch {}
+        }}
+      />
+      <ReferralModal
+        visible={showReferralModal}
+        onClose={() => setShowReferralModal(false)}
+        token={token || null}
+        isEN={isEN}
+        toast={undefined as any}
+      />
 
-      {/* Modals & Profile */}
-      <WebDepositModal visible={depositVisible} onClose={() => setDepositVisible(false)} user={user} token={token || undefined} onSuccess={() => { try { refreshProfile?.(true); } catch {} }} />
-      <WebWithdrawModal visible={withdrawVisible} onClose={() => setWithdrawVisible(false)} user={user} token={token || undefined} onSuccess={() => { try { refreshProfile?.(true); } catch {} }} />
-      <ProfileEditModal visible={!!user && !user?.username} onClose={() => { }} initialUsername={user?.username} initialDisplayName={(user as any)?.display_name} initialAvatar={(user as any)?.avatar} onSaved={() => { try { refreshProfile?.(true); } catch {} }} />
-      <ReferralModal visible={showReferralModal} onClose={() => setShowReferralModal(false)} token={token || null} isEN={isEN} toast={undefined} />
+      {/* Real Multiplayer / Friend Challenge Modal */}
+      <FriendMatchModal
+        visible={friendModalVisible}
+        onClose={() => {
+          setFriendModalVisible(false);
+          props.setInviteResult?.(null);
+          setFriendGameType("xo");
+        }}
+        onSendInvite={(uname, amt) => handleSendInvite(uname, amt, friendGameType)}
+        inviteResult={inviteResult}
+        gameType={friendGameType}
+      />
 
+      {/* XO Battle Room / Stake Sheet */}
       {roomSheetVisible && (
         <RoomSheet
           language={language}
           balance={balance}
           visible={roomSheetVisible}
-          initialView={sheetInitialView}
+          initialView="STAKES"
           step={sheetStep}
           selectedRoom={selectedRoom}
           backdropOpacity={backdropOpacity}
@@ -743,7 +474,7 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
         />
       )}
 
-      {/* Real Spin Stake Selector Modal */}
+      {/* Spin Bet Modal */}
       <SpinBetSelectModal
         visible={spinBetModalVisible}
         onClose={() => setSpinBetModalVisible(false)}
@@ -757,13 +488,14 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
         }}
       />
 
-      {/* Rock Paper Scissors Stake Selector Popup Modal */}
+      {/* RPS Bet Modal */}
       <RpsBetSelectModal
         visible={rpsBetModalVisible}
         onClose={() => setRpsBetModalVisible(false)}
         userBalance={balance}
         language={language}
         onConfirm={(amount) => {
+          setRpsBetModalVisible(false);
           if (props.onStartRpsMatchmaking) {
             props.onStartRpsMatchmaking(amount);
           } else {
@@ -774,986 +506,802 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
           }
         }}
         onOpenFriendMatch={() => {
-          setFriendModalVisible(true);
+          handleOpenFriendMatch("rps");
         }}
       />
 
-      {/* ── UNIFIED DESKTOP HEADER (Brand Compliant, No Purple) ── */}
-      <DesktopHeader
-        user={user}
-        language={language}
-        handleLanguageToggle={handleLanguageToggle}
-        selectedTab={selectedTab}
-        onSelectTab={setSelectedTab}
-        setPwaModalVisible={setPwaModalVisible}
-        bgMusicPlaying={bgMusicPlaying}
-        onToggleSound={onToggleSound}
-        unreadCount={unreadCount}
-        setNotificationsVisible={setNotificationsVisible}
-        router={router}
-      />
+      {/* ──────────────── BODY: FULL-HEIGHT LEFT SIDEBAR + RIGHT MAIN COLUMN ──────────────── */}
+      <View style={s.layoutRoot}>
+        {/* Left Sidebar (Full Height from top of window to bottom) */}
+        <View style={s.sidebarContainer}>
+          <DesktopSidebar
+            user={user}
+            balance={balance}
+            currentScreen="home"
+            topLeaders={topLeadersFormatted}
+            refreshProfile={refreshProfile}
+            setDepositVisible={setDepositVisible}
+            setWithdrawVisible={setWithdrawVisible}
+            router={router}
+            style={{ height: "100%" }}
+            isCollapsed={sidebarCollapsed}
+            onToggleCollapse={toggleSidebarCollapse}
+          />
+        </View>
 
-      {/* ── 3. MODULAR SUB-SECTIONS (LEADERBOARD & COMMUNITY) ── */}
-      {(() => {
-        const renderLeaderboardCard = () => (
-          <View style={s.leaderboardCard}>
-            {/* Header */}
-            <View style={s.leaderboardHeader}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <View style={{ width: 4, height: 16, borderRadius: 2, backgroundColor: "#00BFFF" }} />
-                <Text style={s.leaderboardTitle}>WEEKLY LEADERBOARD</Text>
-              </View>
-              <Text style={s.leaderboardSubtitle}>Top 5 Ranks</Text>
-            </View>
+        {/* Right Main Column */}
+        <View style={s.rightColumn}>
+          {/* Top Header inside Right Column */}
+          <DesktopHeader
+            user={user}
+            balance={balance}
+            setDepositVisible={setDepositVisible}
+            setWithdrawVisible={setWithdrawVisible}
+            language={language}
+            handleLanguageToggle={handleLanguageToggle}
+            selectedTab={selectedTab}
+            onSelectTab={setSelectedTab}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            setPwaModalVisible={setPwaModalVisible}
+            bgMusicPlaying={bgMusicPlaying}
+            onToggleSound={onToggleSound}
+            unreadCount={unreadCount}
+            setNotificationsVisible={setNotificationsVisible}
+            router={router}
+          />
 
-            {/* Player List (Top 5 rows per user spec) */}
-            <View style={{ gap: 8 }}>
-              {top5Players.length === 0 ? (
-                <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 32, gap: 8 }}>
-                  <Ionicons name="trophy-outline" size={28} color="rgba(255,255,255,0.2)" />
-                  <Text style={{ color: '#8893A7', fontSize: 12, fontStyle: 'italic', textAlign: 'center' }}>
-                    Weekly leaderboard active!{'\n'}Play matches to claim rank 1.
-                  </Text>
-                </View>
-              ) : (
-                top5Players.map((champ) => {
-                  const rankColor = champ.rank === 1 ? "#F5B642" : champ.rank === 2 ? "#00BFFF" : champ.rank === 3 ? "#FF1744" : "#8893A7";
-                  return (
-                    <View key={champ.username || champ.id || champ.rank} style={s.leaderboardRow}>
-                      {/* Rank Badge — Solid Bold Pill for Top Ranks without '#' */}
-                      <View style={[
-                        s.rankNumberBadge,
-                        champ.rank === 1 && { backgroundColor: "#F59E0B", borderColor: "#F59E0B" },
-                        champ.rank === 2 && { backgroundColor: "#00DAF3", borderColor: "#00DAF3" },
-                        champ.rank === 3 && { backgroundColor: "#F97316", borderColor: "#F97316" },
-                        champ.rank > 3 && { backgroundColor: "#1e293b", borderColor: "#334155" },
-                      ]}>
-                        <Text style={[
-                          s.rankNumberText,
-                          { color: champ.rank <= 3 ? "#080F17" : "#94a3b8" }
-                        ]}>{champ.rank}</Text>
-                      </View>
-
-                      {/* Username without initial letter circle */}
-                      <View style={{ flex: 1, minWidth: 0 }}>
-                        <Text numberOfLines={1} style={s.playerUsername}>{champ.username}</Text>
-                        <Text style={s.playerWins}>{champ.wins} wins this week</Text>
-                      </View>
-
-                      {/* Prize Amount — Clean text aligned right with rank accent color */}
-                      <Text style={[s.playerPrizeTextClean, { color: rankColor }]}>
-                        {champ.prize} ETB
-                      </Text>
-                    </View>
-                  );
-                })
-              )}
-            </View>
-
-            {/* View All / See More Button */}
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => {
-                try { playTickSound(); } catch {}
-                haptics.tap();
-                router.push('/(authed)/home/leaderboard');
-              }}
-              style={s.seeMoreBtn}
-            >
-              <Text style={s.seeMoreBtnText}>VIEW ALL LEADERBOARD</Text>
-              <Ionicons name="arrow-forward" size={14} color="#00BFFF" />
-            </TouchableOpacity>
-          </View>
-        );
-
-        const renderLiveWinnersCard = () => {
-          const liveList = (props.rawTickerList && props.rawTickerList.length > 0)
-            ? props.rawTickerList
-                .filter((item) => !isDemoAccount(item.username))
-                .slice(0, 5)
-                .map((item, idx) => ({
-                  id: `ticker_${idx}_${item.username}`,
-                  username: item.username,
-                  amount: typeof item.amount === "number" ? item.amount : Number(item.amount) || 0,
-                  game: item.game || (idx % 2 === 0 ? "XO Battle" : "5-Player Spin"),
-                  time: idx === 0 ? "Just now" : `${idx * 2 + 1}m ago`,
-                }))
-            : [];
-
-          return (
-            <View style={[s.leaderboardCard, { marginTop: isTabletLayout ? 0 : 16 }]}>
-              {/* Header */}
-              <View style={s.leaderboardHeader}>
-                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                    <View style={s.liveGreenDot} />
-                    <Text style={s.leaderboardTitle}>LIVE WINNERS</Text>
-                  </View>
-                  <View style={s.liveBadgePill}>
-                    <Text style={s.liveBadgeText}>LIVE</Text>
-                  </View>
-                </View>
-                <Text style={s.leaderboardSubtitle}>Real-time player payouts</Text>
-              </View>
-
-              {/* Real-time Winners Rows (100% Real Server Data, No Mock Fallbacks) */}
-              <View style={{ gap: 8 }}>
-                {liveList.length > 0 ? (
-                  liveList.map((win) => (
-                    <View key={win.id} style={s.liveWinnerRow}>
-                      <View style={s.liveWinnerIconCircle}>
-                        <Ionicons
-                          name={win.game === "XO Battle" ? "grid" : "aperture"}
-                          size={12}
-                          color="#00BFFF"
-                        />
-                      </View>
-                      <View style={{ flex: 1, minWidth: 0 }}>
-                        <Text numberOfLines={1} style={s.liveWinnerName}>
-                          {win.username}
-                        </Text>
-                        <Text numberOfLines={1} style={s.liveWinnerMeta}>
-                          {win.game} • {win.time}
-                        </Text>
-                      </View>
-                      <Text style={s.liveWinnerPrize}>+{win.amount} ETB</Text>
-                    </View>
-                  ))
-                ) : (
-                  <View style={{ paddingVertical: 18, alignItems: "center", justifyContent: "center" }}>
-                    <Ionicons name="time-outline" size={20} color="#64748b" style={{ marginBottom: 6 }} />
-                    <Text style={{ color: "#8893A7", fontSize: 12, fontWeight: "600" }}>
-                      {isEN ? "Waiting for recent wins..." : "የቅርብ ጊዜ አሸናፊዎች በመጠበቅ ላይ..."}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            </View>
-          );
-        };
-
-        const renderCommunityCard = () => (
-          <View style={[s.leaderboardCard, { marginTop: isTabletLayout ? 0 : 16 }]}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 }}>
-              <Ionicons name="chatbubbles-outline" size={17} color="#00daf3" />
-              <Text style={s.leaderboardTitle}>Community & support</Text>
-            </View>
-
-            {/* Link 1: Telegram Channel */}
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={() => router.push('https://t.me/xoethiopia' as any)}
-              style={[s.supportLinkBtn, { backgroundColor: "rgba(0, 191, 255, 0.08)", borderColor: "rgba(0, 191, 255, 0.25)" }]}
-              accessibilityLabel="Join Telegram channel"
-            >
-              <TelegramPlaneIcon size={16} color="#00daf3" />
-              <Text style={[s.supportLinkBtnText, { color: "#00daf3" }]}>Join Telegram channel</Text>
-            </TouchableOpacity>
-
-            {/* Link 2: 24/7 Live Support */}
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={() => router.push('https://t.me/xoetsupport' as any)}
-              style={[s.supportLinkBtn, { backgroundColor: "rgba(16, 185, 129, 0.08)", borderColor: "rgba(16, 185, 129, 0.25)", marginTop: 10 }]}
-              accessibilityLabel="24/7 live support"
-            >
-              <ChatBubbleIcon size={16} color="#10B981" />
-              <Text style={[s.supportLinkBtnText, { color: "#10B981" }]}>24/7 live support</Text>
-            </TouchableOpacity>
-          </View>
-        );
-
-        const renderCenterContent = () => (
-          <View
-            style={s.centerColumn}
-            onLayout={(e) => {
-              const w = e.nativeEvent.layout.width;
-              if (w > 100 && Math.abs(w - centerWidth) > 10) {
-                setCenterWidth(w);
-              }
-            }}
+          {/* Main Content Area */}
+          <ScrollView
+            style={s.mainScrollView}
+            contentContainerStyle={s.scrollContent}
+            showsVerticalScrollIndicator={false}
           >
-            {/* Carousel Container with Overlaid Arrows */}
-            <View style={s.carouselWrapper}>
-              {/* Left Navigation Arrow (Framing Center Card Deck) */}
-              <TouchableOpacity
-                onPress={handlePrevCard}
-                style={[s.carouselArrowLeft, { left: arrowOffset }]}
-                activeOpacity={0.85}
-                accessibilityLabel="Previous Card"
-              >
-                <Ionicons name="chevron-back" size={22} color="#00daf3" />
-              </TouchableOpacity>
+          {/* ──────────────── SECTION A: FEATURED GAME CAROUSEL (3 CARDS ONLY) ──────────────── */}
+          <View style={[s.carouselWrapper, { height: carouselHeight }]}>
+            <Carousel
+              ref={carouselRef}
+              loop={true}
+              renderWindowSize={3}
+              defaultIndex={initialIndex}
+              data={carouselSlides}
+              style={{ width: mainContentWidth, height: carouselHeight }}
+              itemSize={cardWidth}
+              itemAnimation={itemAnimation}
+              animation={{
+                type: "timing",
+                duration: 250,
+                easing: Easing.bezier(0.2, 0.9, 0.3, 1),
+              }}
+              progress={progress}
+              onSnapToItem={(rawIdx) => {
+                const normalizedIdx = ((rawIdx % carouselSlides.length) + carouselSlides.length) % carouselSlides.length;
+                setCurrentIndex(normalizedIdx);
+                const slide = carouselSlides[normalizedIdx];
+                if (slide && slide.id !== selectedTab) {
+                  try {
+                    playTickSound();
+                  } catch {}
+                  haptics.impact();
+                  setSelectedTab(slide.id);
+                }
+              }}
+              renderItem={({ item, index: itemIdx }) => {
+                const isCenter = currentIndex === itemIdx;
+                return (
+                  <View style={{ width: cardWidth, alignItems: "center" }}>
+                    {renderSlideItem(item, isCenter)}
+                  </View>
+                );
+              }}
+            />
+          </View>
 
-              {/* Right Navigation Arrow (Framing Center Card Deck) */}
-              <TouchableOpacity
-                onPress={handleNextCard}
-                style={[s.carouselArrowRight, { right: arrowOffset }]}
-                activeOpacity={0.85}
-                accessibilityLabel="Next Card"
-              >
-                <Ionicons name="chevron-forward" size={22} color="#00daf3" />
-              </TouchableOpacity>
-
-              {/* Reanimated 3D Carousel (Matching Phone Animation Specification) */}
-              <View style={{ width: "100%", height: carouselH, alignItems: "center", overflow: "hidden" }}>
-                <Carousel
-                  ref={carouselRef}
-                  loop={true}
-                  renderWindowSize={3}
-                  defaultIndex={initialIndex}
-                  data={tabs}
-                  style={{ width: centerWidth, height: carouselH }}
-                  itemSize={itemSize}
-                  itemAnimation={itemAnimation}
-                  animation={{
-                    type: "timing",
-                    duration: 250,
-                    easing: Easing.bezier(0.2, 0.9, 0.3, 1),
+          {/* 3 Pagination Dots underneath */}
+          <View style={s.paginationRow}>
+            {carouselSlides.map((slide, idx) => {
+              const isActive = currentIndex === idx;
+              return (
+                <TouchableOpacity
+                  key={slide.id}
+                  onPress={() => {
+                    try {
+                      playTickSound();
+                    } catch {}
+                    haptics.tap();
+                    carouselRef.current?.scrollTo({ index: idx, animated: true });
+                    setCurrentIndex(idx);
+                    setSelectedTab(slide.id);
                   }}
-                  progress={progress}
-                  onSnapToItem={(rawIdx) => {
-                    isCarouselBusyRef.current = false;
-                    const normalizedIdx = ((rawIdx % tabs.length) + tabs.length) % tabs.length;
-                    setIndex(normalizedIdx);
-                    const newTab = tabs[normalizedIdx];
-                    if (newTab !== selectedTab) {
-                      try { playTickSound(); } catch {}
-                      haptics.impact();
-                      setSelectedTab(newTab);
-                    }
-                  }}
-                  renderItem={({ item, index: itemIdx }) => {
-                    const isCenter = index === itemIdx;
-                    return (
-                      <View style={{ width: cardWidth, alignItems: "center" }}>
-                        {renderCoverflowCard(item, isCenter ? "center" : "left")}
-                        <View style={s.outerShelfWrapper}>
-                          {renderOuterShelf(item, isCenter)}
-                        </View>
-                      </View>
-                    );
-                  }}
+                  style={[s.dot, isActive && s.dotActive]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Go to ${slide.title}`}
                 />
-              </View>
+              );
+            })}
+          </View>
 
-              {/* Bottom Pagination Indicators */}
-              <Pagination
-                count={tabs.length}
-                progress={progress}
-                containerStyle={{ gap: 8, marginTop: isShortScreen ? 4 : (isCompactDesktopH ? 8 : 12), marginBottom: isShortScreen ? 4 : 10, alignSelf: "center" }}
-                dotStyle={{ width: 8, height: 7, borderRadius: 4, backgroundColor: "rgba(255, 255, 255, 0.25)" }}
-                activeDotStyle={{
-                  width: 24,
-                  height: 7,
-                  borderRadius: 4,
-                  backgroundColor: index === 0 ? "#FF1744" : index === 1 ? "#00BFFF" : "#8893A7",
-                }}
-                onPress={(i) => {
-                  try { playTickSound(); } catch {}
-                  haptics.tap();
-                  carouselRef.current?.scrollTo({ index: i, animated: true });
-                  setIndex(i);
-                  setSelectedTab(tabs[i]);
-                }}
+          {/* ──── CONTENT CONTAINER (Consistent padding and margin on PC) ──── */}
+          <View style={s.contentContainer}>
+            {/* ──── 3 PROMOTIONAL BANNERS ROW (Positioned Above Games Section per User Instruction) ──── */}
+            <View style={s.bannersWrapper}>
+              <PromotionalBannersRow
+                isDesktop={true}
+                router={router}
+                setWithdrawVisible={setWithdrawVisible}
+                setShowReferralModal={setShowReferralModal}
+                isEN={isEN}
               />
             </View>
 
-            {/* ── FULL-WIDTH WELCOME BONUS CLAIMED CARD (Per User Request) ── */}
-            <View style={s.desktopWelcomeBonusCard}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
-                <View style={s.bonusIconBox}>
-                  <Ionicons name="gift" size={24} color="#F5B642" />
-                </View>
-                <View>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                    <Text style={s.bonusTitle}>WELCOME BONUS</Text>
-                  </View>
-                  <Text style={s.bonusDesc}>{isEN ? "You have received your welcome reward" : "የእንኳን ደህና መጡ ሽልማትዎን ወስደዋል"}</Text>
-                </View>
-              </View>
+            {/* ──────────────── SECTION B: GAMES SECTION ──────────────── */}
+            {(() => {
+            const normalizedSearch = gamesSearch.trim().toLowerCase();
+            const showXo =
+              (filterCategory === "all" || filterCategory === "1v1") &&
+              (!normalizedSearch ||
+                "xo battle tic tac toe classic".includes(normalizedSearch) ||
+                normalizedSearch.includes("xo"));
 
-              {/* Clean Minimalist Claimed State: Small green icon + readable text, no nested box */}
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                <Ionicons name="checkmark-circle" size={15} color="#10B981" />
-                <Text style={{ color: "#10B981", fontSize: 11.5, fontWeight: "800", letterSpacing: 0.6 }}>
-                  {isEN ? "CLAIMED" : "ተወስዷል"}
-                </Text>
-              </View>
-            </View>
-          </View>
-        );
+            const showSpin =
+              (filterCategory === "all" || filterCategory === "luck") &&
+              (!normalizedSearch ||
+                "spin & win spin win lucky wheel multiplier".includes(normalizedSearch) ||
+                normalizedSearch.includes("spin"));
 
-        return (
-          <ScrollView style={s.mainScrollView} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
-            <View style={s.pageContentWrapper}>
-              {isTabletLayout ? (
-                /* TABLET 2-COLUMN RESPONSIVE LAYOUT (iPad/Tablet Support) */
-                <View style={{ flexDirection: "row", gap: 16, alignItems: "flex-start", width: "100%" }}>
-                  <View style={{ width: winW < 1120 ? 72 : 240, gap: 16 }}>
-                    <DesktopSidebar
-                      user={user}
-                      balance={balance}
-                      currentScreen="home"
-                      style={{ width: "100%" }}
-                      refreshProfile={(force?: boolean) => { try { refreshProfile?.(force ?? true); } catch (_) {} }}
-                      setDepositVisible={setDepositVisible}
-                      setWithdrawVisible={setWithdrawVisible}
-                      router={router}
-                    />
+            const showRps =
+              (filterCategory === "all" || filterCategory === "1v1") &&
+              (!normalizedSearch ||
+                "rps battle rock paper scissors".includes(normalizedSearch) ||
+                normalizedSearch.includes("rps") ||
+                normalizedSearch.includes("rock") ||
+                normalizedSearch.includes("paper") ||
+                normalizedSearch.includes("scissor"));
+
+            const visibleCount = (showXo ? 1 : 0) + (showSpin ? 1 : 0) + (showRps ? 1 : 0);
+
+            return (
+              <View style={s.gamesSection}>
+                {/* ──── GAMES HEADER ROW: Title + Search Bar + Category Filters (All, Luck, 1v1) ──── */}
+                <View style={s.gamesHeaderRow}>
+                  <View style={s.gamesTitleWrap}>
+                    <Text style={s.gamesHeading}>Games</Text>
+                    <View style={s.gamesCountBadge}>
+                      <Text style={s.gamesCountText}>{visibleCount}</Text>
+                    </View>
                   </View>
-                  <View style={{ flex: 1, gap: 16 }}>
-                    {renderCenterContent()}
-                    {/* On Tablet: Leaderboard & Live Winners sit side-by-side underneath */}
-                    <View style={{ flexDirection: "row", gap: 16, alignItems: "flex-start", width: "100%" }}>
-                      <View style={{ flex: 1 }}>{renderLeaderboardCard()}</View>
-                      <View style={{ flex: 1 }}>{renderLiveWinnersCard()}</View>
+
+                  <View style={s.gamesControlsRow}>
+                    {/* Search Input Box */}
+                    <View style={s.gamesSearchBox}>
+                      <Ionicons name="search" size={15} color="#8893A7" style={{ marginRight: 6 }} />
+                      <TextInput
+                        value={gamesSearch}
+                        onChangeText={setGamesSearch}
+                        placeholder="Search games..."
+                        placeholderTextColor="#64748B"
+                        style={s.gamesSearchInput}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                      />
+                      {gamesSearch.length > 0 && (
+                        <TouchableOpacity
+                          onPress={() => {
+                            try {
+                              playTickSound();
+                            } catch {}
+                            haptics.tap();
+                            setGamesSearch("");
+                          }}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <Ionicons name="close-circle" size={16} color="#8893A7" />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+
+                    {/* Filter Category Pills: All, Luck, 1v1 */}
+                    <View style={s.filterGroup}>
+                      {(
+                        [
+                          { id: "all", label: "All" },
+                          { id: "luck", label: "Luck" },
+                          { id: "1v1", label: "1v1" },
+                        ] as const
+                      ).map((item) => {
+                        const isActive = filterCategory === item.id;
+                        return (
+                          <TouchableOpacity
+                            key={item.id}
+                            onPress={() => {
+                              try {
+                                playTickSound();
+                              } catch {}
+                              haptics.tap();
+                              setFilterCategory(item.id);
+                            }}
+                            style={[s.filterBtn, isActive && s.filterBtnActive]}
+                            activeOpacity={0.8}
+                          >
+                            <Text style={[s.filterBtnText, isActive && s.filterBtnTextActive]}>
+                              {item.label}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
                     </View>
                   </View>
                 </View>
-              ) : (
-                /* DESKTOP 3-COLUMN LAYOUT (Image 3 Match) */
-                <View style={[s.threeColumnRow, { gap: columnGap }]}>
-                  {/* Left Column: Profile, Nav, AND Community & Support underneath */}
-                  <View style={{ width: leftSidebarW, gap: 16 }}>
-                    <DesktopSidebar
-                      user={user}
-                      balance={balance}
-                      currentScreen="home"
-                      style={{ width: "100%" }}
-                      refreshProfile={(force?: boolean) => { try { refreshProfile?.(force ?? true); } catch (_) {} }}
-                      setDepositVisible={setDepositVisible}
-                      setWithdrawVisible={setWithdrawVisible}
-                      router={router}
-                    />
-                  </View>
 
-                  {/* Center Column: Game Carousel & Welcome Bonus */}
-                  {renderCenterContent()}
+                {/* ──── GAMES CARDS GRID ──── */}
+                {visibleCount > 0 ? (
+                  <View style={s.gamesGridRow}>
+                    {/* 1. XO BATTLE CARD */}
+                    {showXo && (
+                      <View style={s.gameCard}>
+                        {/* Background Plate */}
+                        <Image source={xoBg} style={s.cardBackgroundImg} resizeMode="cover" />
+                        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: "rgba(5, 8, 15, 0.28)" }]} />
 
-                  {/* Right Column: Weekly Leaderboard AND Live Winners underneath */}
-                  <View style={[s.rightSidebar, { width: rightSidebarW, gap: 16 }]}>
-                    {renderLeaderboardCard()}
-                    {renderLiveWinnersCard()}
+                        {/* Sized Foreground Art Illustration */}
+                        <View style={s.gameCardArtWrap}>
+                          <Image source={xoFg} style={s.gameCardArtImg} resizeMode="contain" />
+                        </View>
+
+                        {/* Title and Action Buttons */}
+                        <View style={s.gameCardInfoWrap}>
+                          <Text style={s.gameCardTitle}>XO BATTLE</Text>
+
+                          <View style={s.gameButtonsRow}>
+                            <TouchableOpacity
+                              onPress={() => {
+                                try {
+                                  playTickSound();
+                                } catch {}
+                                haptics.tap();
+                                openRoomSheet("STAKES");
+                              }}
+                              style={s.btnCyan}
+                              activeOpacity={0.85}
+                            >
+                              <Text style={s.btnCyanText}>PLAY NOW</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                              onPress={() => handleOpenFriendMatch("xo")}
+                              style={s.btnOutline}
+                              activeOpacity={0.85}
+                            >
+                              <Text style={s.btnOutlineText}>PLAY WITH FRIENDS</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      </View>
+                    )}
+
+                    {/* 2. SPIN & WIN CARD */}
+                    {showSpin && (
+                      <View style={s.gameCard}>
+                        <Image source={spinBg} style={s.cardBackgroundImg} resizeMode="cover" />
+                        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: "rgba(5, 8, 15, 0.28)" }]} />
+
+                        <View style={s.gameCardArtWrap}>
+                          <Image source={spinFg} style={s.gameCardArtImg} resizeMode="contain" />
+                        </View>
+
+                        <View style={s.gameCardInfoWrap}>
+                          <Text style={s.gameCardTitle}>
+                            SPIN <Text style={{ color: "#FF3B57" }}>&</Text> WIN
+                          </Text>
+
+                          <View style={s.gameButtonsRow}>
+                            <TouchableOpacity
+                              onPress={() => {
+                                try {
+                                  playTickSound();
+                                } catch {}
+                                haptics.tap();
+                                setSpinBetModalVisible(true);
+                              }}
+                              style={s.btnRed}
+                              activeOpacity={0.85}
+                            >
+                              <Text style={s.btnRedText}>REAL SPIN</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                              onPress={() => {
+                                try {
+                                  playTickSound();
+                                } catch {}
+                                haptics.tap();
+                                router.push({
+                                  pathname: "/(authed)/home/spin",
+                                  params: { mode: "5_PLAYER" },
+                                } as any);
+                              }}
+                              style={s.btnOutline}
+                              activeOpacity={0.85}
+                            >
+                              <Text style={s.btnOutlineText}>5 PEOPLE</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      </View>
+                    )}
+
+                    {/* 3. RPS BATTLE CARD */}
+                    {showRps && (
+                      <View style={s.gameCard}>
+                        <Image source={rpsBg} style={s.cardBackgroundImg} resizeMode="cover" />
+                        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: "rgba(5, 8, 15, 0.28)" }]} />
+
+                        <View style={s.gameCardArtWrap}>
+                          <Image source={rpsFg} style={s.gameCardArtImg} resizeMode="contain" />
+                        </View>
+
+                        <View style={s.gameCardInfoWrap}>
+                          <Text style={s.gameCardTitle}>RPS BATTLE</Text>
+
+                          <View style={s.gameButtonsRow}>
+                            <TouchableOpacity
+                              onPress={() => {
+                                try {
+                                  playTickSound();
+                                } catch {}
+                                haptics.tap();
+                                setRpsBetModalVisible(true);
+                              }}
+                              style={s.btnYellow}
+                              activeOpacity={0.85}
+                            >
+                              <Text style={s.btnYellowText}>PLAY NOW</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                              onPress={() => handleOpenFriendMatch("rps")}
+                              style={s.btnOutline}
+                              activeOpacity={0.85}
+                            >
+                              <Text style={s.btnOutlineText}>PLAY WITH FRIENDS</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      </View>
+                    )}
                   </View>
-                </View>
-              )}
-            </View>
-          </ScrollView>
-        );
-      })()}
+                ) : (
+                  <View style={s.noGamesWrap}>
+                    <Ionicons name="game-controller-outline" size={36} color="#64748B" />
+                    <Text style={s.noGamesText}>
+                      No games found matching "{gamesSearch}" in {filterCategory === "all" ? "All" : filterCategory}.
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        try {
+                          playTickSound();
+                        } catch {}
+                        haptics.tap();
+                        setGamesSearch("");
+                        setFilterCategory("all");
+                      }}
+                      style={s.resetFilterBtn}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={s.resetFilterBtnText}>Show All Games</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            );
+          })()}
+
+          <LatestWinningsCard isEN={isEN} style={{ marginTop: 20 }} />
+          </View>
+        </ScrollView>
+      </View>
     </View>
+  </View>
   );
 }
 
 const s = StyleSheet.create({
-  rootContainer: {
+  root: {
     flex: 1,
-    backgroundColor: "#080F17", // Brand Deep Navy (Image 4)
+    backgroundColor: "#060613",
+  },
+  layoutRoot: {
+    flex: 1,
+    flexDirection: "row",
+    backgroundColor: "#060613",
+    height: "100%",
+  },
+  sidebarContainer: {
+    height: "100%",
+    paddingVertical: 14,
+    paddingLeft: 14,
+  },
+  rightColumn: {
+    flex: 1,
+    height: "100%",
+    flexDirection: "column",
+    backgroundColor: "#060613",
+  },
+  bodyContainer: {
+    flex: 1,
+    flexDirection: "row",
+    padding: 16,
+    gap: 16,
+    backgroundColor: "#060613",
   },
   mainScrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
+    paddingBottom: 40,
   },
-  pageContentWrapper: {
+  contentContainer: {
     width: "100%",
-    maxWidth: 1720,
+    paddingHorizontal: 24,
+    maxWidth: 1600,
     alignSelf: "center",
-    overflow: "hidden",
   },
-  threeColumnRow: {
-    flexDirection: "row",
-    gap: 20,
-    alignItems: "flex-start",
+  bannersWrapper: {
     width: "100%",
-    maxWidth: "100%",
-    overflow: "hidden",
+    marginTop: 18,
+    marginBottom: 6,
   },
 
-  // Center Column Carousel
-  centerColumn: {
-    flex: 1,
-    minWidth: 0,
-    gap: 14,
-    overflow: "hidden",
-  },
+  // ──────────────── SECTION A: Featured Carousel ────────────────
   carouselWrapper: {
-    position: "relative",
     width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
     overflow: "hidden",
   },
-  carouselArrowLeft: {
-    position: "absolute",
-    left: 14,
-    top: "34%",
-    marginTop: -22,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(8, 16, 32, 0.92)",
+  featuredCard: {
+    borderRadius: 20,
+    backgroundColor: "#111C27",
     borderWidth: 1.5,
-    borderColor: "rgba(0, 218, 243, 0.65)",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 120,
-    boxShadow: "0 4px 14px rgba(0, 218, 243, 0.25)",
-    cursor: "pointer",
-  } as any,
-  carouselArrowRight: {
-    position: "absolute",
-    right: 14,
-    top: "34%",
-    marginTop: -22,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(8, 16, 32, 0.92)",
-    borderWidth: 1.5,
-    borderColor: "rgba(0, 218, 243, 0.65)",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 120,
-    boxShadow: "0 4px 14px rgba(0, 218, 243, 0.25)",
-    cursor: "pointer",
-  } as any,
-  threeCardsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 16,
-    width: "100%",
-    paddingHorizontal: 8,
-  },
-  coverflowColumn: {
-    alignItems: "center",
-    transition: "all 300ms cubic-bezier(0.16, 1, 0.3, 1)",
-  } as any,
-  coverflowColumnCenter: {
-    flex: 1.0,
-    minWidth: 320,
-    maxWidth: 440,
-    zIndex: 10,
-  },
-  coverflowColumnSide: {
-    flex: 0.75,
-    minWidth: 200,
-    maxWidth: 260,
-    zIndex: 2,
-    cursor: "pointer",
-  } as any,
-  outerShelfWrapper: {
-    width: "100%",
-    marginTop: 8,
-    transition: "all 300ms cubic-bezier(0.16, 1, 0.3, 1)",
-  } as any,
-  gameCard: {
-    backgroundColor: "#111827",
-    borderRadius: 24,
-    position: "relative",
+    borderColor: "#1E293B",
     overflow: "hidden",
     justifyContent: "space-between",
-    borderWidth: 1.5,
-    borderColor: "#233041",
-    width: "100%",
-    transition: "all 300ms cubic-bezier(0.16, 1, 0.3, 1)",
-  } as any,
-  gameCardCenter: {
-    minHeight: 530,
-    maxHeight: 575,
-    padding: 18,
-    zIndex: 10,
-    transform: [{ scale: 1.0 }],
-    opacity: 1.0,
+    alignItems: "center",
+    paddingTop: 12,
+    paddingBottom: 14,
+    paddingHorizontal: 16,
+    position: "relative",
   },
-  gameCardSide: {
-    minHeight: 410,
-    maxHeight: 450,
-    padding: 16,
-    zIndex: 2,
-    transform: [{ scale: 1.0 }],
-    opacity: 0.75,
-    cursor: "pointer",
-  } as any,
-  gameCardFocusedSpin: {
-    borderColor: "#FF1744",
-    borderWidth: 2,
-    boxShadow: "0 10px 35px rgba(255, 23, 68, 0.35)",
-  } as any,
-  gameCardFocusedXo: {
-    borderColor: "#00BFFF",
-    borderWidth: 2,
-    boxShadow: "0 10px 35px rgba(0, 191, 255, 0.35)",
-  } as any,
-  gameCardFocusedSoon: {
-    borderColor: "#8893A7",
-    borderWidth: 2,
-    boxShadow: "0 10px 30px rgba(136, 147, 167, 0.25)",
-  } as any,
-  gameCardUnfocused: {
-    borderWidth: 1.2,
-    borderColor: "#233041",
-  } as any,
+  featuredCardCenter: {
+    borderColor: "rgba(0, 162, 232, 0.45)",
+  },
+  cardBackgroundImg: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: "100%",
+    height: "100%",
+  },
   cardBadgeRow: {
+    width: "100%",
+    height: 24,
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    zIndex: 2,
+    justifyContent: "space-between",
+    zIndex: 10,
+  },
+  cardBadgeRowEmpty: {
+    width: "100%",
+    height: 24,
   },
   badgePill: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    backgroundColor: "rgba(11, 17, 26, 0.75)",
     borderWidth: 1,
+    borderColor: "rgba(0, 162, 232, 0.4)",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    gap: 4,
   },
-  badgeText: {
-    fontSize: 10.5,
+  badgePillIcon: {
+    color: "#00A2E8",
+    fontSize: 10,
     fontWeight: "900",
-    letterSpacing: 0.6,
-    fontFamily: "Space Grotesk, sans-serif",
   },
-  cardArtWrapper: {
-    width: "100%",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 2,
-  },
-  cardArtWrapperCenter: {
-    height: 335,
-    marginVertical: 4,
-  },
-  cardArtWrapperSide: {
-    height: 225,
-    marginVertical: 4,
-  },
-  cardTitle: {
+  badgePillText: {
     color: "#FFFFFF",
-    fontSize: 32,
-    fontWeight: "900",
-    fontFamily: "Space Grotesk, sans-serif",
-    letterSpacing: 0.6,
-  },
-  cardTitleSide: {
-    fontSize: 22,
-    letterSpacing: 0.4,
-  },
-  cardSubtitle: {
-    color: "rgba(255, 255, 255, 0.7)",
-    fontSize: 12,
-    fontWeight: "600",
-    marginTop: 4,
-    textAlign: "center",
-  },
-  cardActionBtn: {
-    width: "100%",
-    height: 50,
-    borderRadius: 16,
-    overflow: "hidden",
-    zIndex: 2,
-  },
-  extraShelfBtn: {
-    width: "100%",
-    marginTop: 8,
-    backgroundColor: "rgba(15, 23, 42, 0.85)",
-    borderRadius: 14,
-    borderWidth: 1.2,
-    borderColor: "rgba(255, 255, 255, 0.08)",
-    paddingHorizontal: 16,
-    height: 48,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    zIndex: 2,
-    ...(Platform.OS === "web" ? {
-      transition: "all 200ms ease",
-      cursor: "pointer",
-    } as any : {}),
-  },
-  extraShelfHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  extraShelfLabel: {
-    color: "#FFFFFF",
-    fontSize: 10.5,
-    fontWeight: "900",
-    letterSpacing: 0.8,
-    fontFamily: "Space Grotesk, sans-serif",
-  },
-  liveDotRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-  },
-  liveDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  liveDotText: {
-    color: "#10B981",
     fontSize: 9.5,
     fontWeight: "800",
     letterSpacing: 0.5,
   },
-  extraShelfCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    flexWrap: "wrap",
-    gap: 6,
-  },
-  avatarGroup: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  shelfAvatar: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    borderWidth: 1.5,
-    borderColor: "#111827",
-  },
-  shelfAvatarPlus: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: "rgba(255, 23, 68, 0.25)",
-    borderWidth: 1.5,
-    borderColor: "#FF1744",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  shelfAvatarPlusText: {
-    color: "#FFFFFF",
-    fontSize: 9,
-    fontWeight: "900",
-  },
-  shelfActionText: {
-    color: "#FFFFFF",
-    fontSize: 12,
-    fontWeight: "800",
-    fontFamily: "Space Grotesk, sans-serif",
-  },
-  shelfIconCircle: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: "rgba(0, 191, 255, 0.15)",
-    borderWidth: 1,
-    borderColor: "rgba(0, 191, 255, 0.35)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cardBtnGrad: {
+  featuredArtWrap: {
     flex: 1,
-    flexDirection: "row",
+    width: "100%",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
+    zIndex: 10,
+    marginVertical: 2,
   },
-  cardBtnText: {
+  featuredTextWrap: {
+    width: "100%",
+    alignItems: "center",
+    zIndex: 10,
+    marginBottom: 2,
+  },
+  cardTitle: {
     color: "#FFFFFF",
-    fontSize: 14.5,
+    fontSize: 18.5,
     fontWeight: "900",
     letterSpacing: 0.8,
-    fontFamily: "Space Grotesk, sans-serif",
-  },
-  cardSideHint: {
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-    borderRadius: 10,
-    paddingVertical: 7,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
-    marginTop: 4,
-  },
-  cardSideHintText: {
-    color: "#8893A7",
-    fontSize: 9.5,
-    fontWeight: "800",
-    letterSpacing: 0.8,
-    fontFamily: "Space Grotesk, sans-serif",
-  },
-  indicatorsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    marginTop: 14,
-  },
-  indicatorPill: {
-    height: 6,
-    borderRadius: 3,
-    transition: "all 200ms ease",
-  } as any,
-
-  // Desktop Welcome Bonus Card
-  desktopWelcomeBonusCard: {
-    backgroundColor: "#111827",
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "#233041",
-    padding: 16,
-    paddingHorizontal: 20,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  bonusIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: "rgba(245, 182, 66, 0.12)",
-    borderWidth: 1,
-    borderColor: "rgba(245, 182, 66, 0.3)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  bonusTitle: {
-    color: "#FFFFFF",
-    fontSize: 13,
-    fontWeight: "900",
-    fontFamily: "Space Grotesk, sans-serif",
-    letterSpacing: 0.8,
-  },
-  bonusClaimedPill: {
-    backgroundColor: "rgba(16, 185, 129, 0.12)",
-    borderWidth: 1,
-    borderColor: "rgba(16, 185, 129, 0.3)",
-    borderRadius: 8,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  bonusClaimedText: {
-    color: "#10B981",
-    fontSize: 9,
-    fontWeight: "900",
-  },
-  bonusDesc: {
-    color: "#8893A7",
-    fontSize: 11,
-    fontWeight: "600",
-    marginTop: 2,
-  },
-  bonusActionBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: "rgba(35, 48, 65, 0.4)",
-    borderWidth: 1,
-    borderColor: "#233041",
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  bonusActionText: {
-    color: "#8893A7",
-    fontSize: 11,
-    fontWeight: "800",
-  },
-
-  // Right Sidebar: Weekly Leaderboard List
-  rightSidebar: {
-    width: 335,
-  },
-  leaderboardCard: {
-    backgroundColor: "#111827",
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "#233041",
-    padding: 18,
-  },
-  leaderboardHeader: {
-    marginBottom: 14,
-  },
-  leaderboardTitle: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "900",
-    fontFamily: "Space Grotesk, sans-serif",
-    letterSpacing: 0.8,
-  },
-  leaderboardSubtitle: {
-    color: "#8893A7",
-    fontSize: 11,
-    fontWeight: "600",
-    marginTop: 2,
-  },
-  leaderboardRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(8, 15, 23, 0.75)",
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
-    padding: 8,
-    paddingHorizontal: 10,
-    gap: 10,
-    ...(Platform.OS === "web" ? { transition: "all 350ms cubic-bezier(0.2, 0.9, 0.3, 1)", willChange: "transform, opacity" } as any : {}),
-  },
-  rankNumberBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 1.2,
-    backgroundColor: "#111827",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  rankNumberText: {
-    fontSize: 11,
-    fontWeight: "900",
-    fontFamily: "Space Grotesk, sans-serif",
-  },
-  playerInitialText: {
-    color: "#CBD5E1",
-    fontSize: 12,
-    fontWeight: "800",
-    fontFamily: "Space Grotesk, sans-serif",
-    width: 14,
     textAlign: "center",
   },
-  playerPrizeTextClean: {
-    fontSize: 12,
-    fontWeight: "900",
-    fontFamily: "Space Grotesk, sans-serif",
-    letterSpacing: 0.3,
-  },
-  playerAvatarImg: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "#1F2937",
-  },
-  playerUsername: {
-    color: "#FFFFFF",
-    fontSize: 12,
-    fontWeight: "800",
-    maxWidth: 105,
-  },
-  playerWins: {
+  cardSubtitle: {
     color: "#8893A7",
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: "600",
-  },
-  playerPrizeBadge: {
-    backgroundColor: "rgba(35, 48, 65, 0.4)",
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderWidth: 0.8,
-    borderColor: "#233041",
-  },
-  playerPrizeText: {
-    fontSize: 11,
-    fontWeight: "900",
-    fontFamily: "Space Grotesk, sans-serif",
-  },
-  seeMoreBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    backgroundColor: "rgba(0, 191, 255, 0.08)",
-    borderWidth: 1,
-    borderColor: "rgba(0, 191, 255, 0.35)",
-    borderRadius: 14,
-    paddingVertical: 10,
-    marginTop: 14,
-  },
-  seeMoreBtnText: {
-    color: "#00BFFF",
-    fontSize: 11,
-    fontWeight: "900",
-    letterSpacing: 0.8,
-    fontFamily: "Space Grotesk, sans-serif",
+    marginTop: 3,
+    textAlign: "center",
   },
 
-  // 2 Links in Right Sidebar: Telegram & Support
-  supportLinkBtn: {
+  // Pagination Dots
+  paginationRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    borderRadius: 14,
-    paddingVertical: 12,
-    borderWidth: 1.2,
+    marginTop: 6,
+    marginBottom: 14,
   },
-  supportLinkBtnText: {
-    fontSize: 11.5,
-    fontWeight: "900",
-    letterSpacing: 0.6,
-    fontFamily: "Space Grotesk, sans-serif",
-  },
-
-  // Live Winners Card Styles
-  liveGreenDot: {
+  dot: {
     width: 7,
     height: 7,
     borderRadius: 3.5,
-    backgroundColor: "#10B981",
+    backgroundColor: "#1E293B",
   },
-  liveBadgePill: {
-    backgroundColor: "rgba(16, 185, 129, 0.14)",
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "rgba(16, 185, 129, 0.35)",
-    paddingHorizontal: 7,
-    paddingVertical: 2,
+  dotActive: {
+    width: 24,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: "#F59E0B",
   },
-  liveBadgeText: {
-    color: "#10B981",
-    fontSize: 9.5,
-    fontWeight: "900",
-    letterSpacing: 0.6,
+
+  // ──────────────── SECTION B: Games Section ────────────────
+  gamesSection: {
+    width: "100%",
+    marginTop: 14,
   },
-  liveWinnerRow: {
+  gamesHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "rgba(8, 15, 23, 0.75)",
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
-    paddingVertical: 9,
-    paddingHorizontal: 12,
-    gap: 10,
-    ...(Platform.OS === "web" ? { transition: "all 250ms ease", willChange: "transform" } as any : {}),
+    marginBottom: 16,
+    flexWrap: "wrap",
+    gap: 12,
   },
-  liveWinnerIconCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "rgba(0, 191, 255, 0.12)",
+  gamesTitleWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  gamesHeading: {
+    color: "#FFFFFF",
+    fontSize: 22,
+    fontWeight: "900",
+    letterSpacing: 0.5,
+  },
+  gamesCountBadge: {
+    backgroundColor: "rgba(0, 218, 243, 0.12)",
     borderWidth: 1,
-    borderColor: "rgba(0, 191, 255, 0.3)",
+    borderColor: "rgba(0, 218, 243, 0.3)",
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  gamesCountText: {
+    color: "#00DAF3",
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  gamesControlsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    flexWrap: "wrap",
+  },
+  gamesSearchBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#111C27",
+    borderWidth: 1,
+    borderColor: "#1E293B",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 38,
+    width: 240,
+  },
+  gamesSearchInput: {
+    flex: 1,
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "600",
+    padding: 0,
+    ...(Platform.OS === "web" ? ({ outlineStyle: "none" } as any) : {}),
+  },
+  filterGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#111C27",
+    borderWidth: 1,
+    borderColor: "#1E293B",
+    borderRadius: 12,
+    padding: 3,
+    gap: 4,
+  },
+  filterBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 9,
     alignItems: "center",
     justifyContent: "center",
   },
-  liveWinnerName: {
-    color: "#FFFFFF",
+  filterBtnActive: {
+    backgroundColor: "#00DAF3",
+  },
+  filterBtnText: {
+    color: "#8893A7",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  filterBtnTextActive: {
+    color: "#080C14",
+    fontWeight: "900",
+  },
+  gamesGridRow: {
+    flexDirection: "row",
+    gap: 16,
+    width: "100%",
+    flexWrap: "wrap",
+  },
+  gameCard: {
+    flex: 1,
+    minWidth: 260,
+    maxWidth: 420,
+    height: 304,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: "#1E293B",
+    overflow: "hidden",
+    position: "relative",
+    backgroundColor: "#111C27",
+    paddingTop: 12,
+    paddingBottom: 16,
+    paddingHorizontal: 14,
+    justifyContent: "space-between",
+  },
+  noGamesWrap: {
+    backgroundColor: "#111C27",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#1E293B",
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    width: "100%",
+  },
+  noGamesText: {
+    color: "#8893A7",
+    fontSize: 14,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  resetFilterBtn: {
+    marginTop: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: "rgba(0, 218, 243, 0.15)",
+    borderWidth: 1,
+    borderColor: "#00DAF3",
+    borderRadius: 10,
+  },
+  resetFilterBtnText: {
+    color: "#00DAF3",
     fontSize: 12,
     fontWeight: "800",
   },
-  liveWinnerMeta: {
-    color: "#8893A7",
-    fontSize: 10,
-    fontWeight: "600",
-    marginTop: 1,
+  gameCardArtWrap: {
+    height: 180,
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 5,
   },
-  liveWinnerPrize: {
-    color: "#10B981",
-    fontSize: 12.5,
+  gameCardArtImg: {
+    width: 200,
+    height: 180,
+  },
+  gameCardInfoWrap: {
+    width: "100%",
+    zIndex: 5,
+    gap: 10,
+    alignItems: "center",
+  },
+  gameCardTitle: {
+    color: "#FFFFFF",
+    fontSize: 18,
     fontWeight: "900",
-    fontFamily: "Space Grotesk, sans-serif",
+    letterSpacing: 0.6,
+    textAlign: "center",
+  },
+  gameButtonsRow: {
+    flexDirection: "row",
+    gap: 8,
+    width: "100%",
+    alignItems: "center",
+  },
+
+  // Button styles matching screenshot colors & typography
+  btnCyan: {
+    flex: 1,
+    height: 38,
+    borderRadius: 14,
+    backgroundColor: "#00DAF3",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  btnCyanText: {
+    color: "#080C14",
+    fontSize: 11.5,
+    fontWeight: "900",
+    letterSpacing: 0.5,
+  },
+  btnRed: {
+    flex: 1,
+    height: 38,
+    borderRadius: 14,
+    backgroundColor: "#FF3B57",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  btnRedText: {
+    color: "#FFFFFF",
+    fontSize: 11.5,
+    fontWeight: "900",
+    letterSpacing: 0.5,
+  },
+  btnYellow: {
+    flex: 1,
+    height: 38,
+    borderRadius: 14,
+    backgroundColor: "#FFD200",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  btnYellowText: {
+    color: "#080C14",
+    fontSize: 11.5,
+    fontWeight: "900",
+    letterSpacing: 0.5,
+  },
+  btnOutline: {
+    flex: 1.25,
+    height: 38,
+    borderRadius: 14,
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.25)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  btnOutlineText: {
+    color: "#FFFFFF",
+    fontSize: 10.5,
+    fontWeight: "800",
+    letterSpacing: 0.3,
   },
 });

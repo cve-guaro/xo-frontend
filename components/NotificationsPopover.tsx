@@ -83,8 +83,15 @@ export default function NotificationsPopover({
 }) {
   const { token, language } = useAuth();
   const isEN = language === 'en';
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const isMobile = width < 768;
+
+  const desktopTop = height < 680 ? 58 : 68;
+  const desktopRight = width < 1024 ? 16 : 24;
+  const desktopWidth = Math.min(390, Math.max(300, width - desktopRight * 2));
+  const desktopMaxHeight = Math.min(540, Math.max(240, height - desktopTop - 20));
+  const desktopListMaxHeight = Math.max(120, desktopMaxHeight - 140);
+  const mobileMaxHeight = Math.min(Math.round(height * 0.84), Math.max(320, height - 40));
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -294,7 +301,17 @@ export default function NotificationsPopover({
         <Animated.View
           style={[
             s.popoverCard,
-            isMobile ? s.mobileCard : s.desktopCard,
+            isMobile
+              ? [s.mobileCard, { maxHeight: mobileMaxHeight }]
+              : [
+                  s.desktopCard,
+                  {
+                    top: desktopTop,
+                    right: desktopRight,
+                    width: desktopWidth,
+                    maxHeight: desktopMaxHeight,
+                  },
+                ],
             {
               opacity: fadeAnim,
               transform: isMobile
@@ -385,7 +402,7 @@ export default function NotificationsPopover({
             </View>
           ) : (
             <ScrollView
-              style={{ flex: 1 }}
+              style={isMobile ? { flexShrink: 1 } : { maxHeight: desktopListMaxHeight, flexShrink: 1 }}
               contentContainerStyle={s.listContainer}
               refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchNotifications(true)} tintColor="#00daf3" />}
               showsVerticalScrollIndicator={false}
@@ -518,23 +535,17 @@ const s = StyleSheet.create({
   },
   mobileCard: {
     width: '100%',
-    maxHeight: '88%',
-    height: '84%',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     borderBottomLeftRadius: 0,
     borderBottomRightRadius: 0,
     borderBottomWidth: 0,
-    padding: 20,
+    padding: 18,
   },
   desktopCard: {
     position: 'absolute',
-    top: 68,
-    right: 28,
-    width: 440,
-    height: 610,
-    borderRadius: 24,
-    padding: 20,
+    borderRadius: 20,
+    padding: 16,
   },
   bottomSheetHandle: {
     width: 38,
@@ -636,10 +647,10 @@ const s = StyleSheet.create({
     fontWeight: '900',
   },
   listContainer: {
-    paddingBottom: 24,
+    paddingBottom: 4,
   },
   groupSection: {
-    marginBottom: 16,
+    marginBottom: 10,
   },
   groupHeaderTitle: {
     color: '#94a3b8',

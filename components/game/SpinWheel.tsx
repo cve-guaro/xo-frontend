@@ -14,7 +14,7 @@ export const SPIN_PALETTE = [
   { name: 'Turquoise Cyan',   light: '#06B6D4', mid: '#0891B2', dark: '#0E7490', hex: '#06B6D4', accent: '#67E8F9' },
   { name: 'Bright Orange',    light: '#F97316', mid: '#EA580C', dark: '#7C2D12', hex: '#F97316', accent: '#FDBA74' },
   { name: 'Crimson Red',      light: '#EF4444', mid: '#DC2626', dark: '#7F1D1D', hex: '#EF4444', accent: '#FCA5A5' },
-  { name: 'Royal Violet',     light: '#8B5CF6', mid: '#7C3AED', dark: '#4C1D95', hex: '#8B5CF6', accent: '#DDD6FE' },
+  { name: 'Cobalt Blue',      light: '#00A2E8', mid: '#0284C7', dark: '#0369A1', hex: '#00A2E8', accent: '#BAE6FD' },
   { name: 'Magenta Pink',     light: '#EC4899', mid: '#DB2777', dark: '#831843', hex: '#EC4899', accent: '#FBCFE8' },
   { name: 'Sea Green / Mint', light: '#14B8A6', mid: '#0D9488', dark: '#134E4A', hex: '#14B8A6', accent: '#5EEAD4' },
   { name: 'Ruby Scarlet',     light: '#E11D48', mid: '#BE123C', dark: '#881337', hex: '#E11D48', accent: '#FDA4AF' },
@@ -733,22 +733,12 @@ const SpinWheel = memo(function SpinWheel({
           return (
             <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
               <Defs>
-                <RadialGradient id="purpleHubGrad" cx="50%" cy="50%" r="50%">
-                  <Stop offset="0%" stopColor="#a855f7" />
-                  <Stop offset="35%" stopColor="#7c3aed" />
-                  <Stop offset="75%" stopColor="#5b21b6" />
-                  <Stop offset="100%" stopColor="#2e1065" />
-                </RadialGradient>
                 <LinearGradient id="hubGoldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
                   <Stop offset="0%" stopColor="#fef08a" />
                   <Stop offset="30%" stopColor="#facc15" />
                   <Stop offset="70%" stopColor="#ca8a04" />
                   <Stop offset="100%" stopColor="#78350f" />
                 </LinearGradient>
-                <RadialGradient id="purpleHubGlow" cx="50%" cy="50%" r="50%">
-                  <Stop offset="50%" stopColor="#a855f7" stopOpacity={0.6} />
-                  <Stop offset="100%" stopColor="#a855f7" stopOpacity={0} />
-                </RadialGradient>
               </Defs>
 
               {/* ── CONDITIONAL CENTER HUB: 5-PLAYER LUXURY ROULETTE DISC VS RAIL STADIUM PILL ── */}

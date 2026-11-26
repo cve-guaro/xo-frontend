@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, useWindowDimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import SpinWheel, { getPlayerPalette } from "../game/SpinWheel";
 
@@ -86,22 +86,28 @@ export const RailSpinDesktopRoom: React.FC<RailSpinDesktopRoomProps> = ({
   onJoinRoom,
   playCoinSound,
 }) => {
+  const { height: screenH } = useWindowDimensions();
+  const isCompactH = screenH < 820;
+  const maxWheelByH = Math.max(230, screenH - (isCompactH ? 310 : 350));
+  const wheelSize = Math.round(Math.min(screenW * 0.33, maxWheelByH, 410));
+
+  const isSelfPlayer = (p: any) =>
+    Boolean(p) &&
+    (user?.id
+      ? String(p.userId) === String(user.id)
+      : Boolean(user?.username && p.username === user.username));
+
   const playersList = displayPlayers.length > 0 ? displayPlayers : previewPlayers;
-  const myPlayer = (round?.players || previewPlayers).find(
-    (p: any) =>
-      String(p.userId) === String(user?.id) ||
-      p.username === user?.username ||
-      p.username === "guest_3"
-  );
+  const myPlayer = (round?.players || previewPlayers).find(isSelfPlayer);
   const myStake = myPlayer ? Number(myPlayer.stake || 0) : round ? 0 : betAmount;
   const totalPotStake =
     (round?.players || previewPlayers).reduce((s: number, p: any) => s + (Number(p.stake) || 0), 0) || 80;
   const myWinPercent = totalPotStake > 0 && myStake > 0 ? Math.round((myStake / totalPotStake) * 100) : 0;
 
   return (
-    <View style={{ width: "100%", gap: 16 }}>
+    <View style={{ width: "100%", gap: isCompactH ? 10 : 14 }}>
       {/* Subheader Row */}
-      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: isCompactH ? 4 : 10 }}>
         {/* Left: Back button + Red aperture icon + Title + PUBLIC pill + Subtitle */}
         <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
           <TouchableOpacity
@@ -174,21 +180,21 @@ export const RailSpinDesktopRoom: React.FC<RailSpinDesktopRoomProps> = ({
       </View>
 
       {/* Three Columns: Column 1 (Players & Winners), Column 2 (Pot & Wheel), Column 3 (Stake Controls) */}
-      <View style={{ flexDirection: "row", gap: 24, alignItems: "flex-end", justifyContent: "center", width: "100%" }}>
+      <View style={{ flexDirection: "row", gap: isCompactH ? 18 : 24, alignItems: "center", justifyContent: "center", width: "100%" }}>
         {/* COLUMN 1: PLAYERS & RECENT WINNERS (Left) */}
-        <View style={{ flex: 1, minWidth: 270, maxWidth: 320 }}>
+        <View style={{ flex: 1, minWidth: 260, maxWidth: 320 }}>
           <View
             style={{
               backgroundColor: "rgba(10, 16, 36, 0.8)",
               borderRadius: 20,
-              padding: 20,
+              padding: isCompactH ? 14 : 18,
               borderWidth: 1.2,
               borderColor: "rgba(255, 255, 255, 0.08)",
             }}
           >
             <View>
               {/* Header Row: PLAYERS (count) + Invite */}
-              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: isCompactH ? 12 : 14 }}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                   <Ionicons name="people-outline" size={17} color="#ef4444" />
                   <Text style={{ color: "#ffffff", fontSize: 13.5, fontWeight: "900", letterSpacing: 0.5 }}>
@@ -217,16 +223,13 @@ export const RailSpinDesktopRoom: React.FC<RailSpinDesktopRoomProps> = ({
 
               {/* Player Cards */}
               <ScrollView
-                style={{ maxHeight: 220 }}
+                style={{ maxHeight: isCompactH ? 156 : 210 }}
                 showsVerticalScrollIndicator={true}
                 nestedScrollEnabled={true}
                 contentContainerStyle={{ gap: 8 }}
               >
                 {playersList.map((p, idx) => {
-                  const isSelf =
-                    p.userId === user?.id ||
-                    (user?.username && p.username === user.username) ||
-                    p.username === "guest_3";
+                  const isSelf = isSelfPlayer(p);
                   const isSelfMuted = isSelf ? micMuted : mutedPlayers.has(p.userId);
                   const pal = getPlayerPalette(p, idx);
                   const avColor = { bg: pal.mid || pal.hex, border: pal.light || pal.accent, text: "#ffffff" };
@@ -302,7 +305,7 @@ export const RailSpinDesktopRoom: React.FC<RailSpinDesktopRoomProps> = ({
             </View>
 
             {/* RECENT WINNERS */}
-            <View style={{ marginTop: 24, paddingTop: 16, borderTopWidth: 1, borderTopColor: "rgba(255, 255, 255, 0.08)" }}>
+            <View style={{ marginTop: isCompactH ? 12 : 18, paddingTop: isCompactH ? 10 : 14, borderTopWidth: 1, borderTopColor: "rgba(255, 255, 255, 0.08)" }}>
               <Text
                 style={{
                   color: "#64748b",
@@ -310,7 +313,7 @@ export const RailSpinDesktopRoom: React.FC<RailSpinDesktopRoomProps> = ({
                   fontWeight: "800",
                   letterSpacing: 1,
                   textTransform: "uppercase",
-                  marginBottom: 10,
+                  marginBottom: isCompactH ? 6 : 10,
                 }}
               >
                 RECENT WINNERS
@@ -322,7 +325,7 @@ export const RailSpinDesktopRoom: React.FC<RailSpinDesktopRoomProps> = ({
                     flexDirection: "row",
                     alignItems: "center",
                     justifyContent: "space-between",
-                    paddingVertical: 7,
+                    paddingVertical: isCompactH ? 5 : 7,
                   }}
                 >
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -338,27 +341,27 @@ export const RailSpinDesktopRoom: React.FC<RailSpinDesktopRoomProps> = ({
 
         {/* COLUMN 2: CENTER WHEEL & CURRENT POT */}
         <View style={{ flex: 1.3, alignItems: "center", justifyContent: "center" }}>
-          <Text style={{ color: "#64748b", fontSize: 12, fontWeight: "600", marginBottom: 3 }}>
+          <Text style={{ color: "#64748b", fontSize: 12, fontWeight: "600", marginBottom: 2 }}>
             Round {round?.roundId ? round.roundId.slice(-4) : "4"} / Bets open
           </Text>
-          <Text style={{ color: "#94a3b8", fontSize: 11, fontWeight: "800", letterSpacing: 1.5, textTransform: "uppercase" }}>
+          <Text style={{ color: "#94a3b8", fontSize: 10.5, fontWeight: "800", letterSpacing: 1.5, textTransform: "uppercase" }}>
             CURRENT POT
           </Text>
           <Text
             style={{
               color: "#ef4444",
-              fontSize: 42,
+              fontSize: isCompactH ? 32 : 38,
               fontWeight: "900",
               fontFamily: "Space Grotesk, Inter, sans-serif",
-              marginVertical: 3,
+              marginVertical: 2,
             }}
           >
             {previewPot} ETB
           </Text>
 
-          <View style={{ position: "relative", alignItems: "center", justifyContent: "center", marginTop: 6 }}>
+          <View style={{ position: "relative", alignItems: "center", justifyContent: "center", marginTop: 4 }}>
             <SpinWheel
-              size={Math.min(screenW * 0.36, 460)}
+              size={wheelSize}
               players={playersList}
               isSpinning={Boolean(screenState === "spinning" || round?.status === "spinning" || isSpinning)}
               winningSlice={winningSlice}
@@ -390,12 +393,12 @@ export const RailSpinDesktopRoom: React.FC<RailSpinDesktopRoomProps> = ({
         </View>
 
         {/* COLUMN 3: STAKES & BET CONTROLS (Right - Expanded) */}
-        <View style={{ flex: 1, minWidth: 270, maxWidth: 320 }}>
+        <View style={{ flex: 1, minWidth: 260, maxWidth: 320 }}>
           <View
             style={{
               backgroundColor: "rgba(10, 16, 36, 0.8)",
               borderRadius: 20,
-              padding: 20,
+              padding: isCompactH ? 14 : 18,
               borderWidth: 1.2,
               borderColor: "rgba(255, 255, 255, 0.08)",
             }}
@@ -593,7 +596,7 @@ export const RailSpinDesktopRoom: React.FC<RailSpinDesktopRoomProps> = ({
       </View>
 
       {/* BOTTOM BAR: Centered Voice & Leave */}
-      <View style={{ alignItems: "center", marginTop: 24, marginBottom: 8 }}>
+      <View style={{ alignItems: "center", marginTop: isCompactH ? 8 : 16, marginBottom: 4 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
           {/* Button 1: Mic off / Mic on */}
           <TouchableOpacity

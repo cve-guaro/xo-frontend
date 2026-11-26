@@ -67,7 +67,7 @@ export const SpinRulesModal: React.FC<SpinRulesModalProps> = ({
               },
               {
                 icon: "pie-chart",
-                color: "#a855f7",
+                color: "#00DAF3",
                 title: language === "am" ? "2. ተመጣጣኝ የማሸነፍ እድል" : "2. Proportional Winning Odds",
                 desc: language === "am" ? "ውርርድዎ በጨመረ ቁጥር የጎማው ድርሻዎ እና የማሸነፍ እድልዎ ይሰፋል!" : "The bigger your bet, the larger your slice and higher your chance of winning!"
               },

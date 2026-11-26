@@ -60,6 +60,7 @@ import {
   playPopupSound,
   stopSpinSoundLoop,
 } from "../../../lib/pinTickAudio";
+import { triggerWinCelebration } from "../../../components/ui/confetti";
 
 const wonBoardCardImg = require("../../../assets/images/won bord card.png");
 const lostBoardCardImg = require("../../../assets/images/lost bord card.png");
@@ -328,12 +329,14 @@ function AnimatedUserMicButton({
   );
 }
 
-// ── Production Result Modal: Exact Match Reference Mockup (Winner & Loser) ──
+// ── Production Result Modal: Receipt-Style Winner & Loser Card (Image 1) ──
 function SpinResultModal({
   isMyWin,
   prizeAmount = 0,
   userBet = 100,
   totalPrizePool = 500,
+  winnerName = "",
+  roundId = "",
   handlePlayAgain,
   onLeave,
   language = "en",
@@ -342,23 +345,26 @@ function SpinResultModal({
   prizeAmount?: number;
   userBet?: number;
   totalPrizePool?: number;
+  winnerName?: string;
+  roundId?: string;
   handlePlayAgain: () => void;
   onLeave: () => void;
   language?: string;
 }) {
   const enterAnim = useRef(new Animated.Value(0)).current;
+  const isAM = language === "am";
 
   useEffect(() => {
     Animated.timing(enterAnim, {
       toValue: 1,
-      duration: 300,
+      duration: 280,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: Platform.OS !== "web",
     }).start();
 
-    // Play victory fanfare or authentic loser sound
     if (isMyWin) {
       playWinFanfare();
+      triggerWinCelebration();
     } else {
       playLoseSound();
     }
@@ -366,19 +372,17 @@ function SpinResultModal({
 
   const modalScale = enterAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0.94, 1],
+    outputRange: [0.95, 1],
   });
 
   return (
     <Animated.View
       style={{
-        backgroundColor: "#0c1222",
-        borderWidth: 1.5,
-        borderColor: isMyWin ? "#10b981" : "#38bdf8",
+        backgroundColor: "#0A0D12",
+        borderWidth: 1,
+        borderColor: "rgba(255, 255, 255, 0.1)",
         borderRadius: 24,
-        paddingHorizontal: 20,
-        paddingTop: 16,
-        paddingBottom: 20,
+        overflow: "hidden",
         alignItems: "center",
         width: "92%",
         maxWidth: 360,
@@ -388,188 +392,189 @@ function SpinResultModal({
         position: "relative",
       }}
     >
-      {/* Upper-right Close Button */}
-      <TouchableOpacity
-        onPress={onLeave}
-        style={{
-          position: "absolute",
-          top: 12,
-          right: 12,
-          width: 30,
-          height: 30,
-          borderRadius: 15,
-          alignItems: "center",
-          justifyContent: "center",
-          zIndex: 10,
-          backgroundColor: "rgba(255, 255, 255, 0.08)",
-        }}
-        activeOpacity={0.7}
-        accessibilityLabel="Close Result"
-      >
-        <Ionicons name="close" size={17} color="#FFFFFF" />
-      </TouchableOpacity>
-
-      {/* 3D Wheel Illustration Asset */}
-      <View style={{ width: 170, height: 122, alignItems: "center", justifyContent: "center", marginBottom: 6 }}>
-        <Image
-          source={isMyWin ? wonBoardCardImg : lostBoardCardImg}
-          style={{ width: "100%", height: "100%", resizeMode: "contain" }}
-        />
-      </View>
-
-      {/* Result Heading */}
-      <Text style={{ fontSize: 26, fontWeight: "900", letterSpacing: 0.6, textAlign: "center", fontFamily: "Inter, sans-serif" }}>
-        <Text style={{ color: "#FFFFFF" }}>YOU </Text>
-        <Text style={{ color: isMyWin ? "#10b981" : "#38bdf8" }}>
-          {isMyWin ? "WON!" : "LOST!"}
-        </Text>
-      </Text>
-
-      {/* Supporting Heading */}
-      <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "700", marginTop: 4, textAlign: "center", fontFamily: "Inter, sans-serif" }}>
-        {isMyWin
-          ? (language === "am" ? "እንኳን ደስ አሎት!" : "Congratulations!")
-          : (language === "am" ? "በሚቀጥለው ዙር ይሞክሩ!" : "Better luck next time!")}
-      </Text>
-
-      {/* Supporting Message */}
-      <Text style={{ color: "#94a3b8", fontSize: 12, marginTop: 4, textAlign: "center", paddingHorizontal: 6, lineHeight: 17 }}>
-        {isMyWin
-          ? (language === "am" ? "ይህንን ስፒን አሸንፈዋል! ሽልማትዎን ይደሰቱ!" : "You've won this spin. Enjoy your reward!")
-          : (language === "am" ? "መሽከርከርዎን ይቀጥሉ እና እንደገና ዕድልዎን ይሞክሩ።" : "Keep spinning and try your luck again.")}
-      </Text>
-
-      {/* Prize Box (Matching Mockup with CoinStackIcon) */}
-      <View
+      {/* Top Vertical Radial Glow Header matching Image 1 */}
+      <LinearGradient
+        colors={
+          isMyWin
+            ? ["rgba(22, 163, 74, 0.48)", "rgba(22, 163, 74, 0.16)", "#0A0D12"]
+            : ["rgba(220, 38, 38, 0.36)", "rgba(220, 38, 38, 0.12)", "#0A0D12"]
+        }
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
         style={{
           width: "100%",
-          backgroundColor: "#101932",
-          borderRadius: 14,
-          borderWidth: 1,
-          borderColor: isMyWin ? "rgba(16, 185, 129, 0.3)" : "rgba(56, 189, 248, 0.25)",
-          paddingVertical: 12,
-          paddingHorizontal: 16,
-          marginTop: 14,
-          marginBottom: 10,
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 14,
-        }}
-      >
-        <CoinStackIcon size={32} />
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: "#94a3b8", fontSize: 11.5, fontWeight: "600" }}>
-            {language === "am" ? "ሽልማት" : "Prize"}
-          </Text>
-          <Text
-            style={{
-              color: isMyWin ? "#facc15" : "#ffffff",
-              fontSize: 22,
-              fontWeight: "900",
-              fontFamily: "Inter, sans-serif",
-              marginTop: 2,
-            }}
-          >
-            {isMyWin
-              ? `${Number(prizeAmount || 0).toLocaleString()} ETB`
-              : "0 ETB"}
-          </Text>
-          {!isMyWin && (
-            <Text style={{ color: "#94a3b8", fontSize: 10.5, fontWeight: "500", marginTop: 1 }}>
-              {language === "am" ? "(አላሸነፉም)" : "(You didn't win)"}
-            </Text>
-          )}
-        </View>
-      </View>
-
-      {/* Two-Column Stat Row: Entry Fee & Total Prize Pool (Exact Mockup Match) */}
-      <View
-        style={{
-          width: "100%",
-          backgroundColor: "#0d152a",
-          borderRadius: 12,
-          borderWidth: 1,
-          borderColor: "rgba(255, 255, 255, 0.08)",
-          paddingVertical: 10,
-          paddingHorizontal: 14,
-          marginBottom: 16,
-          flexDirection: "row",
+          paddingTop: 34,
+          paddingBottom: 20,
+          paddingHorizontal: 24,
           alignItems: "center",
         }}
       >
-        {/* Left: Entry Fee */}
-        <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-            <CoinStackIcon size={13} />
-            <Text style={{ color: "#94a3b8", fontSize: 11, fontWeight: "600" }}>
-              {language === "am" ? "የመግቢያ ክፍያ" : "Entry Fee"}
-            </Text>
-          </View>
-          <Text style={{ color: "#ffffff", fontSize: 13.5, fontWeight: "800", fontFamily: "Inter, sans-serif", marginTop: 3 }}>
-            {Number(userBet || 100).toLocaleString()} ETB
-          </Text>
-        </View>
-
-        {/* Vertical Divider */}
-        <View style={{ width: 1, height: 26, backgroundColor: "rgba(255, 255, 255, 0.12)", marginHorizontal: 8 }} />
-
-        {/* Right: Total Prize Pool */}
-        <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-            <CoinStackIcon size={13} />
-            <Text style={{ color: "#94a3b8", fontSize: 11, fontWeight: "600" }}>
-              {language === "am" ? "ጠቅላላ ሽልማት" : "Total Prize Pool"}
-            </Text>
-          </View>
-          <Text style={{ color: "#ffffff", fontSize: 13.5, fontWeight: "800", fontFamily: "Inter, sans-serif", marginTop: 3 }}>
-            {Number(totalPrizePool || (userBet * 5)).toLocaleString()} ETB
-          </Text>
-        </View>
-      </View>
-
-      {/* Action Buttons: Play Again & Leave */}
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 10, width: "100%" }}>
+        {/* Close Button */}
         <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={handlePlayAgain}
-          style={{
-            flex: 1,
-            height: 44,
-            borderRadius: 12,
-            backgroundColor: "#162038",
-            borderWidth: 1,
-            borderColor: "rgba(255, 255, 255, 0.15)",
-            alignItems: "center",
-            justifyContent: "center",
-            flexDirection: "row",
-            gap: 6,
-          }}
-        >
-          <Ionicons name="refresh" size={16} color="#FFFFFF" />
-          <Text style={{ color: "#FFFFFF", fontSize: 13.5, fontWeight: "800", fontFamily: "Inter, sans-serif" }}>
-            {language === "am" ? "እንደገና ተጫወት" : "Play Again"}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          activeOpacity={0.8}
           onPress={onLeave}
           style={{
-            flex: 1,
-            height: 44,
-            borderRadius: 12,
-            backgroundColor: isMyWin ? "#10b981" : "#2563eb",
+            position: "absolute",
+            top: 14,
+            right: 14,
+            width: 32,
+            height: 32,
+            borderRadius: 16,
             alignItems: "center",
             justifyContent: "center",
-            flexDirection: "row",
-            gap: 6,
+            backgroundColor: "rgba(255, 255, 255, 0.08)",
+          }}
+          activeOpacity={0.7}
+          accessibilityLabel={isAM ? "ዝጋ" : "Close result"}
+        >
+          <Ionicons name="close" size={17} color="#FFFFFF" />
+        </TouchableOpacity>
+
+        {/* Centered Status Seal Badge */}
+        <View
+          style={{
+            width: 60,
+            height: 60,
+            borderRadius: 30,
+            backgroundColor: isMyWin ? "rgba(34, 197, 94, 0.25)" : "rgba(239, 68, 68, 0.22)",
+            borderWidth: 2,
+            borderColor: isMyWin ? "rgba(74, 222, 128, 0.5)" : "rgba(248, 113, 113, 0.45)",
+            alignItems: "center",
+            justifyContent: "center",
+            marginBottom: 18,
           }}
         >
-          <Ionicons name="exit-outline" size={16} color="#FFFFFF" />
-          <Text style={{ color: "#FFFFFF", fontSize: 13.5, fontWeight: "800", fontFamily: "Inter, sans-serif" }}>
-            {language === "am" ? "ውጣ" : "Leave"}
+          <View
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              backgroundColor: isMyWin ? "#22C55E" : "#EF4444",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Ionicons name={isMyWin ? "checkmark" : "close"} size={26} color="#FFFFFF" />
+          </View>
+        </View>
+
+        {/* Status Title */}
+        <Text
+          style={{
+            color: "#E2E8F0",
+            fontSize: 14,
+            fontWeight: "600",
+            textAlign: "center",
+            marginBottom: 6,
+          }}
+        >
+          {isMyWin
+            ? isAM
+              ? "ስፒን አሸንፈዋል"
+              : "Spin payout successful"
+            : isAM
+            ? "በዚህ ዙር አላሸነፉም"
+            : "Spin round ended"}
+        </Text>
+
+        {/* Hero Amount */}
+        <Text
+          style={{
+            color: "#FFFFFF",
+            fontSize: 38,
+            fontWeight: "900",
+            letterSpacing: -0.8,
+            textAlign: "center",
+          }}
+        >
+          {isMyWin
+            ? `ETB ${Number(prizeAmount || 0).toLocaleString()}`
+            : `-${Number(userBet || 0).toLocaleString()} ETB`}
+        </Text>
+
+        {/* Recipient / Winner Subtitle */}
+        <Text
+          style={{
+            color: "#94A3B8",
+            fontSize: 12,
+            fontWeight: "600",
+            marginTop: 10,
+          }}
+        >
+          {isMyWin ? (isAM ? "ወደ" : "credited to") : isAM ? "አሸናፊ" : "winner"}
+        </Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 6 }}>
+          <View
+            style={{
+              width: 22,
+              height: 22,
+              borderRadius: 11,
+              backgroundColor: isMyWin ? "#15803D" : "#334155",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Text style={{ color: "#FFFFFF", fontSize: 10, fontWeight: "800" }}>
+              {(winnerName || (isMyWin ? "Y" : "W")).charAt(0).toUpperCase()}
+            </Text>
+          </View>
+          <Text style={{ color: "#FFFFFF", fontSize: 14, fontWeight: "700" }} numberOfLines={1}>
+            {isMyWin ? (isAM ? "የእርስዎ ቦርሳ" : "Your Wallet") : winnerName || "Winner"}
           </Text>
-        </TouchableOpacity>
+        </View>
+        <Text style={{ color: "#64748B", fontSize: 12, fontWeight: "500", marginTop: 3 }}>
+          {isMyWin
+            ? isAM
+              ? "በቀጥታ ገቢ ተደርጓል"
+              : "Instant prize settlement"
+            : isAM
+            ? "ቀጣዩን ዙር ይሞክሩ"
+            : "Better luck next spin"}
+        </Text>
+      </LinearGradient>
+
+      {/* Footer Symmetric Action Buttons */}
+      <View style={{ width: "100%", paddingHorizontal: 20, paddingTop: 14, paddingBottom: 20, alignItems: "center" }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10, width: "100%" }}>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={handlePlayAgain}
+            style={{
+              flex: 1,
+              height: 46,
+              borderRadius: 12,
+              backgroundColor: isMyWin ? "#22C55E" : "#EF4444",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={isAM ? "እንደገና ተጫወት" : "Play again"}
+          >
+            <Text style={{ color: isMyWin ? "#07090E" : "#FFFFFF", fontSize: 13.5, fontWeight: "800" }}>
+              {isAM ? "እንደገና ተጫወት" : "Play again"}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            activeOpacity={0.75}
+            onPress={onLeave}
+            style={{
+              flex: 1,
+              height: 46,
+              borderRadius: 12,
+              backgroundColor: "transparent",
+              borderWidth: 1,
+              borderColor: "rgba(255, 255, 255, 0.16)",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={isAM ? "ውጣ" : "Leave room"}
+          >
+            <Text style={{ color: "#CBD5E1", fontSize: 13.5, fontWeight: "700" }}>
+              {isAM ? "ውጣ" : "Leave"}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </Animated.View>
   );
@@ -741,7 +746,6 @@ export default function SpinGameScreen() {
   const [showJoin5pConfirmModal, setShowJoin5pConfirmModal] = useState(false);
   const [languageMenuVisible, setLanguageMenuVisible] = useState(false);
   const [preSpinCountdown, setPreSpinCountdown] = useState<number | null>(null);
-  const [demoOutcome, setDemoOutcome] = useState<"random" | "win" | "lose">("random");
 
   // Listen for real-time spin invitation from other players
   useEffect(() => {
@@ -1653,12 +1657,13 @@ export default function SpinGameScreen() {
   // On return, resync countdown from targetEndTimeRef and request fresh state.
   useEffect(() => {
     const syncActiveState = () => {
-      if (roundRef.current) {
+      if (roundRef.current || screenState !== "browse") {
         if (targetEndTimeRef.current) {
           const rem = Math.max(0, Math.ceil((targetEndTimeRef.current - Date.now()) / 1000));
           setCountdown(rem);
         }
-        emitAck("spin:get_state", { roundId: roundRef.current.roundId, token }).then((res: any) => {
+        const curRoundId = roundRef.current?.roundId;
+        emitAck("spin:get_state", { roundId: curRoundId, token }).then((res: any) => {
           if (res?.ok && res.data) {
             setRound(res.data);
             const isResolved = res.data.status === "ended" || res.data.status === "resolved" || res.data.status === "paid";
@@ -1685,13 +1690,35 @@ export default function SpinGameScreen() {
               setScreenState("browse");
               setRound(null);
               setIsSpinning(false);
-            } else if (res.data.countdown > 0) {
-              targetEndTimeRef.current = Date.now() + res.data.countdown * 1000;
-              setCountdown(res.data.countdown);
+              isSpinningRef.current = false;
+            } else if (res.data.status === "waiting") {
+              setScreenState("waiting");
+              setIsSpinning(false);
+              isSpinningRef.current = false;
+              if (res.data.countdown > 0) {
+                targetEndTimeRef.current = Date.now() + res.data.countdown * 1000;
+                setCountdown(res.data.countdown);
+              }
+            } else if (res.data.status === "locked") {
+              setScreenState("waiting");
+              setIsSpinning(false);
+              isSpinningRef.current = false;
+              setCountdown(0);
+              setPreSpinCountdown(3);
+            } else if (res.data.status === "spinning") {
+              setIsSpinning(true);
+              isSpinningRef.current = true;
+              setScreenState("spinning");
+              if (typeof res.data.winningSlice === "number") setWinningSlice(res.data.winningSlice);
+              if (res.data.winnerId) setPendingWinnerId(res.data.winnerId);
             }
           } else if (res?.error === "ROUND_NOT_FOUND") {
-            setRound(null);
-            setScreenState("browse");
+            if (mode === "RAIL" || roundRef.current?.mode === "RAIL") {
+              handleJoinRoom("RAIL", stake ? Number(stake) : betAmount);
+            } else {
+              setRound(null);
+              setScreenState("browse");
+            }
           }
         }).catch(() => {});
         refreshProfile?.();
@@ -1830,14 +1857,15 @@ export default function SpinGameScreen() {
     const map = new Map<string, SpinPlayer>();
     for (const p of rawList) {
       if (!p || !p.userId) continue;
-      const existing = map.get(p.userId);
+      const key = String(p.userId);
+      const existing = map.get(key);
       if (existing) {
-        map.set(p.userId, {
+        map.set(key, {
           ...existing,
           stake: (Number(existing.stake) || 0) + (Number(p.stake) || 0),
         });
       } else {
-        map.set(p.userId, { ...p });
+        map.set(key, { ...p });
       }
     }
     return Array.from(map.values());
@@ -2258,6 +2286,8 @@ export default function SpinGameScreen() {
               (round?.players ? round.players.reduce((sum, p) => sum + (Number(p.stake) || 0), 0) : 0) ||
               (betAmount * (is5Player ? 5 : 2))
             }
+            winnerName={resultData?.winnerName || ""}
+            roundId={round?.roundId || ""}
             language={language}
             handlePlayAgain={handlePlayAgain}
             onLeave={() => {
@@ -2395,8 +2425,8 @@ const ds = StyleSheet.create({
   body: { flex: 1 },
   bodyContent: {
     paddingHorizontal: 24,
-    paddingTop: 14,
-    paddingBottom: 24,
+    paddingTop: 10,
+    paddingBottom: 14,
     maxWidth: 1600,
     alignSelf: "center",
     width: "100%",
@@ -2559,13 +2589,13 @@ const ds = StyleSheet.create({
     justifyContent: "center",
     gap: 8,
     alignSelf: "center",
-    backgroundColor: "#f43f5e",
+    backgroundColor: "#EF4444",
     borderRadius: 14,
     paddingHorizontal: 36,
     paddingVertical: 14,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.2)",
-    shadowColor: "#f43f5e",
+    shadowColor: "#EF4444",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 10,

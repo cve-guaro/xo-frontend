@@ -169,10 +169,10 @@ export default function AuthedLayout() {
         })}
       >
         <Tabs.Screen name="gameplay" options={{ title: getTabTitle("gameplay") }} />
-        <Tabs.Screen name="history" options={{ title: language === 'am' ? 'ታሪክ' : 'History', href: null }} />
-        <Tabs.Screen name="transactions" options={{ title: getTabTitle("transactions"), href: null }} />
+        <Tabs.Screen name="history" options={{ title: language === 'am' ? 'ታሪክ' : 'History' }} />
+        <Tabs.Screen name="leaderboard" options={{ title: language === 'am' ? 'ሊደርቦርድ' : 'Leaderboard' }} />
+        <Tabs.Screen name="transactions" options={{ title: getTabTitle("transactions") }} />
         <Tabs.Screen name="account" options={{ title: getTabTitle("account") }} />
-        <Tabs.Screen name="leaderboard" options={{ title: language === 'am' ? 'ሊደርቦርድ' : 'Leaderboard', href: null }} />
       </Tabs>
 
       {/* Global Custom Floating Bottom Nav — Hidden in Game Rooms & on Desktop */}
@@ -183,8 +183,7 @@ export default function AuthedLayout() {
         const isAccountPage = pathname === '/home/account';
         const isGameplayPage = pathname === '/home/gameplay' || pathname.includes('spin');
 
-        // Spin card uses 3 tabs; XO card uses 5 tabs
-        const show3Tabs = isSpinMode;
+        // All 5 tabs are permanently visible on mobile bottom navigation
         const activeThemeColor = isSpinMode ? colors.activeRed : colors.activeBlue;
         const activeThemePillBg = isSpinMode ? 'rgba(255, 42, 95, 0.20)' : 'rgba(0, 218, 243, 0.20)';
         const activeThemePillBorder = isSpinMode ? 'rgba(255, 42, 95, 0.55)' : 'rgba(0, 218, 243, 0.55)';
@@ -209,7 +208,7 @@ export default function AuthedLayout() {
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'space-around',
-              paddingHorizontal: show3Tabs ? 20 : 6,
+              paddingHorizontal: 6,
               borderRadius: 0,
             }}>
 
@@ -241,65 +240,61 @@ export default function AuthedLayout() {
                 </View>
               </TouchableOpacity>
 
-              {/* 2. History Tab (Only in XO 5-tab mode) */}
-              {!show3Tabs && (
-                <TouchableOpacity
-                  onPress={() => {
-                    try { playTickSound(); } catch {}
+              {/* 2. History Tab (Always Visible) */}
+              <TouchableOpacity
+                onPress={() => {
+                  try { playTickSound(); } catch {}
                   try { LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); } catch {}
-                    haptics.tap();
-                    if (!isHistoryPage) router.replace('/(authed)/home/history');
-                  }}
-                  style={isHistoryPage ? s.navItemActive : s.navItem}
-                  activeOpacity={0.75}
-                >
-                  <View style={[
-                    s.navItemBox,
-                    isHistoryPage && { backgroundColor: activeThemePillBg, borderColor: activeThemePillBorder, paddingHorizontal: 12 },
-                  ]}>
-                    <ClockCounterClockwise
-                      size={20}
-                      color={isHistoryPage ? activeThemeColor : colors.inactive}
-                      weight={isHistoryPage ? "fill" : "regular"}
-                    />
-                    {isHistoryPage && (
-                      <Text style={[s.activeNavText, { color: activeThemeColor }]}>
-                        History
-                      </Text>
-                    )}
-                  </View>
-                </TouchableOpacity>
-              )}
+                  haptics.tap();
+                  if (!isHistoryPage) router.replace('/(authed)/home/history');
+                }}
+                style={isHistoryPage ? s.navItemActive : s.navItem}
+                activeOpacity={0.75}
+              >
+                <View style={[
+                  s.navItemBox,
+                  isHistoryPage && { backgroundColor: activeThemePillBg, borderColor: activeThemePillBorder, paddingHorizontal: 12 },
+                ]}>
+                  <ClockCounterClockwise
+                    size={20}
+                    color={isHistoryPage ? activeThemeColor : colors.inactive}
+                    weight={isHistoryPage ? "fill" : "regular"}
+                  />
+                  {isHistoryPage && (
+                    <Text style={[s.activeNavText, { color: activeThemeColor }]}>
+                      History
+                    </Text>
+                  )}
+                </View>
+              </TouchableOpacity>
 
-              {/* 3. Leaderboard Tab (Only in XO 5-tab mode) */}
-              {!show3Tabs && (
-                <TouchableOpacity
-                  onPress={() => {
-                    try { playTickSound(); } catch {}
+              {/* 3. Leaderboard Tab (Always Visible) */}
+              <TouchableOpacity
+                onPress={() => {
+                  try { playTickSound(); } catch {}
                   try { LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); } catch {}
-                    haptics.tap();
-                    if (!isLeaderboardPage) router.replace('/(authed)/home/leaderboard');
-                  }}
-                  style={isLeaderboardPage ? s.navItemActive : s.navItem}
-                  activeOpacity={0.75}
-                >
-                  <View style={[
-                    s.navItemBox,
-                    isLeaderboardPage && { backgroundColor: activeThemePillBg, borderColor: activeThemePillBorder, paddingHorizontal: 12 },
-                  ]}>
-                    <Trophy
-                      size={20}
-                      color={isLeaderboardPage ? activeThemeColor : colors.inactive}
-                      weight={isLeaderboardPage ? "fill" : "regular"}
-                    />
-                    {isLeaderboardPage && (
-                      <Text style={[s.activeNavText, { color: activeThemeColor }]}>
-                        Rank
-                      </Text>
-                    )}
-                  </View>
-                </TouchableOpacity>
-              )}
+                  haptics.tap();
+                  if (!isLeaderboardPage) router.replace('/(authed)/home/leaderboard');
+                }}
+                style={isLeaderboardPage ? s.navItemActive : s.navItem}
+                activeOpacity={0.75}
+              >
+                <View style={[
+                  s.navItemBox,
+                  isLeaderboardPage && { backgroundColor: activeThemePillBg, borderColor: activeThemePillBorder, paddingHorizontal: 12 },
+                ]}>
+                  <Trophy
+                    size={20}
+                    color={isLeaderboardPage ? activeThemeColor : colors.inactive}
+                    weight={isLeaderboardPage ? "fill" : "regular"}
+                  />
+                  {isLeaderboardPage && (
+                    <Text style={[s.activeNavText, { color: activeThemeColor }]}>
+                      Rank
+                    </Text>
+                  )}
+                </View>
+              </TouchableOpacity>
 
               {/* 4. Wallet Tab (Present in both modes) */}
               <TouchableOpacity

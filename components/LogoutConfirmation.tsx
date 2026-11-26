@@ -1,8 +1,8 @@
 import React from 'react';
 import { Modal, View, Text, StyleSheet, TouchableOpacity, useWindowDimensions, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/authContext';
+import { colors } from '../theme/tokens';
 
 type LogoutConfirmationProps = {
   visible: boolean;
@@ -12,51 +12,32 @@ type LogoutConfirmationProps = {
 
 export default function LogoutConfirmation({ visible, onCancel, onConfirm }: LogoutConfirmationProps) {
   const { width } = useWindowDimensions();
-  const { language, t } = useAuth();
+  const { t } = useAuth();
   const isDesktop = width > 768 && Platform.OS === 'web';
-  const isEN = language === 'en';
 
   return (
-    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent>
+    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onCancel}>
       <View style={styles.overlay}>
-        <View style={[styles.backdrop, isDesktop && styles.backdropDesktop]} />
+        <View style={styles.backdrop} />
         <View style={[styles.modal, isDesktop && styles.modalDesktop]}>
-          <LinearGradient colors={["#1a1d2d", "#121420"]} style={styles.gradient}>
-            {/* Icon */}
-            <View style={styles.iconWrap}>
-              <LinearGradient colors={["rgba(239,68,68,0.2)", "rgba(239,68,68,0.1)"]} style={styles.iconBg}>
-                <Ionicons name="log-out-outline" size={28} color="#ef4444" />
-              </LinearGradient>
+          <View style={styles.inner}>
+            <View style={styles.iconBg}>
+              <Ionicons name="log-out-outline" size={24} color={colors.danger} />
             </View>
 
-            {/* Title */}
-            <Text style={styles.title}>
-              {t("logout_confirm_title")}
-            </Text>
+            <Text style={styles.title}>{t("logout_confirm_title")}</Text>
+            <Text style={styles.message}>{t("logout_confirm_message")}</Text>
 
-            {/* Message */}
-            <Text style={styles.message}>
-              {t("logout_confirm_message")}
-            </Text>
-
-            {/* Buttons */}
             <View style={styles.buttonRow}>
-              <TouchableOpacity onPress={onCancel} activeOpacity={0.9} style={styles.cancelBtn}>
-                <Text style={styles.cancelText}>
-                  {t("cancel")}
-                </Text>
+              <TouchableOpacity onPress={onCancel} activeOpacity={0.8} style={styles.cancelBtn}>
+                <Text style={styles.cancelText}>{t("cancel")}</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity onPress={onConfirm} activeOpacity={0.9} style={styles.confirmBtn}>
-                <LinearGradient colors={["#ef4444", "#dc2626"]} style={styles.confirmGradient}>
-                  <Ionicons name="exit-outline" size={16} color="#fff" />
-                  <Text style={styles.confirmText}>
-                    {t("logout")}
-                  </Text>
-                </LinearGradient>
+              <TouchableOpacity onPress={onConfirm} activeOpacity={0.85} style={styles.confirmBtn}>
+                <Text style={styles.confirmText}>{t("logout")}</Text>
               </TouchableOpacity>
             </View>
-          </LinearGradient>
+          </View>
         </View>
       </View>
     </Modal>
@@ -72,96 +53,81 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.75)',
-  },
-  backdropDesktop: {
-    backgroundColor: 'rgba(0,0,0,0.85)',
+    backgroundColor: 'rgba(5, 7, 14, 0.82)',
   },
   modal: {
     width: '100%',
     maxWidth: 360,
-    borderRadius: 24,
+    borderRadius: 20,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 20 },
-    shadowOpacity: 0.4,
-    shadowRadius: 40,
-    elevation: 20,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
   },
   modalDesktop: {
-    maxWidth: 400,
-    shadowOpacity: 0.5,
-    shadowRadius: 60,
+    maxWidth: 380,
   },
-  gradient: {
-    padding: 28,
+  inner: {
+    padding: 24,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-  },
-  iconWrap: {
-    marginBottom: 16,
   },
   iconBg: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: colors.tintDanger,
     borderWidth: 1,
-    borderColor: 'rgba(239,68,68,0.3)',
+    borderColor: 'rgba(239, 68, 68, 0.28)',
+    marginBottom: 14,
   },
   title: {
-    color: '#fff',
-    fontSize: 22,
-    fontWeight: '900',
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: '800',
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   message: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 14,
+    color: colors.textMuted,
+    fontSize: 13.5,
     textAlign: 'center',
-    marginBottom: 24,
-    fontWeight: '600',
+    marginBottom: 22,
+    fontWeight: '500',
     lineHeight: 20,
   },
   buttonRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
     width: '100%',
   },
   cancelBtn: {
     flex: 1,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: colors.cardRaised,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: colors.borderStrong,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cancelText: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 15,
+    color: colors.textSoft,
+    fontSize: 14,
     fontWeight: '700',
   },
   confirmBtn: {
     flex: 1,
-    height: 48,
-    borderRadius: 14,
-    overflow: 'hidden',
-  },
-  confirmGradient: {
-    flex: 1,
-    flexDirection: 'row',
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: colors.danger,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
   },
   confirmText: {
-    color: '#fff',
-    fontSize: 15,
+    color: '#FFFFFF',
+    fontSize: 14,
     fontWeight: '800',
   },
 });

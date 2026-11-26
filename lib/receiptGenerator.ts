@@ -249,26 +249,32 @@ export async function downloadProfessionalReceipt(data: ReceiptData): Promise<vo
   ctx.fillText(subTitle, logoCenterX, badgeCenterY + 98);
   ctx.restore();
 
-  // 6. Top Half Key-Value Rows (Bill Number, Date and Time)
+  // 6. Top Half Key-Value Rows (Bill Number, Date and Time, Account)
   const rowLeftX = ticketX + 44;
   const rowRightX = ticketX + ticketW - 44;
-  const rowY1 = badgeCenterY + 146;
-  const rowY2 = rowY1 + 34;
+  const rowY1 = badgeCenterY + 140;
+  const rowY2 = rowY1 + 30;
+  const rowY3 = rowY2 + 30;
 
   ctx.save();
-  ctx.font = '500 14px sans-serif';
+  ctx.font = '500 13.5px sans-serif';
   ctx.fillStyle = '#64748B';
   ctx.textAlign = 'left';
   ctx.fillText('Bill Number:', rowLeftX, rowY1);
-  ctx.fillText('Date and Time:', rowLeftX, rowY2);
+  ctx.fillText('Account:', rowLeftX, rowY2);
+  ctx.fillText('Date and Time:', rowLeftX, rowY3);
 
-  ctx.font = '700 14px monospace';
+  ctx.font = '700 13.5px monospace';
   ctx.fillStyle = '#0F172A';
   ctx.textAlign = 'right';
   ctx.fillText(billNumber, rowRightX, rowY1);
 
-  ctx.font = '600 13.5px sans-serif';
-  ctx.fillText(dateTimeStr, rowRightX, rowY2);
+  ctx.font = '700 13px sans-serif';
+  const accountLabel = data.userName ? `@${data.userName}` : data.userPhone ? data.userPhone : 'XOET Player';
+  ctx.fillText(accountLabel, rowRightX, rowY2);
+
+  ctx.font = '600 13px sans-serif';
+  ctx.fillText(dateTimeStr, rowRightX, rowY3);
   ctx.restore();
 
   // 7. Perforated Dashed Divider Line across notches
@@ -370,12 +376,24 @@ export async function downloadProfessionalReceipt(data: ReceiptData): Promise<vo
   ctx.fillText('Instant Secure Verification', badgePillX + badgePillW + 14, badgePillY + 30);
   ctx.restore();
 
-  // 10. Watermark & Security ID at bottom footer
+  // 10. Barcode Visual & Security ID at bottom footer
   ctx.save();
+  // Draw sleek procedural barcode
+  const barcodeY = ticketY + ticketH - 52;
+  const barcodeH = 22;
+  const barcodeStart = logoCenterX - 110;
+  ctx.fillStyle = '#CBD5E1';
+  const barPattern = [2, 1, 3, 1, 1, 2, 4, 1, 2, 3, 1, 2, 1, 4, 2, 1, 3, 2, 1, 1, 3, 1, 2, 4, 1, 2, 1, 3, 2, 1];
+  let curX = barcodeStart;
+  for (const bWidth of barPattern) {
+    ctx.fillRect(curX, barcodeY, bWidth, barcodeH);
+    curX += bWidth + 3;
+  }
+
   ctx.textAlign = 'center';
-  ctx.font = '600 11px monospace';
-  ctx.fillStyle = '#94A3B8';
-  ctx.fillText(`AUTHENTICATED BY XO ETHIOPIA • ID: ${data.id.slice(0, 16).toUpperCase()}`, logoCenterX, ticketY + ticketH - 22);
+  ctx.font = '700 10.5px monospace';
+  ctx.fillStyle = '#64748B';
+  ctx.fillText(`AUTHENTICATED BY XO ETHIOPIA • ID: ${data.id.slice(0, 16).toUpperCase()}`, logoCenterX, ticketY + ticketH - 16);
   ctx.restore();
 
   // 11. Trigger Direct Download of PNG Image

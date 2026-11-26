@@ -89,11 +89,15 @@ export const PlayerHeroBadge: React.FC<PlayerHeroBadgeProps> = ({
         <View style={styles.playerTextCol}>
           <Text
             style={[styles.playerName, isMe && { color: accent, fontWeight: "900" }]}
-            numberOfLines={2}
+            numberOfLines={1}
             adjustsFontSizeToFit
-            minimumFontScale={0.75}
+            minimumFontScale={0.78}
           >
-            {isMe ? `${language === "en" ? "YOU" : "እርስዎ"} (${name})` : name}
+            {isMe
+              ? (name === "You" || name === "እርስዎ"
+                  ? name
+                  : `${name} (${language === "en" ? "You" : "እርስዎ"})`)
+              : name}
           </Text>
 
           <View style={styles.playerMetaRow}>
@@ -101,14 +105,9 @@ export const PlayerHeroBadge: React.FC<PlayerHeroBadgeProps> = ({
               <>
                 <View style={[styles.turnDot, { backgroundColor: accent, shadowColor: accent }]} />
                 <Text style={[styles.playerSub, { color: accent, fontWeight: "900" }]} numberOfLines={1}>
-                  {name === "You" || name === "እርስዎ" ? "Your turn" : "Opponent turn"}
-                </Text>
-              </>
-            ) : !!sub ? (
-              <>
-                <Ionicons name="call-outline" size={12} color="rgba(255,255,255,0.55)" />
-                <Text style={styles.playerSub} numberOfLines={1}>
-                  {sub}
+                  {isMe
+                    ? (language === "en" ? "Your turn" : "ተራዎ")
+                    : (language === "en" ? "Opponent turn" : "የተጋጣሚ ተራ")}
                 </Text>
               </>
             ) : (

@@ -338,19 +338,7 @@ const s = StyleSheet.create({
     backgroundColor: "rgba(220, 38, 38, 0.2)",
     borderColor: "#FF1744",
     borderWidth: 2,
-    transform: [{ translateY: -3 }],
-    ...Platform.select({
-      web: {
-        boxShadow: "0 6px 14px rgba(255, 23, 68, 0.35)",
-      },
-      default: {
-        shadowColor: "#FF1744",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.45,
-        shadowRadius: 8,
-        elevation: 6,
-      },
-    }),
+    transform: [{ translateY: -2 }],
   },
   presetText: {
     color: "#CBD5E1",

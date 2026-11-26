@@ -3,20 +3,21 @@
 import React from "react";
 import { View, Text, Modal, TouchableOpacity, Linking, Platform } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { colors } from "../../theme/tokens";
 
 function InstructionStep({ step, children }: { step: number; children: React.ReactNode }) {
   return (
     <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
-      <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,218,243,0.15)', alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ color: '#00daf3', fontSize: 12, fontWeight: '800' }}>{step}</Text>
+      <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: colors.cardRaised, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ color: colors.primary, fontSize: 11.5, fontWeight: '800' }}>{step}</Text>
       </View>
-      <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, flex: 1 }}>{children}</Text>
+      <Text style={{ color: colors.textSoft, fontSize: 13, lineHeight: 19, flex: 1 }}>{children}</Text>
     </View>
   );
 }
 
-function CyanBold({ children }: { children: React.ReactNode }) {
-  return <Text style={{ color: '#00daf3', fontWeight: 'bold' }}>{children}</Text>;
+function HighlightText({ children }: { children: React.ReactNode }) {
+  return <Text style={{ color: colors.text, fontWeight: '700' }}>{children}</Text>;
 }
 
 export default function PwaInstallModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
@@ -25,85 +26,81 @@ export default function PwaInstallModal({ visible, onClose }: { visible: boolean
 
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+      <View style={{ flex: 1, backgroundColor: 'rgba(5, 7, 14, 0.82)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
         <View style={{
-          backgroundColor: '#0c0c1f',
+          backgroundColor: colors.card,
           borderWidth: 1,
-          borderColor: 'rgba(0,218,243,0.2)',
-          borderRadius: 24,
+          borderColor: colors.borderStrong,
+          borderRadius: 20,
           padding: 24,
           width: '100%',
           maxWidth: 420,
-          shadowColor: '#000',
-          shadowOpacity: 0.5,
-          shadowRadius: 20,
-          elevation: 10,
         }}>
           {/* Header */}
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-            <Text style={{ color: '#fff', fontSize: 18, fontWeight: '900' }}>Install XOET Web App</Text>
-            <TouchableOpacity onPress={onClose} style={{ padding: 4 }}>
-              <Ionicons name="close" size={24} color="rgba(255,255,255,0.6)" />
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+            <Text style={{ color: colors.text, fontSize: 18, fontWeight: '800' }}>Install XOET app</Text>
+            <TouchableOpacity
+              onPress={onClose}
+              style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.cardRaised, alignItems: 'center', justifyContent: 'center' }}
+              accessibilityLabel="Close"
+            >
+              <Ionicons name="close" size={18} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
 
           {/* Device specific instructions */}
-          <View style={{ marginBottom: 24 }}>
+          <View style={{ marginBottom: 20 }}>
             {isTelegram ? (
               <View style={{ gap: 12 }}>
-                <Text style={{ color: '#00daf3', fontWeight: '800', fontSize: 14 }}>Telegram Browser Detected:</Text>
-                <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, lineHeight: 18 }}>
-                  Telegram's in-app browser has sandbox restrictions that prevent installing web apps or downloading files directly.
+                <Text style={{ color: colors.primary, fontWeight: '700', fontSize: 13.5 }}>Telegram browser detected</Text>
+                <Text style={{ color: colors.textMuted, fontSize: 13, lineHeight: 18 }}>
+                  Open in your system browser to install the web app or download the APK.
                 </Text>
-                <InstructionStep step={1}>Tap the <CyanBold>three dots</CyanBold> at the top right of this screen.</InstructionStep>
-                <InstructionStep step={2}>Select <CyanBold>"Open in Browser"</CyanBold> or <CyanBold>"Open in Chrome/Safari"</CyanBold>.</InstructionStep>
-                <InstructionStep step={3}>Once opened in your system browser, click the download button again.</InstructionStep>
+                <InstructionStep step={1}>Tap the <HighlightText>three dots</HighlightText> at the top right.</InstructionStep>
+                <InstructionStep step={2}>Select <HighlightText>Open in Browser</HighlightText> (Chrome or Safari).</InstructionStep>
+                <InstructionStep step={3}>Click the download button again once opened.</InstructionStep>
               </View>
             ) : isIOS ? (
               <View style={{ gap: 12 }}>
-                <Text style={{ color: '#00daf3', fontWeight: '800', fontSize: 14 }}>Instructions for iOS Safari:</Text>
-                <InstructionStep step={1}>Tap the <CyanBold>Share</CyanBold> button in Safari (box with an arrow pointing up at the bottom).</InstructionStep>
-                <InstructionStep step={2}>Scroll down the share menu and select <CyanBold>"Add to Home Screen"</CyanBold>.</InstructionStep>
-                <InstructionStep step={3}>Tap <CyanBold>"Add"</CyanBold> in the top right corner to complete installation.</InstructionStep>
+                <Text style={{ color: colors.primary, fontWeight: '700', fontSize: 13.5 }}>Instructions for iOS Safari</Text>
+                <InstructionStep step={1}>Tap the <HighlightText>Share</HighlightText> button in Safari.</InstructionStep>
+                <InstructionStep step={2}>Scroll down and select <HighlightText>Add to Home Screen</HighlightText>.</InstructionStep>
+                <InstructionStep step={3}>Tap <HighlightText>Add</HighlightText> to complete installation.</InstructionStep>
               </View>
             ) : (
               <View style={{ gap: 12 }}>
-                <Text style={{ color: '#00daf3', fontWeight: '800', fontSize: 14 }}>How to Install:</Text>
-                <InstructionStep step={1}>Open your browser's menu (three dots icon in Chrome) and select <CyanBold>"Add to Home Screen"</CyanBold> or <CyanBold>"Install App"</CyanBold>.</InstructionStep>
-                <InstructionStep step={2}>On desktop, look for the <CyanBold>Install icon</CyanBold> in the browser address bar next to the URL.</InstructionStep>
+                <Text style={{ color: colors.primary, fontWeight: '700', fontSize: 13.5 }}>How to install</Text>
+                <InstructionStep step={1}>Open your browser menu and select <HighlightText>Install App</HighlightText> or <HighlightText>Add to Home Screen</HighlightText>.</InstructionStep>
+                <InstructionStep step={2}>On desktop, click the <HighlightText>Install icon</HighlightText> in the address bar.</InstructionStep>
               </View>
             )}
           </View>
 
           {/* Fallback to Android APK */}
-          <View style={{ borderTopWidth: 1, borderColor: 'rgba(255,255,255,0.06)', paddingTop: 16 }}>
-            {isTelegram ? (
-              <>
-                <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '700', marginBottom: 12, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                  Android Users (Via Telegram Channel)
-                </Text>
-                <TouchableOpacity
-                  onPress={() => Linking.openURL('https://t.me/xoethiopia1').catch(() => {})}
-                  style={{ backgroundColor: '#0088cc', borderRadius: 12, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-                >
-                  <Ionicons name="paper-plane-outline" size={18} color="#fff" />
-                  <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>Get APK from Channel</Text>
-                </TouchableOpacity>
-              </>
-            ) : (
-              <>
-                <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '700', marginBottom: 12, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                  Android Users (Direct APK)
-                </Text>
-                <TouchableOpacity
-                  onPress={() => Linking.openURL('https://xoethiopia.com/xoet.apk').catch(() => {})}
-                  style={{ backgroundColor: '#ef4444', borderRadius: 12, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-                >
-                  <Ionicons name="cloud-download-outline" size={18} color="#fff" />
-                  <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>Download Android APK</Text>
-                </TouchableOpacity>
-              </>
-            )}
+          <View style={{ borderTopWidth: 1, borderColor: colors.divider, paddingTop: 16 }}>
+            <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: '600', marginBottom: 12, textAlign: 'center' }}>
+              {isTelegram ? 'Android APK via Telegram channel' : 'Android direct APK download'}
+            </Text>
+            <TouchableOpacity
+              onPress={() =>
+                Linking.openURL(isTelegram ? 'https://t.me/xoethiopia1' : 'https://xoethiopia.com/xoet.apk').catch(() => {})
+              }
+              activeOpacity={0.85}
+              style={{
+                backgroundColor: colors.primary,
+                borderRadius: 12,
+                height: 44,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+              }}
+            >
+              <Ionicons name={isTelegram ? "paper-plane-outline" : "cloud-download-outline"} size={17} color={colors.bgDeep} />
+              <Text style={{ color: colors.bgDeep, fontSize: 13.5, fontWeight: '800' }}>
+                {isTelegram ? 'Open Telegram channel' : 'Download Android APK'}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>

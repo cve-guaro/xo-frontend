@@ -16,6 +16,7 @@ interface HandFigureProps {
   locked: boolean;
   outcome?: RoundOutcome | null;
   shakeCount?: number; // 3, 2, 1 beat
+  scale?: number;
 }
 
 const FINGERS = [
@@ -46,6 +47,7 @@ export const HandFigure: React.FC<HandFigureProps> = ({
   locked,
   outcome,
   shakeCount,
+  scale = 1,
 }) => {
   const isTop = side === 'top';
   const shakeAnim = useRef(new Animated.Value(0)).current;
@@ -153,7 +155,7 @@ export const HandFigure: React.FC<HandFigureProps> = ({
         },
       ]}
     >
-      <Svg width={140} height={220} viewBox="0 0 200 320">
+      <Svg width={Math.round(140 * scale)} height={Math.round(220 * scale)} viewBox="0 0 200 320">
         {/* Forearm */}
         <G>
           <Rect

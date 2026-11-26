@@ -3,6 +3,7 @@ import LeaveGameConfirmation from "../../../components/LeaveGameConfirmation";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useIsFocused } from "@react-navigation/native";
 import { playTickSound, playWinSound, playLoseSound } from "../../../lib/pinTickAudio";
+import { triggerWinCelebration } from "../../../components/ui/confetti";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -32,8 +33,9 @@ import { useAuth } from "../../../context/authContext";
 import { useSocketActions } from "../../../context/socketContext";
 import FlashToast, { MatchFoundToastHandle } from "../../../components/game/FlashToast";
 import RematchTopPopup from "../../../components/game/RematchPopup";
-import EmojiBar, { EMOJI_GIFS } from "../../../components/game/EmojiBar";
-import EmojiFloat from "../../../components/game/EmojiFloat";
+import { voiceService } from "../../../lib/voiceService";
+import { AGORA_APP_ID } from "../../../config";
+
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useBackgroundMusic } from "../../../context/BackgroundMusicProvider";
 import { haptics } from "../../../lib/haptcs";
@@ -85,15 +87,14 @@ export default function GameRoom() {
   const isLandscape = windowWidth > windowHeight && windowHeight < 500;
   const isDesktop = windowWidth >= 768 && !isLandscape;
   
-  // Calculate maximum safe board dimension so it perfectly fits both width and height bounds.
-  // We need to account for TopBar (height ~80), TurnBanner (height ~80), BottomBar (height ~100).
-  const verticalPadding = isLandscape ? 100 : (isDesktop ? 160 : 250);
-  const safeBox = Math.min(windowWidth - (isDesktop ? 120 : 40), windowHeight - verticalPadding);
-  // Cap max size on desktop to 720, and ensure it doesn't go below 280 on mobile if possible
-  const minBoardSize = isLandscape ? 190 : (isDesktop ? 300 : 260);
-  const maxBoardSize = isLandscape ? 280 : (isDesktop ? 460 : 500);
+  // Calculate maximum safe board dimension so it perfectly fits both width and height bounds on PC & mobile.
+  const verticalReserve = isLandscape ? 105 : (isDesktop ? 235 : 260);
+  const horizontalReserve = isDesktop ? 440 : 40;
+  const safeBox = Math.min(windowWidth - horizontalReserve, windowHeight - verticalReserve);
+  const minBoardSize = isLandscape ? 190 : (isDesktop ? 250 : 250);
+  const maxBoardSize = isLandscape ? 280 : (isDesktop ? 405 : 460);
   const boardOuterSize = Math.max(minBoardSize, Math.min(safeBox, maxBoardSize));
-  const boardInnerSize = boardOuterSize - (isLandscape ? 32 : 48); // padding is 16 on landscape, 24 on standard
+  const boardInnerSize = boardOuterSize - (isLandscape ? 32 : 44);
 
   const dynamicCellSize = Math.floor(boardInnerSize / 3) - 8;
 
@@ -228,7 +229,73 @@ export default function GameRoom() {
   const vibrationRef = useRef(false);
 
   // Emoji state
-  const [floatingEmoji, setFloatingEmoji] = useState<string | null>(null);
+  // Voice chat state (replaces emoji)
+  const [micMuted, setMicMuted] = useState(true);
+  const [speakerMuted, setSpeakerMuted] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [opponentSpeaking, setOpponentSpeaking] = useState(false);
+  const [voiceConnected, setVoiceConnected] = useState(false);
+
+  // Initialize and join Agora voice channel on match start
+  useEffect(() => {
+    if (!matchId || matchId === "undefined") return;
+    const voiceUid = voiceService.stringToUid(user?.id || "");
+    let unsubscribeSpeaking: (() => void) | null = null;
+
+    voiceService.initialize(AGORA_APP_ID).then(async (initialized) => {
+      if (initialized) {
+        try {
+          const joined = await voiceService.joinChannel(`xo_${matchId}`, voiceUid, undefined, token || undefined);
+          if (joined) {
+            setVoiceConnected(true);
+            await voiceService.setMute(true);
+            setMicMuted(true);
+
+            unsubscribeSpeaking = voiceService.onSpeaking((speakers) => {
+              const selfUidStr = String(voiceUid);
+              const mySpeaking = speakers.some(s => String(s) === selfUidStr);
+              const oppSpeaking = speakers.some(s => String(s) !== selfUidStr);
+              setIsSpeaking(mySpeaking);
+              setOpponentSpeaking(oppSpeaking);
+            });
+          }
+        } catch (e) {
+          console.warn("[XO Voice] Join channel failed:", e);
+        }
+      }
+    }).catch(() => {});
+
+    return () => {
+      if (unsubscribeSpeaking) unsubscribeSpeaking();
+      voiceService.leaveChannel();
+      setVoiceConnected(false);
+      setIsSpeaking(false);
+      setOpponentSpeaking(false);
+    };
+  }, [matchId, user?.id, token]);
+
+  const toggleMic = useCallback(async () => {
+    try {
+      const next = !micMuted;
+      await voiceService.setMute(next);
+      setMicMuted(next);
+    } catch (e) {
+      console.warn("[XO Voice] Toggle mic failed:", e);
+    }
+  }, [micMuted]);
+
+  const toggleSpeaker = useCallback(async () => {
+    try {
+      const next = !speakerMuted;
+      if (opponentId) {
+        const oppUid = voiceService.stringToUid(opponentId);
+        await voiceService.muteRemoteUser(oppUid, next);
+      }
+      setSpeakerMuted(next);
+    } catch (e) {
+      console.warn("[XO Voice] Toggle speaker failed:", e);
+    }
+  }, [speakerMuted, opponentId]);
 
   // Win line state
   const [winLine, setWinLine] = useState<number[] | null>(null);
@@ -662,8 +729,12 @@ export default function GameRoom() {
             const meWon = winnerSymbol === me;
 
             triggerVibration();
-            if (meWon) playWin();
-            else playLose();
+            if (meWon) {
+              playWin();
+              triggerWinCelebration();
+            } else {
+              playLose();
+            }
 
             // Detect winning line from board
             const WIN_COMBOS = [
@@ -809,8 +880,8 @@ export default function GameRoom() {
           }
 
           case "emoji_received": {
-            setFloatingEmoji(p.emoji);
-            setTimeout(() => setFloatingEmoji(null), 7000);
+
+
             break;
           }
 
@@ -869,7 +940,7 @@ export default function GameRoom() {
       try {
         if (opponentId) send("cancel_rematch", { token, opponentId });
       } catch {}
-      setFloatingEmoji(null);
+      
       setResult((r) => ({ ...r, visible: false }));
       safeReplace("/home/gameplay");
       return;
@@ -884,7 +955,7 @@ export default function GameRoom() {
     try {
       send("leave_match", { token, matchId });
     } catch {}
-    setFloatingEmoji(null);
+    
     safeReplace("/home/gameplay");
   }, [matchId, safeReplace, send, token, opponentId]);
 
@@ -921,7 +992,7 @@ export default function GameRoom() {
     try {
       if (opponentId) send("cancel_rematch", { token, opponentId });
     } catch {}
-    setFloatingEmoji(null);
+    
     setResult((r) => ({ ...r, visible: false }));
     safeReplace("/home/gameplay");
   }, [playClick, safeReplace, send, token, opponentId]);
@@ -1072,16 +1143,16 @@ export default function GameRoom() {
       <FlashToast amount={parseInt(amountParam)} ref={toastRef} message="Match Found! 🎉" />
 
       <MainWrapper style={styles.safe}>
-        <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: isDesktop ? 'center' : 'flex-start', paddingBottom: isDesktop ? 16 : 24 }} showsVerticalScrollIndicator={false}>
 
           {/* MAIN GAME LAYOUT */}
-          <View style={[isDesktop && { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40, marginTop: 40 }]}>
+          <View style={[isDesktop && { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, marginTop: 10 }]}>
             {/* LEFT COLUMN: Player 1 (On mobile, this acts as the Top Bar) */}
-            <View style={[isDesktop ? { flex: 1, alignItems: 'flex-end', paddingRight: 40 } : styles.topBar]}>
+            <View style={[isDesktop ? { flex: 1, alignItems: 'flex-end', paddingRight: 32 } : styles.topBar]}>
               <PlayerBadge
-                name={languageRef.current === "en" ? "You" : "አንተ"}
+                name={user?.username || (languageRef.current === "en" ? "You" : "እርስዎ")}
                 isMe={true}
-                sub={user?.number || ""}
+                sub=""
                 symbol={mySymbol}
                 time={timers[mySymbol]}
                 active={turn === mySymbol}
@@ -1115,7 +1186,7 @@ export default function GameRoom() {
             {/* CENTER COLUMN: Bet (Desktop), Turn Banner, Board */}
             <View style={[isDesktop && { alignItems: 'center' }]}>
               {isDesktop && (
-                <View style={{ alignItems: 'center', marginBottom: 20 }}>
+                <View style={{ alignItems: 'center', marginBottom: 10 }}>
                   <View style={[styles.betPill, { backgroundColor: 'rgba(255,215,0,0.1)' }]}>
                     <Ionicons name="trophy" size={14} color="#ffd700" />
                     <Text style={styles.betText}>PRIZE: {calculateWinAmount(Number(amountParam))} ETB</Text>
@@ -1130,9 +1201,10 @@ export default function GameRoom() {
                     backgroundColor: isMyTurn ? "rgba(0,218,243,0.08)" : "rgba(0, 200, 255, 0.08)",
                     borderColor: isMyTurn ? "rgba(0,218,243,0.2)" : "rgba(0, 200, 255, 0.2)",
                     opacity: bannerGlowOpacity,
-                    maxWidth: isDesktop ? 600 : 'auto',
+                    maxWidth: isDesktop ? 420 : 'auto',
                     alignSelf: isDesktop ? 'center' : 'auto',
                     width: isDesktop ? '100%' : 'auto',
+                    marginBottom: isDesktop ? 10 : undefined,
                   },
                 ]}
               >
@@ -1142,8 +1214,8 @@ export default function GameRoom() {
                 </Text>
               </View>
 
-              <View style={[styles.boardSection, { alignItems: 'center' }, isDesktop && { justifyContent: 'center' }]}>
-                <View style={[styles.boardContainer, { width: boardOuterSize, height: boardOuterSize, padding: 24, backgroundColor: 'rgba(17,17,40,0.6)' }]}>
+              <View style={[styles.boardSection, { alignItems: 'center' }, isDesktop && { justifyContent: 'center', marginTop: 0 }]}>
+                <View style={[styles.boardContainer, { width: boardOuterSize, height: boardOuterSize, padding: isLandscape ? 16 : 22, backgroundColor: 'rgba(17,17,40,0.6)' }]}>
                   <View style={styles.boardGlowLayer} />
                   <View style={[styles.mainBoard, { width: boardInnerSize, height: boardInnerSize }]}>
                     {[0, 1, 2].map((r) => (
@@ -1235,32 +1307,6 @@ export default function GameRoom() {
             )}
           </View>
 
-          {/* Floating Emoji - Top notification */}
-          {floatingEmoji && (
-            <View style={{
-              position: 'absolute',
-              top: 10,
-              left: 0,
-              right: 0,
-              zIndex: 99999,
-              elevation: 100,
-              alignItems: 'center',
-              pointerEvents: 'none',
-            }}>
-              {EMOJI_GIFS[floatingEmoji] ? (
-                <Image 
-                  source={{ uri: EMOJI_GIFS[floatingEmoji] }} 
-                  style={{ width: 100, height: 100 }} 
-                  resizeMode="contain" 
-                />
-              ) : (
-                <Text style={{ fontSize: 80, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 4 }, textShadowRadius: 12 }}>
-                  {floatingEmoji}
-                </Text>
-              )}
-            </View>
-          )}
-
           {/* Waiting for Rematch UI */}
           {waitingForRematch && (
             <View style={{
@@ -1283,16 +1329,107 @@ export default function GameRoom() {
             </View>
           )}
 
-          {/* Emoji Quick Actions */}
+          {/* XO Real-time Voice Chat HUD (replaces emoji bar) */}
           {!result.visible && !waitingForRematch && (
-            <View style={{ marginTop: 24, marginBottom: 8 }}>
-              <EmojiBar
-                onSend={(emoji) => {
-                  send("send_emoji", { matchId, emoji });
-                  setFloatingEmoji(emoji);
-                  setTimeout(() => setFloatingEmoji(null), 3000);
-                }}
-              />
+            <View style={{
+              marginVertical: 14,
+              paddingHorizontal: 16,
+              paddingVertical: 10,
+              borderRadius: 20,
+              backgroundColor: "rgba(15, 23, 42, 0.65)",
+              borderWidth: 1,
+              borderColor: isSpeaking || opponentSpeaking ? "rgba(34, 197, 94, 0.4)" : "rgba(255, 255, 255, 0.08)",
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              alignSelf: "center",
+              width: "100%",
+              maxWidth: 360,
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.3,
+              shadowRadius: 8,
+            }}>
+              {/* Voice status info & speaking waves */}
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                <View style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 16,
+                  backgroundColor: !micMuted ? "rgba(34, 197, 94, 0.15)" : "rgba(100, 116, 139, 0.15)",
+                  borderWidth: 1,
+                  borderColor: !micMuted ? "#22c55e" : "rgba(255, 255, 255, 0.1)",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}>
+                  <Ionicons
+                    name={!micMuted ? "mic" : "mic-off"}
+                    size={16}
+                    color={!micMuted ? "#22c55e" : "#94a3b8"}
+                  />
+                </View>
+                <View>
+                  <Text style={{ fontSize: 11, fontWeight: "700", color: "#f8fafc" }}>
+                    Voice Chat {voiceConnected ? "• Live" : "• Ready"}
+                  </Text>
+                  <Text style={{ fontSize: 9.5, color: opponentSpeaking ? "#22c55e" : isSpeaking ? "#38bdf8" : "#94a3b8" }}>
+                    {opponentSpeaking ? "Opponent speaking..." : isSpeaking ? "You are speaking..." : micMuted ? "Tap mic to unmute" : "Mic is open"}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Action buttons: Mic and Speaker toggles */}
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <TouchableOpacity
+                  onPress={toggleSpeaker}
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 18,
+                    backgroundColor: speakerMuted ? "rgba(239, 68, 68, 0.15)" : "rgba(255, 255, 255, 0.08)",
+                    borderWidth: 1,
+                    borderColor: speakerMuted ? "#ef4444" : "rgba(255, 255, 255, 0.15)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name={speakerMuted ? "volume-mute" : "volume-high"}
+                    size={16}
+                    color={speakerMuted ? "#ef4444" : "#e2e8f0"}
+                  />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={toggleMic}
+                  style={{
+                    paddingHorizontal: 12,
+                    paddingVertical: 7,
+                    borderRadius: 16,
+                    backgroundColor: !micMuted ? "#22c55e" : "rgba(255, 255, 255, 0.1)",
+                    borderWidth: 1,
+                    borderColor: !micMuted ? "#4ade80" : "rgba(255, 255, 255, 0.2)",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 6,
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons
+                    name={!micMuted ? "mic" : "mic-off"}
+                    size={14}
+                    color={!micMuted ? "#052e16" : "#ffffff"}
+                  />
+                  <Text style={{
+                    fontSize: 11,
+                    fontWeight: "800",
+                    color: !micMuted ? "#052e16" : "#ffffff",
+                  }}>
+                    {!micMuted ? "MUTE" : "UNMUTE"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
           )}
 
@@ -1344,11 +1481,6 @@ export default function GameRoom() {
             amount={result.amount}
             onHome={goHome}
             onPlayAgain={handlePlayAgain}
-            onSendEmoji={(emoji) => {
-              send("send_emoji", { matchId, emoji });
-              setFloatingEmoji(emoji);
-              setTimeout(() => setFloatingEmoji(null), 3000);
-            }}
             insufficientBalance={(Number(user?.available_balance ?? 0) + Number(user?.bonus_balance ?? 0)) < Number(params?.amount ?? 0)}
           />
 
@@ -1783,14 +1915,14 @@ const styles = StyleSheet.create({
     height: 44,
     paddingHorizontal: 20,
     borderRadius: 22,
-    backgroundColor: "rgba(166,139,255,0.15)",
+    backgroundColor: "rgba(0, 218, 243, 0.12)",
     borderWidth: 1,
-    borderColor: "rgba(166,139,255,0.3)",
+    borderColor: "rgba(0, 218, 243, 0.3)",
     alignItems: "center",
     justifyContent: "center",
   },
 
-  languageText: { color: "#e5e3ff", fontWeight: "900", fontSize: 13, letterSpacing: 1 },
+  languageText: { color: "#00DAF3", fontWeight: "900", fontSize: 13, letterSpacing: 1 },
 
   leaveBtn: {
     height: 44,
@@ -1836,11 +1968,6 @@ const styles = StyleSheet.create({
     width: 280,
     borderRadius: 24,
     overflow: "hidden",
-    shadowColor: "#667eea",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 10,
   },
   gameStartGradient: { padding: 24, alignItems: "center", position: "relative" },
   gameStartIconContainer: { marginBottom: 16 },

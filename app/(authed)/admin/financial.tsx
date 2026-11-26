@@ -247,7 +247,60 @@ export default function FinancialDashboard() {
         </View>
       </View>
 
-      {/* ═══ Financial Request Queue + AML ═══ */}
+      {/* ═══ TOP: KPI Summary ═══ */}
+      <View style={[{ gap: 16 }, !isMobile && { flexDirection: 'row', flexWrap: 'wrap' }]}>
+        {[
+          { label: 'Total platform balance', value: fmtETB(d.totalPlatformAmount || 0), icon: 'wallet-outline' as keyof typeof Ionicons.glyphMap, color: C.primary },
+          { label: 'Chapa settlement', value: fmtETB(d.chapaBalance || 0), icon: 'card-outline' as keyof typeof Ionicons.glyphMap, color: C.accentCyan },
+          { label: 'Gross gaming revenue', value: fmtETB(d.purePlatformProfit || 0), icon: 'trending-up-outline' as keyof typeof Ionicons.glyphMap, color: C.success },
+          { label: 'Net gaming profit', value: fmtETB(d.netPlatformProfit || 0), icon: 'analytics-outline' as keyof typeof Ionicons.glyphMap, color: (d.netPlatformProfit || 0) >= 0 ? C.success : C.error },
+        ].map((kpi, i) => (
+          <View key={i} style={[st.kpiMini, { backgroundColor: C.surface, borderColor: C.border, flex: isMobile ? undefined : 1, minWidth: isMobile ? undefined : 200 }]}>
+            <View style={[st.kpiMiniIcon, { backgroundColor: C.surfaceContainerLow, borderColor: C.border }]}>
+              <Ionicons name={kpi.icon} size={18} color={kpi.color} />
+            </View>
+            <Text style={{ fontSize: 11, color: C.onSurfaceVariant, marginTop: 8 }}>{kpi.label}</Text>
+            <Text style={{ fontSize: 20, fontWeight: '700', color: kpi.color, marginTop: 4 }}>{kpi.value}</Text>
+          </View>
+        ))}
+      </View>
+
+      {/* ═══ TOP: Charts ═══ */}
+      <View style={[{ gap: 16 }, !isMobile && { flexDirection: 'row' }]}>
+        <AdminPanel title="Deposits over time" kicker="Click a point to see depositors" style={{ flex: 1 }}
+          right={<Text style={{ fontSize: 14, fontWeight: '700', color: C.success }}>{fmtK(d.totalDeposits || 0)} ETB</Text>}
+        >
+          <View style={{ height: 200 }}>
+            {isMounted && Platform.OS === 'web' && PrimeChart && Object.keys(depositChartData).length > 0 ? (
+              <React.Suspense fallback={<ActivityIndicator size="small" color={C.primary} />}>
+                <PrimeChart type="line" data={depositChartData} options={chartOpts} style={{ height: '100%' }} />
+              </React.Suspense>
+            ) : (
+              <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ color: C.onSurfaceVariant, fontSize: 11 }}>Chart available on web only</Text>
+              </View>
+            )}
+          </View>
+        </AdminPanel>
+
+        <AdminPanel title="Withdrawals over time" kicker="Click a point to see payees" style={{ flex: 1 }}
+          right={<Text style={{ fontSize: 14, fontWeight: '700', color: C.primary }}>{fmtK(d.totalWithdrawals || 0)} ETB</Text>}
+        >
+          <View style={{ height: 200 }}>
+            {isMounted && Platform.OS === 'web' && PrimeChart && Object.keys(withdrawalChartData).length > 0 ? (
+              <React.Suspense fallback={<ActivityIndicator size="small" color={C.primary} />}>
+                <PrimeChart type="line" data={withdrawalChartData} options={chartOpts} style={{ height: '100%' }} />
+              </React.Suspense>
+            ) : (
+              <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ color: C.onSurfaceVariant, fontSize: 11 }}>Chart available on web only</Text>
+              </View>
+            )}
+          </View>
+        </AdminPanel>
+      </View>
+
+      {/* ═══ UNDER: Financial Request Queue + AML ═══ */}
       <View style={[{ gap: 16 }, !isMobile && { flexDirection: 'row' }]}>
         {/* Queue Panel */}
         <View style={{ flex: 1 }}>
@@ -539,59 +592,6 @@ export default function FinancialDashboard() {
           <Text style={{ fontSize: 11, color: C.onSurfaceVariant, marginTop: 12 }}>Select a date above to open its full transaction breakdown.</Text>
         )}
       </AdminPanel>
-
-      {/* ═══ Charts ═══ */}
-      <View style={[{ gap: 16 }, !isMobile && { flexDirection: 'row' }]}>
-        <AdminPanel title="Deposits over time" kicker="Click a point to see depositors" style={{ flex: 1 }}
-          right={<Text style={{ fontSize: 14, fontWeight: '700', color: C.success }}>{fmtK(d.totalDeposits || 0)} ETB</Text>}
-        >
-          <View style={{ height: 200 }}>
-            {isMounted && Platform.OS === 'web' && PrimeChart && Object.keys(depositChartData).length > 0 ? (
-              <React.Suspense fallback={<ActivityIndicator size="small" color={C.primary} />}>
-                <PrimeChart type="line" data={depositChartData} options={chartOpts} style={{ height: '100%' }} />
-              </React.Suspense>
-            ) : (
-              <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ color: C.onSurfaceVariant, fontSize: 11 }}>Chart available on web only</Text>
-              </View>
-            )}
-          </View>
-        </AdminPanel>
-
-        <AdminPanel title="Withdrawals over time" kicker="Click a point to see payees" style={{ flex: 1 }}
-          right={<Text style={{ fontSize: 14, fontWeight: '700', color: C.primary }}>{fmtK(d.totalWithdrawals || 0)} ETB</Text>}
-        >
-          <View style={{ height: 200 }}>
-            {isMounted && Platform.OS === 'web' && PrimeChart && Object.keys(withdrawalChartData).length > 0 ? (
-              <React.Suspense fallback={<ActivityIndicator size="small" color={C.primary} />}>
-                <PrimeChart type="line" data={withdrawalChartData} options={chartOpts} style={{ height: '100%' }} />
-              </React.Suspense>
-            ) : (
-              <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ color: C.onSurfaceVariant, fontSize: 11 }}>Chart available on web only</Text>
-              </View>
-            )}
-          </View>
-        </AdminPanel>
-      </View>
-
-      {/* ═══ KPI Summary ═══ */}
-      <View style={[{ gap: 16 }, !isMobile && { flexDirection: 'row', flexWrap: 'wrap' }]}>
-        {[
-          { label: 'Total platform balance', value: fmtETB(d.totalPlatformAmount || 0), icon: 'wallet-outline' as keyof typeof Ionicons.glyphMap, color: C.primary },
-          { label: 'Chapa settlement', value: fmtETB(d.chapaBalance || 0), icon: 'card-outline' as keyof typeof Ionicons.glyphMap, color: C.accentCyan },
-          { label: 'Gross gaming revenue', value: fmtETB(d.purePlatformProfit || 0), icon: 'trending-up-outline' as keyof typeof Ionicons.glyphMap, color: C.success },
-          { label: 'Net gaming profit', value: fmtETB(d.netPlatformProfit || 0), icon: 'analytics-outline' as keyof typeof Ionicons.glyphMap, color: (d.netPlatformProfit || 0) >= 0 ? C.success : C.error },
-        ].map((kpi, i) => (
-          <View key={i} style={[st.kpiMini, { backgroundColor: C.surface, borderColor: C.border, flex: isMobile ? undefined : 1, minWidth: isMobile ? undefined : 200 }]}>
-            <View style={[st.kpiMiniIcon, { backgroundColor: C.surfaceContainerLow, borderColor: C.border }]}>
-              <Ionicons name={kpi.icon} size={18} color={kpi.color} />
-            </View>
-            <Text style={{ fontSize: 11, color: C.onSurfaceVariant, marginTop: 8 }}>{kpi.label}</Text>
-            <Text style={{ fontSize: 20, fontWeight: '700', color: kpi.color, marginTop: 4 }}>{kpi.value}</Text>
-          </View>
-        ))}
-      </View>
 
       {/* ═══ Profit Impact Breakdown ═══ */}
       <AdminPanel title="Profit impact breakdown" kicker="Items that reduce your pure platform profit">
