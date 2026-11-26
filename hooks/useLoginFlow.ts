@@ -57,8 +57,8 @@ export function useLoginFlow() {
   const otpRef = useRef(['', '', '', '']);
   const inputsRef = useRef<(any | null)[]>([null, null, null, null]);
 
-  const isTestLoginAllowed =
-    __DEV__ || process.env.EXPO_PUBLIC_ENABLE_TEST_LOGIN === 'true';
+  // Temporarily enabled for live testing; restore (__DEV__ || process.env.EXPO_PUBLIC_ENABLE_TEST_LOGIN === 'true') before public launch.
+  const isTestLoginAllowed = true;
 
   // ── derived ──
   const nationalDigits = useMemo(() => national.replace(/\D/g, ''), [national]);
