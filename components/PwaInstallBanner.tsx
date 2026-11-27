@@ -137,8 +137,12 @@ export function PwaInstallBanner() {
           <TouchableOpacity onPress={handleInstall} style={styles.installBtn}>
             <Text style={styles.installText}>Install</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={handleDismiss} style={styles.dismissBtn}>
-            <CloseIcon size={20} color="#ffffff" />
+          <TouchableOpacity
+            onPress={handleDismiss}
+            style={styles.dismissBtn}
+            accessibilityLabel="Dismiss install prompt"
+          >
+            <CloseIcon size={20} color="#B4B8CC" />
           </TouchableOpacity>
         </View>
       </View>
@@ -155,11 +159,9 @@ const styles = StyleSheet.create({
     zIndex: 9999,
     borderRadius: 20,
     overflow: 'hidden',
-    boxShadow: '0 8px 30px rgba(0, 218, 243, 0.45)',
-    elevation: 10,
-    backgroundColor: '#00daf3',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: '#10101F',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 218, 243, 0.35)',
     padding: 16,
   } as any,
   mobileContainer: {
@@ -170,11 +172,9 @@ const styles = StyleSheet.create({
     zIndex: 9999,
     borderRadius: 18,
     overflow: 'hidden',
-    boxShadow: '0 8px 24px rgba(0, 218, 243, 0.45)',
-    elevation: 8,
-    backgroundColor: '#00daf3',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: '#10101F',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 218, 243, 0.35)',
     padding: 16,
   } as any,
   content: {
@@ -187,27 +187,29 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 10,
     overflow: 'hidden',
-    backgroundColor: 'transparent',
+    backgroundColor: '#16162A',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   } as any,
   appIcon: {
-    width: 44,
-    height: 44,
+    width: 36,
+    height: 20,
   },
   textContainer: {
     flex: 1,
     paddingRight: 10,
   },
   title: {
-    color: '#ffffff',
+    color: '#EDEEF4',
     fontSize: 14,
-    fontWeight: '900',
+    fontWeight: '800',
   },
   subtitle: {
-    color: 'rgba(255, 255, 255, 0.92)',
-    fontSize: 11,
+    color: '#B4B8CC',
+    fontSize: 12,
     fontWeight: '600',
     marginTop: 2,
   },
@@ -217,21 +219,24 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   dismissBtn: {
-    padding: 4,
-  },
-  installBtn: {
-    backgroundColor: '#ffffff',
-    borderRadius: 9999,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    padding: 8,
+    minWidth: 44,
+    minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    boxShadow: '0 3px 12px rgba(0, 0, 0, 0.15)',
+  },
+  installBtn: {
+    backgroundColor: '#00DAF3',
+    borderRadius: 9999,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   } as any,
   installText: {
-    color: '#080f17',
-    fontWeight: '900',
+    color: '#04222B',
+    fontWeight: '800',
     fontSize: 12,
-    letterSpacing: 0.5,
   },
 });

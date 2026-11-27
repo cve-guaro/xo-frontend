@@ -148,7 +148,9 @@ export function SocketProvider({
 
     s = io(URL, {
       autoConnect: false,
-      transports: ["polling", "websocket"], // Start with polling and upgrade to websocket for robust connection upgrade without console warnings
+      transports: ["websocket", "polling"], // Prefer direct WebSocket, automatically falling back to polling if blocked
+      tryAllTransports: true,
+      rememberUpgrade: true,
       secure: !URL.includes('localhost'),
       // IMPORTANT: do NOT forceNew (it can churn engines on remount)
       forceNew: false,

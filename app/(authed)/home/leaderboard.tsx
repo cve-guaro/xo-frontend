@@ -589,7 +589,7 @@ export default function LeaderboardScreen() {
     <View style={s.rootContainer}>
       {/* ── Background Image matching Image 2 ── */}
       <Image
-        source={require("../../../assets/images/leaderboard-background-top-glow.png")}
+        source={require("../../../assets/images/leaderboard-background-top-glow.webp")}
         style={StyleSheet.absoluteFillObject}
         resizeMode="cover"
       />

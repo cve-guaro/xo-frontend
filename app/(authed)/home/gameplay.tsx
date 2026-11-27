@@ -1402,13 +1402,13 @@ export default function Landing() {
                   }}
                 >
                   <Image
-                    source={require("../../../assets/images/welcome-banner-background-simple.png")}
+                    source={require("../../../assets/images/welcome-banner-background-simple.webp")}
                     style={[StyleSheet.absoluteFillObject, { opacity: 0.85 }]}
                     resizeMode="cover"
                   />
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flex: 1, zIndex: 2 }}>
                     <Image
-                      source={require("../../../assets/dashboard/welcome-bonus-chest.png")}
+                      source={require("../../../assets/dashboard/welcome-bonus-chest.webp")}
                       style={{ width: 78, height: 78 }}
                       resizeMode="contain"
                     />

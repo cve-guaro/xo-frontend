@@ -1,5 +1,4 @@
 import { Ionicons } from "@expo/vector-icons";
-import { House, ClockCounterClockwise, Trophy, UserCircle, Wallet } from "phosphor-react-native";
 import { Redirect, Tabs, useRouter, usePathname, useGlobalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { Pressable, View, Platform, useWindowDimensions, Text, Image, TouchableOpacity, StyleSheet , LayoutAnimation } from 'react-native';
@@ -222,15 +221,16 @@ export default function AuthedLayout() {
                 }}
                 style={isGameplayPage ? s.navItemActive : s.navItem}
                 activeOpacity={0.75}
+                accessibilityLabel="Home"
               >
                 <View style={[
                   s.navItemBox,
                   isGameplayPage && { backgroundColor: activeThemePillBg, borderColor: activeThemePillBorder, paddingHorizontal: 12 },
                 ]}>
-                  <House
+                  <Ionicons
+                    name={isGameplayPage ? "home" : "home-outline"}
                     size={20}
                     color={isGameplayPage ? activeThemeColor : colors.inactive}
-                    weight={isGameplayPage ? "fill" : "regular"}
                   />
                   {isGameplayPage && (
                     <Text style={[s.activeNavText, { color: activeThemeColor }]}>
@@ -250,15 +250,16 @@ export default function AuthedLayout() {
                 }}
                 style={isHistoryPage ? s.navItemActive : s.navItem}
                 activeOpacity={0.75}
+                accessibilityLabel="History"
               >
                 <View style={[
                   s.navItemBox,
                   isHistoryPage && { backgroundColor: activeThemePillBg, borderColor: activeThemePillBorder, paddingHorizontal: 12 },
                 ]}>
-                  <ClockCounterClockwise
+                  <Ionicons
+                    name={isHistoryPage ? "time" : "time-outline"}
                     size={20}
                     color={isHistoryPage ? activeThemeColor : colors.inactive}
-                    weight={isHistoryPage ? "fill" : "regular"}
                   />
                   {isHistoryPage && (
                     <Text style={[s.activeNavText, { color: activeThemeColor }]}>
@@ -278,15 +279,16 @@ export default function AuthedLayout() {
                 }}
                 style={isLeaderboardPage ? s.navItemActive : s.navItem}
                 activeOpacity={0.75}
+                accessibilityLabel="Leaderboard"
               >
                 <View style={[
                   s.navItemBox,
                   isLeaderboardPage && { backgroundColor: activeThemePillBg, borderColor: activeThemePillBorder, paddingHorizontal: 12 },
                 ]}>
-                  <Trophy
+                  <Ionicons
+                    name={isLeaderboardPage ? "trophy" : "trophy-outline"}
                     size={20}
                     color={isLeaderboardPage ? activeThemeColor : colors.inactive}
-                    weight={isLeaderboardPage ? "fill" : "regular"}
                   />
                   {isLeaderboardPage && (
                     <Text style={[s.activeNavText, { color: activeThemeColor }]}>
@@ -306,6 +308,7 @@ export default function AuthedLayout() {
                 }}
                 style={isWalletPage ? s.navItemActive : s.navItem}
                 activeOpacity={0.75}
+                accessibilityLabel="Wallet"
               >
                 <View style={[
                   s.navItemBox,
@@ -315,10 +318,10 @@ export default function AuthedLayout() {
                     paddingHorizontal: 12,
                   },
                 ]}>
-                  <Wallet
+                  <Ionicons
+                    name={isWalletPage ? "wallet" : "wallet-outline"}
                     size={20}
                     color={isWalletPage ? activeThemeColor : colors.inactive}
-                    weight={isWalletPage ? "fill" : "regular"}
                   />
                   {isWalletPage && (
                     <Text style={[s.activeNavText, { color: activeThemeColor }]}>
@@ -338,15 +341,16 @@ export default function AuthedLayout() {
                 }}
                 style={isAccountPage ? s.navItemActive : s.navItem}
                 activeOpacity={0.75}
+                accessibilityLabel="Profile"
               >
                 <View style={[
                   s.navItemBox,
                   isAccountPage && { backgroundColor: activeThemePillBg, borderColor: activeThemePillBorder, paddingHorizontal: 12 },
                 ]}>
-                  <UserCircle
+                  <Ionicons
+                    name={isAccountPage ? "person-circle" : "person-circle-outline"}
                     size={20}
                     color={isAccountPage ? activeThemeColor : colors.inactive}
-                    weight={isAccountPage ? "fill" : "regular"}
                   />
                   {isAccountPage && (
                     <Text style={[s.activeNavText, { color: activeThemeColor }]}>

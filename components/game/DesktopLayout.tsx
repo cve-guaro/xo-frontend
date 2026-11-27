@@ -52,11 +52,11 @@ import { clamp } from "../../constants/breakpoints";
 
 // ──────────────── Integrated Design Assets ────────────────
 const xoBg = require("../../assets/images/xo-background-blue.webp");
-const xoFg = require("../../assets/dashboard/xo-foreground.png");
-const spinBg = require("../../assets/images/spin-background-red-desktop.png");
-const spinFg = require("../../assets/images/spin-card bord.png");
-const rpsBg = require("../../assets/dashboard/rps-background.png");
-const rpsFg = require("../../assets/dashboard/rps-foreground.png");
+const xoFg = require("../../assets/dashboard/xo-foreground.webp");
+const spinBg = require("../../assets/images/spin-background-red-desktop.webp");
+const spinFg = require("../../assets/images/spin-card bord.webp");
+const rpsBg = require("../../assets/dashboard/rps-background.webp");
+const rpsFg = require("../../assets/dashboard/rps-foreground.webp");
 
 type LeaderboardEntry = {
   id?: string;

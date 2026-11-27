@@ -18,12 +18,12 @@ import {
 import { haptics } from '../../lib/haptcs';
 import { playTickSound } from '../../lib/pinTickAudio';
 
-const promoWeeklyBg = require('../../assets/promotions/promo-weekly-bg-v2.png');
-const promoTrophyObj = require('../../assets/promotions/promo-trophy-object-v2.png');
-const promoWithdrawalBg = require('../../assets/promotions/promo-withdrawal-bg-v2.png');
-const promoWithdrawalObj = require('../../assets/promotions/promo-withdrawal-object-v2.png');
-const promoRewardsBg = require('../../assets/promotions/promo-rewards-bg-v2.png');
-const promoRewardsObj = require('../../assets/promotions/promo-rewards-object-v2.png');
+const promoWeeklyBg = require('../../assets/promotions/promo-weekly-bg-v2.webp');
+const promoTrophyObj = require('../../assets/promotions/promo-trophy-object-v2.webp');
+const promoWithdrawalBg = require('../../assets/promotions/promo-withdrawal-bg-v2.webp');
+const promoWithdrawalObj = require('../../assets/promotions/promo-withdrawal-object-v2.webp');
+const promoRewardsBg = require('../../assets/promotions/promo-rewards-bg-v2.webp');
+const promoRewardsObj = require('../../assets/promotions/promo-rewards-object-v2.webp');
 
 interface PromotionalBannersRowProps {
   isDesktop?: boolean;

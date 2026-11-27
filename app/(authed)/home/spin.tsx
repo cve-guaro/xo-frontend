@@ -62,8 +62,8 @@ import {
 } from "../../../lib/pinTickAudio";
 import { triggerWinCelebration } from "../../../components/ui/confetti";
 
-const wonBoardCardImg = require("../../../assets/images/won bord card.png");
-const lostBoardCardImg = require("../../../assets/images/lost bord card.png");
+const wonBoardCardImg = require("../../../assets/images/won bord card.webp");
+const lostBoardCardImg = require("../../../assets/images/lost bord card.webp");
 const spinBgRedDesktopImg = require("../../../assets/images/spin-background-red-desktop.webp");
 
 type BetReaction = {

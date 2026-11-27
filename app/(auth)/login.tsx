@@ -29,7 +29,7 @@ export default function LoginScreen() {
   const { isPlaying, toggleMusic } = useBackgroundMusic();
   const { width, height } = useWindowDimensions();
   const isDesktop = width > 768 && Platform.OS === 'web';
-  const mobileBannerHeight = Math.min(Math.max(Math.round(height * 0.42), 240), 420);
+  const mobileBannerHeight = Math.min(Math.max(Math.round(width * 0.75), 240), 340);
 
   const {
     step, setStep, loginMode, setLoginMode, resendTimer,
@@ -42,7 +42,9 @@ export default function LoginScreen() {
     handleTelegramLogin, handleGuestLogin, onNationalChange, formatPhone,
   } = flow;
 
-  const BANNER_IMAGE = require("../../assets/images/login-banner.jpg");
+  const BANNER_IMAGE = isDesktop
+    ? require("../../assets/images/login-banner-desktop.webp")
+    : require("../../assets/images/login-banner-mobile.webp");
 
   const isAm = language === 'am';
   const welcomeTitle = isAm ? 'እንኳን ደህና መጡ' : 'Welcome back';
@@ -479,14 +481,14 @@ const styles = StyleSheet.create({
   mobileBody: { flex: 1, paddingHorizontal: 24, paddingTop: 8, paddingBottom: 24, width: '100%', maxWidth: 440, alignSelf: 'center' },
   mobileHeaderWrap: { alignItems: 'center', justifyContent: 'center', paddingTop: 8, paddingBottom: 8 },
   mobileTitle: { color: '#ffffff', fontSize: 32, fontWeight: '800', letterSpacing: -0.5, textAlign: 'center' },
-  mobileSub: { color: 'rgba(255, 255, 255, 0.55)', fontSize: 14, marginTop: 6, textAlign: 'center', lineHeight: 20 },
+  mobileSub: { color: colors.textSoft, fontSize: 14, marginTop: 6, textAlign: 'center', lineHeight: 20 },
   mobileBottomSection: { width: '100%', marginTop: 18 },
   mobileActionsWrap: { width: '100%', marginBottom: 16 },
 
   bannerImg: { width: '100%', height: '100%' },
 
   cardTitle: { color: '#ffffff', fontSize: 32, fontWeight: '800', letterSpacing: -0.5 },
-  cardSub: { color: 'rgba(255, 255, 255, 0.55)', fontSize: 14, marginTop: 8, lineHeight: 20 },
+  cardSub: { color: colors.textSoft, fontSize: 14, marginTop: 8, lineHeight: 20 },
 
   loadingTipText: { color: colors.dangerSoft, fontSize: 12, textAlign: 'center', marginTop: 2, fontWeight: '600' },
 
@@ -522,7 +524,7 @@ const styles = StyleSheet.create({
   },
 
   cardFooter: { marginTop: 32, alignItems: 'center' },
-  footerInfo: { color: 'rgba(255,255,255,0.35)', fontSize: 12, textAlign: 'center', lineHeight: 18 },
+  footerInfo: { color: colors.textMuted, fontSize: 12, textAlign: 'center', lineHeight: 18 },
   footerLink: { color: colors.dangerSoft, fontWeight: '700' },
 
   /* ── Choice buttons (login mode selector) ── */

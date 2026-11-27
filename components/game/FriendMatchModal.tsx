@@ -129,7 +129,8 @@ export default function FriendMatchModal({ visible, onClose, onSendInvite, invit
     return { locked: false, reason: '' };
   };
 
-  const isSendDisabled = !selectedBet || cooldown > 0;
+  const isTargetOnline = target?.status === 'online';
+  const isSendDisabled = !isTargetOnline || !selectedBet || cooldown > 0;
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -193,6 +194,18 @@ export default function FriendMatchModal({ visible, onClose, onSendInvite, invit
                 <Text style={[s.statusText, { color: statusColor }]}>{statusLabel}</Text>
               </View>
 
+              {/* Availability notice before stake selection */}
+              {target.status !== 'online' && (
+                <View style={s.availabilityNotice}>
+                  <Ionicons name="information-circle-outline" size={16} color="#f59e0b" />
+                  <Text style={s.offlineHint}>
+                    {target.status === 'in_game'
+                      ? (isEN ? "Player is in a match right now. Refresh search once their match finishes." : "ተጫዋቹ አሁን በጨዋታ ላይ ነው። ጨዋታው ሲያልቅ እንደገና ይፈልጉ።")
+                      : (isEN ? "Player is currently offline. Challenges can only be sent when they are online." : "ተጫዋቹ ከመስመር ውጭ ነው። ግብዣ መላክ የሚቻለው መስመር ላይ ሲሆኑ ብቻ ነው።")}
+                  </Text>
+                </View>
+              )}
+
               {/* Your balance context */}
               <View style={[s.balanceRow, isRps && { backgroundColor: 'rgba(245, 158, 11, 0.08)' }]}>
                 <Ionicons name="wallet-outline" size={14} color={primaryColor} />
@@ -226,33 +239,37 @@ export default function FriendMatchModal({ visible, onClose, onSendInvite, invit
 
               {/* Send Invite Button with Cooldown */}
               <TouchableOpacity
-                style={[s.inviteBtn, { backgroundColor: primaryColor }, isSendDisabled && { opacity: 0.4 }]}
+                style={[s.inviteBtn, { backgroundColor: primaryColor }, isSendDisabled && { opacity: 0.45 }]}
                 onPress={handleInvite}
                 disabled={isSendDisabled}
+                accessibilityLabel={
+                  !isTargetOnline
+                    ? (isEN ? "Opponent is offline" : "ተጫዋቹ ከመስመር ውጭ ነው")
+                    : selectedBet
+                      ? (isEN ? `Send Challenge for ${selectedBet} ETB` : `ግብዣ ላክ (${selectedBet} ብር)`)
+                      : (isEN ? "Select a stake to send challenge" : "የውርርድ መጠን ይምረጡ")
+                }
               >
                 {cooldown > 0 ? (
                   <>
                     <View style={s.cooldownCircle}>
                       <ActivityIndicator size="small" color="#0c0c1f" />
                     </View>
-                    <Text style={s.inviteBtnText}>{t("waiting_response")}</Text>
+                    <Text style={s.inviteBtnText} numberOfLines={1}>{t("waiting_response")}</Text>
                   </>
                 ) : (
                   <>
-                    <Ionicons name="paper-plane" size={18} color="#0c0c1f" />
-                    <Text style={s.inviteBtnText}>
-                      {isEN ? `Send Challenge (${selectedBet || '...'} ETB)` : `ግብዣ ላክ (${selectedBet || '...'} ብር)`}
+                    <Ionicons name={isTargetOnline ? "paper-plane" : "time-outline"} size={18} color="#0c0c1f" />
+                    <Text style={s.inviteBtnText} numberOfLines={1}>
+                      {!isTargetOnline
+                        ? (target.status === 'in_game' ? (isEN ? "Player is in a match" : "ተጫዋቹ በጨዋታ ላይ ነው") : (isEN ? "Player is offline" : "ተጫዋቹ ከመስመር ውጭ ነው"))
+                        : selectedBet
+                          ? (isEN ? `Send Challenge — ${selectedBet} ETB` : `ግብዣ ላክ — ${selectedBet} ብር`)
+                          : (isEN ? "Select stake above" : "የውርርድ መጠን ይምረጡ")}
                     </Text>
                   </>
                 )}
               </TouchableOpacity>
-
-              {target.status !== 'online' && target.status !== 'in_game' && (
-                <Text style={s.offlineHint}>{isEN ? "⚠️ Player is offline — invite will be sent when they come online" : "⚠️ ተጫዋቹ ከመስመር ውጭ ነው — መስመር ላይ ሲገባ ግብዣው ይላካል"}</Text>
-              )}
-              {target.status === 'in_game' && (
-                <Text style={s.offlineHint}>{isEN ? "⚠️ Player is currently in a game — they'll see your invite after" : "⚠️ ተጫዋቹ በአሁኑ ጊዜ በጨዋታ ላይ ነው — ከጨዋታው በኋላ ግብዣዎን ያያል"}</Text>
-              )}
               {wasDeclined && (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, backgroundColor: 'rgba(248,113,113,0.12)', borderRadius: 12, marginTop: 12, borderWidth: 1, borderColor: 'rgba(248,113,113,0.35)' }}>
                   <Ionicons name="close-circle" size={22} color="#f87171" />
@@ -303,9 +320,10 @@ const s = StyleSheet.create({
   betTextSelected: { color: '#00e3fd' },
   betTextLocked: { color: '#475569' },
   lockedHint: { color: '#64748b', fontSize: 7, fontWeight: '600', marginTop: 2 },
-  inviteBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, height: 48, backgroundColor: '#00e3fd', borderRadius: 14 },
-  inviteBtnText: { color: '#0c0c1f', fontSize: 13, fontWeight: '800' },
+  inviteBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, height: 48, paddingHorizontal: 16, backgroundColor: '#00e3fd', borderRadius: 14 },
+  inviteBtnText: { color: '#0c0c1f', fontSize: 13, fontWeight: '800', flexShrink: 1 },
   cooldownCircle: { width: 28, height: 28, borderRadius: 14, borderWidth: 2, borderColor: '#0c0c1f', alignItems: 'center', justifyContent: 'center' },
   cooldownText: { color: '#0c0c1f', fontSize: 13, fontWeight: '900' },
-  offlineHint: { color: '#64748b', fontSize: 10, fontWeight: '600', textAlign: 'center', marginTop: 8 },
+  availabilityNotice: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: 'rgba(245, 158, 11, 0.1)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(245, 158, 11, 0.25)' },
+  offlineHint: { flex: 1, color: '#fbbf24', fontSize: 12, fontWeight: '600', lineHeight: 16 },
 });

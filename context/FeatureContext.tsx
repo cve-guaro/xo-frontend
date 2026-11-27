@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 
 import { API_URL } from '../config';
 
@@ -45,8 +46,11 @@ export const FeatureProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   useEffect(() => {
     refreshFeatures();
-    // Poll every 30 seconds
-    const interval = setInterval(refreshFeatures, 30000);
+    // Poll every 2 minutes, skipping background tabs on web
+    const interval = setInterval(() => {
+      if (Platform.OS === 'web' && typeof document !== 'undefined' && document.hidden) return;
+      refreshFeatures();
+    }, 120000);
     return () => clearInterval(interval);
   }, []);
 

@@ -24,11 +24,16 @@ async function getStoredAuthToken(): Promise<string | null> {
 }
 
 let AgoraRTC: any = null;
-if (Platform.OS === "web") {
+async function getAgoraRTC(): Promise<any> {
+  if (Platform.OS !== "web") return null;
+  if (AgoraRTC) return AgoraRTC;
   try {
-    AgoraRTC = require("agora-rtc-sdk-ng");
-  } catch (e) {
+    const mod = await import("agora-rtc-sdk-ng");
+    AgoraRTC = mod?.default || mod;
+    return AgoraRTC;
+  } catch {
     // Optional web fallback: agora-rtc-sdk-ng not installed
+    return null;
   }
 }
 
@@ -98,7 +103,8 @@ class VoiceService {
       return false;
     }
 
-    if (Platform.OS === "web" && AgoraRTC) {
+    const rtc = Platform.OS === "web" ? await getAgoraRTC() : null;
+    if (Platform.OS === "web" && rtc) {
       try {
         // Always create a fresh client to avoid stale state after leave/rejoin
         if (this.rtcClient) {
@@ -110,7 +116,7 @@ class VoiceService {
           this.localAudioTrack = null;
         }
 
-        this.rtcClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+        this.rtcClient = rtc.createClient({ mode: "rtc", codec: "vp8" });
 
         this.rtcClient.enableAudioVolumeIndicator();
         this.rtcClient.on("volume-indicator", (volumes: any[]) => {
@@ -200,7 +206,10 @@ class VoiceService {
         // Only publish AFTER join succeeds — prevents "haven't joined yet" error
         try {
           if (!this.localAudioTrack) {
-            this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+            const rtcClientSdk = await getAgoraRTC();
+            if (rtcClientSdk) {
+              this.localAudioTrack = await rtcClientSdk.createMicrophoneAudioTrack();
+            }
           }
           if (this.isJoined && this.rtcClient) {
             await this.rtcClient.publish([this.localAudioTrack]);
@@ -294,14 +303,17 @@ class VoiceService {
     this.muted = muted;
 
     if (Platform.OS === "web") {
-      if (!muted && !this.localAudioTrack && AgoraRTC) {
-        try {
-          this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-          if (this.isJoined && this.rtcClient) {
-            await this.rtcClient.publish([this.localAudioTrack]);
+      if (!muted && !this.localAudioTrack) {
+        const rtc = await getAgoraRTC();
+        if (rtc) {
+          try {
+            this.localAudioTrack = await rtc.createMicrophoneAudioTrack();
+            if (this.isJoined && this.rtcClient) {
+              await this.rtcClient.publish([this.localAudioTrack]);
+            }
+          } catch (e: any) {
+            console.warn("[VoiceService] Create mic track on unmute:", e?.message || e);
           }
-        } catch (e: any) {
-          console.warn("[VoiceService] Create mic track on unmute:", e?.message || e);
         }
       }
       if (this.localAudioTrack) {

@@ -26,7 +26,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
-const rpsBg = require('../../../assets/dashboard/rps-background.png');
+const rpsBg = require('../../../assets/dashboard/rps-background.webp');
 
 import { useAuth } from '../../../context/authContext';
 import { useSocket } from '../../../context/socketContext';

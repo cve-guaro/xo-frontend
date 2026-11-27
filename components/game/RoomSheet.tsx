@@ -753,9 +753,11 @@ const RoomSheet = memo(function RoomSheet({
                             >
                               {isAlreadyInvited
                                 ? (isEN ? "Sent" : "ተልኳል")
-                                : isInsufficientBalance
-                                  ? (isEN ? "Low Balance" : "አነስተኛ ሂሳብ")
-                                  : (isEN ? `Invite (${selectedStake} ETB)` : `ጋብዝ (${selectedStake} ብር)`)}
+                                : isOffline
+                                  ? (isEN ? "Offline" : "ከመስመር ውጭ")
+                                  : isInsufficientBalance
+                                    ? (isEN ? "Low Balance" : "አነስተኛ ሂሳብ")
+                                    : (isEN ? `Invite (${selectedStake} ETB)` : `ጋብዝ (${selectedStake} ብር)`)}
                             </Text>
                           </TouchableOpacity>
                         </View>
@@ -774,9 +776,10 @@ const RoomSheet = memo(function RoomSheet({
                     </Text>
                   ) : (
                     suggestionsList.map((userItem) => {
+                      const isOffline = !userItem.isOnline;
                       const isInsufficientBalance = selectedStake === null || balance < selectedStake;
                       const isAlreadyInvited = !!invitedUsers[userItem.username];
-                      const canInvite = !isInsufficientBalance;
+                      const canInvite = userItem.isOnline && !isInsufficientBalance;
 
                       return (
                         <View key={userItem.id} style={styles.playerRow}>
@@ -795,7 +798,7 @@ const RoomSheet = memo(function RoomSheet({
                               <Text numberOfLines={1} style={styles.rowUsername}>{userItem.username}</Text>
                             </View>
                             <Text style={styles.rowStatusText}>
-                              {isEN ? "Player" : "ተጫዋች"}
+                              {isOffline ? (isEN ? "Offline" : "ከመስመር ውጭ") : (isEN ? "Online" : "መስመር ላይ")}
                             </Text>
                           </View>
 
@@ -818,9 +821,11 @@ const RoomSheet = memo(function RoomSheet({
                               >
                                 {isAlreadyInvited
                                   ? (isEN ? "Sent" : "ተልኳል")
-                                  : isInsufficientBalance
-                                    ? (isEN ? "Low Balance" : "አነስተኛ ሂሳብ")
-                                    : (isEN ? `Invite (${selectedStake} ETB)` : `ጋብዝ (${selectedStake} ብር)`)}
+                                  : isOffline
+                                    ? (isEN ? "Offline" : "ከመስመር ውጭ")
+                                    : isInsufficientBalance
+                                      ? (isEN ? "Low Balance" : "አነስተኛ ሂሳብ")
+                                      : (isEN ? `Invite (${selectedStake} ETB)` : `ጋብዝ (${selectedStake} ብር)`)}
                               </Text>
                             </TouchableOpacity>
 

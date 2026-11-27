@@ -21,7 +21,7 @@ import { playTickSound } from "../../lib/pinTickAudio";
 import { useAuth } from "../../context/authContext";
 import { useSidebarCollapse } from "../../hooks/useSidebarCollapse";
 
-const welcomeChestImg = require("../../assets/dashboard/welcome-bonus-chest.png");
+const welcomeChestImg = require("../../assets/dashboard/welcome-bonus-chest.webp");
 
 export type DesktopNavScreen = "home" | "history" | "leaderboard" | "transactions" | "profile" | "admin";
 
@@ -194,7 +194,7 @@ export default function DesktopSidebar({
         {!isRail ? (
           <View style={s.welcomeCard}>
             <Image
-              source={require("../../assets/images/welcome-banner-background-simple.png")}
+              source={require("../../assets/images/welcome-banner-background-simple.webp")}
               style={s.welcomeCardBg}
               resizeMode="cover"
             />
@@ -217,7 +217,7 @@ export default function DesktopSidebar({
             accessibilityLabel="Welcome Bonus Claimed"
           >
             <Image
-              source={require("../../assets/images/welcome-banner-background-simple.png")}
+              source={require("../../assets/images/welcome-banner-background-simple.webp")}
               style={s.welcomeCardBg}
               resizeMode="cover"
             />

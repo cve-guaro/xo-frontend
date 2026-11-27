@@ -54,82 +54,92 @@ function safePlayGlobalAudio(audio: HTMLAudioElement | null): void {
 
 export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { token, user } = useAuth();
-  const [isPlaying, setIsPlaying] = useState(true);
-  const isPlayingRef = useRef(true);
-  isPlayingRef.current = isPlaying;
+  const [isPlaying, setIsPlaying] = useState(false);
+  const isPlayingRef = useRef(false);
+  const userMutedRef = useRef(true);
 
-  // Initial preference check + auto-unlock on user interaction
+  // Initial preference check — do NOT fetch /sounds/background.mp3 during initial page load.
+  // Audio element is created lazily only when the user explicitly unmutes or interacts while enabled.
   useEffect(() => {
     let unmounted = false;
+    let listenersBound = false;
+
+    const unlockAndPlay = () => {
+      if (userMutedRef.current || unmounted) return;
+      const audio = getOrCreateGlobalAudio();
+      if (audio && audio.paused) {
+        audio.play().then(() => {
+          if (!unmounted) {
+            setIsPlaying(true);
+            isPlayingRef.current = true;
+          }
+          cleanupListeners();
+        }).catch(() => {
+          // Pending valid user gesture
+        });
+      }
+    };
+
+    const cleanupListeners = () => {
+      if (!listenersBound || typeof window === 'undefined') return;
+      listenersBound = false;
+      window.removeEventListener('click', unlockAndPlay);
+      window.removeEventListener('keydown', unlockAndPlay);
+      window.removeEventListener('touchstart', unlockAndPlay);
+      window.removeEventListener('pointerdown', unlockAndPlay);
+    };
 
     const checkPref = async () => {
       try {
         const isMutedLocal = await AsyncStorage.getItem('xoet_music_muted');
-        if (isMutedLocal === 'true') {
-          if (!unmounted) setIsPlaying(false);
-          const audio = getOrCreateGlobalAudio();
-          if (audio) audio.pause();
+        // Opt-in audio: stay off unless user previously chose unmuted ('false')
+        if (isMutedLocal !== 'false') {
+          userMutedRef.current = true;
+          if (!unmounted) {
+            setIsPlaying(false);
+            isPlayingRef.current = false;
+          }
           return;
         }
-      } catch {}
-
-      // If allowed to play, attempt immediate play and bind persistent unlock listeners
-      const unlockAndPlay = () => {
-        if (!isPlayingRef.current) return;
-        const audio = getOrCreateGlobalAudio();
-        if (audio && audio.paused) {
-          audio.play().then(() => {
-            if (!unmounted) setIsPlaying(true);
-            window.removeEventListener('click', unlockAndPlay);
-            window.removeEventListener('keydown', unlockAndPlay);
-            window.removeEventListener('touchstart', unlockAndPlay);
-            window.removeEventListener('pointerdown', unlockAndPlay);
-          }).catch(() => {
-            // Pending user interaction gesture
-          });
+        userMutedRef.current = false;
+        if (typeof window !== 'undefined') {
+          listenersBound = true;
+          window.addEventListener('click', unlockAndPlay);
+          window.addEventListener('keydown', unlockAndPlay);
+          window.addEventListener('touchstart', unlockAndPlay);
+          window.addEventListener('pointerdown', unlockAndPlay);
         }
-      };
-
-      unlockAndPlay();
-
-      window.addEventListener('click', unlockAndPlay);
-      window.addEventListener('keydown', unlockAndPlay);
-      window.addEventListener('touchstart', unlockAndPlay);
-      window.addEventListener('pointerdown', unlockAndPlay);
+      } catch {}
     };
 
     checkPref();
 
     return () => {
       unmounted = true;
-      // Do NOT pause the global audio on unmount if it's supposed to keep playing across routes
+      cleanupListeners();
     };
   }, []);
 
-  // Sync with User DB preference if it explicitly differs
+  // Sync with User DB preference only if user already exists and explicitly prefers sound
   useEffect(() => {
     if (user?.sound_muted !== undefined) {
-      const dbShouldPlay = !user.sound_muted;
-      if (dbShouldPlay !== isPlayingRef.current) {
-        setIsPlaying(dbShouldPlay);
-        isPlayingRef.current = dbShouldPlay;
-        const audio = getOrCreateGlobalAudio();
-        if (audio) {
-          if (dbShouldPlay) {
-            safePlayGlobalAudio(audio);
-          } else {
-            audio.pause();
-          }
-        }
+      const dbMuted = !!user.sound_muted;
+      userMutedRef.current = dbMuted;
+      if (dbMuted && isPlayingRef.current) {
+        setIsPlaying(false);
+        isPlayingRef.current = false;
+        const audio = typeof window !== 'undefined' ? window.__XOET_BG_AUDIO__ : null;
+        if (audio) audio.pause();
       }
     }
   }, [user?.sound_muted]);
 
   const muteMusic = async () => {
+    userMutedRef.current = true;
     setIsPlaying(false);
     isPlayingRef.current = false;
     AsyncStorage.setItem('xoet_music_muted', 'true').catch(() => {});
-    const audio = getOrCreateGlobalAudio();
+    const audio = typeof window !== 'undefined' ? window.__XOET_BG_AUDIO__ : null;
     if (audio) {
       audio.pause();
     }
@@ -144,17 +154,17 @@ export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = 
 
   const toggleMusic = async () => {
     const nextState = !isPlaying;
+    userMutedRef.current = !nextState;
     setIsPlaying(nextState);
     isPlayingRef.current = nextState;
     AsyncStorage.setItem('xoet_music_muted', nextState ? 'false' : 'true').catch(() => {});
-    
-    const audio = getOrCreateGlobalAudio();
-    if (audio) {
-      if (nextState) {
-        safePlayGlobalAudio(audio);
-      } else {
-        audio.pause();
-      }
+
+    if (nextState) {
+      const audio = getOrCreateGlobalAudio();
+      safePlayGlobalAudio(audio);
+    } else {
+      const audio = typeof window !== 'undefined' ? window.__XOET_BG_AUDIO__ : null;
+      if (audio) audio.pause();
     }
 
     if (token) {
@@ -167,7 +177,7 @@ export const BackgroundMusicProvider: React.FC<{ children: React.ReactNode }> = 
   };
 
   const unlockAudio = async () => {
-    if (!isPlayingRef.current) return;
+    if (userMutedRef.current) return;
     const audio = getOrCreateGlobalAudio();
     if (audio && audio.paused) {
       safePlayGlobalAudio(audio);
