@@ -442,6 +442,37 @@ type RoundState = {
 // ── Screen states ──────────────────────────────────────────────────────────
 type ScreenState = "browse" | "waiting" | "spinning" | "result";
 
+const consumedJoinNonces = new Set<string>();
+
+function isJoinNonceConsumed(nonce?: string): boolean {
+  if (!nonce) return false;
+  if (consumedJoinNonces.has(nonce)) return true;
+  if (Platform.OS === "web" && typeof window !== "undefined") {
+    try {
+      const raw = window.sessionStorage?.getItem("xoet_spin_consumed_nonces");
+      if (raw) {
+        const list = JSON.parse(raw);
+        if (Array.isArray(list) && list.includes(nonce)) {
+          consumedJoinNonces.add(nonce);
+          return true;
+        }
+      }
+    } catch {}
+  }
+  return false;
+}
+
+function markJoinNonceConsumed(nonce?: string) {
+  if (!nonce) return;
+  consumedJoinNonces.add(nonce);
+  if (Platform.OS === "web" && typeof window !== "undefined") {
+    try {
+      const list = Array.from(consumedJoinNonces).slice(-25);
+      window.sessionStorage?.setItem("xoet_spin_consumed_nonces", JSON.stringify(list));
+    } catch {}
+  }
+}
+
 export default function SpinGameScreen() {
   const router = useRouter();
   const { width: screenW, height: screenH } = useWindowDimensions();
@@ -464,7 +495,7 @@ export default function SpinGameScreen() {
   }, [user?.available_balance]);
 
   const balance = Math.max(0, serverBalance + localBalanceDelta);
-  const { mode, stake } = useLocalSearchParams();
+  const { mode, stake, joinNonce } = useLocalSearchParams<{ mode?: string; stake?: string; joinNonce?: string }>();
   const { ensureConnected, emitAck, onMessage, send } = useSocket();
 
   const { isPlaying: bgMusicPlaying, muteMusic } = useBackgroundMusic();
@@ -869,10 +900,10 @@ export default function SpinGameScreen() {
   // ── Redirect fallback if no active round and browse state ───────────
   // Skip redirect if `mode` param is present — the auto-join effect hasn't fired yet.
   useEffect(() => {
-    if (screenState === "browse" && !joinLoading && !round && !mode) {
+    if (screenState === "browse" && !joinLoading && !round && !mode && !resultData) {
       router.replace("/(authed)/home/gameplay");
     }
-  }, [screenState, joinLoading, round, router, mode]);
+  }, [screenState, joinLoading, round, router, mode, resultData]);
 
   // ── Stuck-state recovery ────────────────────────────────────────────
   // If the game gets stuck (e.g. socket disconnected during spin or waiting at 0:00), auto-recover
@@ -1317,18 +1348,42 @@ export default function SpinGameScreen() {
   }, [ensureConnected, emitAck, token, user]);
 
   // ── Auto-join room when screen comes into focus ──
+  const screenStateRef = useRef<ScreenState>("browse");
+  useEffect(() => { screenStateRef.current = screenState; }, [screenState]);
+
   useFocusEffect(
     useCallback(() => {
       muteMusicRef.current?.();
-      if (!joinAttemptedRef.current && !roundRef.current) {
+      const nonceStr = typeof joinNonce === "string" ? joinNonce : "";
+      const nonceAlreadyUsed = nonceStr ? isJoinNonceConsumed(nonceStr) : false;
+
+      if (!joinAttemptedRef.current && !roundRef.current && !nonceAlreadyUsed) {
         if (mode === "RAIL" && stake) {
           joinAttemptedRef.current = true;
+          if (nonceStr) markJoinNonceConsumed(nonceStr);
           handleJoinRoom("RAIL", Number(stake));
         } else if (mode === "5_PLAYER") {
           joinAttemptedRef.current = true;
+          if (nonceStr) markJoinNonceConsumed(nonceStr);
           // Prompt confirmation modal before deducting 100 ETB
           setShowJoin5pConfirmModal(true);
         }
+      } else if (!roundRef.current && nonceAlreadyUsed) {
+        // Returning from another tab/back button after round ended or started — resume active round ONLY if still live; never start a brand new round automatically
+        emitAck("spin:get_state", { token }).then((res: any) => {
+          if (res?.ok && res.data && (res.data.status === "waiting" || res.data.status === "locked" || res.data.status === "spinning")) {
+            setRound(res.data);
+            setScreenState(res.data.status === "spinning" ? "spinning" : "waiting");
+            if (res.data.countdown > 0) {
+              targetEndTimeRef.current = Date.now() + res.data.countdown * 1000;
+              setCountdown(res.data.countdown);
+            }
+          } else {
+            router.replace("/(authed)/home/gameplay");
+          }
+        }).catch(() => {
+          router.replace("/(authed)/home/gameplay");
+        });
       }
 
       return () => {
@@ -1337,7 +1392,7 @@ export default function SpinGameScreen() {
         voiceService.leaveChannel();
         stopRecording();
       };
-    }, [mode, stake, handleJoinRoom, stopAllSounds, stopRecording])
+    }, [mode, stake, joinNonce, handleJoinRoom, stopAllSounds, stopRecording, emitAck, token, router])
   );
 
   // Unmount cleanup: only clear active timers and clean up voice
@@ -1518,12 +1573,14 @@ export default function SpinGameScreen() {
   // On return, resync countdown from targetEndTimeRef and request fresh state.
   useEffect(() => {
     const syncActiveState = () => {
-      if (roundRef.current || screenState !== "browse") {
+      if (screenStateRef.current === "result") return;
+      if (roundRef.current || screenStateRef.current !== "browse") {
         if (targetEndTimeRef.current) {
           const rem = Math.max(0, Math.ceil((targetEndTimeRef.current - Date.now()) / 1000));
           setCountdown(rem);
         }
         const curRoundId = roundRef.current?.roundId;
+        if (!curRoundId) return;
         emitAck("spin:get_state", { roundId: curRoundId, token }).then((res: any) => {
           if (res?.ok && res.data) {
             setRound(res.data);
@@ -1574,12 +1631,12 @@ export default function SpinGameScreen() {
               if (res.data.winnerId) setPendingWinnerId(res.data.winnerId);
             }
           } else if (res?.error === "ROUND_NOT_FOUND") {
-            if (mode === "RAIL" || roundRef.current?.mode === "RAIL") {
-              handleJoinRoom("RAIL", stake ? Number(stake) : betAmount);
-            } else {
-              setRound(null);
-              setScreenState("browse");
-            }
+            setError("This round has ended.");
+            setIsSpinning(false);
+            isSpinningRef.current = false;
+            setRound(null);
+            setScreenState("browse");
+            router.replace("/(authed)/home/gameplay");
           }
         }).catch(() => {});
         refreshProfile?.();
