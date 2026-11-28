@@ -91,15 +91,18 @@ export default function HTML({ children }: { children: React.ReactNode }) {
               if (typeof MutationObserver !== 'undefined') {
                 const observer = new MutationObserver(function(mutations) {
                   for (let i = 0; i < mutations.length; i++) {
-                    const m = mutations[i];
-                    if (m.type === 'attributes' && m.attributeName === 'aria-hidden') {
-                      const target = m.target;
-                      if (target && target.getAttribute('aria-hidden') === 'true') {
-                        if (target.contains(document.activeElement)) {
-                          document.activeElement.blur();
+                    try {
+                      const m = mutations[i];
+                      if (m.type === 'attributes' && m.attributeName === 'aria-hidden') {
+                        const target = m.target;
+                        if (target && target.nodeType === 1 && target.isConnected && target.getAttribute('aria-hidden') === 'true') {
+                          const active = document.activeElement;
+                          if (active && active.isConnected && target.contains(active) && typeof active.blur === 'function') {
+                            active.blur();
+                          }
                         }
                       }
-                    }
+                    } catch (_) {}
                   }
                 });
                 observer.observe(document.documentElement, { attributes: true, subtree: true, attributeFilter: ['aria-hidden'] });

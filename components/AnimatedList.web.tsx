@@ -11,11 +11,30 @@ interface AnimatedItemProps {
   itemClassName?: string;
 }
 
-const AnimatedItem = ({ children, delay = 0, index, onMouseEnter, onClick, itemClassName }: AnimatedItemProps) => {
-  const ref = useRef(null);
-  // amount: 0.2 means it starts animating when 20% is in view
-  const inView = useInView(ref, { amount: 0.2, once: false });
-  
+const AnimatedItem = ({ children, delay = 0, index, onMouseEnter, onClick }: AnimatedItemProps) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const prefersReducedMotion =
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // Use once: true so scrolled items stay mounted and never re-toggle visibility mid-list update
+  const inView = useInView(ref, { amount: 0.1, once: true });
+
+  if (prefersReducedMotion) {
+    return (
+      <div
+        ref={ref}
+        data-index={index}
+        onMouseEnter={onMouseEnter}
+        onClick={onClick}
+        className="item-wrapper"
+        style={{ cursor: 'pointer' }}
+      >
+        {children}
+      </div>
+    );
+  }
+
   return (
     <motion.div
       ref={ref}
@@ -24,11 +43,11 @@ const AnimatedItem = ({ children, delay = 0, index, onMouseEnter, onClick, itemC
       onClick={onClick}
       initial={{ opacity: 0 }}
       animate={inView ? { opacity: 1 } : { opacity: 0 }}
-      transition={{ 
+      transition={{
         duration: 0.15,
-        delay 
+        delay
       }}
-      className={`item-wrapper`}
+      className="item-wrapper"
       style={{ cursor: 'pointer' }}
     >
       {children}
@@ -36,9 +55,24 @@ const AnimatedItem = ({ children, delay = 0, index, onMouseEnter, onClick, itemC
   );
 };
 
+export function resolveItemKey<T>(
+  item: T,
+  index: number,
+  keyExtractor?: (item: T, index: number) => string | number
+): string | number {
+  if (keyExtractor) return keyExtractor(item, index);
+  const raw =
+    (item as any)?.id ??
+    (item as any)?._id ??
+    (item as any)?.tx_id ??
+    (item as any)?.key;
+  return raw !== undefined && raw !== null && raw !== '' ? String(raw) : index;
+}
+
 interface AnimatedListProps<T> {
   items: T[];
   renderItem: (item: T, index: number, isSelected: boolean) => ReactNode;
+  keyExtractor?: (item: T, index: number) => string | number;
   onItemSelect?: (item: T, index: number) => void;
   showGradients?: boolean;
   enableArrowNavigation?: boolean;
@@ -52,6 +86,7 @@ interface AnimatedListProps<T> {
 export default function AnimatedList<T>({
   items = [],
   renderItem,
+  keyExtractor,
   onItemSelect,
   showGradients = true,
   enableArrowNavigation = true,
@@ -208,10 +243,10 @@ export default function AnimatedList<T>({
 
   // Scroll into view on keyboard nav
   useEffect(() => {
-    if (!keyboardNav || selectedIndex < 0 || !listRef.current) return;
+    if (!keyboardNav || selectedIndex < 0 || !listRef.current || !listRef.current.isConnected) return;
     const container = listRef.current;
-    const selectedItem = container.querySelector(`[data-index="${selectedIndex}"]`) as HTMLElement;
-    if (selectedItem) {
+    const selectedItem = container.querySelector(`[data-index="${selectedIndex}"]`) as HTMLElement | null;
+    if (selectedItem && selectedItem.isConnected) {
       const extraMargin = 40;
       const containerScrollTop = container.scrollTop;
       const containerHeight = container.clientHeight;
@@ -243,7 +278,7 @@ export default function AnimatedList<T>({
       >
         {items.map((item, index) => (
           <AnimatedItem
-            key={index}
+            key={resolveItemKey(item, index, keyExtractor)}
             delay={0.05}
             index={index}
             onMouseEnter={() => handleItemMouseEnter(index)}
