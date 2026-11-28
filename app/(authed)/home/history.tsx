@@ -9,6 +9,7 @@ import {
   Easing,
   FlatList,
   Platform,
+  Modal,
   RefreshControl,
   StatusBar,
   StyleSheet,
@@ -882,7 +883,18 @@ export default function GamesHistory() {
 
         {/* Mobile Header */}
         <View style={s.mobileHeader}>
-          <TouchableOpacity onPress={() => router.back()} style={s.mobileBackBtn}>
+          <TouchableOpacity
+            onPress={() => {
+              if (isDetailOpen) {
+                closeDetails();
+              } else if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.replace("/(authed)/home/gameplay" as any);
+              }
+            }}
+            style={s.mobileBackBtn}
+          >
             <Ionicons name="arrow-back" size={20} color="#00daf3" />
           </TouchableOpacity>
           <Text style={s.mobileTitleText}>Game History</Text>
@@ -1031,10 +1043,8 @@ export default function GamesHistory() {
                         po_name: item.originalData.po_name || item.originalData.po_num || "",
                       },
                     } as any);
-                  } else if (item.gameType === "spin") {
-                    router.push("/(authed)/home/spin" as any);
-                  } else if (item.gameType === "rps") {
-                    router.push("/(authed)/games/rps" as any);
+                  } else if (item.gameType === "spin" || item.gameType === "rps") {
+                    handleSelectItem(item);
                   }
                 }}
                 style={s.mobileMatchRowCard}
@@ -1084,6 +1094,47 @@ export default function GamesHistory() {
             );
           }}
         />
+
+        {/* Mobile Match Detail Modal (Spin & RPS) */}
+        <Modal
+          visible={Boolean(isDetailOpen && !isLargeScreen)}
+          animationType="slide"
+          transparent={false}
+          onRequestClose={closeDetails}
+        >
+          <View style={{ flex: 1, backgroundColor: "#070714" }}>
+            <View style={s.mobileHeader}>
+              <TouchableOpacity
+                onPress={closeDetails}
+                style={s.mobileBackBtn}
+              >
+                <Ionicons name="arrow-back" size={20} color="#00daf3" />
+              </TouchableOpacity>
+              <Text style={s.mobileTitleText}>
+                {selectedType === "rps" ? "RPS Match Detail" : selectedType === "spin" ? "Spin Round Detail" : "Match Detail"}
+              </Text>
+              <View style={{ width: 40 }} />
+            </View>
+            <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+              <HistoryDetailPanel
+                selectedRound={selectedType === "spin" ? selectedSpin : null}
+                selectedGame={selectedType === "xo" ? selectedGame : null}
+                selectedRps={selectedType === "rps" ? selectedRps : null}
+                myId={myId}
+                user={user}
+                onCloseSpin={() => setSelectedSpinId(null)}
+                onCloseGame={() => setSelectedGameId(null)}
+                onCloseRps={() => setSelectedRpsId(null)}
+                isSpinReplayPlaying={isSpinReplayPlaying}
+                setIsSpinReplayPlaying={setIsSpinReplayPlaying}
+                currentMoveStep={currentMoveStep}
+                setCurrentMoveStep={setCurrentMoveStep}
+                isPlayingReplay={isPlayingReplay}
+                setIsPlayingReplay={setIsPlayingReplay}
+              />
+            </ScrollView>
+          </View>
+        </Modal>
       </View>
       <NotificationsPopover visible={notificationsVisible} onClose={() => setNotificationsVisible(false)} onUnreadCountChange={setUnreadCount} />
     </ScreenWrapper>

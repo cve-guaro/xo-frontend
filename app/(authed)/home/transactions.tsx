@@ -562,23 +562,30 @@ export default function TransactionsScreen() {
       if (rpsRes?.ok) {
         try {
           const rpsData = await rpsRes.json();
-          if (Array.isArray(rpsData?.matches)) {
-            rpsData.matches.forEach((m: any) => {
-              const isWin = String(m.winnerId) === String(user?.id);
-              const stake = Number(m.betAmount || 0);
-              const prize = Number(m.prizeAmount || 0);
+          const rpsList = Array.isArray(rpsData?.matches) ? rpsData.matches : (Array.isArray(rpsData?.history) ? rpsData.history : []);
+          if (rpsList.length > 0) {
+            rpsList.forEach((m: any) => {
+              const winnerId = m.winner_id ?? m.winnerId;
+              const isWin = winnerId != null && String(winnerId) === String(user?.id);
+              const stake = Number(m.bet_amount ?? m.betAmount ?? 0);
+              const prize = Number(m.prize_amount ?? m.prizeAmount ?? 0);
               const net = isWin ? (prize - stake) : -stake;
+              const createdAt = m.created_at ?? m.createdAt ?? "";
+              const opponentName =
+                m.opponentName ||
+                (String(m.player1_id) === String(user?.id) ? m.player2_name : m.player1_name) ||
+                "Opponent";
 
               parsedActivities.push({
                 id: `rps_${m.id}`,
                 gameType: 'rps',
                 title: isWin ? 'RPS Victory' : 'RPS Match',
-                subtitle: `vs @${m.opponentName || 'Opponent'} · ${formatDateOnly(m.createdAt)}`,
+                subtitle: `vs @${opponentName} · ${formatDateOnly(createdAt)}`,
                 amount: isWin ? prize : stake,
                 netDelta: net,
                 isWin,
-                timestamp: new Date(m.createdAt).getTime() || 0,
-                created_at: m.createdAt,
+                timestamp: new Date(createdAt).getTime() || 0,
+                created_at: createdAt,
               });
             });
           }

@@ -288,7 +288,10 @@ export default function GameViewer() {
             No gameplay telemetry was recorded for this session. The match may have concluded or ended before moves were registered.
           </Text>
           <TouchableOpacity 
-            onPress={() => router.back()} 
+            onPress={() => {
+              if (router.canGoBack()) router.back();
+              else router.replace("/(authed)/home/history" as any);
+            }} 
             style={styles.premiumBackBtn}
             activeOpacity={0.8}
           >
@@ -322,7 +325,8 @@ export default function GameViewer() {
               onPress={() => {
                 playTickSound();
                 haptics.tap();
-                router.back();
+                if (router.canGoBack()) router.back();
+                else router.replace("/(authed)/home/history" as any);
               }}
               style={styles.backCircle}
               activeOpacity={0.75}
