@@ -185,6 +185,22 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
   const [spinBetModalVisible, setSpinBetModalVisible] = useState(false);
   const [rpsBetModalVisible, setRpsBetModalVisible] = useState(false);
   const [friendGameType, setFriendGameType] = useState<"xo" | "rps">("xo");
+  const [highlightedGame, setHighlightedGame] = useState<DesktopTabType | null>(null);
+  const mainScrollRef = useRef<ScrollView>(null);
+  const contentContainerYRef = useRef(0);
+  const gamesSectionYRef = useRef(0);
+  const highlightTimerRef = useRef<any>(null);
+
+  const scrollToGameSection = useCallback((gameId: DesktopTabType) => {
+    setFilterCategory("all");
+    setGamesSearch("");
+    setSelectedTab(gameId);
+    setHighlightedGame(gameId);
+    if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+    highlightTimerRef.current = setTimeout(() => setHighlightedGame(null), 1800);
+    const targetY = Math.max(0, contentContainerYRef.current + gamesSectionYRef.current - 16);
+    mainScrollRef.current?.scrollTo({ y: targetY, animated: true });
+  }, [setSelectedTab]);
 
   // SECTION A: STRICTLY 3 CARDS ONLY
   const carouselSlides: CarouselCardItem[] = useMemo(
@@ -272,12 +288,11 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
       haptics.tap();
 
       const idx = carouselSlides.findIndex((s) => s.id === slide.id);
-      if (!isCenter) {
+      if (!isCenter && idx >= 0) {
         carouselRef.current?.scrollTo({ index: idx, animated: true });
         setCurrentIndex(idx);
-        setSelectedTab(slide.id);
       }
-      // Banner itself is non-clickable for modal launches; explicit action buttons handle launching
+      scrollToGameSection(slide.id);
     };
 
     if (slide.id === "XO_GAME") {
@@ -483,7 +498,7 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
         onConfirm={(amount) => {
           router.push({
             pathname: "/(authed)/home/spin",
-            params: { mode: "RAIL", stake: String(amount) },
+            params: { mode: "RAIL", stake: String(amount), joinNonce: String(Date.now()) },
           } as any);
         }}
       />
@@ -553,6 +568,7 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
 
           {/* Main Content Area */}
           <ScrollView
+            ref={mainScrollRef}
             style={s.mainScrollView}
             contentContainerStyle={s.scrollContent}
             showsVerticalScrollIndicator={false}
@@ -622,7 +638,10 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
           </View>
 
           {/* ──── CONTENT CONTAINER (Consistent padding and margin on PC) ──── */}
-          <View style={s.contentContainer}>
+          <View
+            style={s.contentContainer}
+            onLayout={(e) => { contentContainerYRef.current = e.nativeEvent.layout.y; }}
+          >
             {/* ──── 3 PROMOTIONAL BANNERS ROW (Positioned Above Games Section per User Instruction) ──── */}
             <View style={s.bannersWrapper}>
               <PromotionalBannersRow
@@ -661,7 +680,10 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
             const visibleCount = (showXo ? 1 : 0) + (showSpin ? 1 : 0) + (showRps ? 1 : 0);
 
             return (
-              <View style={s.gamesSection}>
+              <View
+                style={s.gamesSection}
+                onLayout={(e) => { gamesSectionYRef.current = e.nativeEvent.layout.y; }}
+              >
                 {/* ──── GAMES HEADER ROW: Title + Search Bar + Category Filters (All, Luck, 1v1) ──── */}
                 <View style={s.gamesHeaderRow}>
                   <View style={s.gamesTitleWrap}>
@@ -738,7 +760,7 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
                   <View style={s.gamesGridRow}>
                     {/* 1. XO BATTLE CARD */}
                     {showXo && (
-                      <View style={s.gameCard}>
+                      <View style={[s.gameCard, highlightedGame === "XO_GAME" && { borderColor: "#00DAF3", borderWidth: 2 }]}>
                         {/* Background Plate */}
                         <Image source={xoBg} style={s.cardBackgroundImg} resizeMode="cover" />
                         <View style={[StyleSheet.absoluteFillObject, { backgroundColor: "rgba(5, 8, 15, 0.28)" }]} />
@@ -781,7 +803,7 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
 
                     {/* 2. SPIN & WIN CARD */}
                     {showSpin && (
-                      <View style={s.gameCard}>
+                      <View style={[s.gameCard, highlightedGame === "SPIN" && { borderColor: "#FF3B57", borderWidth: 2 }]}>
                         <Image source={spinBg} style={s.cardBackgroundImg} resizeMode="cover" />
                         <View style={[StyleSheet.absoluteFillObject, { backgroundColor: "rgba(5, 8, 15, 0.28)" }]} />
 
@@ -832,7 +854,7 @@ export default function DesktopLayout(props: DesktopLayoutProps) {
 
                     {/* 3. RPS BATTLE CARD */}
                     {showRps && (
-                      <View style={s.gameCard}>
+                      <View style={[s.gameCard, highlightedGame === "RPS" && { borderColor: "#F59E0B", borderWidth: 2 }]}>
                         <Image source={rpsBg} style={s.cardBackgroundImg} resizeMode="cover" />
                         <View style={[StyleSheet.absoluteFillObject, { backgroundColor: "rgba(5, 8, 15, 0.28)" }]} />
 
