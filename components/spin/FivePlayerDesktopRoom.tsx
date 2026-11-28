@@ -32,6 +32,7 @@ export interface FivePlayerDesktopRoomProps {
   mutedPlayers: Set<string>;
   remoteMicMuted: Record<string, boolean>;
   AnimatedUserMicButton: React.ComponentType<any>;
+  SpeakingWaveAnimation?: React.ComponentType<any>;
   micMuted: boolean;
   masterSpeakerMuted: boolean;
   onToggleMic: () => void;
@@ -71,6 +72,7 @@ export const FivePlayerDesktopRoom: React.FC<FivePlayerDesktopRoomProps> = ({
   mutedPlayers,
   remoteMicMuted,
   AnimatedUserMicButton,
+  SpeakingWaveAnimation,
   micMuted,
   masterSpeakerMuted,
   onToggleMic,
@@ -402,9 +404,17 @@ export const FivePlayerDesktopRoom: React.FC<FivePlayerDesktopRoomProps> = ({
                         </View>
                         <Ionicons name="person" size={15} color="#94a3b8" />
                         <View>
-                          <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "700" }}>
-                            {player.username || (isSelf ? (user?.username || "You") : `Player ${slotIdx + 1}`)} {isSelf ? "(You)" : ""}
-                          </Text>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                            <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "700" }}>
+                              {player.username || (isSelf ? (user?.username || "You") : `Player ${slotIdx + 1}`)} {isSelf ? "(You)" : ""}
+                            </Text>
+                            {!(isSelf ? micMuted : mutedPlayers.has(player.userId)) && speakingUserIds.includes(String(player.userId)) && (
+                              <View style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "rgba(34, 197, 94, 0.14)", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 }}>
+                                {SpeakingWaveAnimation && <SpeakingWaveAnimation />}
+                                <Text style={{ color: "#22c55e", fontSize: 10, fontWeight: "800" }}>Talking</Text>
+                              </View>
+                            )}
+                          </View>
                           <Text style={{ color: "#94a3b8", fontSize: 11, fontWeight: "600", marginTop: 1 }}>
                             {player.stake || 100} ETB
                           </Text>
@@ -420,12 +430,10 @@ export const FivePlayerDesktopRoom: React.FC<FivePlayerDesktopRoomProps> = ({
                             ? micMuted
                             : Boolean(player.isBot) || remoteMicMuted[player.userId] === true
                         }
-                        isSpeaking={speakingUserIds.includes(String(player.userId))}
+                        isSpeaking={!(isSelf ? micMuted : mutedPlayers.has(player.userId)) && speakingUserIds.includes(String(player.userId))}
                         onPress={() => {
                           if (isSelf) {
                             onToggleMic();
-                          } else if (isSelfHost) {
-                            onHostMuteUser(player.userId, mutedPlayers.has(player.userId));
                           } else {
                             onToggleMutePlayer(player.userId);
                           }

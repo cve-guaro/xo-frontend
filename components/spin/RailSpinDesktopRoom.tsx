@@ -28,6 +28,9 @@ export interface RailSpinDesktopRoomProps {
   onLeaveRoom: () => void;
   onOpenInviteModal: () => void;
   mutedPlayers: Set<string>;
+  remoteMicMuted?: Record<string, boolean>;
+  AnimatedUserMicButton?: React.ComponentType<any>;
+  SpeakingWaveAnimation?: React.ComponentType<any>;
   onToggleMic: () => void;
   onToggleMutePlayer: (userId: string) => void;
   micMuted: boolean;
@@ -70,6 +73,9 @@ export const RailSpinDesktopRoom: React.FC<RailSpinDesktopRoomProps> = ({
   onLeaveRoom,
   onOpenInviteModal,
   mutedPlayers,
+  remoteMicMuted = {},
+  AnimatedUserMicButton,
+  SpeakingWaveAnimation,
   onToggleMic,
   onToggleMutePlayer,
   micMuted,
@@ -231,6 +237,7 @@ export const RailSpinDesktopRoom: React.FC<RailSpinDesktopRoomProps> = ({
                 {playersList.map((p, idx) => {
                   const isSelf = isSelfPlayer(p);
                   const isSelfMuted = isSelf ? micMuted : mutedPlayers.has(p.userId);
+                  const isPlayerSpeaking = !isSelfMuted && speakingUserIds.includes(String(p.userId));
                   const pal = getPlayerPalette(p, idx);
                   const avColor = { bg: pal.mid || pal.hex, border: pal.light || pal.accent, text: "#ffffff" };
                   const totalStakeSum = playersList.reduce((s, pl) => s + (Number(pl.stake) || 0), 0) || 80;
@@ -270,10 +277,16 @@ export const RailSpinDesktopRoom: React.FC<RailSpinDesktopRoomProps> = ({
                           </Text>
                         </View>
                         <View>
-                          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
                             <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "800" }}>{p.username}</Text>
                             {isSelf && (
                               <Text style={{ color: "#f59e0b", fontSize: 11, fontWeight: "700" }}>(you)</Text>
+                            )}
+                            {isPlayerSpeaking && (
+                              <View style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "rgba(34, 197, 94, 0.14)", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 }}>
+                                {SpeakingWaveAnimation && <SpeakingWaveAnimation />}
+                                <Text style={{ color: "#22c55e", fontSize: 10, fontWeight: "800" }}>Talking</Text>
+                              </View>
                             )}
                           </View>
                           <Text style={{ color: "#94a3b8", fontSize: 11, fontWeight: "700", marginTop: 2 }}>
@@ -284,19 +297,33 @@ export const RailSpinDesktopRoom: React.FC<RailSpinDesktopRoomProps> = ({
 
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
                         <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "900" }}>{pWinChance}%</Text>
-                        <TouchableOpacity
-                          onPress={() => {
-                            if (isSelf) onToggleMic();
-                            else onToggleMutePlayer(p.userId);
-                          }}
-                          activeOpacity={0.7}
-                        >
-                          <Ionicons
-                            name={isSelfMuted ? "mic-off-outline" : "mic-outline"}
-                            size={16}
-                            color={isSelfMuted ? "#ef4444" : "#22c55e"}
+                        {AnimatedUserMicButton ? (
+                          <AnimatedUserMicButton
+                            isSelf={isSelf}
+                            isBot={Boolean(p.isBot)}
+                            isMutedLocally={isSelfMuted}
+                            isRemoteMuted={isSelf ? micMuted : Boolean(p.isBot) || remoteMicMuted[p.userId] === true}
+                            isSpeaking={isPlayerSpeaking}
+                            onPress={() => {
+                              if (isSelf) onToggleMic();
+                              else onToggleMutePlayer(p.userId);
+                            }}
                           />
-                        </TouchableOpacity>
+                        ) : (
+                          <TouchableOpacity
+                            onPress={() => {
+                              if (isSelf) onToggleMic();
+                              else onToggleMutePlayer(p.userId);
+                            }}
+                            activeOpacity={0.7}
+                          >
+                            <Ionicons
+                              name={isSelfMuted ? "mic-off-outline" : "mic-outline"}
+                              size={16}
+                              color={isSelfMuted ? "#ef4444" : "#22c55e"}
+                            />
+                          </TouchableOpacity>
+                        )}
                       </View>
                     </View>
                   );

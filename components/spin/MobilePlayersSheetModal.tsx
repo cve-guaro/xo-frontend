@@ -162,7 +162,12 @@ export const MobilePlayersSheetModal: React.FC<MobilePlayersSheetModalProps> = (
                         <Text style={{ color: "#ffffff", fontSize: 15, fontWeight: "700" }}>
                           {cleanName}
                         </Text>
-                        {isSpeaking && <SpeakingWaveAnimation />}
+                        {!(isSelf ? micMuted : mutedPlayers.has(p.userId)) && isSpeaking && (
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "rgba(34, 197, 94, 0.14)", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 }}>
+                            <SpeakingWaveAnimation />
+                            <Text style={{ color: "#22c55e", fontSize: 10, fontWeight: "800" }}>Talking</Text>
+                          </View>
+                        )}
                       </View>
                       <Text style={{ color: pal.light, fontSize: 13, fontWeight: "800", marginTop: 2 }}>
                         {p.stake || 10} ETB {(() => {
@@ -180,12 +185,10 @@ export const MobilePlayersSheetModal: React.FC<MobilePlayersSheetModalProps> = (
                     isBot={Boolean(p.isBot)}
                     isMutedLocally={isSelf ? micMuted : mutedPlayers.has(p.userId)}
                     isRemoteMuted={isSelf ? micMuted : (Boolean(p.isBot) || remoteMicMuted[p.userId] === true)}
-                    isSpeaking={isSpeaking}
+                    isSpeaking={!(isSelf ? micMuted : mutedPlayers.has(p.userId)) && isSpeaking}
                     onPress={() => {
                       if (isSelf) {
                         onToggleMic();
-                      } else if (isSelfHost) {
-                        onHostMuteUser(p.userId, mutedPlayers.has(p.userId));
                       } else {
                         toggleMutePlayer(p.userId);
                       }

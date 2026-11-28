@@ -44,6 +44,7 @@ import RailSpinDesktopRoom from "../../../components/spin/RailSpinDesktopRoom";
 import { MobileSpinRoom } from "../../../components/spin/MobileSpinRoom";
 import { MobilePlayersSheetModal } from "../../../components/spin/MobilePlayersSheetModal";
 import { SpinRulesModal } from "../../../components/spin/SpinRulesModal";
+import { SpeakingWaveAnimation, AnimatedUserMicButton } from "../../../components/spin/VoiceMicControls";
 import { voiceService } from "../../../lib/voiceService";
 import { useBackgroundMusic } from "../../../context/BackgroundMusicProvider";
 import {
@@ -161,173 +162,7 @@ function CrownIcon({ size = 36 }: { size?: number }) {
 
 
 
-// ── Animated Voice Equalizer Wave ─────────────────────────────────────────
-function SpeakingWaveAnimation() {
-  const bar1 = useRef(new Animated.Value(4)).current;
-  const bar2 = useRef(new Animated.Value(12)).current;
-  const bar3 = useRef(new Animated.Value(8)).current;
-  const bar4 = useRef(new Animated.Value(16)).current;
-
-  useEffect(() => {
-    const createLoop = (anim: Animated.Value, min: number, max: number, duration: number) => {
-      return Animated.loop(
-        Animated.sequence([
-          Animated.timing(anim, { toValue: max, duration, useNativeDriver: false }),
-          Animated.timing(anim, { toValue: min, duration, useNativeDriver: false }),
-        ])
-      );
-    };
-
-    const anim1 = createLoop(bar1, 4, 18, 250);
-    const anim2 = createLoop(bar2, 3, 16, 320);
-    const anim3 = createLoop(bar3, 5, 20, 280);
-    const anim4 = createLoop(bar4, 4, 14, 350);
-
-    anim1.start();
-    anim2.start();
-    anim3.start();
-    anim4.start();
-
-    return () => {
-      anim1.stop();
-      anim2.stop();
-      anim3.stop();
-      anim4.stop();
-    };
-  }, [bar1, bar2, bar3, bar4]);
-
-  return (
-    <View style={{ flexDirection: "row", alignItems: "flex-end", height: 18, gap: 2, marginLeft: 6 }}>
-      <Animated.View style={{ width: 3, height: bar1, backgroundColor: "#22c55e", borderRadius: 2 }} />
-      <Animated.View style={{ width: 3, height: bar2, backgroundColor: "#22c55e", borderRadius: 2 }} />
-      <Animated.View style={{ width: 3, height: bar3, backgroundColor: "#22c55e", borderRadius: 2 }} />
-      <Animated.View style={{ width: 3, height: bar4, backgroundColor: "#22c55e", borderRadius: 2 }} />
-    </View>
-  );
-}
-
-// ── Animated User Mic Button with Pulsing Green Wave (when speaking/unmuted) ──
-function AnimatedUserMicButton({
-  isSelf,
-  isBot,
-  isMutedLocally,
-  isRemoteMuted,
-  isSpeaking,
-  onPress,
-}: {
-  isSelf?: boolean;
-  isBot?: boolean;
-  isMutedLocally?: boolean;
-  isRemoteMuted?: boolean;
-  isSpeaking?: boolean;
-  onPress: () => void;
-}) {
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-
-  // Pulse only when actively speaking
-  useEffect(() => {
-    let loop: Animated.CompositeAnimation | null = null;
-    if (isSpeaking) {
-      loop = Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, { toValue: 1.18, duration: 380, useNativeDriver: Platform.OS !== "web" }),
-          Animated.timing(pulseAnim, { toValue: 1, duration: 380, useNativeDriver: Platform.OS !== "web" }),
-        ])
-      );
-      loop.start();
-    } else {
-      pulseAnim.setValue(1);
-    }
-    return () => {
-      if (loop) loop.stop();
-    };
-  }, [isSpeaking, pulseAnim]);
-
-  // Determine appearance based on voice state
-  let iconName: "mic" | "mic-off" | "volume-mute" = "mic";
-  let activeColor = "#22c55e";
-  let activeBg = "rgba(34, 197, 94, 0.22)";
-  let activeBorder = "#22c55e";
-
-  if (isBot) {
-    iconName = "mic-off";
-    activeColor = "#475569";
-    activeBg = "rgba(15, 23, 42, 0.4)";
-    activeBorder = "rgba(255, 255, 255, 0.05)";
-  } else if (isSelf) {
-    if (isMutedLocally) {
-      iconName = "mic-off";
-      activeColor = "#64748b";
-      activeBg = "rgba(100, 116, 139, 0.15)";
-      activeBorder = "rgba(100, 116, 139, 0.35)";
-    } else {
-      iconName = "mic";
-      activeColor = isSpeaking ? "#22c55e" : "#3ddc78";
-      activeBg = isSpeaking ? "rgba(34, 197, 94, 0.3)" : "rgba(34, 197, 94, 0.18)";
-      activeBorder = "#22c55e";
-    }
-  } else if (isMutedLocally) {
-    // Local user muted this player for themselves ("volume-mute" icon!)
-    iconName = "volume-mute";
-    activeColor = "#f43f5e";
-    activeBg = "rgba(244, 63, 94, 0.18)";
-    activeBorder = "#f43f5e";
-  } else if (isRemoteMuted) {
-    // Remote player has their mic off
-    iconName = "mic-off";
-    activeColor = "#64748b";
-    activeBg = "rgba(100, 116, 139, 0.12)";
-    activeBorder = "rgba(100, 116, 139, 0.25)";
-  } else if (isSpeaking) {
-    // Actively speaking
-    iconName = "mic";
-    activeColor = "#22c55e";
-    activeBg = "rgba(34, 197, 94, 0.3)";
-    activeBorder = "#22c55e";
-  } else {
-    // In voice channel, unmuted & idle
-    iconName = "mic";
-    activeColor = "#00f0ff";
-    activeBg = "rgba(0, 240, 255, 0.12)";
-    activeBorder = "rgba(0, 240, 255, 0.35)";
-  }
-
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-      style={{
-        width: 44,
-        height: 44,
-        alignItems: "center",
-        justifyContent: "center",
-        opacity: isBot ? 0.35 : 1,
-      }}
-      activeOpacity={0.8}
-    >
-      <Animated.View
-        pointerEvents="none"
-        style={{
-          width: 38,
-          height: 38,
-          borderRadius: 19,
-          borderWidth: 1.5,
-          borderColor: activeBorder,
-          backgroundColor: activeBg,
-          alignItems: "center",
-          justifyContent: "center",
-          transform: [{ scale: pulseAnim }],
-        }}
-      >
-        <Ionicons
-          name={iconName}
-          size={18}
-          color={activeColor}
-        />
-      </Animated.View>
-    </TouchableOpacity>
-  );
-}
+// VoiceMicControls (SpeakingWaveAnimation, AnimatedUserMicButton) imported from ../../../components/spin/VoiceMicControls
 
 // ── Production Result Modal: Receipt-Style Winner & Loser Card (Image 1) ──
 function SpinResultModal({
@@ -897,16 +732,42 @@ export default function SpinGameScreen() {
   const [preJoinRoom, setPreJoinRoom] = useState<any | null>(null);
   const [mutedPlayers, setMutedPlayers] = useState<Set<string>>(new Set());
   const [masterSpeakerMuted, setMasterSpeakerMuted] = useState(false);
-  const [speakingUserIds, setSpeakingUserIds] = useState<string[]>([]);
+  const [speakingAgoraUids, setSpeakingAgoraUids] = useState<string[]>([]);
   const [remoteMicMuted, setRemoteMicMuted] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const unsub = voiceService.onSpeaking((speakers) => {
-      setSpeakingUserIds(speakers);
+      setSpeakingAgoraUids(speakers);
     });
     return () => unsub();
   }, []);
   const [speakingUsers, setSpeakingUsers] = useState<Record<string, number>>({});
+
+  const speakingUserIds = React.useMemo(() => {
+    const now = Date.now();
+    const activeSet = new Set<string>();
+    const agoraSet = new Set(speakingAgoraUids.map(String));
+
+    // Legacy socket audio fallback
+    Object.entries(speakingUsers).forEach(([uid, ts]) => {
+      if (now - ts < 1000) activeSet.add(String(uid));
+    });
+
+    // Map Agora numeric UIDs back to player userIds
+    const candidates = new Set<string>();
+    if (user?.id) candidates.add(String(user.id));
+    (round?.players || []).forEach((p: any) => {
+      if (p?.userId) candidates.add(String(p.userId));
+    });
+    candidates.forEach((uid) => {
+      const numericUid = String(voiceService.stringToUid(uid));
+      if (agoraSet.has(uid) || agoraSet.has(numericUid)) {
+        activeSet.add(uid);
+      }
+    });
+
+    return Array.from(activeSet);
+  }, [speakingAgoraUids, speakingUsers, round?.players, user?.id]);
 
   const mutedPlayersRef = useRef<Set<string>>(new Set());
   const masterSpeakerMutedRef = useRef(false);
@@ -2171,6 +2032,7 @@ export default function SpinGameScreen() {
               mutedPlayers={mutedPlayers}
               remoteMicMuted={remoteMicMuted}
               AnimatedUserMicButton={AnimatedUserMicButton}
+              SpeakingWaveAnimation={SpeakingWaveAnimation}
               micMuted={micMuted}
               masterSpeakerMuted={masterSpeakerMuted}
               onToggleMic={handleToggleMic}
@@ -2206,6 +2068,9 @@ export default function SpinGameScreen() {
               onLeaveRoom={handleLeaveRoom}
               onOpenInviteModal={() => setInviteModalVisible(true)}
               mutedPlayers={mutedPlayers}
+              remoteMicMuted={remoteMicMuted}
+              AnimatedUserMicButton={AnimatedUserMicButton}
+              SpeakingWaveAnimation={SpeakingWaveAnimation}
               onToggleMic={handleToggleMic}
               onToggleMutePlayer={toggleMutePlayer}
               micMuted={micMuted}

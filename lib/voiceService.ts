@@ -60,6 +60,8 @@ class VoiceService {
   private maxJoinRetries = 2;
   private voiceDisabledOnServer = false;
   private speakingListeners: Array<(speakers: string[]) => void> = [];
+  private locallyMutedUids = new Set<string>();
+  private allRemoteMuted = false;
 
   onSpeaking(callback: (speakers: string[]) => void) {
     this.speakingListeners.push(callback);
@@ -120,7 +122,9 @@ class VoiceService {
 
         this.rtcClient.enableAudioVolumeIndicator();
         this.rtcClient.on("volume-indicator", (volumes: any[]) => {
-          const activeSpeakers = volumes.filter(v => v.level > 5).map(v => String(v.uid));
+          const activeSpeakers = volumes
+            .filter(v => v.level > 5)
+            .map(v => (v.uid === 0 || v.uid === "0") && this.currentUid ? String(this.currentUid) : String(v.uid));
           this.speakingListeners.forEach(fn => fn(activeSpeakers));
         });
 
@@ -130,6 +134,11 @@ class VoiceService {
             await this.rtcClient.subscribe(user, mediaType);
             if (mediaType === "audio") {
               user.audioTrack?.play();
+              const uidStr = String(user.uid);
+              const numUidStr = String(this.stringToUid(uidStr));
+              if (this.allRemoteMuted || this.locallyMutedUids.has(uidStr) || this.locallyMutedUids.has(numUidStr)) {
+                user.audioTrack?.setVolume(0);
+              }
               console.log(`[VoiceService] Playing remote audio from UID ${user.uid}`);
             }
           } catch (err) {
@@ -266,6 +275,8 @@ class VoiceService {
   }
 
   async leaveChannel(): Promise<boolean> {
+    this.locallyMutedUids.clear();
+    this.allRemoteMuted = false;
     if (!this.isJoined) return true;
 
     if (Platform.OS === "web" && this.rtcClient) {
@@ -338,6 +349,13 @@ class VoiceService {
 
   async muteRemoteUser(uid: number | string, muted: boolean): Promise<void> {
     const numUid = typeof uid === "number" ? uid : this.stringToUid(String(uid));
+    if (muted) {
+      this.locallyMutedUids.add(String(uid));
+      this.locallyMutedUids.add(String(numUid));
+    } else {
+      this.locallyMutedUids.delete(String(uid));
+      this.locallyMutedUids.delete(String(numUid));
+    }
 
     if (Platform.OS === "web" && this.rtcClient) {
       try {
@@ -367,6 +385,7 @@ class VoiceService {
   }
 
   async muteAllRemoteUsers(muted: boolean): Promise<void> {
+    this.allRemoteMuted = muted;
     if (Platform.OS === "web" && this.rtcClient) {
       try {
         const remoteUsers = this.rtcClient.remoteUsers || [];
