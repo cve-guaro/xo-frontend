@@ -24,7 +24,7 @@ export type SocketState = {
 export type SocketActions = {
   ensureConnected: (token?: string) => Promise<boolean>;
   send: (event: string, payload?: any) => void;
-  emitAck: (event: string, payload: any, timeoutMs?: number) => Promise<{ ok: boolean; data?: any; error?: string }>;
+  emitAck: (event: string, payload: any, timeoutMs?: number) => Promise<{ ok: boolean; data?: any; error?: string; message?: string }>;
   onMessage: (cb: (msg: Msg) => void) => Unsub;
   findMatch: (betMin: number, betMax?: number) => Promise<{ ok: boolean; data?: any; error?: string }>;
   cancelFind: () => Promise<{ ok: boolean }>;
@@ -85,7 +85,16 @@ const SERVER_EVENTS = [
   "spin:error",
   "spin:voice_chunk",
   "spin:player_muted",
+  "spin:player_mic_state",
   "spin:invite_received",
+  "spin:invite_declined",
+  "spin:invite_accepted",
+  "spin:friend_request_received",
+  "spin:friend_request_accepted",
+  "spin:friend_request_declined",
+  "spin:rematch_available",
+  "spin:rematch_status",
+  "spin:rematch_started",
   // RPS game events
   "rps:searching",
   "rps:match_found",
@@ -279,7 +288,7 @@ export function SocketProvider({
       const s = sockRef.current;
       if (!s || !s.connected) return { ok: false, error: "DISCONNECTED" as const };
 
-      return new Promise<{ ok: boolean; data?: any; error?: string }>((resolve) => {
+      return new Promise<{ ok: boolean; data?: any; error?: string; message?: string }>((resolve) => {
         let done = false;
 
         const timer = setTimeout(() => {
@@ -297,7 +306,7 @@ export function SocketProvider({
             if (resp && typeof resp === "object" && resp.ok) {
               resolve({ ok: true, data: resp.data });
             } else {
-              resolve({ ok: false, error: resp?.error || "NACK" });
+              resolve({ ok: false, error: resp?.error || "NACK", message: resp?.message });
             }
           });
         } catch (err: any) {
