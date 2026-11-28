@@ -46,6 +46,7 @@ import { SparklesIcon } from "../components/SvgIcons";
 import { ToastProvider } from "../context/ToastContext";
 import GlobalToastContainer from "../components/GlobalToast";
 import { PwaInstallBanner } from "../components/PwaInstallBanner";
+import { AnimatedXoetLogo } from "../components/ui/AnimatedXoetLogo";
 import { FeatureProvider } from "../context/FeatureContext";
 import { FeatureGate } from "../components/FeatureGate";
 import { SmoothScroll } from "../components/SmoothScroll";
@@ -184,12 +185,14 @@ function AuthGate({ children }: PropsWithChildren) {
   return <>{children}</>;
 }
 
-// Capture PWA install prompt globally to prevent timing issues
+// Capture PWA install prompt on mobile viewports where PwaInstallBanner is rendered
 if (Platform.OS === 'web' && typeof window !== 'undefined') {
   window.addEventListener('beforeinstallprompt', (e: any) => {
-    e.preventDefault();
     (window as any).deferredPrompt = e;
-    window.dispatchEvent(new CustomEvent('pwa-prompt-ready'));
+    if (window.innerWidth < 768) {
+      e.preventDefault();
+      window.dispatchEvent(new CustomEvent('pwa-prompt-ready'));
+    }
   });
 }
 
@@ -263,95 +266,23 @@ export default RootLayout;
 /* ----------------------------- Silky Boot Splash ---------------------------- */
 
 const BootSplash = memo(function BootSplash({ status }: { status: string }) {
-  const { width } = Dimensions.get("window");
-
-  // super light animations (native driver)
   const fade = useRef(new Animated.Value(0)).current;
-  const floatY = useRef(new Animated.Value(10)).current;
-  const pulse = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const intro = Animated.parallel([
-      Animated.timing(fade, { toValue: 1, duration: 260, useNativeDriver: Platform.OS !== 'web' }),
-      Animated.spring(floatY, { toValue: 0, speed: 16, bounciness: 6, useNativeDriver: Platform.OS !== 'web' }),
-    ]);
-
-    const looping = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, { toValue: 1, duration: 900, useNativeDriver: Platform.OS !== 'web' }),
-        Animated.timing(pulse, { toValue: 0, duration: 900, useNativeDriver: Platform.OS !== 'web' }),
-      ])
-    );
-
-    intro.start(() => looping.start());
-
+    Animated.timing(fade, {
+      toValue: 1,
+      duration: 220,
+      useNativeDriver: Platform.OS !== 'web',
+    }).start();
     return () => {
       fade.stopAnimation();
-      floatY.stopAnimation();
-      pulse.stopAnimation();
     };
-  }, [fade, floatY, pulse]);
-
-  const ringScale = useMemo(
-    () =>
-      pulse.interpolate({
-        inputRange: [0, 1],
-        outputRange: [0.98, 1.03],
-      }),
-    [pulse]
-  );
-
-  const ringOpacity = useMemo(
-    () =>
-      pulse.interpolate({
-        inputRange: [0, 1],
-        outputRange: [0.35, 0.6],
-      }),
-    [pulse]
-  );
+  }, [fade]);
 
   return (
     <View style={styles.bootRoot}>
-      <Animated.View
-        style={{
-          opacity: fade,
-          transform: [{ scale: ringScale }],
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        {/* Soft breathing glow behind the logo */}
-        <Animated.View
-          style={{
-            position: "absolute",
-            width: 140,
-            height: 140,
-            borderRadius: 70,
-            backgroundColor: "#00daf3",
-            opacity: pulse.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0.12, 0.3],
-            }),
-            transform: [
-              {
-                scale: pulse.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [1, 1.25],
-                }),
-              },
-            ],
-          }}
-        />
-
-        {/* Clean rounded logo frame */}
-        <View style={styles.logoFrame}>
-          <Image 
-            source={require("../assets/images/icon.jpg")} 
-            style={styles.logo} 
-            // @ts-ignore
-            {...(Platform.OS === 'web' ? { fetchPriority: "high" } : {})}
-          />
-        </View>
+      <Animated.View style={{ opacity: fade, alignItems: "center", justifyContent: "center" }}>
+        <AnimatedXoetLogo maxWidth={240} />
       </Animated.View>
     </View>
   );
