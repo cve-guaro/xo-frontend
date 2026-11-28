@@ -168,7 +168,7 @@ export default function Landing() {
   }, []);
   const isTablet = Platform.OS === "web" && width >= BREAKPOINTS.TABLET && width < BREAKPOINTS.DESKTOP;
   const isLargeScreen = isDesktop || isTablet;
-  const { ensureConnected, findMatch, cancelFind, isSearching, onMessage, send } = useSocket();
+  const { ensureConnected, findMatch, cancelFind, isSearching, onMessage, send, emitAck } = useSocket();
   const { user, token, booting, refreshProfile, language, switchLanguage, t, showAlert, fixUrl, activeGameMode, setActiveGameMode } = useAuth();
   const { isPlaying: bgMusicPlaying, toggleMusic } = useBackgroundMusic();
 
@@ -865,11 +865,26 @@ export default function Landing() {
 
   const handleStartRpsMatchmaking = useCallback(async (stake: number) => {
     if (!token) return;
-    await ensureConnected(token);
     setRpsStake(stake);
     setSearchingRps(true);
-    send('rps:find_match', { token, stakeAmount: stake });
-  }, [send, token, ensureConnected]);
+    const connected = await ensureConnected(token);
+    if (!connected) {
+      setSearchingRps(false);
+      toast.error('Connection failed', 'Could not connect to game server. Please try again.');
+      return;
+    }
+    const resp = await emitAck('rps:find_match', { token, stakeAmount: stake });
+    if (!resp?.ok) {
+      setSearchingRps(false);
+      const code = resp?.error || '';
+      const msg = code === 'INSUFFICIENT_BALANCE'
+        ? `You need at least ${stake} ETB to join.`
+        : code === 'ALREADY_IN_GAME'
+        ? 'You are already in an active game. Finish it first.'
+        : (resp?.message || code || 'Could not start matchmaking.');
+      toast.error('Matchmaking failed', msg);
+    }
+  }, [emitAck, token, ensureConnected, toast]);
 
   const handleCancelRpsSearch = useCallback(() => {
     send('rps:cancel_search', { token });
@@ -880,27 +895,17 @@ export default function Landing() {
     const off = onMessage((msg: any) => {
       if (msg.type === 'rps:match_found') {
         setSearchingRps(false);
-        router.push({
-          pathname: '/(authed)/games/rps',
-          params: {
-            roomId: msg.payload?.roomId,
-            stakeAmount: String(msg.payload?.stakeAmount || 10),
-            prizeAmount: String(msg.payload?.prizeAmount || 16),
-            youAre: msg.payload?.youAre || 'p1',
-            opponentUsername: msg.payload?.opponentUsername || 'Opponent',
-            opponentId: msg.payload?.opponentId || '',
-            feePercent: String(msg.payload?.feePercent || 20),
-            bestOf: String(msg.payload?.bestOf || 3),
-          },
-        } as any);
       } else if (msg.type === 'rps:match_cancelled' || msg.type === 'rps:error') {
         setSearchingRps(false);
+        if (msg.type === 'rps:error' && msg.payload?.message) {
+          toast.error('Matchmaking error', msg.payload.message);
+        }
       }
     });
     return () => {
       try { off(); } catch {}
     };
-  }, [onMessage, router]);
+  }, [onMessage, toast]);
 
   const selectedRoom = useMemo(() => ROOMS.find((r) => r.id === selectedRoomId) || ROOMS[0], [selectedRoomId]);
 
@@ -1579,7 +1584,7 @@ export default function Landing() {
         onConfirm={(amount) => {
           router.push({
             pathname: "/(authed)/home/spin",
-            params: { mode: "RAIL", stake: String(amount) },
+            params: { mode: "RAIL", stake: String(amount), joinNonce: String(Date.now()) },
           } as any);
         }}
       />

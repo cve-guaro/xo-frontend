@@ -450,8 +450,23 @@ export default function RPSScreen() {
     }
 
     setPhase('searching');
-    await ensureConnected(token || undefined);
-    send('rps:find_match', { stakeAmount: stakeToCheck, token });
+    const connected = await ensureConnected(token || undefined);
+    if (!connected) {
+      setPhase('idle');
+      toast.error('Connection failed', 'Could not connect to game server.');
+      return;
+    }
+    const resp = await emitAck('rps:find_match', { stakeAmount: stakeToCheck, token });
+    if (!resp?.ok) {
+      setPhase('idle');
+      const code = resp?.error || '';
+      const msg = code === 'INSUFFICIENT_BALANCE'
+        ? `You need at least ${stakeToCheck} ETB to join.`
+        : code === 'ALREADY_IN_GAME'
+        ? 'Finish your active game first.'
+        : (resp?.message || code || 'Could not start matchmaking.');
+      toast.error('Matchmaking failed', msg);
+    }
   };
 
   const handleCancelSearch = () => {
@@ -556,9 +571,7 @@ export default function RPSScreen() {
           onClose={() => safeGoBack()}
           onConfirm={(stake: number) => {
             setSelectedTier(stake);
-            setPhase('searching');
-            ensureConnected(token || undefined);
-            send('rps:find_match', { stakeAmount: stake, token });
+            void handleFindMatch(stake);
           }}
           onOpenFriendMatch={(stake?: number) => {
             if (typeof stake === 'number') setSelectedTier(stake);
