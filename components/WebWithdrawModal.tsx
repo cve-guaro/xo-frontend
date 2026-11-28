@@ -1,6 +1,6 @@
 import { motion } from '../theme/tokens';
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, TextInput, StyleSheet, Animated, Pressable, ActivityIndicator, Platform, ScrollView, Image, Dimensions, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, StyleSheet, Animated, Pressable, ActivityIndicator, Platform, ScrollView, Image, useWindowDimensions, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { API_URL, MIN_PAYOUT } from '../config';
@@ -20,7 +20,8 @@ function useModalAnim(visible: boolean) {
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(240)).current;
   const scale = useRef(new Animated.Value(0.96)).current;
-  const isDesktop = Platform.OS === 'web' && Dimensions.get('window').width >= 768;
+  const { width } = useWindowDimensions();
+  const isDesktop = Platform.OS === 'web' && width >= 768;
 
   useEffect(() => {
     if (visible) {
@@ -181,8 +182,19 @@ export const WebWithdrawModal = ({ visible, onClose, user, token, onSuccess, lan
         <Animated.View style={[styles.backdrop, { opacity }]} />
       </Pressable>
       
-      <View style={styles.container}>
-        <Animated.View style={[styles.modal, { opacity, transform: isDesktop ? [{ scale }] : [{ translateY }], padding: 20 }]}>
+      <View style={[
+        styles.container,
+        isDesktop ? { justifyContent: 'center', paddingHorizontal: 16, paddingVertical: 24 } : { justifyContent: 'flex-end', paddingHorizontal: 0, paddingVertical: 0 },
+      ]}>
+        <Animated.View style={[
+          styles.modal,
+          isDesktop
+            ? { maxWidth: 460, borderRadius: 24, paddingBottom: 24, paddingTop: 22 }
+            : { maxWidth: '100%', borderRadius: 0, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingBottom: Platform.OS === 'ios' ? 44 : 36, paddingTop: 12 },
+          { opacity, transform: isDesktop ? [{ scale }] : [{ translateY }], padding: 20 },
+        ]}>
+          {!isDesktop && <View style={styles.dragHandle} />}
+
           <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
             <Ionicons name="close" size={20} color="rgba(255,255,255,0.5)" />
           </TouchableOpacity>
@@ -377,23 +389,16 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: Platform.OS === 'web' && Dimensions.get('window').width >= 768 ? 'center' : 'flex-end',
-    paddingHorizontal: Platform.OS === 'web' && Dimensions.get('window').width >= 768 ? 16 : 0,
-    paddingVertical: Platform.OS === 'web' && Dimensions.get('window').width >= 768 ? 24 : 0,
+    justifyContent: 'flex-end',
     paddingBottom: 0,
   },
   modal: {
     width: '100%',
-    maxWidth: Platform.OS === 'web' && Dimensions.get('window').width >= 768 ? 440 : '100%',
     backgroundColor: '#0c0f1d',
-    borderRadius: Platform.OS === 'web' && Dimensions.get('window').width >= 768 ? 24 : 0,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    borderBottomLeftRadius: Platform.OS === 'web' && Dimensions.get('window').width >= 768 ? 24 : 0,
-    borderBottomRightRadius: Platform.OS === 'web' && Dimensions.get('window').width >= 768 ? 24 : 0,
     padding: 24,
     paddingTop: 12,
-    paddingBottom: Platform.OS === 'ios' ? 44 : (Platform.OS === 'web' && Dimensions.get('window').width < 768 ? 36 : 28),
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
     alignSelf: 'center',
