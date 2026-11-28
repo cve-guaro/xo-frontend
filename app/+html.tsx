@@ -84,28 +84,23 @@ export default function HTML({ children }: { children: React.ReactNode }) {
           }}
         />
 
-        {/* Guard against aria-hidden retained focus warning in Chromium */}
+        {/* Guard against aria-hidden retained focus warning in Chromium (synchronous pre-attribute blur + observer fallback) */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              if (typeof MutationObserver !== 'undefined') {
-                const observer = new MutationObserver(function(mutations) {
-                  for (let i = 0; i < mutations.length; i++) {
-                    try {
-                      const m = mutations[i];
-                      if (m.type === 'attributes' && m.attributeName === 'aria-hidden') {
-                        const target = m.target;
-                        if (target && target.nodeType === 1 && target.isConnected && target.getAttribute('aria-hidden') === 'true') {
-                          const active = document.activeElement;
-                          if (active && active.isConnected && target.contains(active) && typeof active.blur === 'function') {
-                            active.blur();
-                          }
-                        }
+              if (typeof Element !== 'undefined' && Element.prototype && Element.prototype.setAttribute) {
+                var __xoetOrigSetAttr = Element.prototype.setAttribute;
+                Element.prototype.setAttribute = function(name, value) {
+                  try {
+                    if (name === 'aria-hidden' && value === 'true') {
+                      var active = document.activeElement;
+                      if (active && active !== document.body && this.contains(active) && typeof active.blur === 'function') {
+                        active.blur();
                       }
-                    } catch (_) {}
-                  }
-                });
-                observer.observe(document.documentElement, { attributes: true, subtree: true, attributeFilter: ['aria-hidden'] });
+                    }
+                  } catch (_) {}
+                  return __xoetOrigSetAttr.apply(this, arguments);
+                };
               }
             `,
           }}

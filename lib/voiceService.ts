@@ -62,6 +62,7 @@ class VoiceService {
   private speakingListeners: Array<(speakers: string[]) => void> = [];
   private locallyMutedUids = new Set<string>();
   private allRemoteMuted = false;
+  private joinAttemptId = 0;
 
   onSpeaking(callback: (speakers: string[]) => void) {
     this.speakingListeners.push(callback);
@@ -183,6 +184,7 @@ class VoiceService {
   async joinChannel(channelId: string, uid: number | string, customToken?: string, authToken?: string): Promise<boolean> {
     if (this.voiceDisabledOnServer) return false;
 
+    const attemptId = ++this.joinAttemptId;
     const channelName = channelId.startsWith("spin_room_") ? channelId : `spin_room_${channelId}`;
     this.currentChannel = channelName;
     this.currentUid = uid;
@@ -191,12 +193,13 @@ class VoiceService {
     let token = customToken;
     if (!token) {
       const tokenRes = await this.fetchToken(channelId, uid, authToken);
+      if (attemptId !== this.joinAttemptId) return false;
       if (tokenRes?.token) {
         token = tokenRes.token;
       }
     }
 
-    if (!token) return false;
+    if (!token || attemptId !== this.joinAttemptId) return false;
 
     if (Platform.OS === "web" && this.rtcClient) {
       try {
@@ -208,6 +211,11 @@ class VoiceService {
         }
 
         await this.rtcClient.join(this.appId, channelName, token || null, uid);
+        if (attemptId !== this.joinAttemptId) {
+          try { await this.rtcClient.leave(); } catch (_) {}
+          this.isJoined = false;
+          return false;
+        }
         this.isJoined = true;
         this.joinRetryCount = 0;
         console.log(`[VoiceService] Web client joined channel "${channelName}" as UID ${uid}`);
@@ -216,11 +224,17 @@ class VoiceService {
         try {
           if (!this.localAudioTrack) {
             const rtcClientSdk = await getAgoraRTC();
+            if (attemptId !== this.joinAttemptId) return false;
             if (rtcClientSdk) {
               this.localAudioTrack = await rtcClientSdk.createMicrophoneAudioTrack();
             }
           }
-          if (this.isJoined && this.rtcClient) {
+          if (attemptId !== this.joinAttemptId) {
+            try { this.localAudioTrack?.stop(); this.localAudioTrack?.close(); } catch (_) {}
+            this.localAudioTrack = null;
+            return false;
+          }
+          if (this.isJoined && this.rtcClient && this.localAudioTrack) {
             await this.rtcClient.publish([this.localAudioTrack]);
             this.localAudioTrack.setEnabled(!this.muted);
           }
@@ -232,7 +246,12 @@ class VoiceService {
 
         return true;
       } catch (err: any) {
-        if (err?.code === "INVALID_OPERATION" || String(err?.message || "").includes("connecting/connected")) {
+        const msg = String(err?.message || "");
+        if (attemptId !== this.joinAttemptId || err?.code === "OPERATION_ABORTED" || msg.includes("OPERATION_ABORTED") || msg.includes("cancel token")) {
+          this.isJoined = false;
+          return false;
+        }
+        if (err?.code === "INVALID_OPERATION" || msg.includes("connecting/connected")) {
           console.log("[VoiceService] Client already connecting/connected, treating as success.");
           this.isJoined = true;
           return true;
@@ -246,6 +265,7 @@ class VoiceService {
           this.joinRetryCount++;
           console.log(`[VoiceService] Retrying join (attempt ${this.joinRetryCount}/${this.maxJoinRetries})...`);
           await new Promise(r => setTimeout(r, 1500));
+          if (attemptId !== this.joinAttemptId) return false;
           try {
             return await this.joinChannel(channelId, uid, token || undefined);
           } catch {
@@ -275,9 +295,11 @@ class VoiceService {
   }
 
   async leaveChannel(): Promise<boolean> {
+    this.joinAttemptId++;
     this.locallyMutedUids.clear();
     this.allRemoteMuted = false;
-    if (!this.isJoined) return true;
+    const isConnectingWeb = Platform.OS === "web" && this.rtcClient && (this.rtcClient.connectionState === "CONNECTING" || this.rtcClient.connectionState === "CONNECTED");
+    if (!this.isJoined && !isConnectingWeb) return true;
 
     if (Platform.OS === "web" && this.rtcClient) {
       try {
