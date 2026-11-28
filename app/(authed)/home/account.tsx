@@ -930,11 +930,11 @@ export default function ProfileScreen() {
                   width: 36,
                   height: 36,
                   borderRadius: 18,
-                  backgroundColor: "rgba(0, 218, 243, 0.12)",
+                  backgroundColor: "rgba(148, 163, 184, 0.10)",
                   alignItems: "center",
                   justifyContent: "center",
                 }}>
-                  <Ionicons name="game-controller-outline" size={19} color="#00daf3" />
+                  <Ionicons name="game-controller-outline" size={19} color="#94a3b8" />
                 </View>
                 <Text style={{ color: "#ffffff", fontSize: 14.5, fontWeight: "700" }}>
                   {isEN ? "Match & Game History" : "የጨዋታ ታሪክ"}
@@ -966,11 +966,11 @@ export default function ProfileScreen() {
                   width: 36,
                   height: 36,
                   borderRadius: 18,
-                  backgroundColor: "rgba(16, 185, 129, 0.12)",
+                  backgroundColor: "rgba(148, 163, 184, 0.10)",
                   alignItems: "center",
                   justifyContent: "center",
                 }}>
-                  <Ionicons name="receipt-outline" size={19} color="#10b981" />
+                  <Ionicons name="receipt-outline" size={19} color="#94a3b8" />
                 </View>
                 <Text style={{ color: "#ffffff", fontSize: 14.5, fontWeight: "700" }}>
                   {isEN ? "Transactions & Receipts" : "የግብይት እና ደረሰኝ ዝርዝር"}
@@ -1002,11 +1002,11 @@ export default function ProfileScreen() {
                   width: 36,
                   height: 36,
                   borderRadius: 18,
-                  backgroundColor: "rgba(16, 185, 129, 0.12)",
+                  backgroundColor: "rgba(148, 163, 184, 0.10)",
                   alignItems: "center",
                   justifyContent: "center",
                 }}>
-                  <Ionicons name="add-circle-outline" size={19} color="#10b981" />
+                  <Ionicons name="add-circle-outline" size={19} color="#94a3b8" />
                 </View>
                 <Text style={{ color: "#ffffff", fontSize: 14.5, fontWeight: "700" }}>
                   {isEN ? "Deposit Funds (Chapa / Telebirr)" : "ገንዘብ አስገባ (ቻፓ / ቴሌብር)"}
@@ -1038,11 +1038,11 @@ export default function ProfileScreen() {
                   width: 36,
                   height: 36,
                   borderRadius: 18,
-                  backgroundColor: "rgba(255, 42, 95, 0.12)",
+                  backgroundColor: "rgba(148, 163, 184, 0.10)",
                   alignItems: "center",
                   justifyContent: "center",
                 }}>
-                  <Ionicons name="arrow-up-circle-outline" size={19} color="#ff2a5f" />
+                  <Ionicons name="arrow-up-circle-outline" size={19} color="#94a3b8" />
                 </View>
                 <Text style={{ color: "#ffffff", fontSize: 14.5, fontWeight: "700" }}>
                   {isEN ? "Withdraw Earnings" : "ያሸነፉትን ገንዘብ አውጣ"}
@@ -1072,11 +1072,11 @@ export default function ProfileScreen() {
                   width: 36,
                   height: 36,
                   borderRadius: 18,
-                  backgroundColor: "rgba(245, 182, 66, 0.12)",
+                  backgroundColor: "rgba(148, 163, 184, 0.10)",
                   alignItems: "center",
                   justifyContent: "center",
                 }}>
-                  <Ionicons name="gift-outline" size={19} color="#f5b642" />
+                  <Ionicons name="gift-outline" size={19} color="#94a3b8" />
                 </View>
                 <Text style={{ color: "#ffffff", fontSize: 14.5, fontWeight: "700" }}>
                   {isEN ? "Invite Friends & Earn Rewards" : "ጓደኞችን ጋብዝ እና ቦነስ አግኝ"}
@@ -1131,17 +1131,17 @@ export default function ProfileScreen() {
                   width: 36,
                   height: 36,
                   borderRadius: 18,
-                  backgroundColor: "rgba(0, 218, 243, 0.12)",
+                  backgroundColor: "rgba(148, 163, 184, 0.10)",
                   alignItems: "center",
                   justifyContent: "center",
                 }}>
-                  <Ionicons name={isPlaying ? "volume-high-outline" : "volume-mute-outline"} size={19} color="#00daf3" />
+                  <Ionicons name={isPlaying ? "volume-high-outline" : "volume-mute-outline"} size={19} color="#94a3b8" />
                 </View>
                 <Text style={{ color: "#ffffff", fontSize: 14.5, fontWeight: "700" }}>
                   {isEN ? (isPlaying ? "Sound Effects (Enabled)" : "Sound Effects (Muted)") : (isPlaying ? "ድምጽ (በርቷል)" : "ድምጽ (ጠፍቷል)")}
                 </Text>
               </View>
-              <Text style={{ color: isPlaying ? "#00daf3" : "#64748b", fontSize: 13, fontWeight: "800" }}>
+              <Text style={{ color: isPlaying ? "#cbd5e1" : "#64748b", fontSize: 13, fontWeight: "800" }}>
                 {isPlaying ? "ON" : "OFF"}
               </Text>
             </TouchableOpacity>
@@ -1169,11 +1169,11 @@ export default function ProfileScreen() {
                   width: 36,
                   height: 36,
                   borderRadius: 18,
-                  backgroundColor: "rgba(255, 255, 255, 0.06)",
+                  backgroundColor: "rgba(148, 163, 184, 0.10)",
                   alignItems: "center",
                   justifyContent: "center",
                 }}>
-                  <Ionicons name="lock-closed-outline" size={19} color="#ffffff" />
+                  <Ionicons name="lock-closed-outline" size={19} color="#94a3b8" />
                 </View>
                 <Text style={{ color: "#ffffff", fontSize: 14.5, fontWeight: "700" }}>
                   {isEN ? "Edit Profile & Security PIN" : "መገለጫ እና የይለፍ ቃል ቀይር"}
@@ -1205,11 +1205,11 @@ export default function ProfileScreen() {
                   width: 36,
                   height: 36,
                   borderRadius: 18,
-                  backgroundColor: "rgba(0, 191, 255, 0.12)",
+                  backgroundColor: "rgba(148, 163, 184, 0.10)",
                   alignItems: "center",
                   justifyContent: "center",
                 }}>
-                  <Ionicons name="download-outline" size={19} color="#00BFFF" />
+                  <Ionicons name="download-outline" size={19} color="#94a3b8" />
                 </View>
                 <Text style={{ color: "#ffffff", fontSize: 14.5, fontWeight: "700" }}>
                   {isEN ? "Install XO App (PWA)" : "የ XO መተግበሪያ ጫን"}
@@ -1263,11 +1263,11 @@ export default function ProfileScreen() {
                   width: 36,
                   height: 36,
                   borderRadius: 18,
-                  backgroundColor: "rgba(2, 132, 199, 0.15)",
+                  backgroundColor: "rgba(148, 163, 184, 0.10)",
                   alignItems: "center",
                   justifyContent: "center",
                 }}>
-                  <Ionicons name="paper-plane" size={18} color="#00daf3" />
+                  <Ionicons name="paper-plane-outline" size={18} color="#94a3b8" />
                 </View>
                 <Text style={{ color: "#ffffff", fontSize: 14.5, fontWeight: "700" }}>
                   {isEN ? "Official Telegram Support" : "የቴሌግራም የቀጥታ ድጋፍ"}
@@ -1300,11 +1300,11 @@ export default function ProfileScreen() {
                   width: 36,
                   height: 36,
                   borderRadius: 18,
-                  backgroundColor: "rgba(16, 185, 129, 0.12)",
+                  backgroundColor: "rgba(148, 163, 184, 0.10)",
                   alignItems: "center",
                   justifyContent: "center",
                 }}>
-                  <Ionicons name="shield-checkmark-outline" size={19} color="#10b981" />
+                  <Ionicons name="shield-checkmark-outline" size={19} color="#94a3b8" />
                 </View>
                 <Text style={{ color: "#ffffff", fontSize: 14.5, fontWeight: "700" }}>
                   {isEN ? "Game Rules & Provable Fairness" : "የጨዋታ ህጎች እና ፍትሃዊነት"}

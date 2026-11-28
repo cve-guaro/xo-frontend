@@ -741,8 +741,8 @@ export default function AuthedLayout() {
                   flexDirection: 'column',
                 }}>
                   <View style={{ flex: 1 }}>
-                    <SidebarItem isDesktop={isDesktop} collapsed={!isDesktop} icon="home-outline" label={isEN ? "Home" : "መነሻ"} isActive={pathname.includes('/home/gameplay')} onPress={() => navigateTo('/(authed)/home/gameplay')} />
-                    <SidebarItem isDesktop={isDesktop} collapsed={!isDesktop} icon="receipt-outline" label={isEN ? "History" : "ታሪክ"} isActive={pathname.includes('/games')} onPress={() => navigateTo('/(authed)/games')} />
+                    <SidebarItem isDesktop={isDesktop} collapsed={!isDesktop} icon="game-controller-outline" label={isEN ? "Home" : "መነሻ"} isActive={pathname.includes('/home/gameplay')} onPress={() => navigateTo('/(authed)/home/gameplay')} />
+                    <SidebarItem isDesktop={isDesktop} collapsed={!isDesktop} icon="time-outline" label={isEN ? "History" : "ታሪክ"} isActive={pathname.includes('/games') || pathname.includes('/home/history')} onPress={() => navigateTo('/(authed)/games')} />
                     <SidebarItem isDesktop={isDesktop} collapsed={!isDesktop} icon="trophy-outline" label={isEN ? "Leaderboard" : "ደረጃዎች"} isActive={pathname.includes('/home/leaderboard')} onPress={() => navigateTo('/(authed)/home/leaderboard')} />
                     <SidebarItem isDesktop={isDesktop} collapsed={!isDesktop} icon="person-outline" label={isEN ? "Profile" : "መገለጫ"} isActive={pathname.includes('/home/account')} onPress={() => navigateTo('/(authed)/home/account')} />
 
@@ -786,8 +786,8 @@ export default function AuthedLayout() {
                 <View style={{ height: 60 }} />
 
                 <View style={{ flex: 1 }}>
-                  <SidebarItem isDesktop={isDesktop} collapsed={!isDesktop} icon="home-outline" label={isEN ? "Home" : "መነሻ"} isActive={pathname.includes('/home/gameplay')} onPress={() => navigateTo('/(authed)/home/gameplay')} />
-                  <SidebarItem isDesktop={isDesktop} collapsed={!isDesktop} icon="receipt-outline" label={isEN ? "History" : "ታሪክ"} isActive={pathname.includes('/games')} onPress={() => navigateTo('/(authed)/games')} />
+                  <SidebarItem isDesktop={isDesktop} collapsed={!isDesktop} icon="game-controller-outline" label={isEN ? "Home" : "መነሻ"} isActive={pathname.includes('/home/gameplay')} onPress={() => navigateTo('/(authed)/home/gameplay')} />
+                  <SidebarItem isDesktop={isDesktop} collapsed={!isDesktop} icon="time-outline" label={isEN ? "History" : "ታሪክ"} isActive={pathname.includes('/games') || pathname.includes('/home/history')} onPress={() => navigateTo('/(authed)/games')} />
                   <SidebarItem isDesktop={isDesktop} collapsed={!isDesktop} icon="trophy-outline" label={isEN ? "Leaderboard" : "ደረጃዎች"} isActive={pathname.includes('/home/leaderboard')} onPress={() => navigateTo('/(authed)/home/leaderboard')} />
                   <SidebarItem isDesktop={isDesktop} collapsed={!isDesktop} icon="person-outline" label={isEN ? "Profile" : "መገለጫ"} isActive={pathname.includes('/home/account')} onPress={() => navigateTo('/(authed)/home/account')} />
 

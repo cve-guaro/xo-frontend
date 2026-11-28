@@ -100,7 +100,7 @@ export default function DesktopSidebar({
   };
 
   const navItems = [
-    { id: "home", label: "Home", activeIcon: "dice" as const, inactiveIcon: "dice-outline" as const },
+    { id: "home", label: "Home", activeIcon: "game-controller" as const, inactiveIcon: "game-controller-outline" as const },
     { id: "history", label: "History", activeIcon: "time" as const, inactiveIcon: "time-outline" as const },
     { id: "leaderboard", label: "Leaderboard", activeIcon: "trophy" as const, inactiveIcon: "trophy-outline" as const },
     { id: "transactions", label: "Transactions", activeIcon: "wallet" as const, inactiveIcon: "wallet-outline" as const },

@@ -211,7 +211,7 @@ export default function AuthedLayout() {
               borderRadius: 0,
             }}>
 
-              {/* 1. Home Tab */}
+              {/* 1. Home Tab (matches PC Home game icon) */}
               <TouchableOpacity
                 onPress={() => {
                   try { playTickSound(); } catch {}
@@ -225,11 +225,11 @@ export default function AuthedLayout() {
               >
                 <View style={[
                   s.navItemBox,
-                  isGameplayPage && { backgroundColor: activeThemePillBg, borderColor: activeThemePillBorder, paddingHorizontal: 12 },
+                  isGameplayPage && { backgroundColor: activeThemePillBg, borderColor: activeThemePillBorder, paddingHorizontal: 14 },
                 ]}>
                   <Ionicons
-                    name={isGameplayPage ? "home" : "home-outline"}
-                    size={20}
+                    name={isGameplayPage ? "game-controller" : "game-controller-outline"}
+                    size={21}
                     color={isGameplayPage ? activeThemeColor : colors.inactive}
                   />
                   {isGameplayPage && (
@@ -240,7 +240,7 @@ export default function AuthedLayout() {
                 </View>
               </TouchableOpacity>
 
-              {/* 2. History Tab (Always Visible) */}
+              {/* 2. History Tab */}
               <TouchableOpacity
                 onPress={() => {
                   try { playTickSound(); } catch {}
@@ -254,7 +254,7 @@ export default function AuthedLayout() {
               >
                 <View style={[
                   s.navItemBox,
-                  isHistoryPage && { backgroundColor: activeThemePillBg, borderColor: activeThemePillBorder, paddingHorizontal: 12 },
+                  isHistoryPage && { backgroundColor: activeThemePillBg, borderColor: activeThemePillBorder, paddingHorizontal: 14 },
                 ]}>
                   <Ionicons
                     name={isHistoryPage ? "time" : "time-outline"}
@@ -269,7 +269,7 @@ export default function AuthedLayout() {
                 </View>
               </TouchableOpacity>
 
-              {/* 3. Leaderboard Tab (Always Visible) */}
+              {/* 3. Leaderboard Tab */}
               <TouchableOpacity
                 onPress={() => {
                   try { playTickSound(); } catch {}
@@ -283,7 +283,7 @@ export default function AuthedLayout() {
               >
                 <View style={[
                   s.navItemBox,
-                  isLeaderboardPage && { backgroundColor: activeThemePillBg, borderColor: activeThemePillBorder, paddingHorizontal: 12 },
+                  isLeaderboardPage && { backgroundColor: activeThemePillBg, borderColor: activeThemePillBorder, paddingHorizontal: 14 },
                 ]}>
                   <Ionicons
                     name={isLeaderboardPage ? "trophy" : "trophy-outline"}
@@ -298,7 +298,7 @@ export default function AuthedLayout() {
                 </View>
               </TouchableOpacity>
 
-              {/* 4. Wallet Tab (Present in both modes) */}
+              {/* 4. Wallet Tab */}
               <TouchableOpacity
                 onPress={() => {
                   try { playTickSound(); } catch {}
@@ -315,7 +315,7 @@ export default function AuthedLayout() {
                   isWalletPage && { 
                     backgroundColor: activeThemePillBg, 
                     borderColor: activeThemePillBorder,
-                    paddingHorizontal: 12,
+                    paddingHorizontal: 14,
                   },
                 ]}>
                   <Ionicons
@@ -345,10 +345,10 @@ export default function AuthedLayout() {
               >
                 <View style={[
                   s.navItemBox,
-                  isAccountPage && { backgroundColor: activeThemePillBg, borderColor: activeThemePillBorder, paddingHorizontal: 12 },
+                  isAccountPage && { backgroundColor: activeThemePillBg, borderColor: activeThemePillBorder, paddingHorizontal: 14 },
                 ]}>
                   <Ionicons
-                    name={isAccountPage ? "person-circle" : "person-circle-outline"}
+                    name={isAccountPage ? "person" : "person-outline"}
                     size={20}
                     color={isAccountPage ? activeThemeColor : colors.inactive}
                   />
