@@ -398,10 +398,21 @@ export async function downloadProfessionalReceipt(data: ReceiptData): Promise<vo
 
   // 11. Trigger Direct Download of PNG Image
   const dataUrl = canvas.toDataURL('image/png', 1.0);
-  const downloadLink = document.createElement('a');
-  downloadLink.download = `XOET_Receipt_${data.id.slice(0, 12)}.png`;
-  downloadLink.href = dataUrl;
-  document.body.appendChild(downloadLink);
-  downloadLink.click();
-  document.body.removeChild(downloadLink);
+  if (typeof document !== 'undefined' && document.body) {
+    const downloadLink = document.createElement('a');
+    downloadLink.download = `XOET_Receipt_${data.id.slice(0, 12)}.png`;
+    downloadLink.href = dataUrl;
+    try {
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+    } finally {
+      setTimeout(() => {
+        try {
+          if (downloadLink.isConnected && downloadLink.parentNode) {
+            downloadLink.parentNode.removeChild(downloadLink);
+          }
+        } catch {}
+      }, 100);
+    }
+  }
 }

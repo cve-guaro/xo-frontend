@@ -287,14 +287,14 @@ export function useLoginFlow() {
         if (data.token && loginWithToken) {
           await loginWithToken(data.token, data.refreshToken);
           toast.success(
-            'Guest Access',
-            `Logged in as ${data.user?.display_name || `Guest ${guestIndex}`} with 1,000 ETB!`
+            'Guest access',
+            `Signed in as ${data.user?.display_name || `Guest ${guestIndex}`} with 1,000 ETB`
           );
           setGuestModalVisible(false);
           router.replace('/(authed)/home/gameplay');
         }
       } catch (err: any) {
-        toast.error('Guest Login Failed', err?.message || 'Could not log in as guest');
+        toast.error('Guest sign in failed', err?.message || 'Could not sign in as guest. Please try again.');
       } finally {
         setGuestLoading(null);
       }
