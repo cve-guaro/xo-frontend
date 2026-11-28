@@ -7,6 +7,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "../../context/authContext";
 import Avatar from "../ui/Avatar";
 
@@ -55,14 +56,27 @@ export const PlayerHeroBadge: React.FC<PlayerHeroBadgeProps> = ({
   const isDesktop = width >= 768;
   const isX = symbol === "X";
   const accent = isX ? "#ef4444" : "#00DAF3";
-  const accentSoft = isX ? "rgba(239, 68, 68, 0.12)" : "rgba(0, 218, 243, 0.12)";
+  const accentSoft = isX ? "rgba(239, 68, 68, 0.14)" : "rgba(0, 218, 243, 0.14)";
   const ring = isX ? "rgba(239, 68, 68, 0.45)" : "rgba(0, 218, 243, 0.45)";
   const ring2 = "rgba(255, 255, 255, 0.12)";
+  const cornerGradientColors: [string, string, string] = isX
+    ? active
+      ? ["rgba(239, 68, 68, 0.34)", "rgba(48, 14, 28, 0.94)", "#0b1124"]
+      : ["rgba(239, 68, 68, 0.22)", "rgba(34, 14, 28, 0.92)", "#0b1124"]
+    : active
+    ? ["rgba(0, 218, 243, 0.34)", "rgba(10, 34, 62, 0.94)", "#0b1124"]
+    : ["rgba(0, 218, 243, 0.22)", "rgba(10, 26, 52, 0.92)", "#0b1124"];
 
   return (
-    <View style={[styles.playerCard, active && [styles.playerCardActive, { borderColor: ring }]]}>
-      {/* Soft accent wash */}
-      <View style={[styles.playerAccentWash, { backgroundColor: accentSoft }]} />
+    <View style={[styles.playerCard, { borderColor: active ? ring : (isX ? "rgba(239, 68, 68, 0.24)" : "rgba(0, 218, 243, 0.24)") }, active && styles.playerCardActive]}>
+      {/* Corner gradient background matching popup style */}
+      <LinearGradient
+        colors={cornerGradientColors}
+        locations={[0, 0.48, 1]}
+        start={isX ? { x: 1, y: 0 } : { x: 0, y: 0 }}
+        end={isX ? { x: 0, y: 1 } : { x: 1, y: 1 }}
+        style={StyleSheet.absoluteFillObject}
+      />
 
       {/* Row 1: Avatar + Name */}
       <View style={styles.playerRow}>

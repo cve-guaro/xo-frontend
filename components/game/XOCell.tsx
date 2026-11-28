@@ -62,16 +62,15 @@ export const CellSymbol = React.memo<CellSymbolProps>(({
         name={isX ? "close" : "radio-button-off"}
         size={iconSize}
         color={iconColor}
-        style={[
-          isDesktop ? (isX ? styles.neonXShadow : styles.neonOShadow) : {},
-          isWinning && {
-            shadowColor: iconColor,
-            shadowOffset: { width: 0, height: 0 },
-            shadowOpacity: 1,
-            shadowRadius: 18,
-            elevation: 12,
-          },
-        ]}
+        style={
+          Platform.OS === "web" && isDesktop
+            ? ({
+                filter: isX
+                  ? "drop-shadow(0 0 8px rgba(239, 68, 68, 0.45))"
+                  : "drop-shadow(0 0 8px rgba(0, 218, 243, 0.45))",
+              } as any)
+            : undefined
+        }
       />
     </Animated.View>
   );
@@ -145,11 +144,6 @@ export const BoardCell = React.memo<BoardCellProps>(({
         isWinning && {
           borderColor: symbol === "X" ? "#ef4444" : "#00DAF3",
           backgroundColor: symbol === "X" ? "rgba(239, 68, 68, 0.22)" : "rgba(0, 218, 243, 0.22)",
-          shadowColor: symbol === "X" ? "#ef4444" : "#00DAF3",
-          shadowOffset: { width: 0, height: 0 },
-          shadowOpacity: 0.85,
-          shadowRadius: 16,
-          elevation: 10,
         },
       ]}
     >
