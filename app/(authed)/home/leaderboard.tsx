@@ -373,51 +373,72 @@ export default function LeaderboardScreen() {
                 </View>
               ) : (
                 <>
-                  {/* ── 1. TOP HERO BANNER (Trophy + Weekly Prize Pool + Live Reset Countdown) ── */}
-                  <LinearGradient
-                    colors={["#141B2D", "#0E1422", "#0D1320"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={s.lbHeroBanner}
-                  >
-                    <View style={s.lbHeroLeft}>
-                      <View style={s.lbHeroTrophyStage}>
-                        <Ionicons name="trophy" size={34} color="#F5B642" />
+                  {/* ── 1. TOP HERO BANNER (Golden Texture Gradient + Big Animated Left Countdown, Minimalistic) ── */}
+                  <View style={s.lbHeroBanner}>
+                    <Image
+                      source={require("../../../assets/promotions/promo-rewards-bg-v2.webp")}
+                      style={[StyleSheet.absoluteFillObject, { opacity: 0.42 }]}
+                      resizeMode="cover"
+                    />
+                    <LinearGradient
+                      colors={["rgba(245, 182, 66, 0.32)", "rgba(180, 120, 22, 0.16)", "rgba(12, 16, 29, 0.96)"]}
+                      locations={[0, 0.5, 1]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 0, y: 1 }}
+                      style={StyleSheet.absoluteFillObject}
+                    />
+
+                    {/* Left: Big Animated Golden Countdown Timer */}
+                    <View style={s.lbHeroTimerCard}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                        <Ionicons name="time-outline" size={14} color="#F5B642" />
+                        <Text style={s.lbHeroTimerLabel}>{isEN ? "WEEKLY RESET IN" : "ሳምንታዊ ቀሪ ጊዜ"}</Text>
                       </View>
-                      <View style={{ flex: 1, minWidth: 220 }}>
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                          <Text style={s.lbHeroTitle}>
-                            {timeframe === "alltime"
-                              ? (isEN ? "All-time champions" : "የሁሉም ጊዜ አሸናፊዎች")
-                              : (isEN ? "Weekly champions" : "ሳምንታዊ አሸናፊዎች")}
-                          </Text>
-                          <View style={s.lbPlayersPill}>
-                            <Text style={s.lbPlayersPillText}>{totalParticipants} players</Text>
-                          </View>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                        <View style={s.lbTimerUnit}>
+                          <SlidingNumber value={String(cdDays).padStart(2, "0")} fontSize={28} color="#FDE68A" fontWeight="900" />
+                          <Text style={s.lbTimerUnitLabel}>{isEN ? "DAYS" : "ቀን"}</Text>
                         </View>
-                        <Text style={s.lbHeroDesc}>
-                          {isEN
-                            ? "Compete in XO, Spin & RPS matches to climb the rankings. Top 3 players receive weekly ETB rewards."
-                            : "በ XO፣ ስፒን እና RPS በመጫወት ደረጃዎን ያሳድጉ። ከፍተኛ 3 ተጫዋቾች ሳምንታዊ ሽልማት ያገኛሉ።"}
-                        </Text>
+                        <Text style={s.lbTimerColon}>:</Text>
+                        <View style={s.lbTimerUnit}>
+                          <SlidingNumber value={String(cdHours).padStart(2, "0")} fontSize={28} color="#FDE68A" fontWeight="900" />
+                          <Text style={s.lbTimerUnitLabel}>{isEN ? "HRS" : "ሰዓት"}</Text>
+                        </View>
+                        <Text style={s.lbTimerColon}>:</Text>
+                        <View style={s.lbTimerUnit}>
+                          <SlidingNumber value={String(cdMins).padStart(2, "0")} fontSize={28} color="#FDE68A" fontWeight="900" />
+                          <Text style={s.lbTimerUnitLabel}>{isEN ? "MIN" : "ደቂቃ"}</Text>
+                        </View>
+                        <Text style={s.lbTimerColon}>:</Text>
+                        <View style={s.lbTimerUnit}>
+                          <SlidingNumber value={String(cdSecs).padStart(2, "0")} fontSize={28} color="#F5B642" fontWeight="900" />
+                          <Text style={s.lbTimerUnitLabel}>{isEN ? "SEC" : "ሰከንድ"}</Text>
+                        </View>
                       </View>
                     </View>
 
-                    {/* Right: 1st Place Prize + Reset Timer */}
-                    <View style={s.lbHeroRight}>
-                      <View style={s.lbHeroStatBlock}>
-                        <Text style={s.lbHeroStatLabel}>{isEN ? "1st place prize" : "1ኛ ሽልማት"}</Text>
-                        <Text style={s.lbHeroPrizeVal}>{Number(topPrize).toLocaleString()} ETB</Text>
-                      </View>
-                      <View style={s.lbHeroDivider} />
-                      <View style={s.lbHeroStatBlock}>
-                        <Text style={s.lbHeroStatLabel}>{isEN ? "Resets in" : "ቀሪ ጊዜ"}</Text>
-                        <Text style={s.lbHeroTimerVal}>
-                          {String(cdDays).padStart(2, "0")}d : {String(cdHours).padStart(2, "0")}h : {String(cdMins).padStart(2, "0")}m : {String(cdSecs).padStart(2, "0")}s
+                    {/* Right: Minimal Title & Info */}
+                    <View style={s.lbHeroInfoRight}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                        <View style={s.lbHeroTrophyStage}>
+                          <Ionicons name="trophy" size={22} color="#F5B642" />
+                        </View>
+                        <Text style={s.lbHeroTitle}>
+                          {timeframe === "alltime"
+                            ? (isEN ? "All-time champions" : "የሁሉም ጊዜ አሸናፊዎች")
+                            : (isEN ? "Weekly champions" : "ሳምንታዊ አሸናፊዎች")}
                         </Text>
+                        <View style={s.lbPlayersPill}>
+                          <Text style={s.lbPlayersPillText}>{totalParticipants} players</Text>
+                        </View>
                       </View>
+                      <Text style={s.lbHeroDesc}>
+                        {isEN
+                          ? "Compete in XO, Spin & RPS matches to climb the rankings."
+                          : "በ XO፣ ስፒን እና RPS በመጫወት ደረጃዎን ያሳድጉ።"}
+                      </Text>
                     </View>
-                  </LinearGradient>
+                  </View>
 
                   {/* ── 2. TOOLBAR ROW: Standings Title + Weekly / All-Time Toggle ── */}
                   <View style={s.lbToolbarRow}>
@@ -587,14 +608,15 @@ export default function LeaderboardScreen() {
 
   return (
     <View style={s.rootContainer}>
-      {/* ── Background Image matching Image 2 ── */}
+      {/* ── Golden Top Banner Backdrop with Texture ── */}
       <Image
-        source={require("../../../assets/images/leaderboard-background-top-glow.webp")}
-        style={StyleSheet.absoluteFillObject}
+        source={require("../../../assets/promotions/promo-rewards-bg-v2.webp")}
+        style={[StyleSheet.absoluteFillObject, { height: 260, opacity: 0.4 }]}
         resizeMode="cover"
       />
       <LinearGradient
-        colors={["rgba(6, 6, 19, 0.55)", "rgba(6, 6, 19, 0.88)", "#060613"]}
+        colors={["rgba(245, 182, 66, 0.32)", "rgba(180, 120, 22, 0.14)", "#060613"]}
+        locations={[0, 0.25, 0.55]}
         style={StyleSheet.absoluteFillObject}
       />
 
@@ -627,26 +649,24 @@ export default function LeaderboardScreen() {
           <Ionicons name="chevron-back" size={20} color="#ffffff" />
         </TouchableOpacity>
 
-        {/* Center: Title + Live Countdown Timer */}
+        {/* Center: Title + Big Golden Animated Countdown */}
         <View style={{ alignItems: "center" }}>
           <Text style={{
             color: "#ffffff",
-            fontSize: 16,
+            fontSize: 15,
             fontWeight: "900",
             letterSpacing: 0.5,
           }}>
-            {isEN ? "XO LEADERBOARD" : "የመሪዎች ሰሌዳ"}
+            {isEN ? "WEEKLY CHAMPIONS" : "የመሪዎች ሰሌዳ"}
           </Text>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 3 }}>
-            <Ionicons name="time-outline" size={13} color="#00DAF3" />
-            <Text style={{ color: "#00DAF3", fontSize: 11.5, fontWeight: "800", letterSpacing: 0.4 }}>
-              {secondsRemaining > 0
-                ? `${days}d ${hours}h ${minutes}m ${seconds}s`
-                : (isEN ? "7d 0h 0m" : "7ቀ 0ሰ 0ደ")}
-            </Text>
-            <Text style={{ color: "#8893A7", fontSize: 10.5, fontWeight: "700" }}>
-              {isEN ? "ends" : "ቀሪ"}
-            </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 }}>
+            <Ionicons name="time-outline" size={14} color="#F5B642" />
+            <SlidingNumber
+              value={`${String(days).padStart(2, "0")}d ${String(hours).padStart(2, "0")}h ${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`}
+              fontSize={13}
+              color="#F5B642"
+              fontWeight="900"
+            />
           </View>
         </View>
 
@@ -1652,29 +1672,60 @@ const s = StyleSheet.create({
   lbHeroBanner: {
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: "rgba(245, 182, 66, 0.38)",
     paddingHorizontal: 24,
     paddingVertical: 20,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     flexWrap: "wrap",
-    gap: 18,
+    gap: 20,
+    position: "relative",
+    overflow: "hidden",
+    backgroundColor: "#14110b",
   },
-  lbHeroLeft: {
-    flexDirection: "row",
+  lbHeroTimerCard: {
+    backgroundColor: "rgba(10, 12, 20, 0.65)",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(245, 182, 66, 0.32)",
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+  },
+  lbHeroTimerLabel: {
+    color: "#F5B642",
+    fontSize: 10.5,
+    fontWeight: "800",
+    letterSpacing: 1,
+  },
+  lbTimerUnit: {
     alignItems: "center",
-    gap: 18,
+  },
+  lbTimerUnitLabel: {
+    color: "rgba(245, 182, 66, 0.72)",
+    fontSize: 9.5,
+    fontWeight: "800",
+    letterSpacing: 0.6,
+    marginTop: 2,
+  },
+  lbTimerColon: {
+    color: "#F5B642",
+    fontSize: 24,
+    fontWeight: "900",
+    marginBottom: 14,
+  },
+  lbHeroInfoRight: {
     flex: 1,
-    minWidth: 280,
+    minWidth: 260,
+    justifyContent: "center",
   },
   lbHeroTrophyStage: {
-    width: 68,
-    height: 68,
-    borderRadius: 18,
-    backgroundColor: "rgba(245, 182, 66, 0.12)",
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "rgba(245, 182, 66, 0.15)",
     borderWidth: 1,
-    borderColor: "rgba(245, 182, 66, 0.3)",
+    borderColor: "rgba(245, 182, 66, 0.35)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1688,21 +1739,21 @@ const s = StyleSheet.create({
     paddingHorizontal: 9,
     paddingVertical: 3,
     borderRadius: 8,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: "rgba(245, 182, 66, 0.12)",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: "rgba(245, 182, 66, 0.25)",
   },
   lbPlayersPillText: {
-    color: "#94A3B8",
+    color: "#FDE68A",
     fontSize: 11,
     fontWeight: "700",
   },
   lbHeroDesc: {
-    color: "#8B8FA8",
+    color: "#CBD5E1",
     fontSize: 12.5,
     lineHeight: 18,
-    marginTop: 5,
-    maxWidth: 500,
+    marginTop: 6,
+    maxWidth: 480,
   },
   lbHeroRight: {
     flexDirection: "row",

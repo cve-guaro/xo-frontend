@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, Text, View } from 'react-native';
+import { Animated, Platform, StyleSheet, Text, View } from 'react-native';
 
 interface SlidingNumberProps {
   value: string | number;
@@ -18,7 +18,7 @@ function Digit({ digit, fontSize, color, fontWeight, height }: { digit: number; 
     Animated.timing(animatedValue, {
       toValue: digit,
       duration: 450,
-      useNativeDriver: true,
+      useNativeDriver: Platform.OS !== 'web',
     }).start();
   }, [digit]);
 
