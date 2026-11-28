@@ -46,7 +46,7 @@ export const ScoreBar: React.FC<ScoreBarProps> = ({
               style={[
                 styles.dot,
                 idx < scoreOpponent
-                  ? { backgroundColor: colors.primary, shadowColor: colors.primary, shadowOpacity: 0.8, shadowRadius: 6, elevation: 4 }
+                  ? { backgroundColor: colors.primary }
                   : styles.dotEmpty,
               ]}
             />
@@ -65,7 +65,7 @@ export const ScoreBar: React.FC<ScoreBarProps> = ({
               style={[
                 styles.dot,
                 idx < scoreYou
-                  ? { backgroundColor: colors.violet, shadowColor: colors.violet, shadowOpacity: 0.8, shadowRadius: 6, elevation: 4 }
+                  ? { backgroundColor: colors.violet }
                   : styles.dotEmpty,
               ]}
             />
@@ -127,9 +127,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    backgroundColor: 'rgba(16, 16, 31, 0.85)',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: colors.card,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border,
@@ -174,9 +174,9 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   dotEmpty: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: colors.cardRaised,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: colors.borderStrong,
   },
   vsText: {
     color: colors.textMuted,
@@ -197,7 +197,7 @@ const styles = StyleSheet.create({
   timerTrack: {
     flex: 1,
     height: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: colors.cardRaised,
     borderRadius: 3,
     overflow: 'hidden',
   },

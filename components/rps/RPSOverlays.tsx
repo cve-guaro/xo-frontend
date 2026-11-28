@@ -2,15 +2,15 @@
 // ────────────────────────────────────────────────────────────────────────────
 // Match overlays:
 // - ReadyCountdownOverlay: 3s pre-match countdown (3.. 2.. 1..)
-// - RoundResultBanner: Round outcome with punchy move breakdown
-// - MatchFinalSheet: Professional Payout / Match Over Modal
+// - RoundResultBanner: Round outcome with move breakdown
+// - MatchFinalSheet: Payout / Match Over Modal
+// - RpsLeaveConfirmModal: Cross-platform forfeit confirmation modal (replaces Alert.alert)
 // ────────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, Animated, Easing, Platform } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { RoundOutcome } from '../../lib/rps/rpsTypes';
-import { colors } from '../../theme/tokens';
+import { colors, radius, space } from '../../theme/tokens';
 import { playTickSound } from '../../lib/pinTickAudio';
 import { haptics } from '../../lib/haptcs';
 
@@ -24,17 +24,17 @@ export const ReadyCountdownOverlay: React.FC<ReadyCountdownOverlayProps> = ({
   count,
   bestOf,
 }) => {
-  const scaleAnim = useRef(new Animated.Value(0.5)).current;
+  const scaleAnim = useRef(new Animated.Value(0.85)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    scaleAnim.setValue(0.5);
+    scaleAnim.setValue(0.85);
     opacityAnim.setValue(0);
     Animated.parallel([
-      Animated.spring(scaleAnim, {
+      Animated.timing(scaleAnim, {
         toValue: 1,
-        tension: 120,
-        friction: 10,
+        duration: 180,
+        easing: Easing.out(Easing.cubic),
         useNativeDriver: Platform.OS !== 'web',
       }),
       Animated.timing(opacityAnim, {
@@ -44,11 +44,11 @@ export const ReadyCountdownOverlay: React.FC<ReadyCountdownOverlayProps> = ({
         useNativeDriver: Platform.OS !== 'web',
       }),
     ]).start();
-  }, [count]);
+  }, [count, scaleAnim, opacityAnim]);
 
   return (
     <View style={styles.countdownContainer}>
-      <Text style={styles.readyTitle}>Rock • Paper • Scissors</Text>
+      <Text style={styles.readyTitle}>Rock, Paper, Scissors</Text>
       <Text style={styles.readySubtitle}>
         Best of {bestOf}. First to {Math.ceil(bestOf / 2)} wins.
       </Text>
@@ -81,16 +81,16 @@ export const RoundResultBanner: React.FC<RoundResultBannerProps> = ({
   const isLoss = outcome === 'lose';
 
   const headline = isWin
-    ? 'ROUND WON!'
+    ? 'Round won'
     : isLoss
-    ? 'ROUND LOST'
-    : 'ROUND DRAW';
+    ? 'Round lost'
+    : 'Round draw';
 
   const accentColor = isWin
-    ? '#10B981'
+    ? colors.success
     : isLoss
-    ? '#EF4444'
-    : '#94A3B8';
+    ? colors.danger
+    : colors.textMuted;
 
   return (
     <View style={[styles.roundBanner, { borderColor: accentColor }]}>
@@ -102,7 +102,7 @@ export const RoundResultBanner: React.FC<RoundResultBannerProps> = ({
   );
 };
 
-// ── MatchFinalSheet (Professional Victory & Defeat Modal) ───────────────────
+// ── MatchFinalSheet (Payout & Match Over Modal) ─────────────────────────────
 interface MatchFinalSheetProps {
   visible: boolean;
   won: boolean;
@@ -135,7 +135,7 @@ export const MatchFinalSheet: React.FC<MatchFinalSheetProps> = ({
     }
     Animated.timing(enterAnim, {
       toValue: 1,
-      duration: 240,
+      duration: 200,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: Platform.OS !== 'web',
     }).start();
@@ -159,7 +159,7 @@ export const MatchFinalSheet: React.FC<MatchFinalSheetProps> = ({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="none">
+    <Modal visible={visible} transparent animationType="none" onRequestClose={handleExitPress}>
       <View style={styles.modalBackdrop}>
         <Animated.View
           style={[
@@ -167,75 +167,61 @@ export const MatchFinalSheet: React.FC<MatchFinalSheetProps> = ({
             {
               opacity: enterAnim,
               transform: [
-                { scale: enterAnim.interpolate({ inputRange: [0, 1], outputRange: [0.95, 1] }) },
+                { scale: enterAnim.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }) },
               ],
             },
           ]}
         >
-          <LinearGradient
-            colors={
-              won
-                ? ['rgba(22, 163, 74, 0.36)', 'rgba(22, 163, 74, 0.1)', '#0A0D12']
-                : ['rgba(220, 38, 38, 0.36)', 'rgba(220, 38, 38, 0.1)', '#0A0D12']
-            }
-            start={{ x: 0.5, y: 0 }}
-            end={{ x: 0.5, y: 1 }}
-            style={styles.topGlowHeader}
-          >
-            {/* Status Seal */}
-            <View style={[styles.medallionWrap, won ? styles.medallionWin : styles.medallionLose]}>
-              <View style={[styles.medallionInner, { backgroundColor: won ? '#22C55E' : '#EF4444' }]}>
-                <Ionicons
-                  name={won ? 'checkmark' : 'close'}
-                  size={24}
-                  color="#FFFFFF"
-                />
-              </View>
-            </View>
-
+          <View style={styles.sheetHeader}>
+            <View style={{ width: 44 }} />
             <Text style={styles.sheetTitle}>{won ? 'Victory' : 'Match ended'}</Text>
+            <TouchableOpacity
+              onPress={handleExitPress}
+              style={styles.closeBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Close match result"
+            >
+              <Ionicons name="close" size={18} color={colors.textMuted} />
+            </TouchableOpacity>
+          </View>
 
-            <Text style={styles.amountText}>
-              {won ? `+${prizeAmount.toLocaleString()} ETB` : `-${stakeAmount.toLocaleString()} ETB`}
+          <Text style={[styles.amountText, { color: won ? colors.success : colors.danger }]}>
+            {won ? `+${prizeAmount.toLocaleString()} ETB` : `-${stakeAmount.toLocaleString()} ETB`}
+          </Text>
+
+          <View style={styles.scoreRow}>
+            <Text style={styles.scoreText}>
+              You {scoreYou} — {scoreOpponent} Opponent
             </Text>
-
-            <View style={styles.scoreRow}>
-              <Text style={styles.scoreText}>
-                You <Text style={{ color: won ? '#34D399' : '#CBD5E1', fontWeight: '900' }}>{scoreYou}</Text> —{' '}
-                <Text style={{ color: !won ? '#F87171' : '#CBD5E1', fontWeight: '900' }}>{scoreOpponent}</Text> Opponent
-              </Text>
-            </View>
-          </LinearGradient>
+          </View>
 
           <View style={styles.sheetBody}>
-            {/* Financial Details Card */}
             <View style={styles.detailsBox}>
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Match pot</Text>
-                <Text style={styles.detailValue}>{potAmount} ETB</Text>
+                <Text style={styles.detailValue}>{potAmount.toLocaleString()} ETB</Text>
               </View>
               <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Platform fee (20%)</Text>
-                <Text style={styles.detailValue}>-{feeAmount} ETB</Text>
+                <Text style={styles.detailLabel}>Platform fee</Text>
+                <Text style={styles.detailValue}>-{feeAmount.toLocaleString()} ETB</Text>
               </View>
               <View style={[styles.detailRow, styles.detailRowHighlight]}>
-                <Text style={[styles.detailLabel, { color: '#FFFFFF', fontWeight: '700' }]}>
+                <Text style={[styles.detailLabel, { color: colors.text, fontWeight: '700' }]}>
                   {won ? 'Net profit' : 'Your entry'}
                 </Text>
-                <Text style={[styles.detailValue, { color: won ? '#F59E0B' : '#FFFFFF', fontWeight: '900' }]}>
-                  {won ? `+${netProfit} ETB` : `${stakeAmount} ETB`}
+                <Text style={[styles.detailValue, { color: won ? colors.gold : colors.text, fontWeight: '800' }]}>
+                  {won ? `+${netProfit.toLocaleString()} ETB` : `${stakeAmount.toLocaleString()} ETB`}
                 </Text>
               </View>
             </View>
 
-            {/* Symmetric Actions */}
             <View style={styles.sheetActions}>
               <TouchableOpacity
                 activeOpacity={0.85}
                 onPress={handlePlayAgainPress}
                 style={styles.playAgainButton}
                 accessibilityRole="button"
-                accessibilityLabel="Play Again"
+                accessibilityLabel="Play again"
               >
                 <Text style={styles.playAgainText}>Play again</Text>
               </TouchableOpacity>
@@ -245,13 +231,76 @@ export const MatchFinalSheet: React.FC<MatchFinalSheetProps> = ({
                 onPress={handleExitPress}
                 style={styles.exitButton}
                 accessibilityRole="button"
-                accessibilityLabel="Back to Lobby"
+                accessibilityLabel="Return to lobby"
               >
-                <Text style={styles.exitText}>Back to lobby</Text>
+                <Text style={styles.exitText}>Return to lobby</Text>
               </TouchableOpacity>
             </View>
           </View>
         </Animated.View>
+      </View>
+    </Modal>
+  );
+};
+
+// ── RpsLeaveConfirmModal (Replaces Alert.alert on Web & Native) ─────────────
+interface RpsLeaveConfirmModalProps {
+  visible: boolean;
+  stakeAmount: number;
+  onStay: () => void;
+  onForfeit: () => void;
+}
+
+export const RpsLeaveConfirmModal: React.FC<RpsLeaveConfirmModalProps> = ({
+  visible,
+  stakeAmount,
+  onStay,
+  onForfeit,
+}) => {
+  if (!visible) return null;
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onStay}>
+      <View style={styles.modalBackdrop}>
+        <View style={styles.confirmSheet}>
+          <View style={styles.sheetHeader}>
+            <Text style={styles.confirmTitle}>Forfeit match?</Text>
+            <TouchableOpacity
+              onPress={onStay}
+              style={styles.closeBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Close forfeit dialog"
+            >
+              <Ionicons name="close" size={18} color={colors.textMuted} />
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.confirmHelp}>
+            Leaving an active match forfeits your {stakeAmount.toLocaleString()} ETB entry.
+          </Text>
+
+          <View style={styles.sheetActions}>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={onForfeit}
+              style={styles.forfeitButton}
+              accessibilityRole="button"
+              accessibilityLabel="Forfeit match"
+            >
+              <Text style={styles.forfeitButtonText}>Forfeit match</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.75}
+              onPress={onStay}
+              style={styles.exitButton}
+              accessibilityRole="button"
+              accessibilityLabel="Stay in match"
+            >
+              <Text style={styles.exitText}>Stay in match</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </View>
     </Modal>
   );
@@ -269,170 +318,134 @@ const styles = StyleSheet.create({
   readyTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: 0.5,
+    color: colors.text,
   },
   readySubtitle: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#94A3B8',
-    marginTop: 4,
-    marginBottom: 16,
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textMuted,
+    marginTop: space.xs,
+    marginBottom: space.lg,
   },
   countdownNumber: {
-    fontSize: 72,
-    fontWeight: '900',
-    color: '#00DAF3',
+    fontSize: 64,
+    fontWeight: '800',
+    color: colors.primary,
   },
   roundBanner: {
     position: 'absolute',
     top: '44%',
     alignSelf: 'center',
-    backgroundColor: 'rgba(11, 17, 26, 0.95)',
-    paddingHorizontal: 28,
-    paddingVertical: 14,
-    borderRadius: 20,
-    borderWidth: 2,
+    backgroundColor: colors.card,
+    paddingHorizontal: space.xxl,
+    paddingVertical: space.lg,
+    borderRadius: radius.lg,
+    borderWidth: 1,
     alignItems: 'center',
     zIndex: 25,
   },
   roundHeadline: {
-    fontSize: 18,
-    fontWeight: '900',
-    letterSpacing: 1,
+    fontSize: 17,
+    fontWeight: '800',
   },
   roundSub: {
-    fontSize: 12,
-    color: '#CBD5E1',
+    fontSize: 13,
+    color: colors.textSoft,
     fontWeight: '600',
-    marginTop: 4,
+    marginTop: space.xs,
   },
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.72)',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: space.xl,
   },
   modalSheet: {
     width: '100%',
     maxWidth: 360,
-    backgroundColor: '#0A0D12',
-    borderRadius: 24,
+    backgroundColor: colors.card,
+    borderRadius: radius.xl,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: colors.borderStrong,
     overflow: 'hidden',
     alignItems: 'center',
-    ...(Platform.OS === 'web'
-      ? ({
-          boxShadow: '0 20px 48px rgba(0, 0, 0, 0.65)',
-        } as any)
-      : {}),
+    paddingTop: space.md,
   },
-  topGlowHeader: {
+  confirmSheet: {
     width: '100%',
-    paddingTop: 30,
-    paddingBottom: 18,
-    paddingHorizontal: 24,
-    alignItems: 'center',
+    maxWidth: 360,
+    backgroundColor: colors.card,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    padding: space.xl,
+    gap: space.lg,
   },
-  medallionWrap: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+  sheetHeader: {
+    width: '100%',
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 14,
-    borderWidth: 2,
+    justifyContent: 'space-between',
+    paddingHorizontal: space.lg,
   },
-  medallionInner: {
+  closeBtn: {
     width: 44,
     height: 44,
-    borderRadius: 22,
+    borderRadius: radius.pill,
+    backgroundColor: colors.cardRaised,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  medallionWin: {
-    backgroundColor: 'rgba(34, 197, 94, 0.22)',
-    borderColor: 'rgba(74, 222, 128, 0.5)',
-  },
-  medallionLose: {
-    backgroundColor: 'rgba(239, 68, 68, 0.22)',
-    borderColor: 'rgba(248, 113, 113, 0.45)',
-  },
   sheetTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#E2E8F0',
-    marginBottom: 6,
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.textSoft,
   },
-  sheetSubtitle: {
+  confirmTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: colors.text,
+  },
+  confirmHelp: {
     fontSize: 13,
-    color: '#94A3B8',
-    fontWeight: '500',
-    marginTop: 4,
-    textAlign: 'center',
+    color: colors.textMuted,
+    lineHeight: 20,
   },
   scoreRow: {
-    marginTop: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    paddingHorizontal: 14,
-    paddingVertical: 5,
-    borderRadius: 12,
+    marginTop: space.md,
+    backgroundColor: colors.cardRaised,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.xs,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: colors.border,
   },
   scoreText: {
-    color: '#E2E8F0',
-    fontSize: 12.5,
+    color: colors.textSoft,
+    fontSize: 13,
     fontWeight: '700',
   },
   sheetBody: {
     width: '100%',
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 20,
-  },
-  amountBox: {
-    width: '100%',
-    alignItems: 'center',
-    paddingVertical: 14,
-    borderRadius: 16,
-    marginVertical: 12,
-    borderWidth: 1,
-  },
-  amountBoxWin: {
-    backgroundColor: 'rgba(0, 218, 243, 0.08)',
-    borderColor: 'rgba(0, 218, 243, 0.25)',
-  },
-  amountBoxLose: {
-    backgroundColor: 'rgba(239, 68, 68, 0.08)',
-    borderColor: 'rgba(239, 68, 68, 0.2)',
+    paddingHorizontal: space.xl,
+    paddingTop: space.md,
+    paddingBottom: space.xl,
   },
   amountText: {
-    fontSize: 36,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    letterSpacing: -0.8,
-  },
-  etbUnit: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: '800',
-  },
-  amountLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    marginTop: 4,
+    marginTop: space.sm,
   },
   detailsBox: {
     width: '100%',
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: colors.cardRaised,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 14,
-    padding: 12,
-    gap: 7,
-    marginBottom: 16,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: space.md,
+    gap: space.sm,
+    marginBottom: space.lg,
   },
   detailRow: {
     flexDirection: 'row',
@@ -441,30 +454,30 @@ const styles = StyleSheet.create({
   },
   detailRowHighlight: {
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.08)',
-    paddingTop: 7,
+    borderTopColor: colors.border,
+    paddingTop: space.sm,
     marginTop: 2,
   },
   detailLabel: {
-    fontSize: 12,
-    color: '#94A3B8',
-    fontWeight: '500',
+    fontSize: 13,
+    color: colors.textMuted,
+    fontWeight: '600',
   },
   detailValue: {
-    fontSize: 12.5,
+    fontSize: 13,
     fontWeight: '700',
-    color: '#E2E8F0',
+    color: colors.textSoft,
   },
   sheetActions: {
     width: '100%',
     flexDirection: 'row',
-    gap: 10,
+    gap: space.md,
   },
   playAgainButton: {
     flex: 1,
-    height: 46,
-    backgroundColor: '#00DAF3',
-    borderRadius: 12,
+    minHeight: 44,
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
     ...(Platform.OS === 'web'
@@ -472,26 +485,41 @@ const styles = StyleSheet.create({
       : {}),
   },
   playAgainText: {
-    color: '#07090E',
-    fontSize: 13.5,
+    color: colors.bgDeep,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  forfeitButton: {
+    flex: 1,
+    minHeight: 44,
+    backgroundColor: colors.danger,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...(Platform.OS === 'web'
+      ? ({ cursor: 'pointer' } as any)
+      : {}),
+  },
+  forfeitButtonText: {
+    color: colors.text,
+    fontSize: 14,
     fontWeight: '800',
   },
   exitButton: {
     flex: 1,
-    height: 46,
-    borderRadius: 12,
+    minHeight: 44,
+    borderRadius: radius.md,
     backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
+    paddingHorizontal: space.md,
     ...(Platform.OS === 'web'
       ? ({ cursor: 'pointer' } as any)
       : {}),
   },
   exitText: {
-    color: '#CBD5E1',
-    fontSize: 13.5,
+    color: colors.textSoft,
+    fontSize: 14,
     fontWeight: '700',
   },
 });

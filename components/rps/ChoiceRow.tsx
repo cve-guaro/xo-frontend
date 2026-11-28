@@ -11,6 +11,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native
 import * as Haptics from 'expo-haptics';
 import { Ionicons, Feather, FontAwesome5 } from '@expo/vector-icons';
 import { Choice, Phase } from '../../lib/rps/rpsTypes';
+import { capitalize } from '../../lib/rps/rpsEngine';
 import { colors } from '../../theme/tokens';
 
 interface ChoiceRowProps {
@@ -161,10 +162,10 @@ export const LockInButton: React.FC<LockInButtonProps> = ({
         ]}
       >
         {locked
-          ? 'CHOICE LOCKED'
+          ? 'Choice locked'
           : selected
-          ? `LOCK IN ${selected.toUpperCase()}`
-          : 'CHOOSE YOUR MOVE'}
+          ? `Lock in ${capitalize(selected)}`
+          : 'Select a move'}
       </Text>
       {locked && (
         <Feather name="check-circle" size={16} color={colors.success} style={{ marginLeft: 6 }} />
@@ -186,21 +187,16 @@ const styles = StyleSheet.create({
     maxWidth: 124,
     height: 112,
     backgroundColor: colors.card,
-    borderRadius: 18,
+    borderRadius: 16,
     borderWidth: 1.5,
     borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
+    paddingVertical: 12,
   },
   choiceCardSelected: {
     borderColor: colors.primary,
     backgroundColor: colors.tintPrimary,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.45,
-    shadowRadius: 8,
-    elevation: 6,
   },
   choiceCardLocked: {
     borderColor: colors.success,
@@ -213,19 +209,18 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: colors.cardRaised,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 6,
+    marginBottom: 8,
   },
   iconContainerSelected: {
     backgroundColor: colors.tintPrimaryStrong,
   },
   choiceLabel: {
     color: colors.textMuted,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
-    letterSpacing: 0.4,
   },
   choiceLabelSelected: {
     color: colors.text,
@@ -233,17 +228,16 @@ const styles = StyleSheet.create({
   lockedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
+    gap: 4,
     marginTop: 4,
   },
   lockedText: {
     color: colors.textSoft,
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '700',
-    textTransform: 'uppercase',
   },
   lockButton: {
-    height: 48,
+    minHeight: 48,
     maxWidth: 420,
     width: '100%',
     alignSelf: 'center',
@@ -251,7 +245,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginBottom: 8,
     backgroundColor: colors.cardRaised,
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border,
     alignItems: 'center',
@@ -261,11 +255,6 @@ const styles = StyleSheet.create({
   lockButtonEnabled: {
     backgroundColor: colors.primary,
     borderColor: colors.primarySoft,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 5,
   },
   lockButtonLocked: {
     backgroundColor: colors.tintSuccess,
@@ -273,9 +262,8 @@ const styles = StyleSheet.create({
   },
   lockButtonText: {
     color: colors.textFaint,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '800',
-    letterSpacing: 0.8,
   },
   lockButtonTextEnabled: {
     color: colors.bgDeep,

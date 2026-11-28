@@ -14,10 +14,11 @@ import {
   StyleSheet,
   Platform,
 } from 'react-native';
-import { Feather, Ionicons } from '@expo/vector-icons';
+import { Feather, Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import RpsHand3D from './RpsHand3D';
 import Avatar from '../ui/Avatar';
 import { Choice, Phase, Pose, RoundOutcome } from '../../lib/rps/rpsTypes';
+import { colors, radius, space } from '../../theme/tokens';
 import { haptics } from '../../lib/haptcs';
 import { playTickSound } from '../../lib/pinTickAudio';
 
@@ -80,10 +81,10 @@ export const DesktopRpsArena: React.FC<DesktopRpsArenaProps> = ({
     onSelectChoice(choice);
   };
 
-  const choices: { id: Choice; label: string; emoji: string }[] = [
-    { id: 'rock', label: 'Rock', emoji: '✊' },
-    { id: 'paper', label: 'Paper', emoji: '✋' },
-    { id: 'scissors', label: 'Scissors', emoji: '✌️' },
+  const choices: { id: Choice; label: string; iconName: 'hand-rock' | 'hand-paper' | 'hand-scissors' }[] = [
+    { id: 'rock', label: 'Rock', iconName: 'hand-rock' },
+    { id: 'paper', label: 'Paper', iconName: 'hand-paper' },
+    { id: 'scissors', label: 'Scissors', iconName: 'hand-scissors' },
   ];
 
   return (
@@ -95,9 +96,9 @@ export const DesktopRpsArena: React.FC<DesktopRpsArenaProps> = ({
           style={s.backBtn}
           activeOpacity={0.75}
           accessibilityRole="button"
-          accessibilityLabel="Leave Game"
+          accessibilityLabel="Leave match"
         >
-          <Feather name="arrow-left" size={20} color="#94A3B8" />
+          <Feather name="arrow-left" size={20} color={colors.textSoft} />
         </TouchableOpacity>
 
         {/* Round & Pot Subtle Badges */}
@@ -106,12 +107,12 @@ export const DesktopRpsArena: React.FC<DesktopRpsArenaProps> = ({
             <Text style={s.metaPillText}>Round {round} of {bestOf}</Text>
           </View>
           <View style={[s.metaPill, s.potPill]}>
-            <Ionicons name="trophy" size={13} color="#F59E0B" />
+            <Ionicons name="trophy" size={13} color={colors.gold} />
             <Text style={s.potPillText}>Pot: {potAmount} ETB</Text>
           </View>
         </View>
 
-        <View style={{ width: 40 }} />
+        <View style={{ width: 44 }} />
       </View>
 
       {/* ──────────────── VS & PLAYER HEADER (Matches Reference Image) ──────────────── */}
@@ -123,7 +124,7 @@ export const DesktopRpsArena: React.FC<DesktopRpsArenaProps> = ({
               <Avatar uri={youAvatar} name={youName} size={48} />
             ) : (
               <View style={s.batmanAvatarCircle}>
-                <Ionicons name="person" size={24} color="#000000" />
+                <Ionicons name="person" size={24} color={colors.bgDeep} />
               </View>
             )}
             {/* Wins Pip Dots */}
@@ -139,7 +140,8 @@ export const DesktopRpsArena: React.FC<DesktopRpsArenaProps> = ({
           <Text style={s.playerLabel}>You</Text>
           {isLocked && isChoosing && (
             <View style={s.lockedBadgePill}>
-              <Text style={s.lockedBadgeText}>Ready ✓</Text>
+              <Feather name="check" size={12} color={colors.success} />
+              <Text style={s.lockedBadgeText}>Locked</Text>
             </View>
           )}
         </View>
@@ -152,7 +154,7 @@ export const DesktopRpsArena: React.FC<DesktopRpsArenaProps> = ({
               <Ionicons
                 name="time-outline"
                 size={14}
-                color={secondsRemaining <= 3 ? '#EF4444' : '#00DAF3'}
+                color={secondsRemaining <= 3 ? colors.danger : colors.primary}
               />
               <Text style={[s.timerPillText, secondsRemaining <= 3 && s.timerPillTextUrgent]}>
                 {secondsRemaining}s
@@ -161,7 +163,7 @@ export const DesktopRpsArena: React.FC<DesktopRpsArenaProps> = ({
           )}
           {phase === 'countdown' && (
             <View style={s.timerPill}>
-              <Text style={s.timerPillText}>Get Ready...</Text>
+              <Text style={s.timerPillText}>Get ready</Text>
             </View>
           )}
           {phase === 'roundResult' && roundOutcome && (
@@ -171,7 +173,7 @@ export const DesktopRpsArena: React.FC<DesktopRpsArenaProps> = ({
               roundOutcome === 'lose' && s.roundOutcomeLose,
             ]}>
               <Text style={s.roundOutcomePillText}>
-                {roundOutcome === 'win' ? 'ROUND WON!' : roundOutcome === 'lose' ? 'ROUND LOST' : 'DRAW'}
+                {roundOutcome === 'win' ? 'Round won' : roundOutcome === 'lose' ? 'Round lost' : 'Draw'}
               </Text>
             </View>
           )}
@@ -200,7 +202,8 @@ export const DesktopRpsArena: React.FC<DesktopRpsArenaProps> = ({
           <Text style={s.playerLabel}>{opponentName || 'Opponent'}</Text>
           {opponentLocked && isChoosing && (
             <View style={s.lockedBadgePill}>
-              <Text style={s.lockedBadgeText}>Ready ✓</Text>
+              <Feather name="check" size={12} color={colors.success} />
+              <Text style={s.lockedBadgeText}>Locked</Text>
             </View>
           )}
         </View>
@@ -253,12 +256,17 @@ export const DesktopRpsArena: React.FC<DesktopRpsArenaProps> = ({
                 accessibilityRole="button"
                 accessibilityLabel={c.label}
               >
-                <Text style={s.choiceEmoji}>{c.emoji}</Text>
+                <FontAwesome5
+                  name={c.iconName}
+                  size={16}
+                  color={isSelected ? colors.bgDeep : colors.textMuted}
+                  style={s.choiceIcon}
+                />
                 <Text style={[s.choiceText, isSelected && s.choiceTextSelected]}>
                   {c.label}
                 </Text>
                 {isSelected && isLocked && (
-                  <Ionicons name="checkmark-circle" size={15} color="#FFFFFF" style={{ marginLeft: 6 }} />
+                  <Ionicons name="checkmark-circle" size={15} color={colors.bgDeep} style={{ marginLeft: 6 }} />
                 )}
               </TouchableOpacity>
             );
@@ -274,10 +282,10 @@ const s = StyleSheet.create({
     flex: 1,
     width: '100%',
     height: '100%',
-    backgroundColor: '#080B10',
+    backgroundColor: colors.bgDeep,
     justifyContent: 'space-between',
-    paddingVertical: 18,
-    paddingHorizontal: 28,
+    paddingVertical: space.xl,
+    paddingHorizontal: space.xxl,
   },
 
   // Top Action Bar
@@ -290,42 +298,42 @@ const s = StyleSheet.create({
     alignSelf: 'center',
   },
   backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    width: 44,
+    height: 44,
+    borderRadius: radius.pill,
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: colors.borderStrong,
     alignItems: 'center',
     justifyContent: 'center',
   },
   matchMetaPills: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: space.md,
   },
   metaPill: {
-    backgroundColor: '#111827',
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: '#1F2937',
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 14,
+    borderColor: colors.border,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.sm,
+    borderRadius: radius.md,
   },
   metaPillText: {
-    color: '#CBD5E1',
+    color: colors.textSoft,
     fontSize: 12,
     fontWeight: '700',
   },
   potPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(245, 158, 11, 0.12)',
-    borderColor: 'rgba(245, 158, 11, 0.35)',
+    gap: space.sm,
+    backgroundColor: colors.tintGold,
+    borderColor: colors.gold,
   },
   potPillText: {
-    color: '#F59E0B',
+    color: colors.gold,
     fontSize: 12,
     fontWeight: '800',
   },
@@ -338,8 +346,8 @@ const s = StyleSheet.create({
     width: '100%',
     maxWidth: 960,
     alignSelf: 'center',
-    paddingHorizontal: 20,
-    marginTop: 4,
+    paddingHorizontal: space.xl,
+    marginTop: space.xs,
   },
   playerNode: {
     alignItems: 'center',
@@ -355,19 +363,19 @@ const s = StyleSheet.create({
   },
   avatarYouRing: {
     borderWidth: 2,
-    borderColor: '#F59E0B',
-    backgroundColor: '#F59E0B',
+    borderColor: colors.gold,
+    backgroundColor: colors.gold,
   },
   avatarOppRing: {
     borderWidth: 2,
-    borderColor: '#334155',
-    backgroundColor: '#1E293B',
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.cardRaised,
   },
   batmanAvatarCircle: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#F59E0B',
+    backgroundColor: colors.gold,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -375,54 +383,57 @@ const s = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#1E293B',
+    backgroundColor: colors.cardRaised,
     alignItems: 'center',
     justifyContent: 'center',
   },
   opponentQuestionMark: {
-    color: '#94A3B8',
+    color: colors.textMuted,
     fontSize: 22,
-    fontWeight: '900',
+    fontWeight: '800',
   },
   playerLabel: {
-    color: '#E2E8F0',
+    color: colors.text,
     fontSize: 13,
     fontWeight: '700',
-    marginTop: 8,
+    marginTop: space.md,
     textAlign: 'center',
   },
   winPipsRow: {
     position: 'absolute',
     bottom: -6,
     flexDirection: 'row',
-    gap: 4,
+    gap: space.xs,
   },
   pipDot: {
     width: 7,
     height: 7,
-    borderRadius: 3.5,
+    borderRadius: radius.pill,
   },
   pipDotEmpty: {
-    backgroundColor: '#334155',
+    backgroundColor: colors.borderStrong,
   },
   pipDotWonYou: {
-    backgroundColor: '#00DAF3',
+    backgroundColor: colors.primary,
   },
   pipDotWonOpp: {
-    backgroundColor: '#EF4444',
+    backgroundColor: colors.danger,
   },
   lockedBadgePill: {
-    marginTop: 4,
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    marginTop: space.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.xs,
+    backgroundColor: colors.tintSuccess,
     borderWidth: 1,
-    borderColor: '#10B981',
-    borderRadius: 8,
-    paddingHorizontal: 8,
+    borderColor: colors.success,
+    borderRadius: radius.sm,
+    paddingHorizontal: space.md,
     paddingVertical: 2,
   },
   lockedBadgeText: {
-    color: '#10B981',
-    fontSize: 10,
+    color: colors.success,
+    fontSize: 11,
     fontWeight: '800',
   },
 
@@ -432,57 +443,55 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   vsMainText: {
-    color: '#FFFFFF',
-    fontSize: 32,
-    fontWeight: '900',
-    letterSpacing: 1.5,
+    color: colors.text,
+    fontSize: 28,
+    fontWeight: '800',
   },
   timerPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    marginTop: 6,
-    backgroundColor: '#111827',
+    gap: space.xs,
+    marginTop: space.sm,
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: 'rgba(0, 218, 243, 0.4)',
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
+    borderColor: colors.primary,
+    borderRadius: radius.md,
+    paddingHorizontal: space.md,
+    paddingVertical: space.xs,
   },
   timerPillUrgent: {
-    borderColor: '#EF4444',
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderColor: colors.danger,
+    backgroundColor: colors.tintDanger,
   },
   timerPillText: {
-    color: '#00DAF3',
+    color: colors.primary,
     fontSize: 13,
     fontWeight: '800',
   },
   timerPillTextUrgent: {
-    color: '#EF4444',
+    color: colors.danger,
   },
   roundOutcomePill: {
-    marginTop: 6,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 4,
-    backgroundColor: '#1E293B',
+    marginTop: space.sm,
+    borderRadius: radius.md,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.xs,
+    backgroundColor: colors.cardRaised,
     borderWidth: 1,
-    borderColor: '#475569',
+    borderColor: colors.borderStrong,
   },
   roundOutcomeWin: {
-    backgroundColor: 'rgba(16, 185, 129, 0.18)',
-    borderColor: '#10B981',
+    backgroundColor: colors.tintSuccess,
+    borderColor: colors.success,
   },
   roundOutcomeLose: {
-    backgroundColor: 'rgba(239, 68, 68, 0.18)',
-    borderColor: '#EF4444',
+    backgroundColor: colors.tintDanger,
+    borderColor: colors.danger,
   },
   roundOutcomePillText: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 12,
-    fontWeight: '900',
-    letterSpacing: 0.5,
+    fontWeight: '800',
   },
 
   // Hands Arena
@@ -494,8 +503,8 @@ const s = StyleSheet.create({
     width: '100%',
     maxWidth: 1080,
     alignSelf: 'center',
-    paddingHorizontal: 10,
-    marginVertical: 10,
+    paddingHorizontal: space.md,
+    marginVertical: space.md,
   },
   handColumnLeft: {
     flex: 1,
@@ -516,29 +525,25 @@ const s = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: space.md,
   },
   pillsDock: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0F141F',
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: '#1E293B',
-    borderRadius: 20,
-    padding: 6,
-    gap: 8,
-    ...(Platform.OS === 'web'
-      ? ({
-          boxShadow: '0 8px 30px rgba(0, 0, 0, 0.55)',
-        } as any)
-      : {}),
+    borderColor: colors.borderStrong,
+    borderRadius: radius.xl,
+    padding: space.sm,
+    gap: space.md,
   },
   choicePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 22,
-    paddingVertical: 12,
-    borderRadius: 14,
+    minHeight: 44,
+    paddingHorizontal: space.xl,
+    paddingVertical: space.md,
+    borderRadius: radius.md,
     backgroundColor: 'transparent',
     borderWidth: 1,
     borderColor: 'transparent',
@@ -550,13 +555,8 @@ const s = StyleSheet.create({
       : {}),
   },
   choicePillSelected: {
-    backgroundColor: '#4F46E5',
-    borderColor: '#818CF8',
-    ...(Platform.OS === 'web'
-      ? ({
-          boxShadow: '0 0 16px rgba(79, 70, 229, 0.45)',
-        } as any)
-      : {}),
+    backgroundColor: colors.primary,
+    borderColor: colors.primarySoft,
   },
   choicePillDisabled: {
     opacity: 0.55,
@@ -566,18 +566,17 @@ const s = StyleSheet.create({
         } as any)
       : {}),
   },
-  choiceEmoji: {
-    fontSize: 18,
-    marginRight: 8,
+  choiceIcon: {
+    marginRight: space.md,
   },
   choiceText: {
-    color: '#94A3B8',
+    color: colors.textMuted,
     fontSize: 14,
     fontWeight: '700',
   },
   choiceTextSelected: {
-    color: '#FFFFFF',
-    fontWeight: '900',
+    color: colors.bgDeep,
+    fontWeight: '800',
   },
 });
 

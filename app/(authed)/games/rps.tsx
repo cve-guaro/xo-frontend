@@ -13,24 +13,21 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  ScrollView,
   Platform,
-  Alert,
-  ActivityIndicator,
-  Animated,
   Image,
   useWindowDimensions,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Feather, Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
+import { Feather, Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
 const rpsBg = require('../../../assets/dashboard/rps-background.webp');
 
 import { useAuth } from '../../../context/authContext';
-import { useSocket } from '../../../context/socketContext';
-import { colors } from '../../../theme/tokens';
+import { useSocketActions } from '../../../context/socketContext';
+import { useToast } from '../../../context/ToastContext';
+import { colors, radius, space } from '../../../theme/tokens';
 import { playWinSound, playLoseSound, playTickSound } from '../../../lib/pinTickAudio';
 import { triggerWinCelebration } from '../../../components/ui/confetti';
 
@@ -43,7 +40,6 @@ import {
 } from '../../../lib/rps/rpsTypes';
 import {
   BET_TIERS,
-  TIMINGS,
   calculatePrize,
   getMoveDescription,
   capitalize,
@@ -56,6 +52,7 @@ import {
   ReadyCountdownOverlay,
   RoundResultBanner,
   MatchFinalSheet,
+  RpsLeaveConfirmModal,
 } from '../../../components/rps/RPSOverlays';
 import DesktopRpsArena from '../../../components/rps/DesktopRpsArena';
 import FriendMatchModal from '../../../components/game/FriendMatchModal';
@@ -77,7 +74,8 @@ export default function RPSScreen() {
     bestOf?: string;
   }>();
   const { user, token, refreshProfile } = useAuth();
-  const socketApi = useSocket();
+  const { onMessage, send, emitAck, ensureConnected } = useSocketActions();
+  const toast = useToast();
   const safeGoBack = useCallback(() => {
     if (router.canGoBack()) {
       router.back();
@@ -90,7 +88,6 @@ export default function RPSScreen() {
   // ── State ──────────────────────────────────────────────────────────────────
   const [phase, setPhase] = useState<Phase>('idle');
   const [selectedTier, setSelectedTier] = useState<number>(BET_TIERS[0]);
-  const [queuePosition, setQueuePosition] = useState<number>(1);
 
   // Match state
   const [match, setMatch] = useState<RPSMatchState | null>(null);
@@ -111,11 +108,9 @@ export default function RPSScreen() {
     desc: string;
   } | null>(null);
   const [showFinalSheet, setShowFinalSheet] = useState<boolean>(false);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState<boolean>(false);
   const [friendModalVisible, setFriendModalVisible] = useState<boolean>(false);
   const [inviteResult, setInviteResult] = useState<any>(null);
-
-  // Radar Pulse animation for searching state
-  const radarAnim = useRef(new Animated.Value(0.4)).current;
 
   // Initialize match from route params (handles instant redirect from match_found)
   useEffect(() => {
@@ -150,76 +145,79 @@ export default function RPSScreen() {
 
   // Sync with server state on mount/reconnect
   useEffect(() => {
-    if (!params.roomId || !socketApi?.emitAck) return;
-    socketApi.emitAck('rps:sync', { roomId: params.roomId, token }).then((resp: any) => {
-      const g = resp?.data || resp?.game;
-      if (resp?.ok && g) {
-        setMatch((prev) => ({
-          roomId: g.roomId,
-          stakeAmount: g.stakeAmount,
-          potAmount: g.potAmount,
-          feeAmount: Math.floor((g.stakeAmount * 2 * (g.feePercent || 20)) / 100),
-          feePercent: g.feePercent || 20,
-          prizeAmount: g.prizeAmount,
-          bestOf: g.bestOf || 3,
-          winsNeeded: g.winsNeeded || 2,
-          youAre: g.youAre,
-          opponentId: g.opponentId,
-          opponentUsername: g.opponentUsername || 'Opponent',
-          scoreYou: g.scoreYou || 0,
-          scoreOpponent: g.scoreOpponent || 0,
-          currentRound: g.currentRound || 1,
-          yourChoice: prev?.yourChoice || null,
-          yourLocked: !!g.yourLocked,
-          opponentLocked: !!g.opponentLocked,
-        }));
-        setIsLocked(!!g.yourLocked);
-        setOpponentLocked(!!g.opponentLocked);
-        if (g.phase) {
-          setPhase(g.phase as Phase);
-          if (g.phase === 'choose') {
-            startChooseTimer(10);
+    if (!params.roomId || !emitAck) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        await ensureConnected(token || undefined);
+        if (cancelled) return;
+        const resp: any = await emitAck('rps:sync', { roomId: params.roomId, token });
+        if (cancelled) return;
+        const g = resp?.data || resp?.game;
+        if (resp?.ok && g) {
+          setMatch((prev) => ({
+            roomId: g.roomId,
+            stakeAmount: g.stakeAmount,
+            potAmount: g.potAmount,
+            feeAmount: Math.floor((g.stakeAmount * 2 * (g.feePercent || 20)) / 100),
+            feePercent: g.feePercent || 20,
+            prizeAmount: g.prizeAmount,
+            bestOf: g.bestOf || 3,
+            winsNeeded: g.winsNeeded || 2,
+            youAre: g.youAre,
+            opponentId: g.opponentId,
+            opponentUsername: g.opponentUsername || 'Opponent',
+            scoreYou: g.scoreYou || 0,
+            scoreOpponent: g.scoreOpponent || 0,
+            currentRound: g.currentRound || 1,
+            yourChoice: prev?.yourChoice || null,
+            yourLocked: !!g.yourLocked,
+            opponentLocked: !!g.opponentLocked,
+          }));
+          setIsLocked(!!g.yourLocked);
+          setOpponentLocked(!!g.opponentLocked);
+          if (g.phase) {
+            setPhase(g.phase as Phase);
+            if (g.phase === 'choose') {
+              const rem =
+                typeof g.secondsRemaining === 'number'
+                  ? Math.max(1, g.secondsRemaining)
+                  : typeof g.remainingMs === 'number'
+                  ? Math.max(1, Math.ceil(g.remainingMs / 1000))
+                  : 10;
+              startChooseTimer(rem);
+            } else if (g.phase === 'final') {
+              setShowFinalSheet(true);
+            }
           }
         }
-      }
-    }).catch(() => {});
-  }, [params.roomId, socketApi?.emitAck, token]);
-
-  useEffect(() => {
-    if (phase === 'searching') {
-      const pulse = Animated.loop(
-        Animated.sequence([
-          Animated.timing(radarAnim, {
-            toValue: 1,
-            duration: 900,
-            useNativeDriver: true,
-          }),
-          Animated.timing(radarAnim, {
-            toValue: 0.4,
-            duration: 900,
-            useNativeDriver: true,
-          }),
-        ])
-      );
-      pulse.start();
-      return () => pulse.stop();
-    }
-  }, [phase]);
+      } catch {}
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [params.roomId, emitAck, ensureConnected, token]);
 
   // ── Socket Message Handler ────────────────────────────────────────────────
   useEffect(() => {
-    if (!socketApi?.onMessage) return;
+    if (!onMessage) return;
 
-    const unsubscribe = socketApi.onMessage((msg) => {
+    const unsubscribe = onMessage((msg) => {
       switch (msg.type) {
         case 'rps:searching': {
           setPhase('searching');
-          setQueuePosition(msg.payload?.position || 1);
           break;
         }
 
         case 'rps:match_found': {
           const p = msg.payload;
+          clearChooseTimer();
+          setSelectedChoice(null);
+          setIsLocked(false);
+          setOpponentLocked(false);
+          setRoundBanner(null);
+          setShowFinalSheet(false);
+          setShowLeaveConfirm(false);
           setMatch({
             roomId: p.roomId,
             stakeAmount: p.stakeAmount,
@@ -333,6 +331,7 @@ export default function RPSScreen() {
         case 'rps:match_result': {
           const p = msg.payload;
           const isWinner = String(p.winnerId) === String(user?.id);
+          clearChooseTimer();
 
           if (isWinner) {
             triggerWinCelebration();
@@ -358,14 +357,14 @@ export default function RPSScreen() {
         }
 
         case 'rps:match_cancelled': {
-          Alert.alert('Match Cancelled', msg.payload?.reason || 'The match was cancelled.');
+          toast.warning('Match cancelled', msg.payload?.reason || 'The match was cancelled.');
           resetToLobby();
           refreshProfile();
           break;
         }
 
         case 'rps:error': {
-          Alert.alert('Game Alert', msg.payload?.message || msg.payload?.code || 'An error occurred.');
+          toast.error('Match error', msg.payload?.message || msg.payload?.code || 'Something went wrong. Please try again.');
           break;
         }
 
@@ -375,15 +374,23 @@ export default function RPSScreen() {
         }
 
         case 'friend_invite_declined': {
-          Alert.alert('Challenge Declined', 'Your friend declined the match challenge.');
-          setInviteResult((prev: any) => ({ ...prev, declined: true }));
+          const byUsername = msg.payload?.byUsername;
+          toast.info(
+            'Challenge declined',
+            `${byUsername || 'Your friend'} declined the match challenge.`
+          );
+          setInviteResult((prev: any) => ({
+            ...prev,
+            declined: true,
+            declinedByUsername: byUsername,
+          }));
           break;
         }
       }
     });
 
     return () => unsubscribe();
-  }, [socketApi, match?.youAre, user?.id]);
+  }, [onMessage, user?.id]);
 
   // ── Choose Phase Timer ────────────────────────────────────────────────────
   const startChooseTimer = (seconds: number) => {
@@ -417,22 +424,23 @@ export default function RPSScreen() {
 
   // ── Countdown Tick ────────────────────────────────────────────────────────
   useEffect(() => {
-    if (phase === 'countdown' && countdownNum > 0) {
+    if (phase === 'countdown' && countdownNum > 1) {
       const timer = setTimeout(() => {
         playTickSound();
-        setCountdownNum((prev) => prev - 1);
+        setCountdownNum((prev) => Math.max(1, prev - 1));
       }, 1000);
       return () => clearTimeout(timer);
     }
   }, [phase, countdownNum]);
 
   // ── Actions ───────────────────────────────────────────────────────────────
-  const handleFindMatch = async () => {
+  const handleFindMatch = async (overrideStake?: number) => {
+    const stakeToCheck = typeof overrideStake === 'number' ? overrideStake : selectedTier;
     const totalBalance = (user?.available_balance || 0) + (user?.bonus_balance || 0);
-    if (totalBalance < selectedTier) {
-      Alert.alert(
-        'Insufficient Balance',
-        `You need at least ${selectedTier} ETB to join this match. Available: ${totalBalance} ETB.`
+    if (totalBalance < stakeToCheck) {
+      toast.warning(
+        'Insufficient balance',
+        `You need at least ${stakeToCheck} ETB to join. Available: ${totalBalance} ETB.`
       );
       return;
     }
@@ -442,17 +450,17 @@ export default function RPSScreen() {
     }
 
     setPhase('searching');
-    socketApi?.ensureConnected?.(token || undefined);
-    socketApi?.send('rps:find_match', { stakeAmount: selectedTier, token });
+    await ensureConnected(token || undefined);
+    send('rps:find_match', { stakeAmount: stakeToCheck, token });
   };
 
   const handleCancelSearch = () => {
-    socketApi?.send('rps:cancel_search');
+    send('rps:cancel_search');
     resetToLobby();
   };
 
   const handleSendInvite = (targetUsername: string, betAmount: number) => {
-    socketApi?.send('friend_invite', { token, targetUsername, betAmount });
+    send('friend_invite', { token, targetUsername, betAmount, gameType: 'rps' });
   };
 
   const handleLockChoice = (choiceToLock?: Choice) => {
@@ -464,36 +472,28 @@ export default function RPSScreen() {
     }
     setSelectedChoice(choice);
     setIsLocked(true);
-    socketApi?.send('rps:lock_choice', {
+    send('rps:lock_choice', {
       roomId: match.roomId,
       choice,
       token,
     });
   };
 
+  const confirmForfeitAndLeave = () => {
+    setShowLeaveConfirm(false);
+    if (match?.roomId) {
+      send('rps:leave', { roomId: match.roomId });
+    }
+    resetToLobby();
+    safeGoBack();
+  };
+
   const handleLeaveGame = () => {
     if (phase !== 'idle' && phase !== 'searching' && phase !== 'final') {
-      Alert.alert(
-        'Forfeit Match?',
-        `Leaving an active game will forfeit your stake of ${match?.stakeAmount || selectedTier} ETB. Are you sure?`,
-        [
-          { text: 'Stay', style: 'cancel' },
-          {
-            text: 'Forfeit & Leave',
-            style: 'destructive',
-            onPress: () => {
-              if (match?.roomId) {
-                socketApi?.send('rps:leave', { roomId: match.roomId });
-              }
-              resetToLobby();
-              safeGoBack();
-            },
-          },
-        ]
-      );
+      setShowLeaveConfirm(true);
     } else {
       if (phase === 'searching') {
-        socketApi?.send('rps:cancel_search');
+        send('rps:cancel_search');
       }
       resetToLobby();
       safeGoBack();
@@ -509,6 +509,7 @@ export default function RPSScreen() {
     setOpponentLocked(false);
     setRoundBanner(null);
     setShowFinalSheet(false);
+    setShowLeaveConfirm(false);
   };
 
   // ── Poses for Hand Figures ────────────────────────────────────────────────
@@ -533,7 +534,7 @@ export default function RPSScreen() {
   // ── Render: Searching State (Standard XOET Radar Scan View) ───────────────
   if (phase === 'searching') {
     return (
-      <View style={{ flex: 1, backgroundColor: '#06090e' }}>
+      <View style={{ flex: 1, backgroundColor: colors.bgDeep }}>
         <SearchingView
           onCancel={handleCancelSearch}
           betMin={selectedTier}
@@ -556,8 +557,8 @@ export default function RPSScreen() {
           onConfirm={(stake: number) => {
             setSelectedTier(stake);
             setPhase('searching');
-            socketApi?.ensureConnected?.(token || undefined);
-            socketApi?.send('rps:find_match', { stakeAmount: stake, token });
+            ensureConnected(token || undefined);
+            send('rps:find_match', { stakeAmount: stake, token });
           }}
           onOpenFriendMatch={(stake?: number) => {
             if (typeof stake === 'number') setSelectedTier(stake);
@@ -579,10 +580,10 @@ export default function RPSScreen() {
   }
 
   // ── Render: Live Match Stage ──────────────────────────────────────────────
-  const { pot, fee, prize } = calculatePrize(match?.stakeAmount || selectedTier);
+  const { fee, prize } = calculatePrize(match?.stakeAmount || selectedTier);
 
   return (
-    <SafeAreaView style={[styles.container, isDesktop && { backgroundColor: '#080B10' }]}>
+    <SafeAreaView style={[styles.container, isDesktop && { backgroundColor: colors.bgDeep }]}>
       {/* Background Plate & Ambient Overlay on Mobile only */}
       {!isDesktop && (
         <>
@@ -596,7 +597,7 @@ export default function RPSScreen() {
           phase={phase}
           round={match?.currentRound || 1}
           bestOf={match?.bestOf || 3}
-          potAmount={pot}
+          potAmount={calculatePrize(match?.stakeAmount || selectedTier).pot}
           scoreYou={match?.scoreYou || 0}
           scoreOpponent={match?.scoreOpponent || 0}
           winsNeeded={match?.winsNeeded || 2}
@@ -620,7 +621,12 @@ export default function RPSScreen() {
         <View style={styles.arenaWrapper}>
           {/* Game Header */}
           <View style={styles.gameHeader}>
-            <TouchableOpacity onPress={handleLeaveGame} style={styles.backButton}>
+            <TouchableOpacity
+              onPress={handleLeaveGame}
+              style={styles.backButton}
+              accessibilityRole="button"
+              accessibilityLabel="Leave match"
+            >
               <Feather name="arrow-left" size={20} color={colors.textSoft} />
             </TouchableOpacity>
 
@@ -631,13 +637,13 @@ export default function RPSScreen() {
                 </Text>
               </View>
               <View style={styles.potBadge}>
-                <Ionicons name="trophy" size={12} color="#F59E0B" />
-                <Text style={styles.matchPotText}>Pot: {pot} ETB</Text>
+                <Ionicons name="trophy" size={12} color={colors.gold} />
+                <Text style={styles.matchPotText}>Pot: {calculatePrize(match?.stakeAmount || selectedTier).pot} ETB</Text>
               </View>
             </View>
 
             <View style={styles.statusBadge}>
-              <Text style={styles.statusBadgeText}>{phase.toUpperCase()}</Text>
+              <Text style={styles.statusBadgeText}>{capitalize(phase)}</Text>
             </View>
           </View>
 
@@ -667,7 +673,7 @@ export default function RPSScreen() {
               {opponentLocked && phase === 'choose' && (
                 <View style={styles.opponentLockedBadge}>
                   <Feather name="check" size={12} color={colors.success} />
-                  <Text style={styles.opponentLockedText}>Opponent Locked</Text>
+                  <Text style={styles.opponentLockedText}>Opponent locked</Text>
                 </View>
               )}
             </View>
@@ -676,7 +682,7 @@ export default function RPSScreen() {
             <View style={styles.centerClashLineWrap}>
               <View style={styles.clashLineBeam} />
               <View style={styles.clashCenterNode}>
-                <Ionicons name="flash" size={13} color="#00DAF3" />
+                <Ionicons name="flash" size={13} color={colors.primary} />
               </View>
             </View>
 
@@ -720,16 +726,15 @@ export default function RPSScreen() {
       )}
 
       {/* Countdown Overlay */}
-      {phase === 'countdown' && (
+      {phase === 'countdown' && countdownNum > 0 && (
         <ReadyCountdownOverlay count={countdownNum} bestOf={match?.bestOf || 3} />
       )}
 
       {/* Center Reveal Animation Badge */}
       {phase === 'reveal' && (
         <View style={styles.shootBadge}>
-          <Text style={styles.shootBadgeText}>
-            ⚡ SHOOT! ⚡
-          </Text>
+          <Ionicons name="flash" size={16} color={colors.primary} />
+          <Text style={styles.shootBadgeText}>Reveal</Text>
         </View>
       )}
 
@@ -741,6 +746,14 @@ export default function RPSScreen() {
         />
       )}
 
+      {/* Forfeit Confirmation Modal */}
+      <RpsLeaveConfirmModal
+        visible={showLeaveConfirm}
+        stakeAmount={match?.stakeAmount || selectedTier}
+        onStay={() => setShowLeaveConfirm(false)}
+        onForfeit={confirmForfeitAndLeave}
+      />
+
       {/* Final Payout Sheet */}
       <MatchFinalSheet
         visible={showFinalSheet}
@@ -751,8 +764,10 @@ export default function RPSScreen() {
         prizeAmount={match?.finalResult?.prizeAmount || prize}
         feeAmount={match?.finalResult?.feeAmount || fee}
         onPlayAgain={() => {
-          setShowFinalSheet(false);
-          handleFindMatch();
+          const stakeToPlay = match?.stakeAmount || selectedTier;
+          setSelectedTier(stakeToPlay);
+          resetToLobby();
+          handleFindMatch(stakeToPlay);
         }}
         onExit={() => {
           setShowFinalSheet(false);
@@ -769,228 +784,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.bgDeep,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: colors.text,
-  },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  walletPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: colors.card,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  walletText: {
-    color: colors.gold,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  lobbyContent: {
-    padding: 16,
-    paddingBottom: 32,
-  },
-  heroCard: {
-    backgroundColor: colors.card,
-    borderRadius: 24,
-    borderWidth: 1.5,
-    borderColor: colors.borderStrong,
-    padding: 24,
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  heroIconsRow: {
-    flexDirection: 'row',
-    gap: 20,
-    marginBottom: 12,
-  },
-  heroTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: colors.text,
-    marginBottom: 6,
-  },
-  heroSubtitle: {
-    fontSize: 13,
-    color: colors.textMuted,
-    textAlign: 'center',
-    lineHeight: 18,
-  },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.textSoft,
-    marginBottom: 12,
-    letterSpacing: 0.3,
-  },
-  tierGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 20,
-  },
-  tierCard: {
-    width: '48%',
-    backgroundColor: colors.card,
-    borderRadius: 18,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    padding: 16,
-    alignItems: 'center',
-  },
-  tierCardSelected: {
-    borderColor: colors.primary,
-    backgroundColor: colors.tintPrimary,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  tierCardDisabled: {
-    opacity: 0.4,
-  },
-  tierStake: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  tierPrizeLabel: {
-    fontSize: 11,
-    color: colors.textMuted,
-    fontWeight: '600',
-  },
-  tierPrizeAmount: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: colors.gold,
-  },
-  breakdownCard: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 16,
-    gap: 10,
-    marginBottom: 24,
-  },
-  breakdownRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  breakdownHighlight: {
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingTop: 10,
-    marginTop: 2,
-  },
-  breakdownLabel: {
-    fontSize: 13,
-    color: colors.textMuted,
-  },
-  breakdownValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  findMatchButton: {
-    height: 54,
-    backgroundColor: colors.primary,
-    borderRadius: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    elevation: 6,
-  },
-  findMatchText: {
-    color: colors.bgDeep,
-    fontSize: 15,
-    fontWeight: '900',
-    letterSpacing: 0.6,
-  },
-  searchingBody: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-  },
-  radarCircle: {
-    position: 'absolute',
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    borderWidth: 2,
-    borderColor: colors.primary,
-  },
-  radarCenter: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: colors.cardRaised,
-    borderWidth: 2,
-    borderColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 24,
-  },
-  searchingTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: colors.text,
-    marginBottom: 6,
-  },
-  searchingSub: {
-    fontSize: 13,
-    color: colors.textMuted,
-    marginBottom: 12,
-  },
-  queuePosText: {
-    fontSize: 12,
-    color: colors.primary,
-    fontWeight: '700',
-    marginBottom: 32,
-  },
-  cancelSearchButton: {
+    width: 44,
     height: 44,
-    paddingHorizontal: 28,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderRadius: radius.pill,
+    backgroundColor: colors.card,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  cancelSearchText: {
-    color: colors.textSoft,
-    fontSize: 13,
-    fontWeight: '600',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   bgPlate: {
     position: 'absolute',
@@ -1014,76 +816,66 @@ const styles = StyleSheet.create({
     width: '100%',
     justifyContent: 'space-between',
   },
-  arenaWrapperDesktop: {
-    maxWidth: 840,
-    width: '100%',
-    alignSelf: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
   gameHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.md,
     width: '100%',
   },
   matchMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: space.md,
   },
   roundBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: colors.cardRaised,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 12,
+    borderColor: colors.borderStrong,
+    paddingHorizontal: space.md,
+    paddingVertical: space.xs,
+    borderRadius: radius.md,
   },
   potBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(245, 158, 11, 0.14)',
+    gap: space.xs,
+    backgroundColor: colors.tintGold,
     borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.35)',
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 12,
+    borderColor: colors.gold,
+    paddingHorizontal: space.md,
+    paddingVertical: space.xs,
+    borderRadius: radius.md,
   },
   matchRoundText: {
     fontSize: 12,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: 0.5,
+    fontWeight: '700',
+    color: colors.text,
   },
   matchPotText: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#F59E0B',
-    letterSpacing: 0.5,
+    color: colors.gold,
   },
   statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 12,
-    backgroundColor: 'rgba(0, 218, 243, 0.12)',
+    paddingHorizontal: space.md,
+    paddingVertical: space.xs,
+    borderRadius: radius.md,
+    backgroundColor: colors.tintPrimary,
     borderWidth: 1,
-    borderColor: 'rgba(0, 218, 243, 0.35)',
+    borderColor: colors.primary,
   },
   statusBadgeText: {
-    fontSize: 10.5,
-    fontWeight: '900',
-    color: '#00DAF3',
-    letterSpacing: 0.8,
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.primary,
   },
   gameStage: {
     flex: 1,
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: space.md,
     position: 'relative',
     width: '100%',
   },
@@ -1105,64 +897,55 @@ const styles = StyleSheet.create({
   },
   clashLineBeam: {
     position: 'absolute',
-    left: 16,
-    right: 16,
+    left: space.lg,
+    right: space.lg,
     height: 2,
-    backgroundColor: 'rgba(0, 218, 243, 0.5)',
-    shadowColor: '#00DAF3',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: 8,
+    backgroundColor: colors.borderStrong,
   },
   clashCenterNode: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: '#0D111A',
-    borderWidth: 1.5,
-    borderColor: '#00DAF3',
+    width: 28,
+    height: 28,
+    borderRadius: radius.pill,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#00DAF3',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 8,
   },
   shootBadge: {
     position: 'absolute',
+    top: '44%',
     zIndex: 20,
     alignSelf: 'center',
-    backgroundColor: 'rgba(0, 218, 243, 0.25)',
-    paddingHorizontal: 22,
-    paddingVertical: 10,
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: '#00DAF3',
-    shadowColor: '#00DAF3',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+    backgroundColor: colors.card,
+    paddingHorizontal: space.xxl,
+    paddingVertical: space.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.primary,
   },
   shootBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '900',
-    letterSpacing: 1.5,
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: '800',
   },
   opponentLockedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: space.xs,
     backgroundColor: colors.card,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 10,
+    paddingHorizontal: space.md,
+    paddingVertical: space.xs,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.success,
-    marginTop: 6,
+    marginTop: space.xs,
   },
   opponentLockedText: {
-    fontSize: 10,
+    fontSize: 11,
     color: colors.success,
     fontWeight: '700',
   },
@@ -1173,6 +956,6 @@ const styles = StyleSheet.create({
   },
   bottomControlsArea: {
     width: '100%',
-    paddingBottom: 6,
+    paddingBottom: space.sm,
   },
 });
