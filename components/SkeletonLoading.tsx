@@ -1,7 +1,7 @@
 // components/SkeletonLoading.tsx
 // Shiny shimmer animated skeleton loading placeholders for cards, tables, and views.
 import React, { useEffect, useRef } from "react";
-import { View, Animated, Easing, StyleSheet, DimensionValue } from "react-native";
+import { View, Animated, Easing, StyleSheet, DimensionValue, Platform } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 
 interface SkeletonBoxProps {
@@ -25,7 +25,7 @@ export const SkeletonBox: React.FC<SkeletonBoxProps> = ({
         toValue: 1,
         duration: 1400,
         easing: Easing.bezier(0.4, 0.0, 0.2, 1),
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== "web",
       })
     );
     animation.start();
@@ -174,4 +174,25 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.05)",
   },
+  routeScreen: {
+    flex: 1,
+    backgroundColor: "#060714",
+    paddingHorizontal: 18,
+    paddingTop: 28,
+    gap: 14,
+  },
 });
+
+export const RouteLoadingSkeleton = () => (
+  <View style={styles.routeScreen}>
+    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+      <SkeletonBox width={140} height={24} borderRadius={8} />
+      <SkeletonBox width={40} height={40} borderRadius={20} />
+    </View>
+    <SkeletonBalanceCard />
+    <SkeletonQuickTiles />
+    <SkeletonRow />
+    <SkeletonRow />
+    <SkeletonRow />
+  </View>
+);
